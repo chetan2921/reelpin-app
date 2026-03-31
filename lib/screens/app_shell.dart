@@ -51,11 +51,14 @@ class _AppShellState extends State<AppShell> {
 
   void _initSharingIntent() {
     // 1. Listen for intent while the app is already running in memory
-    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen((value) {
-      _processSharedData(value);
-    }, onError: (err) {
-      debugPrint("Intent stream error: $err");
-    });
+    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
+      (value) {
+        _processSharedData(value);
+      },
+      onError: (err) {
+        debugPrint("Intent stream error: $err");
+      },
+    );
 
     // 2. Grab the intent if the app was launched from a cold state via the share sheet
     ReceiveSharingIntent.instance.getInitialMedia().then((value) {
@@ -68,51 +71,56 @@ class _AppShellState extends State<AppShell> {
 
     // We take the first shared item. Usually text intent stores payload in `.path` or URL.
     final payload = files.first.path;
-    
+
     // Extract the Instagram URL from the shared text block using RegExp
-    final urlRegex = RegExp(r'https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+(\/?.*)?');
+    final urlRegex = RegExp(
+      r'https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+(\/?.*)?',
+    );
     final match = urlRegex.firstMatch(payload);
-    
+
     if (match != null) {
       final String extractedUrl = match.group(0)!;
-      
-      // Navigate uniquely to Home so we can watch it load 
+
+      // Navigate uniquely to Home so we can watch it load
       if (mounted) {
-         setState(() => _currentIndex = 0);
-         
-         // Trigger the viewmodel
-         final vm = context.read<HomeViewModel>();
-         
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(
-             content: Text('Received URL! Extracting location...'),
-             backgroundColor: AppTheme.amethyst,
-             duration: Duration(seconds: 2),
-           )
-         );
-         
-         vm.processReel(extractedUrl).then((_) {
-            if (mounted) {
-               // Silently update the pins in the Map Screen directly from the database!
-               context.read<MapViewModel>().loadMapReels(forceRefresh: true);
-               
-               ScaffoldMessenger.of(context).showSnackBar(
-                 const SnackBar(
-                   content: Text('Pin dropped!'),
-                   backgroundColor: AppTheme.amethyst,
-                 )
-               );
-            }
-         }).catchError((error) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Failed: $error'),
-                  backgroundColor: AppTheme.mauve,
-                )
-              );
-            }
-         });
+        setState(() => _currentIndex = 0);
+
+        // Trigger the viewmodel
+        final vm = context.read<HomeViewModel>();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Received URL! Extracting location...'),
+            backgroundColor: AppTheme.amethyst,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        vm
+            .processReel(extractedUrl)
+            .then((_) {
+              if (mounted) {
+                // Silently update the pins in the Map Screen directly from the database!
+                context.read<MapViewModel>().loadMapReels(forceRefresh: true);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Pin dropped!'),
+                    backgroundColor: AppTheme.amethyst,
+                  ),
+                );
+              }
+            })
+            .catchError((error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed: $error'),
+                    backgroundColor: AppTheme.mauve,
+                  ),
+                );
+              }
+            });
       }
     }
   }

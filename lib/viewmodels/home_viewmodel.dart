@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../config/api_config.dart';
 
 import '../models/reel.dart';
 import '../repositories/reel_repository.dart';
@@ -14,13 +15,36 @@ class HomeViewModel extends ChangeNotifier {
   String? _error;
   String? _selectedCategory;
 
-  List<Reel> get reels => _selectedCategory == null
-      ? List.unmodifiable(_reels)
-      : List.unmodifiable(_reels.where((r) => r.category == _selectedCategory));
+  List<Reel> get reels {
+    if (_selectedCategory == null) {
+      return List.unmodifiable(_reels);
+    }
+
+    final isBroad = ApiConfig.categoryGroups.containsKey(_selectedCategory);
+
+    return List.unmodifiable(
+      _reels.where((r) {
+        if (isBroad) {
+          return r.category == _selectedCategory ||
+              ApiConfig.categoryGroups[_selectedCategory]!.contains(r.category);
+        } else {
+          return r.category == _selectedCategory;
+        }
+      }),
+    );
+  }
+
   bool get isLoading => _isLoading;
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
   bool get isEmpty => _reels.isEmpty && !_isLoading;
+
+  /// Get a strictly unique list of categories present in the current loaded reels.
+  List<String> get availableCategories {
+    final cats = _reels.map((e) => e.category).toSet().toList();
+    cats.sort();
+    return cats;
+  }
 
   /// Load all reels from the backend.
   Future<void> loadReels({bool forceRefresh = false}) async {
@@ -29,7 +53,25 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _reels = await _repository.getReels(forceRefresh: forceRefresh);
+      final fetchedReels = List<Reel>.from(
+        await _repository.getReels(forceRefresh: forceRefresh),
+      );
+
+      fetchedReels.sort((a, b) {
+        if (a.createdAt == null && b.createdAt == null) return 0;
+        if (a.createdAt == null) return 1;
+        if (b.createdAt == null) return -1;
+        try {
+          // Sort descending (newest first)
+          return DateTime.parse(
+            b.createdAt!,
+          ).compareTo(DateTime.parse(a.createdAt!));
+        } catch (_) {
+          return 0;
+        }
+      });
+
+      _reels = fetchedReels;
     } catch (e) {
       _error = e.toString();
     } finally {

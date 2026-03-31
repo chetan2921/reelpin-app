@@ -27,7 +27,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppTheme.midnightPlum,
       body: SafeArea(
         bottom: false,
         child: Consumer<SearchViewModel>(
@@ -178,11 +178,11 @@ class _SearchScreenState extends State<SearchScreen> {
 
                 // ── Category filter ──
                 SizedBox(
-                  height: 42,
+                  height: 48,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    itemCount: ApiConfig.categories.length + 1,
+                    itemCount: ApiConfig.broadCategories.length + 1,
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (_, i) {
                       if (i == 0) {
@@ -228,7 +228,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           ),
                         );
                       }
-                      final cat = ApiConfig.categories[i - 1];
+                      final cat = ApiConfig.broadCategories[i - 1];
                       final catColor = AppTheme.getCategoryColor(cat);
                       return GestureDetector(
                         onTap: () => vm.filterByCategory(cat),

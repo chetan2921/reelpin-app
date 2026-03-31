@@ -56,41 +56,10 @@ class _ReelCardState extends State<ReelCard>
           return Transform.scale(scale: _scaleAnim.value, child: child);
         },
         child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.deepIndigo.withAlpha(200),
-                AppTheme.amethyst.withAlpha(80),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.cream.withAlpha(15)),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.midnightPlum.withAlpha(80),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+          decoration: AppTheme.glassDecoration(opacity: 0.25, borderRadius: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Gradient accent strip ──
-              Container(
-                height: 5,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [categoryColor, categoryColor.withAlpha(60)],
-                  ),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20),
-                  ),
-                ),
-              ),
-
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(14),

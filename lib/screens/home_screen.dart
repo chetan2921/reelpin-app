@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
-
 import '../config/api_config.dart';
+
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../widgets/category_badge.dart';
@@ -15,7 +15,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppTheme.midnightPlum,
       body: SafeArea(
         bottom: false,
         child: Consumer<HomeViewModel>(
@@ -67,6 +67,14 @@ class HomeScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () => _showFilterSheet(context, vm),
+                              icon: const Icon(
+                                Icons.filter_list_rounded,
+                                color: AppTheme.cream,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -86,17 +94,24 @@ class HomeScreen extends StatelessWidget {
                 // ── Category Filter Chips ──
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 56,
+                    height: 48,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 8,
                       ),
-                      itemCount: ApiConfig.categories.length,
+                      itemCount: ApiConfig.broadCategories.length + 1,
                       separatorBuilder: (_, _) => const SizedBox(width: 8),
                       itemBuilder: (_, i) {
-                        final cat = ApiConfig.categories[i];
+                        if (i == 0) {
+                          return CategoryBadge(
+                            category: 'All',
+                            isSelected: vm.selectedCategory == null,
+                            onTap: () => vm.filterByCategory(null),
+                          );
+                        }
+                        final cat = ApiConfig.broadCategories[i - 1];
                         return CategoryBadge(
                           category: cat,
                           isSelected: vm.selectedCategory == cat,
@@ -135,7 +150,7 @@ class HomeScreen extends StatelessWidget {
           crossAxisCount: 2,
           mainAxisSpacing: 14,
           crossAxisSpacing: 14,
-          childAspectRatio: 0.72,
+          childAspectRatio: 1.0,
         ),
         delegate: SliverChildBuilderDelegate((context, index) {
           final reel = vm.reels[index];
@@ -185,7 +200,7 @@ class HomeScreen extends StatelessWidget {
           crossAxisCount: 2,
           mainAxisSpacing: 14,
           crossAxisSpacing: 14,
-          childAspectRatio: 0.72,
+          childAspectRatio: 1.0,
         ),
         delegate: SliverChildBuilderDelegate(
           (_, _) => Shimmer.fromColors(
@@ -326,6 +341,106 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context, HomeViewModel vm) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, controller) {
+            return Container(
+              decoration: BoxDecoration(
+                color: AppTheme.midnightPlum,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                border: Border.all(color: AppTheme.cream.withAlpha(20)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.cream.withAlpha(50),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'All Categories',
+                    style: TextStyle(
+                      color: AppTheme.cream,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: controller,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 8,
+                      ),
+                      itemCount: ApiConfig.broadCategories.length,
+                      itemBuilder: (context, i) {
+                        final broadCat = ApiConfig.broadCategories[i];
+                        final subCats = ApiConfig.categoryGroups[broadCat]!;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: 16,
+                                top: 24,
+                              ),
+                              child: Text(
+                                broadCat,
+                                style: TextStyle(
+                                  color: AppTheme.cream,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 10,
+                              children: subCats.map((cat) {
+                                return CategoryBadge(
+                                  category: cat,
+                                  customHeight: 38,
+                                  customFontSize: 13,
+                                  isSelected: vm.selectedCategory == cat,
+                                  onTap: () {
+                                    vm.filterByCategory(cat);
+                                    Navigator.pop(context);
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

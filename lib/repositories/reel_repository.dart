@@ -43,7 +43,10 @@ class ReelRepository {
   }
 
   /// Get only reels that have map-pinnable locations.
-  Future<List<Reel>> getReelsWithLocations({String? userId, bool forceRefresh = false}) async {
+  Future<List<Reel>> getReelsWithLocations({
+    String? userId,
+    bool forceRefresh = false,
+  }) async {
     final all = await getReels(userId: userId, forceRefresh: forceRefresh);
     return all.where((r) => r.hasMapLocations).toList();
   }

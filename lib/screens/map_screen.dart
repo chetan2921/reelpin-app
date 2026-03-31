@@ -42,7 +42,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _initCustomMarkers() async {
-    for (final cat in ApiConfig.categories) {
+    for (final cat in ApiConfig.allCategories) {
       _categoryMarkers[cat] = await _createCustomPin(cat);
     }
     if (mounted) setState(() {});
@@ -168,7 +168,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppTheme.midnightPlum,
       body: SafeArea(
         bottom: false,
         child: Consumer<MapViewModel>(
@@ -282,15 +282,20 @@ class _MapScreenState extends State<MapScreen> {
                                 const SizedBox(width: 8),
                                 // Dark Mode Toggle
                                 GestureDetector(
-                                  onTap: () => setState(() => _isDarkMap = !_isDarkMap),
+                                  onTap: () =>
+                                      setState(() => _isDarkMap = !_isDarkMap),
                                   child: Container(
                                     padding: const EdgeInsets.all(6),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.mauve.withAlpha(_isDarkMap ? 80 : 30),
+                                      color: AppTheme.mauve.withAlpha(
+                                        _isDarkMap ? 80 : 30,
+                                      ),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Icon(
-                                      _isDarkMap ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                                      _isDarkMap
+                                          ? Icons.dark_mode_rounded
+                                          : Icons.light_mode_rounded,
                                       size: 16,
                                       color: AppTheme.cream.withAlpha(200),
                                     ),
@@ -305,13 +310,13 @@ class _MapScreenState extends State<MapScreen> {
 
                       // Category filters
                       SizedBox(
-                        height: 42,
+                        height: 48,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: ApiConfig.categories.length,
+                          itemCount: ApiConfig.broadCategories.length,
                           separatorBuilder: (_, _) => const SizedBox(width: 6),
                           itemBuilder: (_, i) {
-                            final cat = ApiConfig.categories[i];
+                            final cat = ApiConfig.broadCategories[i];
                             return CategoryBadge(
                               category: cat,
                               isSelected: vm.selectedCategory == cat,

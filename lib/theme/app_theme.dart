@@ -19,21 +19,15 @@ class AppTheme {
   static const Color seedColor = amethyst;
 
   // ── Category Colors (warm-harmonized) ──
-  static const Map<String, Color> categoryColors = {
-    'Food': mauve,
-    'Travel': dustyRose,
-    'Fitness': amethyst,
-    'Finance': cream,
-    'Study': mauve,
-    'Tech': dustyRose,
-    'Fashion': amethyst,
-    'Entertainment': mauve,
-    'Health': dustyRose,
-    'Other': cream,
-  };
+  static const List<Color> _categoryPalette = [
+    mauve,
+    dustyRose,
+    amethyst,
+    cream,
+  ];
 
   static Color getCategoryColor(String category) {
-    return categoryColors[category] ?? categoryColors['Other']!;
+    return _categoryPalette[category.hashCode.abs() % _categoryPalette.length];
   }
 
   // ── Gradient helpers ──

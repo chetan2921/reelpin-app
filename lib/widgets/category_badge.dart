@@ -7,6 +7,8 @@ class CategoryBadge extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
   final bool small;
+  final double customHeight;
+  final double customFontSize;
 
   const CategoryBadge({
     super.key,
@@ -14,6 +16,8 @@ class CategoryBadge extends StatelessWidget {
     this.isSelected = false,
     this.onTap,
     this.small = false,
+    this.customHeight = 48,
+    this.customFontSize = 16,
   });
 
   @override
@@ -22,22 +26,41 @@ class CategoryBadge extends StatelessWidget {
 
     if (small) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [color.withAlpha(50), color.withAlpha(25)],
-          ),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withAlpha(40), width: 0.5),
+          color: AppTheme.midnightPlum.withAlpha(120),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withAlpha(50), width: 1),
         ),
-        child: Text(
-          category,
-          style: TextStyle(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: color.withAlpha(180), blurRadius: 6),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                category,
+                style: TextStyle(
+                  color: AppTheme.cream.withAlpha(200),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -45,39 +68,34 @@ class CategoryBadge extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutBack,
+        height: customHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  colors: [color.withAlpha(70), color.withAlpha(35)],
-                )
-              : null,
-          color: isSelected ? null : AppTheme.deepIndigo.withAlpha(140),
-          borderRadius: BorderRadius.circular(22),
+          color: isSelected
+              ? color.withAlpha(70)
+              : AppTheme.deepIndigo.withAlpha(150),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isSelected
-                ? color.withAlpha(120)
-                : AppTheme.cream.withAlpha(15),
-            width: isSelected ? 1.5 : 1,
+            color: isSelected ? color : AppTheme.cream.withAlpha(40),
+            width: 1.5,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: color.withAlpha(30),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
         ),
-        child: Text(
-          category,
-          style: TextStyle(
-            color: isSelected ? color : AppTheme.cream.withAlpha(160),
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+        child: Center(
+          widthFactor: 1.0,
+          child: Text(
+            category,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isSelected
+                  ? AppTheme.cream
+                  : AppTheme.cream.withAlpha(220),
+              fontSize: customFontSize,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
       ),

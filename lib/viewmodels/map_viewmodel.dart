@@ -32,7 +32,9 @@ class MapViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _reelsWithLocations = await _repository.getReelsWithLocations(forceRefresh: forceRefresh);
+      _reelsWithLocations = await _repository.getReelsWithLocations(
+        forceRefresh: forceRefresh,
+      );
     } catch (e) {
       _error = e.toString();
     } finally {
