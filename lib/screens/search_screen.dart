@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/search_viewmodel.dart';
+import '../widgets/category_badge.dart';
 import '../widgets/search_result_tile.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -116,62 +117,32 @@ class _SearchScreenState extends State<SearchScreen> {
                 // ── Search Input ──
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          focusNode: _focusNode,
-                          style: TextStyle(color: AppTheme.cream),
-                          decoration: InputDecoration(
-                            hintText: 'e.g. "restaurants in Bangalore"',
-                            prefixIcon: Icon(
-                              Icons.search,
-                              color: AppTheme.cream.withAlpha(60),
-                            ),
-                            suffixIcon: vm.isSearching
-                                ? Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppTheme.dustyRose,
-                                      ),
-                                    ),
-                                  )
-                                : null,
-                          ),
-                          onSubmitted: (q) => _doSearch(vm, q),
-                          textInputAction: TextInputAction.search,
-                        ),
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    style: TextStyle(color: AppTheme.cream),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. "restaurants in Bangalore"',
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: AppTheme.cream.withAlpha(60),
                       ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: () => _doSearch(vm, _controller.text),
-                        child: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            gradient: AppTheme.accentGradient,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.mauve.withAlpha(50),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
+                      suffixIcon: vm.isSearching
+                          ? Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.dustyRose,
+                                ),
                               ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.send_rounded,
-                            color: AppTheme.cream,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
+                            )
+                          : null,
+                    ),
+                    onSubmitted: (q) => _doSearch(vm, q),
+                    textInputAction: TextInputAction.search,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -181,94 +152,25 @@ class _SearchScreenState extends State<SearchScreen> {
                   height: 48,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
                     itemCount: ApiConfig.broadCategories.length + 1,
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (_, i) {
                       if (i == 0) {
-                        final allSelected = vm.selectedCategory == null;
-                        return GestureDetector(
+                        return CategoryBadge(
+                          category: 'All',
+                          isSelected: vm.selectedCategory == null,
                           onTap: () => vm.filterByCategory(null),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: allSelected
-                                  ? LinearGradient(
-                                      colors: [
-                                        AppTheme.mauve.withAlpha(70),
-                                        AppTheme.dustyRose.withAlpha(35),
-                                      ],
-                                    )
-                                  : null,
-                              color: allSelected
-                                  ? null
-                                  : AppTheme.deepIndigo.withAlpha(140),
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(
-                                color: allSelected
-                                    ? AppTheme.dustyRose.withAlpha(120)
-                                    : AppTheme.cream.withAlpha(15),
-                                width: allSelected ? 1.5 : 1,
-                              ),
-                            ),
-                            child: Text(
-                              'All',
-                              style: TextStyle(
-                                color: allSelected
-                                    ? AppTheme.dustyRose
-                                    : AppTheme.cream.withAlpha(160),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
                         );
                       }
                       final cat = ApiConfig.broadCategories[i - 1];
-                      final catColor = AppTheme.getCategoryColor(cat);
-                      return GestureDetector(
+                      return CategoryBadge(
+                        category: cat,
+                        isSelected: vm.selectedCategory == cat,
                         onTap: () => vm.filterByCategory(cat),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: vm.selectedCategory == cat
-                                ? LinearGradient(
-                                    colors: [
-                                      catColor.withAlpha(70),
-                                      catColor.withAlpha(35),
-                                    ],
-                                  )
-                                : null,
-                            color: vm.selectedCategory == cat
-                                ? null
-                                : AppTheme.deepIndigo.withAlpha(140),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color: vm.selectedCategory == cat
-                                  ? catColor.withAlpha(120)
-                                  : AppTheme.cream.withAlpha(15),
-                              width: vm.selectedCategory == cat ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Text(
-                            cat,
-                            style: TextStyle(
-                              color: vm.selectedCategory == cat
-                                  ? catColor
-                                  : AppTheme.cream.withAlpha(160),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
                       );
                     },
                   ),

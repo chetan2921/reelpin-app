@@ -66,8 +66,8 @@ class _ReelCardState extends State<ReelCard>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Category badge ──
-                      CategoryBadge(category: reel.category, small: true),
+                      // ── Sub-category badge ──
+                      CategoryBadge(category: reel.subCategory, small: true),
                       const SizedBox(height: 10),
 
                       // ── Title ──

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../config/api_config.dart';
 import '../models/reel.dart';
 import '../repositories/reel_repository.dart';
 
@@ -15,11 +16,17 @@ class MapViewModel extends ChangeNotifier {
   String? _selectedCategory;
   Reel? _selectedReel;
 
-  List<Reel> get reelsWithLocations => _selectedCategory == null
-      ? List.unmodifiable(_reelsWithLocations)
-      : List.unmodifiable(
-          _reelsWithLocations.where((r) => r.category == _selectedCategory),
-        );
+  List<Reel> get reelsWithLocations {
+    if (_selectedCategory == null) {
+      return List.unmodifiable(_reelsWithLocations);
+    }
+
+    final selected = _selectedCategory!;
+    return List.unmodifiable(
+      _reelsWithLocations.where((r) => _matchesFilter(r, selected)),
+    );
+  }
+
   bool get isLoading => _isLoading;
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
@@ -54,4 +61,21 @@ class MapViewModel extends ChangeNotifier {
     _selectedReel = reel;
     notifyListeners();
   }
+
+  bool _matchesFilter(Reel reel, String selected) {
+    final grouped = ApiConfig.categoryGroups[selected];
+    if (grouped != null) {
+      return _matchesCategoryOrSubCategory(reel, selected) ||
+          grouped.any((c) => _matchesCategoryOrSubCategory(reel, c));
+    }
+    return _matchesCategoryOrSubCategory(reel, selected);
+  }
+
+  bool _matchesCategoryOrSubCategory(Reel reel, String value) {
+    final normalized = _normalize(value);
+    return _normalize(reel.category) == normalized ||
+        _normalize(reel.subCategory) == normalized;
+  }
+
+  String _normalize(String value) => value.trim().toLowerCase();
 }

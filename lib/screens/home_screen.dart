@@ -144,12 +144,12 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildReelGrid(BuildContext context, HomeViewModel vm) {
     return SliverPadding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
           childAspectRatio: 1.0,
         ),
         delegate: SliverChildBuilderDelegate((context, index) {
@@ -194,12 +194,12 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildShimmerGrid() {
     return SliverPadding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
           childAspectRatio: 1.0,
         ),
         delegate: SliverChildBuilderDelegate(

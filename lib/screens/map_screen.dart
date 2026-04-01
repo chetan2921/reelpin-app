@@ -1,12 +1,14 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/api_config.dart';
 import '../models/reel.dart';
+import '../services/location_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/map_viewmodel.dart';
 import '../widgets/category_badge.dart';
@@ -20,25 +22,74 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  // Default to Bangalore center
-  static const _defaultLatLng = LatLng(12.9716, 77.5946);
+  static const _defaultLatLng = LatLng(20.0, 0.0);
 
   GoogleMapController? _mapController;
   final Map<String, BitmapDescriptor> _categoryMarkers = {};
+  LatLng? _userLatLng;
+  String? _userCountry;
+  bool _hasCenteredOnCountry = false;
 
   int _lastMarkersCount = -1;
   String? _lastCategoryFilter;
-  bool _isDarkMap = true;
 
   @override
   void initState() {
     super.initState();
     _initCustomMarkers();
+    _initUserLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<MapViewModel>().loadMapReels(forceRefresh: true);
       }
     });
+  }
+
+  Future<void> _initUserLocation() async {
+    final position = await LocationService.instance
+        .getCurrentOrLastKnownLocation(requestPermissionIfNeeded: true);
+
+    if (!mounted || position == null) return;
+
+    _userLatLng = LatLng(position.latitude, position.longitude);
+    await _resolveUserCountry(position.latitude, position.longitude);
+    _centerMapOnUserCountry();
+  }
+
+  Future<void> _resolveUserCountry(double latitude, double longitude) async {
+    try {
+      final places = await placemarkFromCoordinates(latitude, longitude);
+      if (places.isNotEmpty && mounted) {
+        setState(() {
+          _userCountry = places.first.country;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _centerMapOnUserCountry() {
+    if (_mapController == null ||
+        _userLatLng == null ||
+        _hasCenteredOnCountry) {
+      return;
+    }
+
+    _hasCenteredOnCountry = true;
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: _userLatLng!, zoom: 5.8),
+      ),
+    );
+  }
+
+  void _recenterToUserLocation() {
+    if (_mapController == null || _userLatLng == null) return;
+
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: _userLatLng!, zoom: 13.0),
+      ),
+    );
   }
 
   Future<void> _initCustomMarkers() async {
@@ -178,7 +229,8 @@ class _MapScreenState extends State<MapScreen> {
             // Trigger bound fitting when markers change
             if ((markers.length != _lastMarkersCount ||
                     vm.selectedCategory != _lastCategoryFilter) &&
-                markers.isNotEmpty) {
+                markers.isNotEmpty &&
+                _userLatLng == null) {
               _lastMarkersCount = markers.length;
               _lastCategoryFilter = vm.selectedCategory;
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -192,19 +244,21 @@ class _MapScreenState extends State<MapScreen> {
                 GoogleMap(
                   initialCameraPosition: const CameraPosition(
                     target: _defaultLatLng,
-                    zoom: 12,
+                    zoom: 2,
                   ),
                   markers: markers,
                   onMapCreated: (controller) {
                     _mapController = controller;
-                    if (markers.isNotEmpty) {
+                    _centerMapOnUserCountry();
+                    if (!_hasCenteredOnCountry && markers.isNotEmpty) {
                       _fitMarkers(markers);
                     }
                   },
+                  myLocationEnabled: true,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
-                  style: _isDarkMap ? _purpleMapStyle : null,
+                  style: _purpleMapStyle,
                 ),
 
                 // ── Header overlay ──
@@ -253,7 +307,9 @@ class _MapScreenState extends State<MapScreen> {
                                 ),
                                 const SizedBox(width: 10),
                                 Text(
-                                  'Pinned Locations',
+                                  _userCountry?.isNotEmpty == true
+                                      ? 'Pinned Locations • $_userCountry'
+                                      : 'Pinned Locations',
                                   style: TextStyle(
                                     color: AppTheme.cream,
                                     fontSize: 16,
@@ -276,28 +332,6 @@ class _MapScreenState extends State<MapScreen> {
                                       color: AppTheme.dustyRose,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Dark Mode Toggle
-                                GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _isDarkMap = !_isDarkMap),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.mauve.withAlpha(
-                                        _isDarkMap ? 80 : 30,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      _isDarkMap
-                                          ? Icons.dark_mode_rounded
-                                          : Icons.light_mode_rounded,
-                                      size: 16,
-                                      color: AppTheme.cream.withAlpha(200),
                                     ),
                                   ),
                                 ),
@@ -417,6 +451,43 @@ class _MapScreenState extends State<MapScreen> {
                     right: 16,
                     child: _buildPinSheet(context, vm.selectedReel!),
                   ),
+
+                if (_userLatLng != null)
+                  Positioned(
+                    right: 16,
+                    bottom: vm.selectedReel != null ? 228 : 108,
+                    child: GestureDetector(
+                      onTap: _recenterToUserLocation,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.deepIndigo.withAlpha(220),
+                              AppTheme.amethyst.withAlpha(160),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(
+                            color: AppTheme.cream.withAlpha(24),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.midnightPlum.withAlpha(120),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.my_location_rounded,
+                          size: 18,
+                          color: AppTheme.cream.withAlpha(220),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             );
           },
@@ -435,6 +506,7 @@ class _MapScreenState extends State<MapScreen> {
             position: LatLng(loc.latitude!, loc.longitude!),
             infoWindow: InfoWindow(title: reel.title, snippet: loc.name),
             icon:
+                _categoryMarkers[reel.subCategory] ??
                 _categoryMarkers[reel.category] ??
                 BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose),
             onTap: () => vm.selectReel(reel),

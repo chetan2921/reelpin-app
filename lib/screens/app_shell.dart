@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
+import '../services/location_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
@@ -47,6 +48,13 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _initSharingIntent();
+    _requestLocationOnStartup();
+  }
+
+  void _requestLocationOnStartup() {
+    Future.microtask(() async {
+      await LocationService.instance.warmUpLocation();
+    });
   }
 
   void _initSharingIntent() {
@@ -145,7 +153,7 @@ class _AppShellState extends State<AppShell> {
 
   Widget _buildGlassNavBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+      padding: const EdgeInsets.fromLTRB(36, 0, 36, 28),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(

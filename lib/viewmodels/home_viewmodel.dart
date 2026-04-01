@@ -20,18 +20,8 @@ class HomeViewModel extends ChangeNotifier {
       return List.unmodifiable(_reels);
     }
 
-    final isBroad = ApiConfig.categoryGroups.containsKey(_selectedCategory);
-
-    return List.unmodifiable(
-      _reels.where((r) {
-        if (isBroad) {
-          return r.category == _selectedCategory ||
-              ApiConfig.categoryGroups[_selectedCategory]!.contains(r.category);
-        } else {
-          return r.category == _selectedCategory;
-        }
-      }),
-    );
+    final selected = _selectedCategory!;
+    return List.unmodifiable(_reels.where((r) => _matchesFilter(r, selected)));
   }
 
   bool get isLoading => _isLoading;
@@ -41,10 +31,30 @@ class HomeViewModel extends ChangeNotifier {
 
   /// Get a strictly unique list of categories present in the current loaded reels.
   List<String> get availableCategories {
-    final cats = _reels.map((e) => e.category).toSet().toList();
+    final cats = <String>{
+      ..._reels.map((e) => e.category),
+      ..._reels.map((e) => e.subCategory),
+    }.toList();
     cats.sort();
     return cats;
   }
+
+  bool _matchesFilter(Reel reel, String selected) {
+    final grouped = ApiConfig.categoryGroups[selected];
+    if (grouped != null) {
+      return _matchesCategoryOrSubCategory(reel, selected) ||
+          grouped.any((c) => _matchesCategoryOrSubCategory(reel, c));
+    }
+    return _matchesCategoryOrSubCategory(reel, selected);
+  }
+
+  bool _matchesCategoryOrSubCategory(Reel reel, String value) {
+    final normalized = _normalize(value);
+    return _normalize(reel.category) == normalized ||
+        _normalize(reel.subCategory) == normalized;
+  }
+
+  String _normalize(String value) => value.trim().toLowerCase();
 
   /// Load all reels from the backend.
   Future<void> loadReels({bool forceRefresh = false}) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../config/api_config.dart';
 import '../models/search_result.dart';
 import '../repositories/reel_repository.dart';
 
@@ -32,7 +33,18 @@ class SearchViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _results = await _repository.search(query, category: _selectedCategory);
+      final fetched = await _repository.search(query, category: null);
+      if (_selectedCategory == null) {
+        _results = fetched;
+      } else {
+        final selected = _selectedCategory!;
+        _results = fetched
+            .where(
+              (r) =>
+                  _matchesFilter(r.reel.category, r.reel.subCategory, selected),
+            )
+            .toList();
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -58,4 +70,27 @@ class SearchViewModel extends ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  bool _matchesFilter(String category, String subCategory, String selected) {
+    final grouped = ApiConfig.categoryGroups[selected];
+    if (grouped != null) {
+      return _matchesCategoryOrSubCategory(category, subCategory, selected) ||
+          grouped.any(
+            (c) => _matchesCategoryOrSubCategory(category, subCategory, c),
+          );
+    }
+    return _matchesCategoryOrSubCategory(category, subCategory, selected);
+  }
+
+  bool _matchesCategoryOrSubCategory(
+    String category,
+    String subCategory,
+    String value,
+  ) {
+    final normalized = _normalize(value);
+    return _normalize(category) == normalized ||
+        _normalize(subCategory) == normalized;
+  }
+
+  String _normalize(String value) => value.trim().toLowerCase();
 }

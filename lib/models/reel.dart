@@ -51,6 +51,7 @@ class Reel {
   final String summary;
   final String transcript;
   final String category;
+  final String subCategory;
   final List<String> keyFacts;
   final List<Location> locations;
   final List<String> peopleMentioned;
@@ -65,6 +66,7 @@ class Reel {
     required this.summary,
     required this.transcript,
     required this.category,
+    required this.subCategory,
     required this.keyFacts,
     required this.locations,
     required this.peopleMentioned,
@@ -80,6 +82,12 @@ class Reel {
     summary: json['summary'] as String? ?? '',
     transcript: json['transcript'] as String? ?? '',
     category: json['category'] as String? ?? 'Other',
+    subCategory:
+        json['sub_category'] as String? ??
+        json['subcategory'] as String? ??
+        json['subCategory'] as String? ??
+        json['category'] as String? ??
+        'Other',
     keyFacts: List<String>.from(json['key_facts'] ?? []),
     locations: () {
       final locs = json['locations'];
@@ -111,6 +119,7 @@ class Reel {
     'summary': summary,
     'transcript': transcript,
     'category': category,
+    'sub_category': subCategory,
     'key_facts': keyFacts,
     'locations': locations.map((l) => l.toJson()).toList(),
     'people_mentioned': peopleMentioned,

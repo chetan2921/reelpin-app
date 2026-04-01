@@ -73,5 +73,7 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ReelPin uses your location to center the map near you and show nearby saved reel places.</string>
 </dict>
 </plist>
