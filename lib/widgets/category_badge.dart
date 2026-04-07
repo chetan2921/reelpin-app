@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
 
@@ -16,8 +17,8 @@ class CategoryBadge extends StatelessWidget {
     this.isSelected = false,
     this.onTap,
     this.small = false,
-    this.customHeight = 48,
-    this.customFontSize = 16,
+    this.customHeight = 40,
+    this.customFontSize = 12,
   });
 
   @override
@@ -26,79 +27,58 @@ class CategoryBadge extends StatelessWidget {
 
     if (small) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: AppTheme.midnightPlum.withAlpha(120),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withAlpha(50), width: 1),
+          color: color,
+          border: Border.all(color: AppTheme.black, width: 2),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(color: color.withAlpha(180), blurRadius: 6),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                category,
-                style: TextStyle(
-                  color: AppTheme.cream.withAlpha(200),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+        child: Text(
+          category.toUpperCase(),
+          style: GoogleFonts.spaceMono(
+            color: _contrastText(color),
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       );
     }
 
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutBack,
+      child: Container(
         height: customHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: isSelected
-              ? color.withAlpha(70)
-              : AppTheme.deepIndigo.withAlpha(150),
-          borderRadius: BorderRadius.circular(24),
+          color: isSelected ? AppTheme.yellow : AppTheme.white,
           border: Border.all(
-            color: isSelected ? color : AppTheme.cream.withAlpha(40),
-            width: 1.5,
+            color: AppTheme.black,
+            width: AppTheme.thinBorderWidth,
           ),
+          boxShadow: isSelected ? AppTheme.brutalShadowSmall : null,
         ),
         child: Center(
           widthFactor: 1.0,
           child: Text(
-            category,
+            category.toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: isSelected
-                  ? AppTheme.cream
-                  : AppTheme.cream.withAlpha(220),
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.black,
               fontSize: customFontSize,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0.3,
             ),
           ),
         ),
       ),
     );
+  }
+
+  Color _contrastText(Color bg) {
+    final luminance = bg.computeLuminance();
+    return luminance > 0.5 ? AppTheme.black : AppTheme.white;
   }
 }

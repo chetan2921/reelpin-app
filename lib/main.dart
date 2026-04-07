@@ -34,7 +34,7 @@ class ReelPinApp extends StatelessWidget {
       child: MaterialApp(
         title: 'ReelPin',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
+        theme: AppTheme.brutalTheme,
         home: const AppShell(),
       ),
     );

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -9,20 +10,25 @@ import '../models/search_result.dart';
 
 /// Stateless HTTP API wrapper for the ReelPin backend.
 class ApiService {
-  final String _baseUrl;
+  String _baseUrl;
+  final List<String> _fallbackBaseUrls;
   final http.Client _client;
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   ApiService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
-      _baseUrl = baseUrl ?? ApiConfig.baseUrl;
+      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).trim(),
+      _fallbackBaseUrls = ApiConfig.fallbackBaseUrls;
 
   // ─── Health Check ───
 
   Future<bool> healthCheck() async {
     try {
-      final res = await _client
-          .get(Uri.parse('$_baseUrl/health'))
-          .timeout(const Duration(seconds: 5));
+      final res = await _requestWithFailover(
+        (baseUrl) => _client
+            .get(Uri.parse('$baseUrl/health'))
+            .timeout(const Duration(seconds: 5)),
+      );
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -32,10 +38,14 @@ class ApiService {
   // ─── Process Reel from URL ───
 
   Future<Reel> processReel(String url, {String userId = 'default-user'}) async {
-    final res = await _client.post(
-      Uri.parse('$_baseUrl/process-reel'),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode({'url': url, 'user_id': userId}),
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            Uri.parse('$baseUrl/process-reel'),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode({'url': url, 'user_id': userId}),
+          )
+          .timeout(_requestTimeout),
     );
 
     if (res.statusCode != 200) {
@@ -52,18 +62,20 @@ class ApiService {
     String userId = 'default-user',
     String url = '',
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$_baseUrl/process-video'),
-    );
-    request.fields['user_id'] = userId;
-    request.fields['url'] = url;
-    request.files.add(
-      await http.MultipartFile.fromPath('video', videoFile.path),
-    );
+    final res = await _requestWithFailover((baseUrl) async {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/process-video'),
+      );
+      request.fields['user_id'] = userId;
+      request.fields['url'] = url;
+      request.files.add(
+        await http.MultipartFile.fromPath('video', videoFile.path),
+      );
 
-    final streamedRes = await request.send();
-    final res = await http.Response.fromStream(streamedRes);
+      final streamedRes = await request.send().timeout(_requestTimeout);
+      return http.Response.fromStream(streamedRes);
+    });
 
     if (res.statusCode != 200) {
       final detail = _extractError(res);
@@ -79,13 +91,15 @@ class ApiService {
     String? category,
     int limit = 50,
   }) async {
-    final params = <String, String>{
-      'user_id': ?userId,
-      'category': ?category,
-      'limit': limit.toString(),
-    };
-    final uri = Uri.parse('$_baseUrl/reels').replace(queryParameters: params);
-    final res = await _client.get(uri);
+    final res = await _requestWithFailover((baseUrl) {
+      final params = <String, String>{
+        'user_id': ?userId,
+        'category': ?category,
+        'limit': limit.toString(),
+      };
+      final uri = Uri.parse('$baseUrl/reels').replace(queryParameters: params);
+      return _client.get(uri).timeout(_requestTimeout);
+    });
 
     if (res.statusCode != 200) {
       throw ApiException('Failed to load reels', res.statusCode);
@@ -97,7 +111,11 @@ class ApiService {
   // ─── Get Single Reel ───
 
   Future<Reel> getReel(String reelId) async {
-    final res = await _client.get(Uri.parse('$_baseUrl/reels/$reelId'));
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .get(Uri.parse('$baseUrl/reels/$reelId'))
+          .timeout(_requestTimeout),
+    );
 
     if (res.statusCode == 404) {
       throw ApiException('Reel not found', 404);
@@ -111,7 +129,11 @@ class ApiService {
   // ─── Delete Reel ───
 
   Future<void> deleteReel(String reelId) async {
-    final res = await _client.delete(Uri.parse('$_baseUrl/reels/$reelId'));
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(Uri.parse('$baseUrl/reels/$reelId'))
+          .timeout(_requestTimeout),
+    );
     if (res.statusCode != 200) {
       throw ApiException('Failed to delete reel', res.statusCode);
     }
@@ -125,15 +147,19 @@ class ApiService {
     String? category,
     int limit = 5,
   }) async {
-    final res = await _client.post(
-      Uri.parse('$_baseUrl/search'),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode({
-        'query': query,
-        'user_id': userId,
-        'category': ?category,
-        'limit': limit,
-      }),
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            Uri.parse('$baseUrl/search'),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode({
+              'query': query,
+              'user_id': userId,
+              'category': ?category,
+              'limit': limit,
+            }),
+          )
+          .timeout(_requestTimeout),
     );
 
     if (res.statusCode != 200) {
@@ -146,6 +172,40 @@ class ApiService {
   }
 
   // ─── Helpers ───
+
+  Future<http.Response> _requestWithFailover(
+    Future<http.Response> Function(String baseUrl) request,
+  ) async {
+    final candidates = <String>[
+      _baseUrl,
+      ..._fallbackBaseUrls.where((u) => u != _baseUrl),
+    ];
+
+    Object? lastNetworkError;
+    for (final candidate in candidates) {
+      try {
+        final response = await request(candidate);
+        _baseUrl = candidate;
+        return response;
+      } on TimeoutException catch (e) {
+        lastNetworkError = e;
+      } on SocketException catch (e) {
+        lastNetworkError = e;
+      }
+    }
+
+    if (lastNetworkError is TimeoutException) {
+      throw ApiException(
+        'Request timed out. Please check server/network.',
+        408,
+      );
+    }
+
+    throw ApiException(
+      'Cannot connect to server. Tried: ${candidates.join(', ')}',
+      503,
+    );
+  }
 
   String _extractError(http.Response res) {
     try {

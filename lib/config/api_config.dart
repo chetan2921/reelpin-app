@@ -1,11 +1,38 @@
 class ApiConfig {
   ApiConfig._();
 
+  static const String _defaultLanBaseUrl = 'http://192.168.1.2:8000/api/v1';
+  static const String _legacyLanBaseUrl = 'http://192.168.1.3:8000/api/v1';
+  static const String _androidEmulatorBaseUrl = 'http://10.0.2.2:8000/api/v1';
+
   /// Local development URL — auto-detects platform.
   static String get baseUrl {
-    // FORCE all API calls to the absolute local WiFi IP regardless of whether
-    // it's a Debug build or a Release APK.
-    return 'http://192.168.1.3:8000/api/v1';
+    // Override with: flutter run --dart-define=API_BASE_URL=http://<ip>:8000/api/v1
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
+    final trimmed = fromEnv.trim();
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+    return _defaultLanBaseUrl;
+  }
+
+  /// Additional URLs to auto-try when the primary host is unreachable.
+  static List<String> get fallbackBaseUrls {
+    final primary = baseUrl;
+    final candidates = <String>[
+      _defaultLanBaseUrl,
+      _legacyLanBaseUrl,
+      _androidEmulatorBaseUrl,
+    ];
+
+    final fallbacks = <String>[];
+    for (final candidate in candidates) {
+      if (candidate == primary) continue;
+      if (!fallbacks.contains(candidate)) {
+        fallbacks.add(candidate);
+      }
+    }
+    return fallbacks;
   }
 
   /// Grouped categories for the filter sheet and broad category mapping.
@@ -18,9 +45,7 @@ class ApiConfig {
       'Beauty & Skincare',
       'Home Decor & Interior',
       'Relationships & Dating',
-      'Motivation & Mindset',
       'Humor & Memes',
-      'Spirituality & Religion',
     ],
     'Knowledge & Learning': [
       'Study & Education',
@@ -44,6 +69,8 @@ class ApiConfig {
       'Yoga & Meditation',
       'Medical & Health Tips',
       'Parenting & Kids',
+      'Motivation & Mindset',
+      'Spirituality & Religion',
     ],
     'Skills & Hobbies': [
       'Cooking & Recipes',

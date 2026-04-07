@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/reel.dart';
 import '../theme/app_theme.dart';
-import '../widgets/category_badge.dart';
+import '../viewmodels/home_viewmodel.dart';
+import '../viewmodels/map_viewmodel.dart';
 
 class ReelDetailScreen extends StatefulWidget {
   final Reel reel;
@@ -24,65 +27,78 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
     final catColor = AppTheme.getCategoryColor(reel.category);
 
     return Scaffold(
-      backgroundColor: AppTheme.midnightPlum,
+      backgroundColor: AppTheme.white,
       body: CustomScrollView(
         slivers: [
           // ── App Bar ──
           SliverAppBar(
             pinned: true,
-            backgroundColor: AppTheme.midnightPlum,
-            leading: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(7),
+            backgroundColor: AppTheme.white,
+            surfaceTintColor: Colors.transparent,
+            leading: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.deepIndigo.withAlpha(200),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.cream.withAlpha(15)),
+                  border: Border.all(color: AppTheme.black, width: 2),
                 ),
-                child: Icon(
-                  Icons.arrow_back_rounded,
-                  color: AppTheme.cream,
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: AppTheme.black,
                   size: 20,
                 ),
               ),
-              onPressed: () => Navigator.pop(context),
+            ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(3),
+              child: Container(
+                height: AppTheme.borderWidth,
+                color: AppTheme.black,
+              ),
             ),
             actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Center(
-                  child: GestureDetector(
-                    onTap: () => _openUrl(reel.url),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.deepIndigo.withAlpha(150),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.cream.withAlpha(30)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Open on Instagram App',
-                            style: TextStyle(
-                              color: AppTheme.cream,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.open_in_new_rounded,
-                            color: AppTheme.cream.withAlpha(180),
-                            size: 16,
-                          ),
-                        ],
-                      ),
+              // Open original
+              GestureDetector(
+                onTap: () => _openUrl(reel.url),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.yellow,
+                    border: Border.all(
+                      color: AppTheme.black,
+                      width: 2,
                     ),
+                    boxShadow: AppTheme.brutalShadowSmall,
+                  ),
+                  child: Text(
+                    'OPEN REEL',
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.black,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              // Delete
+              GestureDetector(
+                onTap: () => _confirmDelete(context),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 12),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.destructive,
+                    border: Border.all(color: AppTheme.black, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.delete,
+                    color: AppTheme.white,
+                    size: 18,
                   ),
                 ),
               ),
@@ -92,316 +108,381 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
           // ── Content ──
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Category + Date ──
+                  // Category + time
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CategoryBadge(category: reel.category, small: true),
-                      const Spacer(),
-                      if (reel.displayDate.isNotEmpty)
-                        Text(
-                          reel.displayDate,
-                          style: TextStyle(
-                            color: AppTheme.cream.withAlpha(70),
-                            fontSize: 12,
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: catColor,
+                                border: Border.all(color: AppTheme.black, width: 2),
+                              ),
+                              child: Text(
+                                reel.category.toUpperCase(),
+                                style: GoogleFonts.spaceMono(
+                                  color: _contrastText(catColor),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                            if (reel.subCategory != reel.category)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.white,
+                                  border: Border.all(color: AppTheme.black, width: 2),
+                                ),
+                                child: Text(
+                                  reel.subCategory.toUpperCase(),
+                                  style: GoogleFonts.spaceMono(
+                                    color: AppTheme.black,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (reel.relativeDate.isNotEmpty) ...[
+                        const SizedBox(width: 12),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            reel.relativeDate.toUpperCase(),
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 16),
 
-                  // ── Title ──
+                  // Title
                   Text(
-                    reel.title.isNotEmpty ? reel.title : 'Untitled Reel',
-                    style: TextStyle(
-                      color: AppTheme.cream,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
+                    reel.title.isNotEmpty
+                        ? reel.title.toUpperCase()
+                        : 'UNTITLED REEL',
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.black,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
                       height: 1.2,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 32),
 
-                  // ── AI Summary ──
+                  const SizedBox(height: 4),
+                  Container(height: 4, width: 60, color: AppTheme.yellow),
+
+                  const SizedBox(height: 20),
+
+                  // ── Sections ──
                   if (reel.summary.isNotEmpty) ...[
-                    _buildSection(
-                      icon: Icons.auto_awesome_rounded,
-                      iconColor: AppTheme.dustyRose,
-                      title: 'AI Summary',
-                      child: Text(
-                        reel.summary,
-                        style: TextStyle(
-                          color: AppTheme.cream.withAlpha(190),
-                          fontSize: 15,
-                          height: 1.6,
+                    _section('SUMMARY', reel.summary),
+                    const SizedBox(height: 20),
+                  ],
+
+                  if (reel.keyFacts.isNotEmpty) ...[
+                    _sectionTitle('KEY FACTS'),
+                    const SizedBox(height: 10),
+                    ...reel.keyFacts.map(
+                      (f) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: AppTheme.red,
+                                border: Border.all(
+                                  color: AppTheme.black,
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                f,
+                                style: GoogleFonts.spaceMono(
+                                  color: AppTheme.textSecondary,
+                                  fontSize: 13,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
                   ],
 
-                  // ── Key Facts ──
-                  if (reel.keyFacts.isNotEmpty) ...[
-                    _buildSection(
-                      icon: Icons.lightbulb_outline_rounded,
-                      iconColor: AppTheme.cream,
-                      title: 'Key Facts',
-                      child: Column(
-                        children: reel.keyFacts.map((fact) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
+                  if (reel.locations.isNotEmpty) ...[
+                    _sectionTitle('LOCATIONS'),
+                    const SizedBox(height: 10),
+                    ...reel.locations.map(
+                      (loc) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: GestureDetector(
+                          onTap: loc.hasCoordinates
+                              ? () => _navigateToLocation(loc)
+                              : null,
+                          child: Container(
+                            decoration: AppTheme.brutalCard(),
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Green accent bar
                                 Container(
-                                  margin: const EdgeInsets.only(top: 7),
                                   width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        catColor,
-                                        catColor.withAlpha(120),
+                                  height: 56,
+                                  color: AppTheme.neonGreen,
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          loc.name.toUpperCase(),
+                                          style: GoogleFonts.spaceMono(
+                                            color: AppTheme.black,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        if (loc.address != null) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            loc.address!,
+                                            style: GoogleFonts.spaceMono(
+                                              color: AppTheme.textSecondary,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
-                                    shape: BoxShape.circle,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    fact,
-                                    style: TextStyle(
-                                      color: AppTheme.cream.withAlpha(170),
-                                      fontSize: 14,
-                                      height: 1.5,
+                                if (loc.hasCoordinates)
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    margin: const EdgeInsets.only(right: 10),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.red,
+                                      border: Border.all(
+                                        color: AppTheme.black,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.navigation,
+                                      size: 16,
+                                      color: AppTheme.white,
                                     ),
                                   ),
-                                ),
                               ],
                             ),
-                          );
-                        }).toList(),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
                   ],
 
-                  // ── Locations ──
-                  if (reel.locations.isNotEmpty) ...[
-                    _buildSection(
-                      icon: Icons.location_on_outlined,
-                      iconColor: AppTheme.mauve,
-                      title: 'Locations',
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: reel.locations.map((loc) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 9,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.mauve.withAlpha(35),
-                                  AppTheme.amethyst.withAlpha(20),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppTheme.mauve.withAlpha(50),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.pin_drop,
-                                  size: 14,
-                                  color: AppTheme.dustyRose,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  loc.name,
-                                  style: TextStyle(
-                                    color: AppTheme.dustyRose,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // ── People Mentioned ──
                   if (reel.peopleMentioned.isNotEmpty) ...[
-                    _buildSection(
-                      icon: Icons.people_outline_rounded,
-                      iconColor: AppTheme.dustyRose,
-                      title: 'People Mentioned',
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: reel.peopleMentioned.map((person) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                    _sectionTitle('PEOPLE MENTIONED'),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: reel.peopleMentioned.map((person) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.yellow,
+                            border: Border.all(
+                              color: AppTheme.black,
+                              width: 2,
                             ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.amethyst.withAlpha(50),
-                                  AppTheme.deepIndigo.withAlpha(80),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppTheme.cream.withAlpha(15),
-                              ),
+                            boxShadow: AppTheme.brutalShadowSmall,
+                          ),
+                          child: Text(
+                            person.toUpperCase(),
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.black,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    gradient: AppTheme.accentGradient,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    person[0].toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.cream,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  person,
-                                  style: TextStyle(
-                                    color: AppTheme.cream.withAlpha(180),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 16),
                   ],
 
-                  // ── Actionable Items ──
                   if (reel.actionableItems.isNotEmpty) ...[
-                    _buildSection(
-                      icon: Icons.check_circle_outline_rounded,
-                      iconColor: AppTheme.amethyst,
-                      title: 'Action Items',
-                      child: Column(
-                        children: reel.actionableItems.map((item) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.arrow_right_rounded,
-                                  color: AppTheme.amethyst.withAlpha(200),
-                                  size: 20,
+                    _sectionTitle('ACTION ITEMS'),
+                    const SizedBox(height: 10),
+                    ...reel.actionableItems.map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: AppTheme.neonGreen,
+                                border: Border.all(
+                                  color: AppTheme.black,
+                                  width: 1.5,
                                 ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    item,
-                                    style: TextStyle(
-                                      color: AppTheme.cream.withAlpha(170),
-                                      fontSize: 14,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
+                              child: const Icon(
+                                Icons.arrow_forward,
+                                size: 12,
+                                color: AppTheme.black,
+                              ),
                             ),
-                          );
-                        }).toList(),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                item,
+                                style: GoogleFonts.spaceMono(
+                                  color: AppTheme.textSecondary,
+                                  fontSize: 13,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
                   ],
 
-                  // ── Transcript ──
+                  // Transcript
                   if (reel.transcript.isNotEmpty) ...[
-                    _buildSection(
-                      icon: Icons.subtitles_outlined,
-                      iconColor: AppTheme.cream.withAlpha(120),
-                      title: 'Transcript',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AnimatedCrossFade(
-                            duration: const Duration(milliseconds: 300),
-                            firstChild: Text(
-                              reel.transcript,
-                              maxLines: 4,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: AppTheme.cream.withAlpha(120),
-                                fontSize: 13,
-                                height: 1.6,
-                              ),
-                            ),
-                            secondChild: Text(
-                              reel.transcript,
-                              style: TextStyle(
-                                color: AppTheme.cream.withAlpha(120),
-                                fontSize: 13,
-                                height: 1.6,
-                              ),
-                            ),
-                            crossFadeState: _transcriptExpanded
-                                ? CrossFadeState.showSecond
-                                : CrossFadeState.showFirst,
+                    _sectionTitle('TRANSCRIPT'),
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceElevated,
+                        border: Border.all(
+                          color: AppTheme.black,
+                          width: 2,
+                        ),
+                      ),
+                      child: AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 250),
+                        firstChild: Text(
+                          reel.transcript,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.spaceMono(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                            height: 1.6,
                           ),
-                          const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: () => setState(
-                              () => _transcriptExpanded = !_transcriptExpanded,
-                            ),
-                            child: Text(
+                        ),
+                        secondChild: Text(
+                          reel.transcript,
+                          style: GoogleFonts.spaceMono(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                            height: 1.6,
+                          ),
+                        ),
+                        crossFadeState: _transcriptExpanded
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () => setState(
+                        () => _transcriptExpanded = !_transcriptExpanded,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.blue,
+                          border: Border.all(color: AppTheme.black, width: 2),
+                          boxShadow: AppTheme.brutalShadowSmall,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
                               _transcriptExpanded
-                                  ? 'Show less'
-                                  : 'Show full transcript',
-                              style: TextStyle(
-                                color: AppTheme.dustyRose,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                                  ? 'SHOW LESS'
+                                  : 'SHOW FULL TRANSCRIPT',
+                              style: GoogleFonts.spaceMono(
+                                color: AppTheme.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            AnimatedRotation(
+                              duration: const Duration(milliseconds: 250),
+                              turns: _transcriptExpanded ? 0.5 : 0,
+                              child: const Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 18,
+                                color: AppTheme.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
-
-                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -411,54 +492,142 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
     );
   }
 
-  Widget _buildSection({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required Widget child,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.deepIndigo.withAlpha(160),
-            AppTheme.amethyst.withAlpha(60),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.cream.withAlpha(12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: iconColor.withAlpha(25),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(icon, size: 16, color: iconColor),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: TextStyle(
-                  color: AppTheme.cream.withAlpha(220),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ],
+  Color _contrastText(Color bg) {
+    return bg.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
+  }
+
+  Widget _sectionTitle(String title) {
+    return Row(
+      children: [
+        Container(width: 4, height: 18, color: AppTheme.black),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: GoogleFonts.spaceMono(
+            color: AppTheme.black,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
           ),
-          const SizedBox(height: 14),
-          child,
+        ),
+      ],
+    );
+  }
+
+  Widget _section(String title, String body) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle(title),
+        const SizedBox(height: 10),
+        Text(
+          body,
+          style: GoogleFonts.spaceMono(
+            color: AppTheme.textSecondary,
+            fontSize: 13,
+            height: 1.6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+          side: const BorderSide(
+            color: AppTheme.black,
+            width: AppTheme.borderWidth,
+          ),
+        ),
+        title: Text(
+          'DELETE THIS REEL?',
+          style: GoogleFonts.spaceMono(
+            color: AppTheme.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'This action cannot be undone.',
+          style: GoogleFonts.spaceMono(
+            color: AppTheme.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'CANCEL',
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () async {
+              Navigator.pop(ctx);
+              try {
+                await context.read<HomeViewModel>().deleteReel(reel.id);
+                if (context.mounted) {
+                  context.read<MapViewModel>().loadMapReels(forceRefresh: true);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'REEL DELETED',
+                        style: GoogleFonts.spaceMono(
+                          color: AppTheme.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      backgroundColor: AppTheme.black,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'FAILED TO DELETE: $e',
+                        style: GoogleFonts.spaceMono(
+                          color: AppTheme.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      backgroundColor: AppTheme.destructive,
+                    ),
+                  );
+                }
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.destructive,
+                border: Border.all(color: AppTheme.black, width: 2),
+                boxShadow: AppTheme.brutalShadowSmall,
+              ),
+              child: Text(
+                'DELETE',
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -467,6 +636,17 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
   Future<void> _openUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _navigateToLocation(Location loc) async {
+    final queryParam = loc.name.isNotEmpty
+        ? Uri.encodeComponent(loc.name)
+        : '${loc.latitude},${loc.longitude}';
+    final url = 'https://www.google.com/maps/search/?api=1&query=$queryParam';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }

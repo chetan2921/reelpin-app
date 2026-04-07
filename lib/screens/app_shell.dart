@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
@@ -30,17 +30,17 @@ class _AppShellState extends State<AppShell> {
     _NavItem(
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
-      label: 'Home',
+      label: 'HOME',
     ),
     _NavItem(
       icon: Icons.map_outlined,
       activeIcon: Icons.map_rounded,
-      label: 'Map',
+      label: 'MAP',
     ),
     _NavItem(
-      icon: Icons.search_rounded,
-      activeIcon: Icons.manage_search_rounded,
-      label: 'Search',
+      icon: Icons.explore_outlined,
+      activeIcon: Icons.explore_rounded,
+      label: 'DISCOVER',
     ),
   ];
 
@@ -58,7 +58,6 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _initSharingIntent() {
-    // 1. Listen for intent while the app is already running in memory
     _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
       (value) {
         _processSharedData(value);
@@ -68,7 +67,6 @@ class _AppShellState extends State<AppShell> {
       },
     );
 
-    // 2. Grab the intent if the app was launched from a cold state via the share sheet
     ReceiveSharingIntent.instance.getInitialMedia().then((value) {
       _processSharedData(value);
     });
@@ -77,30 +75,62 @@ class _AppShellState extends State<AppShell> {
   void _processSharedData(List<SharedMediaFile> files) {
     if (files.isEmpty) return;
 
-    // We take the first shared item. Usually text intent stores payload in `.path` or URL.
     final payload = files.first.path;
 
-    // Extract the Instagram URL from the shared text block using RegExp
     final urlRegex = RegExp(
-      r'https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+(\/?.*)?',
+      r'https?:\/\/(www\.)?(instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+|tiktok\.com\/[A-Za-z0-9@._\/-]+)(\/?\S*)?',
     );
     final match = urlRegex.firstMatch(payload);
 
     if (match != null) {
       final String extractedUrl = match.group(0)!;
 
-      // Navigate uniquely to Home so we can watch it load
       if (mounted) {
         setState(() => _currentIndex = 0);
 
-        // Trigger the viewmodel
         final vm = context.read<HomeViewModel>();
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Received URL! Extracting location...'),
-            backgroundColor: AppTheme.amethyst,
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Row(
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: AppTheme.yellow,
+                    border: Border.all(color: AppTheme.black, width: 2),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.black,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'PROCESSING REEL...',
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.black,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppTheme.white,
+            shape: RoundedRectangleBorder(
+              side: const BorderSide(
+                color: AppTheme.black,
+                width: AppTheme.borderWidth,
+              ),
+            ),
+            duration: const Duration(seconds: 3),
           ),
         );
 
@@ -108,13 +138,40 @@ class _AppShellState extends State<AppShell> {
             .processReel(extractedUrl)
             .then((_) {
               if (mounted) {
-                // Silently update the pins in the Map Screen directly from the database!
                 context.read<MapViewModel>().loadMapReels(forceRefresh: true);
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Pin dropped!'),
-                    backgroundColor: AppTheme.amethyst,
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        Container(
+                          width: 18,
+                          height: 18,
+                          color: AppTheme.neonGreen,
+                          child: const Icon(
+                            Icons.check,
+                            size: 14,
+                            color: AppTheme.black,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'REEL SAVED',
+                          style: GoogleFonts.spaceMono(
+                            color: AppTheme.black,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    backgroundColor: AppTheme.white,
+                    shape: RoundedRectangleBorder(
+                      side: const BorderSide(
+                        color: AppTheme.black,
+                        width: AppTheme.borderWidth,
+                      ),
+                    ),
                   ),
                 );
               }
@@ -123,8 +180,20 @@ class _AppShellState extends State<AppShell> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Failed: $error'),
-                    backgroundColor: AppTheme.mauve,
+                    content: Text(
+                      'FAILED: $error',
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    backgroundColor: AppTheme.destructive,
+                    shape: RoundedRectangleBorder(
+                      side: const BorderSide(
+                        color: AppTheme.black,
+                        width: AppTheme.borderWidth,
+                      ),
+                    ),
                   ),
                 );
               }
@@ -142,49 +211,31 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true,
       body: Container(
-        color: AppTheme.midnightPlum,
+        color: AppTheme.white,
         child: IndexedStack(index: _currentIndex, children: _screens),
       ),
-      bottomNavigationBar: _buildGlassNavBar(),
+      bottomNavigationBar: _buildNavBar(),
     );
   }
 
-  Widget _buildGlassNavBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(36, 0, 36, 28),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            height: 70,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppTheme.deepIndigo.withAlpha(200),
-                  AppTheme.amethyst.withAlpha(120),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: AppTheme.cream.withAlpha(25), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.midnightPlum.withAlpha(160),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(_navItems.length, (i) {
-                return _buildNavItem(i, _navItems[i]);
-              }),
-            ),
+  Widget _buildNavBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.white,
+        border: Border(
+          top: BorderSide(color: AppTheme.black, width: AppTheme.borderWidth),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(_navItems.length, (i) {
+              return _buildNavItem(i, _navItems[i]);
+            }),
           ),
         ),
       ),
@@ -197,50 +248,32 @@ class _AppShellState extends State<AppShell> {
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 20 : 16,
-          vertical: 10,
-        ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  colors: [
-                    AppTheme.mauve.withAlpha(100),
-                    AppTheme.dustyRose.withAlpha(60),
-                  ],
-                )
+          color: isSelected ? AppTheme.yellow : Colors.transparent,
+          border: isSelected
+              ? Border.all(color: AppTheme.black, width: 2)
               : null,
-          borderRadius: BorderRadius.circular(20),
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Icon(
-                isSelected ? item.activeIcon : item.icon,
-                key: ValueKey(isSelected),
-                color: isSelected
-                    ? AppTheme.cream
-                    : AppTheme.cream.withAlpha(100),
-                size: 22,
+            Icon(
+              isSelected ? item.activeIcon : item.icon,
+              color: AppTheme.black,
+              size: 24,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              item.label,
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.black,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
               ),
             ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                item.label,
-                style: TextStyle(
-                  color: AppTheme.cream,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ],
           ],
         ),
       ),

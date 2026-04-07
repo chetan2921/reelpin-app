@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -99,83 +100,69 @@ class _MapScreenState extends State<MapScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Brutalist map pin: flat colored square with thick black border
   Future<BitmapDescriptor> _createCustomPin(String category) async {
-    final color = AppTheme.getCategoryColor(category);
+    final catColor = AppTheme.getCategoryColor(category);
+
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    const size = Size(50, 65);
+    const size = Size(40, 52);
 
-    // Draw shadow
-    final shadowPaint = Paint()
-      ..color = AppTheme.midnightPlum.withAlpha(90)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    // Hard shadow (offset, no blur)
+    final shadowPaint = Paint()..color = Colors.black;
+    canvas.drawRect(
+      Rect.fromLTWH(3, 3, size.width - 3, size.height * 0.7),
+      shadowPaint,
+    );
+    // Add shadow specifically for the pointer to make it unified
+    final shadowPath = Path();
+    shadowPath.moveTo((size.width - 3) * 0.35 + 3, size.height * 0.7 + 3);
+    shadowPath.lineTo((size.width - 3) * 0.5 + 3, size.height);
+    shadowPath.lineTo((size.width - 3) * 0.65 + 3, size.height * 0.7 + 3);
+    shadowPath.close();
+    canvas.drawPath(shadowPath, shadowPaint);
 
+    // Pin body (sharp square with pointer)
     final path = Path();
-    path.moveTo(size.width / 2, size.height); // bottom tip
-    path.quadraticBezierTo(
-      0,
-      size.height * 0.6,
-      0,
-      size.width / 2,
-    ); // left curve
-    path.arcToPoint(
-      Offset(size.width, size.width / 2),
-      radius: Radius.circular(size.width / 2),
-      clockwise: true,
-    ); // top arc
-    path.quadraticBezierTo(
-      size.width,
-      size.height * 0.6,
-      size.width / 2,
-      size.height,
-    ); // right curve
+    // Square body
+    path.addRect(Rect.fromLTWH(0, 0, size.width - 3, size.height * 0.7));
+    // Triangle pointer
+    path.moveTo((size.width - 3) * 0.35, size.height * 0.7);
+    path.lineTo((size.width - 3) * 0.5, size.height - 3);
+    path.lineTo((size.width - 3) * 0.65, size.height * 0.7);
+    path.close();
 
-    canvas.save();
-    canvas.translate(0, 6);
-    canvas.drawPath(path, shadowPaint);
-    canvas.restore();
-
-    // Draw main pin body
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(path, paint);
-
-    // Draw subtle gradient ring
-    final ringPaint = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(0, 0),
-        Offset(size.width, size.height),
-        [AppTheme.cream.withAlpha(80), Colors.transparent],
-      )
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawPath(path, ringPaint);
-
-    // Draw inner circle
-    canvas.drawCircle(
-      Offset(size.width / 2, size.width / 2),
-      size.width * 0.38,
-      Paint()..color = AppTheme.midnightPlum,
+    // Fill
+    canvas.drawPath(path, Paint()..color = catColor);
+    // Border
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.black
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.miter
+        ..strokeWidth = 2.5,
     );
 
-    // Draw initial of category
+    // Letter (centered in square body)
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    final letterColor =
+        catColor.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
     textPainter.text = TextSpan(
       text: category.isNotEmpty ? category[0].toUpperCase() : '?',
       style: TextStyle(
         fontSize: 16,
-        fontWeight: FontWeight.w800,
-        color: AppTheme.cream,
-        fontFamily: 'Poppins',
+        fontWeight: FontWeight.w900,
+        color: letterColor,
+        fontFamily: 'monospace',
       ),
     );
     textPainter.layout();
     textPainter.paint(
       canvas,
       Offset(
-        (size.width - textPainter.width) / 2,
-        (size.width / 2) - (textPainter.height / 2),
+        ((size.width - 3) - textPainter.width) / 2,
+        (size.height * 0.7 - textPainter.height) / 2,
       ),
     );
 
@@ -209,7 +196,6 @@ class _MapScreenState extends State<MapScreen> {
       northeast: LatLng(maxLat, maxLng),
     );
 
-    // Provide padding depending on whether one or multiple pins exist
     final padding = markers.length == 1 ? 20.0 : 40.0;
     _mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(bounds, padding),
@@ -219,14 +205,13 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.midnightPlum,
+      backgroundColor: AppTheme.white,
       body: SafeArea(
         bottom: false,
         child: Consumer<MapViewModel>(
           builder: (context, vm, _) {
             final markers = _buildMarkers(vm);
 
-            // Trigger bound fitting when markers change
             if ((markers.length != _lastMarkersCount ||
                     vm.selectedCategory != _lastCategoryFilter) &&
                 markers.isNotEmpty &&
@@ -258,93 +243,66 @@ class _MapScreenState extends State<MapScreen> {
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
-                  style: _purpleMapStyle,
                 ),
 
-                // ── Header overlay ──
+                // ── Top overlay ──
                 Positioned(
                   top: 12,
                   left: 16,
                   right: 16,
                   child: Column(
                     children: [
-                      // Title bar — glass effect
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: BackdropFilter(
-                          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.deepIndigo.withAlpha(200),
-                                  AppTheme.amethyst.withAlpha(120),
-                                ],
+                      // Info pill (brutalist)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: AppTheme.brutalBox(
+                          color: AppTheme.white,
+                          shadow: true,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: AppTheme.red,
+                                border: Border.all(
+                                  color: AppTheme.black,
+                                  width: 2,
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppTheme.cream.withAlpha(20),
+                              child: const Icon(
+                                Icons.pin_drop,
+                                color: AppTheme.white,
+                                size: 12,
                               ),
                             ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    gradient: AppTheme.accentGradient,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.map_rounded,
-                                    color: AppTheme.cream,
-                                    size: 16,
-                                  ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _userCountry?.isNotEmpty == true
+                                    ? '${vm.reelsWithLocations.length} PLACES PINNED IN ${_userCountry!.toUpperCase()}'
+                                    : '${vm.reelsWithLocations.length} PLACES PINNED',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.spaceMono(
+                                  color: AppTheme.black,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  _userCountry?.isNotEmpty == true
-                                      ? 'Pinned Locations • $_userCountry'
-                                      : 'Pinned Locations',
-                                  style: TextStyle(
-                                    color: AppTheme.cream,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.mauve.withAlpha(60),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '${vm.reelsWithLocations.length} pins',
-                                    style: TextStyle(
-                                      color: AppTheme.dustyRose,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
 
-                      // Category filters
+                      // Category chips
                       SizedBox(
-                        height: 48,
+                        height: 38,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: ApiConfig.broadCategories.length,
@@ -354,6 +312,8 @@ class _MapScreenState extends State<MapScreen> {
                             return CategoryBadge(
                               category: cat,
                               isSelected: vm.selectedCategory == cat,
+                              customHeight: 32,
+                              customFontSize: 9,
                               onTap: () => vm.filterByCategory(cat),
                             );
                           },
@@ -367,131 +327,201 @@ class _MapScreenState extends State<MapScreen> {
                 if (vm.isLoading)
                   Center(
                     child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppTheme.deepIndigo.withAlpha(200),
-                        borderRadius: BorderRadius.circular(16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: AppTheme.brutalBox(
+                        color: AppTheme.yellow,
+                        shadow: true,
                       ),
-                      child: const CircularProgressIndicator(
-                        color: AppTheme.dustyRose,
-                      ),
-                    ),
-                  ),
-
-                // ── Empty overlay ──
-                if (!vm.isLoading && vm.reelsWithLocations.isEmpty)
-                  Center(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: BackdropFilter(
-                        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 40),
-                          padding: const EdgeInsets.all(28),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppTheme.deepIndigo.withAlpha(220),
-                                AppTheme.amethyst.withAlpha(140),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppTheme.cream.withAlpha(20),
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.mauve.withAlpha(50),
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: Icon(
-                                  Icons.location_off_rounded,
-                                  size: 28,
-                                  color: AppTheme.dustyRose.withAlpha(180),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No pinned locations yet',
-                                style: TextStyle(
-                                  color: AppTheme.cream.withAlpha(200),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Save reels with locations to see them here',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: AppTheme.cream.withAlpha(90),
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
+                      child: const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: AppTheme.black,
+                          strokeWidth: 3,
                         ),
                       ),
                     ),
                   ),
 
-                // ── Selected reel bottom sheet ──
+                // ── Error ──
+                if (!vm.isLoading && vm.error != null)
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 32),
+                      padding: const EdgeInsets.all(20),
+                      decoration: AppTheme.brutalBox(
+                        color: AppTheme.white,
+                        shadow: true,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.destructive,
+                              border: Border.all(
+                                color: AppTheme.black,
+                                width: 2,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.cloud_off,
+                              color: AppTheme.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'COULD NOT LOAD MAP DATA',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            vm.error!,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          GestureDetector(
+                            onTap: () => vm.loadMapReels(forceRefresh: true),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                              decoration: AppTheme.brutalBox(
+                                color: AppTheme.red,
+                                shadow: true,
+                              ),
+                              child: Text(
+                                'RETRY',
+                                style: GoogleFonts.spaceMono(
+                                  color: AppTheme.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // ── Empty ──
+                if (!vm.isLoading &&
+                    vm.error == null &&
+                    vm.reelsWithLocations.isEmpty)
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 40),
+                      padding: const EdgeInsets.all(24),
+                      decoration: AppTheme.brutalBox(
+                        color: AppTheme.white,
+                        shadow: true,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.yellow,
+                              border: Border.all(
+                                color: AppTheme.black,
+                                width: 2,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.location_off,
+                              size: 22,
+                              color: AppTheme.black,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'NO LOCATIONS YET',
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Reels with place mentions will\nshow up here on the map.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // ── Selected reel sheet ──
                 if (vm.selectedReel != null)
                   Positioned(
-                    bottom: 108,
+                    bottom: 24,
                     left: 16,
                     right: 16,
                     child: _buildPinSheet(context, vm.selectedReel!),
                   ),
 
-                if (_userLatLng != null)
-                  Positioned(
-                    right: 16,
-                    bottom: vm.selectedReel != null ? 228 : 108,
-                    child: GestureDetector(
-                      onTap: _recenterToUserLocation,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.deepIndigo.withAlpha(220),
-                              AppTheme.amethyst.withAlpha(160),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(13),
-                          border: Border.all(
-                            color: AppTheme.cream.withAlpha(24),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.midnightPlum.withAlpha(120),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
+                // ── Map buttons ──
+                Positioned(
+                  right: 16,
+                  bottom: vm.selectedReel != null ? 280 : 24,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (markers.isNotEmpty)
+                        _mapButton(
+                          icon: Icons.fit_screen,
+                          onTap: () => _fitMarkers(markers),
                         ),
-                        child: Icon(
-                          Icons.my_location_rounded,
-                          size: 18,
-                          color: AppTheme.cream.withAlpha(220),
+                      if (_userLatLng != null) ...[
+                        const SizedBox(height: 8),
+                        _mapButton(
+                          icon: Icons.my_location,
+                          onTap: _recenterToUserLocation,
                         ),
-                      ),
-                    ),
+                      ],
+                    ],
                   ),
+                ),
               ],
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _mapButton({required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: AppTheme.brutalBox(
+          color: AppTheme.white,
+          shadow: true,
+        ),
+        child: Icon(icon, size: 20, color: AppTheme.black),
       ),
     );
   }
@@ -520,228 +550,207 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildPinSheet(BuildContext context, Reel reel) {
     final catColor = AppTheme.getCategoryColor(reel.category);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.deepIndigo.withAlpha(220),
-                AppTheme.amethyst.withAlpha(140),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: catColor.withAlpha(60)),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.midnightPlum.withAlpha(120),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: AppTheme.brutalBox(
+        color: AppTheme.white,
+        shadow: true,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // Header line
-              Row(
-                children: [
-                  CategoryBadge(category: reel.category, small: true),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => context.read<MapViewModel>().selectReel(null),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: AppTheme.cream.withAlpha(15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.close,
-                        size: 16,
-                        color: AppTheme.cream.withAlpha(140),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: catColor,
+                      border: Border.all(color: AppTheme.black, width: 2),
+                    ),
+                    child: Text(
+                      reel.category.toUpperCase(),
+                      style: GoogleFonts.spaceMono(
+                        color: catColor.computeLuminance() > 0.5
+                            ? AppTheme.black
+                            : AppTheme.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Title
-              Text(
-                reel.title,
-                style: TextStyle(
-                  color: AppTheme.cream,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-
-              // Summary
-              if (reel.summary.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  reel.summary,
-                  style: TextStyle(
-                    color: AppTheme.cream.withAlpha(130),
-                    fontSize: 13,
-                    height: 1.4,
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => context.read<MapViewModel>().selectReel(null),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.black, width: 2),
                   ),
-                  maxLines: 2,
+                  child: const Icon(
+                    Icons.close,
+                    size: 16,
+                    color: AppTheme.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Title
+          Text(
+            reel.title.toUpperCase(),
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.black,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+
+          if (reel.summary.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              reel.summary,
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.textSecondary,
+                fontSize: 11,
+                height: 1.4,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+
+          // Location
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: AppTheme.neonGreen,
+                  border: Border.all(color: AppTheme.black, width: 1.5),
+                ),
+                child: const Icon(
+                  Icons.location_on,
+                  size: 10,
+                  color: AppTheme.black,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  reel.locations.map((l) => l.name).join(', ').toUpperCase(),
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
-
-              // Location Text
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on,
-                    size: 14,
-                    color: catColor.withAlpha(200),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      reel.locations.map((l) => l.name).join(' • '),
-                      style: TextStyle(
-                        color: AppTheme.cream.withAlpha(90),
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Action Buttons
-              Row(
-                children: [
-                  // View Details Button
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ReelDetailScreen(reel: reel),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.deepIndigo.withAlpha(180),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppTheme.cream.withAlpha(15),
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'View Details',
-                          style: TextStyle(
-                            color: AppTheme.cream.withAlpha(200),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Navigate Button
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        final loc = reel.mappableLocations.first;
-                        final queryParam = loc.name.isNotEmpty
-                            ? Uri.encodeComponent(loc.name)
-                            : '${loc.latitude},${loc.longitude}';
-
-                        final url =
-                            'https://www.google.com/maps/search/?api=1&query=$queryParam';
-                        final uri = Uri.parse(url);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: AppTheme.accentGradient,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.mauve.withAlpha(60),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.directions,
-                              size: 16,
-                              color: AppTheme.cream,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Navigate',
-                              style: TextStyle(
-                                color: AppTheme.cream,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 14),
+
+          // Buttons
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReelDetailScreen(reel: reel),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: AppTheme.brutalBox(
+                      color: AppTheme.white,
+                      shadow: true,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'DETAILS',
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.black,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    final loc = reel.mappableLocations.first;
+                    final queryParam = loc.name.isNotEmpty
+                        ? Uri.encodeComponent(loc.name)
+                        : '${loc.latitude},${loc.longitude}';
+                    final url =
+                        'https://www.google.com/maps/search/?api=1&query=$queryParam';
+                    final uri = Uri.parse(url);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: AppTheme.brutalBox(
+                      color: AppTheme.red,
+                      shadow: true,
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.directions,
+                          size: 16,
+                          color: AppTheme.white,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'GO',
+                          style: GoogleFonts.spaceMono(
+                            color: AppTheme.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
-
-  // ── Purple-toned dark map style ──
-  static const String _purpleMapStyle = '''[
-  {"elementType": "geometry", "stylers": [{"color": "#1a0a2e"}]},
-  {"elementType": "labels.text.fill", "stylers": [{"color": "#9b8bb4"}]},
-  {"elementType": "labels.text.stroke", "stylers": [{"color": "#1a0a2e"}]},
-  {"featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [{"color": "#3d2060"}]},
-  {"featureType": "land_parcel", "elementType": "labels.text.fill", "stylers": [{"color": "#6b5880"}]},
-  {"featureType": "poi", "elementType": "geometry", "stylers": [{"color": "#241540"}]},
-  {"featureType": "poi", "elementType": "labels.text.fill", "stylers": [{"color": "#7a6890"}]},
-  {"featureType": "poi.park", "elementType": "geometry.fill", "stylers": [{"color": "#1e1038"}]},
-  {"featureType": "road", "elementType": "geometry", "stylers": [{"color": "#2d1a4a"}]},
-  {"featureType": "road", "elementType": "labels.text.fill", "stylers": [{"color": "#8b7aa0"}]},
-  {"featureType": "road.highway", "elementType": "geometry", "stylers": [{"color": "#3d2060"}]},
-  {"featureType": "transit", "elementType": "labels.text.fill", "stylers": [{"color": "#8b7aa0"}]},
-  {"featureType": "water", "elementType": "geometry", "stylers": [{"color": "#120828"}]},
-  {"featureType": "water", "elementType": "labels.text.fill", "stylers": [{"color": "#4a3865"}]}
-]''';
 }

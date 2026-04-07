@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/search_result.dart';
 import '../theme/app_theme.dart';
-import '../widgets/category_badge.dart';
 import '../screens/reel_detail_screen.dart';
 
 class SearchResultTile extends StatelessWidget {
@@ -24,83 +24,68 @@ class SearchResultTile extends StatelessWidget {
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.deepIndigo.withAlpha(200),
-              AppTheme.amethyst.withAlpha(80),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.cream.withAlpha(15)),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.midnightPlum.withAlpha(60),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.all(14),
+        decoration: AppTheme.brutalCard(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Top row: badge + relevance ──
+            // Header row
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CategoryBadge(category: reel.category, small: true),
-                const Spacer(),
-                // Relevance indicator with glow
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        _scoreColor(score).withAlpha(40),
-                        _scoreColor(score).withAlpha(20),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _scoreColor(score).withAlpha(50),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.auto_awesome,
-                        size: 11,
-                        color: _scoreColor(score),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        result.relevancePercent,
-                        style: TextStyle(
-                          color: _scoreColor(score),
-                          fontSize: 11,
+                      decoration: BoxDecoration(
+                        color: catColor,
+                        border: Border.all(color: AppTheme.black, width: 2),
+                      ),
+                      child: Text(
+                        reel.category.toUpperCase(),
+                        style: GoogleFonts.spaceMono(
+                          color: _contrastText(catColor),
+                          fontSize: 9,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
                         ),
                       ),
-                    ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _scoreColor(score),
+                    border: Border.all(color: AppTheme.black, width: 2),
+                  ),
+                  child: Text(
+                    result.relevancePercent,
+                    style: GoogleFonts.spaceMono(
+                      color: _contrastText(_scoreColor(score)),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // ── Title ──
+            // Title
             Text(
-              reel.title.isNotEmpty ? reel.title : 'Untitled',
-              style: TextStyle(
-                color: AppTheme.cream,
-                fontSize: 15,
+              reel.title.isNotEmpty ? reel.title : 'UNTITLED',
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.black,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 height: 1.3,
               ),
@@ -108,14 +93,14 @@ class SearchResultTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
 
-            // ── Summary snippet ──
+            // Summary
             if (reel.summary.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 reel.summary,
-                style: TextStyle(
-                  color: AppTheme.cream.withAlpha(120),
-                  fontSize: 13,
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.textSecondary,
+                  fontSize: 11,
                   height: 1.4,
                 ),
                 maxLines: 2,
@@ -123,43 +108,36 @@ class SearchResultTile extends StatelessWidget {
               ),
             ],
 
-            // ── Footer ──
-            if (reel.keyFacts.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(
-                    Icons.lightbulb_outline,
-                    size: 13,
-                    color: catColor.withAlpha(180),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      '${reel.keyFacts.length} key fact${reel.keyFacts.length == 1 ? '' : 's'}',
-                      style: TextStyle(
-                        color: AppTheme.cream.withAlpha(70),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: AppTheme.cream.withAlpha(50),
-                  ),
-                ],
+            // Relevance bar (thick, flat, no rounded ends)
+            const SizedBox(height: 12),
+            Container(
+              height: 4,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceElevated,
+                border: Border.all(color: AppTheme.black, width: 1),
               ),
-            ],
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: score.clamp(0.0, 1.0),
+                child: Container(
+                  color: _scoreColor(score),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  Color _contrastText(Color bg) {
+    return bg.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
+  }
+
   Color _scoreColor(double score) {
-    if (score >= 0.8) return const Color(0xFF7DC4A5); // warm green
-    if (score >= 0.5) return AppTheme.dustyRose;
-    return const Color(0xFFE8926F); // warm orange
+    if (score >= 0.8) return AppTheme.neonGreen;
+    if (score >= 0.5) return AppTheme.yellow;
+    return AppTheme.orange;
   }
 }
