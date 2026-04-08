@@ -30,7 +30,7 @@ class CategoryBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: color,
-          border: Border.all(color: AppTheme.black, width: 2),
+          border: Border.all(color: AppTheme.fg(context), width: 2),
         ),
         child: Text(
           category.toUpperCase(),
@@ -52,12 +52,12 @@ class CategoryBadge extends StatelessWidget {
         height: customHeight,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.yellow : AppTheme.white,
+          color: isSelected ? AppTheme.yellow : AppTheme.bg(context),
           border: Border.all(
-            color: AppTheme.black,
+            color: AppTheme.fg(context),
             width: AppTheme.thinBorderWidth,
           ),
-          boxShadow: isSelected ? AppTheme.brutalShadowSmall : null,
+          boxShadow: isSelected ? AppTheme.brutalShadowSmall(context) : null,
         ),
         child: Center(
           widthFactor: 1.0,
@@ -66,7 +66,7 @@ class CategoryBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: isSelected ? AppTheme.black : AppTheme.fg(context),
               fontSize: customFontSize,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.3,

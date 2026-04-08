@@ -77,12 +77,12 @@ class _ReelCardState extends State<ReelCard>
           children: [
             Container(
               decoration: BoxDecoration(
-                color: AppTheme.white,
+                color: AppTheme.bg(context),
                 border: Border.all(
-                  color: AppTheme.black,
+                  color: AppTheme.fg(context),
                   width: AppTheme.borderWidth,
                 ),
-                boxShadow: _isPressed ? null : AppTheme.brutalShadow,
+                boxShadow: _isPressed ? null : AppTheme.brutalShadow(context),
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -109,7 +109,7 @@ class _ReelCardState extends State<ReelCard>
                               decoration: BoxDecoration(
                                 color: catColor,
                                 border: Border.all(
-                                  color: AppTheme.black,
+                                  color: AppTheme.fg(context),
                                   width: 1.5,
                                 ),
                               ),
@@ -134,7 +134,7 @@ class _ReelCardState extends State<ReelCard>
                                 ? reel.title
                                 : 'UNTITLED REEL',
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.black,
+                              color: AppTheme.fg(context),
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               height: 1.3,
@@ -150,7 +150,7 @@ class _ReelCardState extends State<ReelCard>
                               child: Text(
                                 reel.summary,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.textSecondary,
+                                  color: AppTheme.textSec(context),
                                   fontSize: 10,
                                   height: 1.4,
                                 ),
@@ -164,21 +164,21 @@ class _ReelCardState extends State<ReelCard>
                           // ── Bottom info row ──
                           Container(
                             padding: const EdgeInsets.only(top: 6),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               border: Border(
                                 top: BorderSide(
-                                  color: AppTheme.black,
-                                  width: 1,
+                                  color: AppTheme.fg(context),
+                                  width: 1.0,
                                 ),
                               ),
                             ),
                             child: Row(
                               children: [
                                 if (reel.hasMapLocations) ...[
-                                  const Icon(
+                                  Icon(
                                     Icons.location_on,
                                     size: 12,
-                                    color: AppTheme.black,
+                                    color: AppTheme.fg(context),
                                   ),
                                   const SizedBox(width: 2),
                                 ],
@@ -189,7 +189,7 @@ class _ReelCardState extends State<ReelCard>
                                               .toUpperCase()
                                         : reel.relativeDate.toUpperCase(),
                                     style: GoogleFonts.spaceMono(
-                                      color: AppTheme.black,
+                                      color: AppTheme.fg(context),
                                       fontSize: 9,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -289,6 +289,7 @@ class _ReelCardState extends State<ReelCard>
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: AppTheme.brutalBox(
+                    context,
                     color: AppTheme.destructive,
                     shadow: true,
                   ),
@@ -296,7 +297,7 @@ class _ReelCardState extends State<ReelCard>
                   child: Text(
                     'DELETE REEL',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.white,
+                      color: AppTheme.fg(context),
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -312,14 +313,15 @@ class _ReelCardState extends State<ReelCard>
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: AppTheme.brutalBox(
-                    color: AppTheme.white,
+                    context,
+                    color: AppTheme.bg(context),
                     shadow: false,
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     'CANCEL',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
+                      color: AppTheme.fg(context),
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),

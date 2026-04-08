@@ -7,6 +7,7 @@ import 'theme/app_theme.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/map_viewmodel.dart';
 import 'viewmodels/search_viewmodel.dart';
+import 'viewmodels/theme_viewmodel.dart';
 import 'screens/app_shell.dart';
 
 void main() {
@@ -23,6 +24,7 @@ class ReelPinApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeViewModel()),
         ChangeNotifierProvider(
           create: (_) => HomeViewModel(repository)..loadReels(),
         ),
@@ -31,11 +33,17 @@ class ReelPinApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => SearchViewModel(repository)),
       ],
-      child: MaterialApp(
-        title: 'ReelPin',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.brutalTheme,
-        home: const AppShell(),
+      child: Consumer<ThemeViewModel>(
+        builder: (context, themeVm, _) {
+          return MaterialApp(
+            title: 'ReelPin',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.brutalTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeVm.themeMode,
+            home: const AppShell(),
+          );
+        },
       ),
     );
   }

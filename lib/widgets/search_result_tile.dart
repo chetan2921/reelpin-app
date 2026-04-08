@@ -25,7 +25,7 @@ class SearchResultTile extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: AppTheme.brutalCard(),
+        decoration: AppTheme.brutalCard(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -43,7 +43,7 @@ class SearchResultTile extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: catColor,
-                        border: Border.all(color: AppTheme.black, width: 2),
+                        border: Border.all(color: AppTheme.fg(context), width: 2),
                       ),
                       child: Text(
                         reel.category.toUpperCase(),
@@ -84,7 +84,7 @@ class SearchResultTile extends StatelessWidget {
             Text(
               reel.title.isNotEmpty ? reel.title : 'UNTITLED',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
+                color: AppTheme.fg(context),
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 height: 1.3,
@@ -99,7 +99,7 @@ class SearchResultTile extends StatelessWidget {
               Text(
                 reel.summary,
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.textSec(context),
                   fontSize: 11,
                   height: 1.4,
                 ),
@@ -114,8 +114,8 @@ class SearchResultTile extends StatelessWidget {
               height: 4,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: AppTheme.surfaceElevated,
-                border: Border.all(color: AppTheme.black, width: 1),
+                color: AppTheme.surfaceElevatedColor(context),
+                border: Border.all(color: AppTheme.fg(context), width: 1),
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,

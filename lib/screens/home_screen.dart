@@ -17,14 +17,14 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
         child: Consumer<HomeViewModel>(
           builder: (context, vm, _) {
             return RefreshIndicator(
               onRefresh: () => vm.loadReels(forceRefresh: true),
-              color: AppTheme.black,
+              color: AppTheme.fg(context),
               backgroundColor: AppTheme.yellow,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -43,7 +43,7 @@ class HomeScreen extends StatelessWidget {
                               Text(
                                 'REELPIN',
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.black,
+                                  color: AppTheme.fg(context),
                                   fontSize: 28,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 2,
@@ -110,11 +110,11 @@ class HomeScreen extends StatelessWidget {
 
                   // ── Content ──
                   if (vm.isLoading)
-                    _buildShimmerGrid()
+                    _buildShimmerGrid(context)
                   else if (vm.error != null)
-                    _buildErrorState(vm)
+                    _buildErrorState(context, vm)
                   else if (vm.isEmpty)
-                    _buildEmptyState()
+                    _buildEmptyState(context)
                   else
                     _buildReelGrid(context, vm),
 
@@ -135,10 +135,10 @@ class HomeScreen extends StatelessWidget {
       child: Container(
         width: 40,
         height: 40,
-        decoration: AppTheme.brutalBox(shadow: true),
-        child: const Icon(
+        decoration: AppTheme.brutalBox(context, shadow: true),
+        child: Icon(
           Icons.tune,
-          color: AppTheme.black,
+          color: AppTheme.fg(context),
           size: 20,
         ),
       ),
@@ -203,7 +203,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   // ── Shimmer (brutalist: blocky yellow/black pulse) ──
-  Widget _buildShimmerGrid() {
+  Widget _buildShimmerGrid(BuildContext context) {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       sliver: SliverGrid(
@@ -219,9 +219,9 @@ class HomeScreen extends StatelessWidget {
             highlightColor: AppTheme.yellow,
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.white,
+                color: AppTheme.bg(context),
                 border: Border.all(
-                  color: AppTheme.black,
+                  color: AppTheme.fg(context),
                   width: AppTheme.borderWidth,
                 ),
               ),
@@ -234,7 +234,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   // ── Empty ──
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return SliverFillRemaining(
       hasScrollBody: false,
       child: Center(
@@ -246,18 +246,18 @@ class HomeScreen extends StatelessWidget {
               Container(
                 width: 72,
                 height: 72,
-                decoration: AppTheme.brutalBox(color: AppTheme.yellow),
-                child: const Icon(
+                decoration: AppTheme.brutalBox(context, color: AppTheme.yellow),
+                child: Icon(
                   Icons.video_library,
                   size: 32,
-                  color: AppTheme.black,
+                  color: AppTheme.fg(context),
                 ),
               ),
               const SizedBox(height: 20),
               Text(
                 'NO REELS YET',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.black,
+                  color: AppTheme.fg(context),
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1,
@@ -268,13 +268,13 @@ class HomeScreen extends StatelessWidget {
                 'Share a reel from Instagram or TikTok\nto start building your collection.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.textSec(context),
                   fontSize: 12,
                   height: 1.6,
                 ),
               ),
               const SizedBox(height: 28),
-              _buildHowItWorks(),
+              _buildHowItWorks(context),
             ],
           ),
         ),
@@ -282,34 +282,34 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHowItWorks() {
+  Widget _buildHowItWorks(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: AppTheme.brutalCard(),
+      decoration: AppTheme.brutalCard(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'HOW IT WORKS',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppTheme.fg(context),
               fontSize: 13,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
             ),
           ),
           const SizedBox(height: 14),
-          _step('01', 'Find a reel on Instagram or TikTok'),
+          _step(context, '01', 'Find a reel on Instagram or TikTok'),
           const SizedBox(height: 10),
-          _step('02', 'Tap share and choose ReelPin'),
+          _step(context, '02', 'Tap share and choose ReelPin'),
           const SizedBox(height: 10),
-          _step('03', 'AI extracts all the info and places'),
+          _step(context, '03', 'AI extracts all the info and places'),
         ],
       ),
     );
   }
 
-  Widget _step(String num, String text) {
+  Widget _step(BuildContext context, String num, String text) {
     return Row(
       children: [
         Container(
@@ -317,13 +317,13 @@ class HomeScreen extends StatelessWidget {
           height: 28,
           decoration: BoxDecoration(
             color: AppTheme.yellow,
-            border: Border.all(color: AppTheme.black, width: 2),
+            border: Border.all(color: AppTheme.fg(context), width: 2),
           ),
           alignment: Alignment.center,
           child: Text(
             num,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppTheme.fg(context),
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
@@ -334,7 +334,7 @@ class HomeScreen extends StatelessWidget {
           child: Text(
             text,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.textSecondary,
+              color: AppTheme.textSec(context),
               fontSize: 12,
             ),
           ),
@@ -344,7 +344,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   // ── Error ──
-  Widget _buildErrorState(HomeViewModel vm) {
+  Widget _buildErrorState(BuildContext context, HomeViewModel vm) {
     return SliverFillRemaining(
       hasScrollBody: false,
       child: Center(
@@ -353,7 +353,8 @@ class HomeScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: AppTheme.brutalBox(
-              color: AppTheme.white,
+              context,
+              color: AppTheme.bg(context),
               shadow: true,
             ),
             child: Column(
@@ -364,7 +365,7 @@ class HomeScreen extends StatelessWidget {
                   height: 48,
                   decoration: BoxDecoration(
                     color: AppTheme.destructive,
-                    border: Border.all(color: AppTheme.black, width: 2),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
                   ),
                   child: const Icon(
                     Icons.cloud_off,
@@ -376,7 +377,7 @@ class HomeScreen extends StatelessWidget {
                 Text(
                   'COULD NOT CONNECT',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.black,
+                    color: AppTheme.fg(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -386,7 +387,7 @@ class HomeScreen extends StatelessWidget {
                   vm.error ?? '',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSecondary,
+                    color: AppTheme.textSec(context),
                     fontSize: 12,
                   ),
                 ),
@@ -399,6 +400,7 @@ class HomeScreen extends StatelessWidget {
                       vertical: 12,
                     ),
                     decoration: AppTheme.brutalBox(
+                      context,
                       color: AppTheme.red,
                       shadow: true,
                     ),
@@ -434,16 +436,16 @@ class HomeScreen extends StatelessWidget {
           builder: (_, controller) {
             return Container(
               decoration: BoxDecoration(
-                color: AppTheme.white,
+                color: AppTheme.bg(context),
                 border: Border.all(
-                  color: AppTheme.black,
+                  color: AppTheme.fg(context),
                   width: AppTheme.borderWidth,
                 ),
               ),
               child: Column(
                 children: [
                   const SizedBox(height: 12),
-                  Container(width: 40, height: 4, color: AppTheme.black),
+                  Container(width: 40, height: 4, color: AppTheme.fg(context)),
                   const SizedBox(height: 16),
                   Text(
                     'BROWSE CATEGORIES',

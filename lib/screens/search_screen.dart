@@ -7,6 +7,7 @@ import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/search_viewmodel.dart';
+import '../viewmodels/theme_viewmodel.dart';
 import '../widgets/search_result_tile.dart';
 import 'reel_detail_screen.dart';
 
@@ -31,7 +32,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
         child: Consumer2<SearchViewModel, HomeViewModel>(
@@ -46,14 +47,57 @@ class _SearchScreenState extends State<SearchScreen> {
                       Text(
                         'DISCOVER',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.black,
+                          color: AppTheme.fg(context),
                           fontSize: 28,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                         ),
                       ),
                       const Spacer(),
-                      if (vm.hasResults)
+                      
+                      // Dark Mode Toggle
+                      GestureDetector(
+                        onTap: () {
+                          context.read<ThemeViewModel>().toggleTheme();
+                        },
+                        child: Consumer<ThemeViewModel>(
+                          builder: (context, themeVm, _) {
+                            final isDark = themeVm.themeMode == ThemeMode.dark;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: AppTheme.brutalBox(
+                                context,
+                                color: AppTheme.fg(context),
+                                shadow: false,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isDark ? Icons.light_mode : Icons.dark_mode,
+                                    size: 16,
+                                    color: AppTheme.bg(context),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    isDark ? 'LIGHT' : 'DARK',
+                                    style: GoogleFonts.spaceMono(
+                                      color: AppTheme.bg(context),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      
+                      if (vm.hasResults) ...[
+                        const SizedBox(width: 12),
                         GestureDetector(
                           onTap: () {
                             vm.clear();
@@ -65,19 +109,21 @@ class _SearchScreenState extends State<SearchScreen> {
                               vertical: 8,
                             ),
                             decoration: AppTheme.brutalBox(
-                              color: AppTheme.white,
+                              context,
+                              color: AppTheme.bg(context),
                               shadow: true,
                             ),
                             child: Text(
                               'CLEAR',
                               style: GoogleFonts.spaceMono(
-                                color: AppTheme.black,
+                                color: AppTheme.fg(context),
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -87,25 +133,25 @@ class _SearchScreenState extends State<SearchScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
-                    decoration: AppTheme.brutalBox(shadow: true),
+                    decoration: AppTheme.brutalBox(context, shadow: true),
                     child: TextField(
                       controller: _controller,
                       focusNode: _focusNode,
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.black,
+                        color: AppTheme.fg(context),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
-                      cursorColor: AppTheme.black,
+                      cursorColor: AppTheme.fg(context),
                       decoration: InputDecoration(
                         hintText: 'SEARCH YOUR SAVED REELS...',
                         hintStyle: GoogleFonts.spaceMono(
-                          color: AppTheme.textTertiary,
+                          color: AppTheme.textSec(context),
                           fontSize: 12,
                         ),
-                        prefixIcon: const Icon(
+                        prefixIcon: Icon(
                           Icons.search,
-                          color: AppTheme.black,
+                          color: AppTheme.fg(context),
                           size: 22,
                         ),
                         suffixIcon: vm.isSearching
@@ -116,7 +162,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
-                                    color: AppTheme.black,
+                                    color: AppTheme.fg(context),
                                   ),
                                 ),
                               )
@@ -139,12 +185,12 @@ class _SearchScreenState extends State<SearchScreen> {
                 // ── Content ──
                 Expanded(
                   child: vm.isSearching
-                      ? _buildSearchingState()
+                      ? _buildSearchingState(context)
                       : vm.error != null
-                      ? _buildError(vm)
+                      ? _buildError(context, vm)
                       : vm.hasResults
-                      ? _buildResults(vm)
-                      : _buildDiscoverContent(homeVm),
+                      ? _buildResults(context, vm)
+                      : _buildDiscoverContent(context, homeVm),
                 ),
               ],
             );
@@ -154,27 +200,27 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildStats(HomeViewModel vm) {
+  Widget _buildStats(BuildContext context, HomeViewModel vm) {
     final total = vm.reels.length;
     final pinned = vm.reels.where((r) => r.hasMapLocations).length;
     final categories = vm.reels.map((r) => r.category).toSet().length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-      decoration: AppTheme.brutalCard(),
+      decoration: AppTheme.brutalCard(context),
       child: Row(
         children: [
-          _statItem('$total', 'SAVED', AppTheme.yellow),
-          Container(width: AppTheme.borderWidth, height: 56, color: AppTheme.black),
-          _statItem('$pinned', 'PINNED', AppTheme.neonGreen),
-          Container(width: AppTheme.borderWidth, height: 56, color: AppTheme.black),
-          _statItem('$categories', 'CATEGORIES', AppTheme.cyan),
+          _statItem(context, '$total', 'SAVED', AppTheme.yellow),
+          Container(width: AppTheme.borderWidth, height: 56, color: AppTheme.fg(context)),
+          _statItem(context, '$pinned', 'PINNED', AppTheme.neonGreen),
+          Container(width: AppTheme.borderWidth, height: 56, color: AppTheme.fg(context)),
+          _statItem(context, '$categories', 'CATEGORIES', AppTheme.cyan),
         ],
       ),
     );
   }
 
-  Widget _statItem(String value, String label, Color accent) {
+  Widget _statItem(BuildContext context, String value, String label, Color accent) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -184,7 +230,7 @@ class _SearchScreenState extends State<SearchScreen> {
             Text(
               value,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
+                color: AppTheme.fg(context),
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -193,7 +239,7 @@ class _SearchScreenState extends State<SearchScreen> {
             Text(
               label,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
+                color: AppTheme.fg(context),
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
@@ -212,7 +258,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   // ── Discover (no search active) ──
-  Widget _buildDiscoverContent(HomeViewModel homeVm) {
+  Widget _buildDiscoverContent(BuildContext context, HomeViewModel homeVm) {
     final reels = homeVm.reels;
 
     return ListView(
@@ -224,7 +270,7 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Text(
             'QUICK SEARCH',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.textSecondary,
+              color: AppTheme.textSec(context),
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
@@ -232,13 +278,13 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        _buildQuickSearches(),
+        _buildQuickSearches(context),
         const SizedBox(height: 24),
 
         // Stats Row
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: _buildStats(homeVm),
+          child: _buildStats(context, homeVm),
         ),
         const SizedBox(height: 24),
 
@@ -251,7 +297,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 Text(
                   'RECENT SAVES',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.black,
+                    color: AppTheme.fg(context),
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1,
@@ -265,12 +311,12 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: AppTheme.yellow,
-                    border: Border.all(color: AppTheme.black, width: 2),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
                   ),
                   child: Text(
                     '${reels.length}',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
+                      color: AppTheme.fg(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -279,7 +325,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ],
             ),
           ),
-          _buildRecentSaves(reels),
+          _buildRecentSaves(context, reels),
           const SizedBox(height: 24),
         ],
 
@@ -289,14 +335,14 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Text(
             'BROWSE BY CATEGORY',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppTheme.fg(context),
               fontSize: 14,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
             ),
           ),
         ),
-        _buildCategoryGrid(homeVm),
+        _buildCategoryGrid(context, homeVm),
 
         // Collection summary
         if (reels.isNotEmpty) ...[
@@ -306,20 +352,20 @@ class _SearchScreenState extends State<SearchScreen> {
             child: Text(
               'COLLECTION SUMMARY',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
+                color: AppTheme.fg(context),
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
               ),
             ),
           ),
-          _buildCollectionSummary(homeVm),
+          _buildCollectionSummary(context, homeVm),
         ],
       ],
     );
   }
 
-  Widget _buildQuickSearches() {
+  Widget _buildQuickSearches(BuildContext context) {
     final prompts = [
       'Food spots nearby',
       'Travel destinations',
@@ -343,14 +389,15 @@ class _SearchScreenState extends State<SearchScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: AppTheme.brutalBox(
-                color: AppTheme.white,
+                context,
+                color: AppTheme.bg(context),
                 shadow: true,
               ),
               child: Center(
                 child: Text(
                   prompts[i].toUpperCase(),
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.black,
+                    color: AppTheme.fg(context),
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
@@ -365,7 +412,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildRecentSaves(List reels) {
+  Widget _buildRecentSaves(BuildContext context, List reels) {
     return SizedBox(
       height: 150,
       child: ListView.separated(
@@ -385,7 +432,7 @@ class _SearchScreenState extends State<SearchScreen> {
             },
             child: Container(
               width: 190,
-              decoration: AppTheme.brutalCard(),
+              decoration: AppTheme.brutalCard(context),
               child: Row(
                 children: [
                   // Color accent bar
@@ -406,7 +453,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             decoration: BoxDecoration(
                               color: catColor,
                               border: Border.all(
-                                color: AppTheme.black,
+                                color: AppTheme.fg(context),
                                 width: 1.5,
                               ),
                             ),
@@ -428,7 +475,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             child: Text(
                               reel.title.isNotEmpty ? reel.title : 'Untitled',
                               style: GoogleFonts.spaceMono(
-                                color: AppTheme.black,
+                                color: AppTheme.fg(context),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 height: 1.3,
@@ -439,10 +486,10 @@ class _SearchScreenState extends State<SearchScreen> {
                           ),
                           Container(
                             padding: const EdgeInsets.only(top: 6),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               border: Border(
                                 top: BorderSide(
-                                  color: AppTheme.black,
+                                  color: AppTheme.fg(context),
                                   width: 1,
                                 ),
                               ),
@@ -469,7 +516,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildCategoryGrid(HomeViewModel homeVm) {
+  Widget _buildCategoryGrid(BuildContext context, HomeViewModel homeVm) {
     final categories = ApiConfig.broadCategories;
 
     return Padding(
@@ -513,7 +560,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       _doSearch(vm, cat);
                     },
                     child: Container(
-                      decoration: AppTheme.brutalCard(),
+                      decoration: AppTheme.brutalCard(context),
                       child: Row(
                         children: [
                           // Color accent bar
@@ -528,7 +575,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                   Text(
                                     cat.split(' & ').first.toUpperCase(),
                                     style: GoogleFonts.spaceMono(
-                                      color: AppTheme.black,
+                                      color: AppTheme.fg(context),
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -544,14 +591,14 @@ class _SearchScreenState extends State<SearchScreen> {
                                     decoration: BoxDecoration(
                                       color: color.withAlpha(60),
                                       border: Border.all(
-                                        color: AppTheme.black,
+                                        color: AppTheme.fg(context),
                                         width: 1,
                                       ),
                                     ),
                                     child: Text(
                                       '$count REEL${count == 1 ? '' : 'S'}',
                                       style: GoogleFonts.spaceMono(
-                                        color: AppTheme.black,
+                                        color: AppTheme.fg(context),
                                         fontSize: 9,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -574,7 +621,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildCollectionSummary(HomeViewModel homeVm) {
+  Widget _buildCollectionSummary(BuildContext context, HomeViewModel homeVm) {
     final reels = homeVm.reels;
     final pinned = reels.where((r) => r.hasMapLocations).length;
     final topCat = _getTopCategory(homeVm);
@@ -583,7 +630,7 @@ class _SearchScreenState extends State<SearchScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         padding: const EdgeInsets.all(0),
-        decoration: AppTheme.brutalCard(),
+        decoration: AppTheme.brutalCard(context),
         child: Column(
           children: [
             _insightRow(
@@ -592,7 +639,7 @@ class _SearchScreenState extends State<SearchScreen> {
               '${reels.length}',
               AppTheme.yellow,
             ),
-            Container(height: 2, color: AppTheme.black),
+            Container(height: 2, color: AppTheme.fg(context)),
             _insightRow(
               Icons.location_on,
               'WITH LOCATIONS',
@@ -600,7 +647,7 @@ class _SearchScreenState extends State<SearchScreen> {
               AppTheme.neonGreen,
             ),
             if (topCat != null) ...[
-              Container(height: 2, color: AppTheme.black),
+              Container(height: 2, color: AppTheme.fg(context)),
               _insightRow(
                 Icons.star,
                 'TOP CATEGORY',
@@ -629,9 +676,9 @@ class _SearchScreenState extends State<SearchScreen> {
             height: 24,
             decoration: BoxDecoration(
               color: accentColor,
-              border: Border.all(color: AppTheme.black, width: 1.5),
+              border: Border.all(color: AppTheme.fg(context), width: 1.5),
             ),
-            child: Icon(icon, size: 14, color: AppTheme.black),
+            child: Icon(icon, size: 14, color: AppTheme.fg(context)),
           ),
           const SizedBox(width: 10),
           Text(
@@ -646,7 +693,7 @@ class _SearchScreenState extends State<SearchScreen> {
           Text(
             value,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppTheme.fg(context),
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -668,7 +715,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   // ── Searching state ──
-  Widget _buildSearchingState() {
+  Widget _buildSearchingState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -677,15 +724,16 @@ class _SearchScreenState extends State<SearchScreen> {
             width: 48,
             height: 48,
             decoration: AppTheme.brutalBox(
+              context,
               color: AppTheme.yellow,
               shadow: true,
             ),
-            child: const Center(
+            child: Center(
               child: SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
-                  color: AppTheme.black,
+                  color: AppTheme.fg(context),
                   strokeWidth: 3,
                 ),
               ),
@@ -695,7 +743,7 @@ class _SearchScreenState extends State<SearchScreen> {
           Text(
             'SEARCHING YOUR REELS...',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppTheme.fg(context),
               fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
@@ -706,7 +754,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   // ── Results ──
-  Widget _buildResults(SearchViewModel vm) {
+  Widget _buildResults(BuildContext context, SearchViewModel vm) {
     return AnimationLimiter(
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
@@ -725,12 +773,12 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: AppTheme.yellow,
-                      border: Border.all(color: AppTheme.black, width: 2),
+                      border: Border.all(color: AppTheme.fg(context), width: 2),
                     ),
                     child: Text(
                       '${vm.results.length}',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.black,
+                        color: AppTheme.fg(context),
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -740,7 +788,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   Text(
                     'RESULT${vm.results.length == 1 ? '' : 'S'} FOR "${vm.lastQuery.toUpperCase()}"',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.textSecondary,
+                      color: AppTheme.textSec(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -765,13 +813,14 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   // ── Error ──
-  Widget _buildError(SearchViewModel vm) {
+  Widget _buildError(BuildContext context, SearchViewModel vm) {
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 32),
         padding: const EdgeInsets.all(24),
         decoration: AppTheme.brutalBox(
-          color: AppTheme.white,
+          context,
+          color: AppTheme.bg(context),
           shadow: true,
         ),
         child: Column(
@@ -782,19 +831,19 @@ class _SearchScreenState extends State<SearchScreen> {
               height: 40,
               decoration: BoxDecoration(
                 color: AppTheme.destructive,
-                border: Border.all(color: AppTheme.black, width: 2),
+                border: Border.all(color: AppTheme.fg(context), width: 2),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.error_outline,
                 size: 22,
-                color: AppTheme.white,
+                color: AppTheme.bg(context),
               ),
             ),
             const SizedBox(height: 12),
             Text(
               'SEARCH FAILED',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
+                color: AppTheme.fg(context),
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),

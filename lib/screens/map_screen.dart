@@ -205,7 +205,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
         child: Consumer<MapViewModel>(
@@ -259,7 +259,8 @@ class _MapScreenState extends State<MapScreen> {
                           vertical: 10,
                         ),
                         decoration: AppTheme.brutalBox(
-                          color: AppTheme.white,
+                          context,
+                          color: AppTheme.bg(context),
                           shadow: true,
                         ),
                         child: Row(
@@ -270,13 +271,13 @@ class _MapScreenState extends State<MapScreen> {
                               decoration: BoxDecoration(
                                 color: AppTheme.red,
                                 border: Border.all(
-                                  color: AppTheme.black,
+                                  color: AppTheme.fg(context),
                                   width: 2,
                                 ),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.pin_drop,
-                                color: AppTheme.white,
+                                color: AppTheme.bg(context),
                                 size: 12,
                               ),
                             ),
@@ -289,7 +290,7 @@ class _MapScreenState extends State<MapScreen> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.black,
+                                  color: AppTheme.fg(context),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -329,14 +330,15 @@ class _MapScreenState extends State<MapScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: AppTheme.brutalBox(
+                        context,
                         color: AppTheme.yellow,
                         shadow: true,
                       ),
-                      child: const SizedBox(
+                      child: SizedBox(
                         width: 24,
                         height: 24,
                         child: CircularProgressIndicator(
-                          color: AppTheme.black,
+                          color: AppTheme.fg(context),
                           strokeWidth: 3,
                         ),
                       ),
@@ -350,7 +352,8 @@ class _MapScreenState extends State<MapScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 32),
                       padding: const EdgeInsets.all(20),
                       decoration: AppTheme.brutalBox(
-                        color: AppTheme.white,
+                        context,
+                        color: AppTheme.bg(context),
                         shadow: true,
                       ),
                       child: Column(
@@ -362,13 +365,13 @@ class _MapScreenState extends State<MapScreen> {
                             decoration: BoxDecoration(
                               color: AppTheme.destructive,
                               border: Border.all(
-                                color: AppTheme.black,
+                                color: AppTheme.fg(context),
                                 width: 2,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.cloud_off,
-                              color: AppTheme.white,
+                              color: AppTheme.bg(context),
                               size: 20,
                             ),
                           ),
@@ -377,7 +380,7 @@ class _MapScreenState extends State<MapScreen> {
                             'COULD NOT LOAD MAP DATA',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.black,
+                              color: AppTheme.fg(context),
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -400,13 +403,14 @@ class _MapScreenState extends State<MapScreen> {
                                 vertical: 10,
                               ),
                               decoration: AppTheme.brutalBox(
+                                context,
                                 color: AppTheme.red,
                                 shadow: true,
                               ),
                               child: Text(
                                 'RETRY',
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.white,
+                                  color: AppTheme.bg(context),
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
                                 ),
@@ -427,7 +431,8 @@ class _MapScreenState extends State<MapScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 40),
                       padding: const EdgeInsets.all(24),
                       decoration: AppTheme.brutalBox(
-                        color: AppTheme.white,
+                        context,
+                        color: AppTheme.bg(context),
                         shadow: true,
                       ),
                       child: Column(
@@ -439,21 +444,21 @@ class _MapScreenState extends State<MapScreen> {
                             decoration: BoxDecoration(
                               color: AppTheme.yellow,
                               border: Border.all(
-                                color: AppTheme.black,
+                                color: AppTheme.fg(context),
                                 width: 2,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.location_off,
                               size: 22,
-                              color: AppTheme.black,
+                              color: AppTheme.fg(context),
                             ),
                           ),
                           const SizedBox(height: 14),
                           Text(
                             'NO LOCATIONS YET',
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.black,
+                              color: AppTheme.fg(context),
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -518,10 +523,11 @@ class _MapScreenState extends State<MapScreen> {
         width: 44,
         height: 44,
         decoration: AppTheme.brutalBox(
-          color: AppTheme.white,
+          context,
+          color: AppTheme.bg(context),
           shadow: true,
         ),
-        child: Icon(icon, size: 20, color: AppTheme.black),
+        child: Icon(icon, size: 20, color: AppTheme.fg(context)),
       ),
     );
   }
@@ -553,7 +559,8 @@ class _MapScreenState extends State<MapScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: AppTheme.brutalBox(
-        color: AppTheme.white,
+        context,
+        color: AppTheme.bg(context),
         shadow: true,
       ),
       child: Column(
@@ -574,7 +581,7 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: catColor,
-                      border: Border.all(color: AppTheme.black, width: 2),
+                      border: Border.all(color: AppTheme.fg(context), width: 2),
                     ),
                     child: Text(
                       reel.category.toUpperCase(),
@@ -596,12 +603,12 @@ class _MapScreenState extends State<MapScreen> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.black, width: 2),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.close,
                     size: 16,
-                    color: AppTheme.black,
+                    color: AppTheme.fg(context),
                   ),
                 ),
               ),
@@ -613,7 +620,7 @@ class _MapScreenState extends State<MapScreen> {
           Text(
             reel.title.toUpperCase(),
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppTheme.fg(context),
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -644,12 +651,12 @@ class _MapScreenState extends State<MapScreen> {
                 height: 16,
                 decoration: BoxDecoration(
                   color: AppTheme.neonGreen,
-                  border: Border.all(color: AppTheme.black, width: 1.5),
+                  border: Border.all(color: AppTheme.fg(context), width: 1.5),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.location_on,
                   size: 10,
-                  color: AppTheme.black,
+                  color: AppTheme.fg(context),
                 ),
               ),
               const SizedBox(width: 6),
@@ -685,14 +692,15 @@ class _MapScreenState extends State<MapScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: AppTheme.brutalBox(
-                      color: AppTheme.white,
+                      context,
+                      color: AppTheme.bg(context),
                       shadow: true,
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       'DETAILS',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.black,
+                        color: AppTheme.fg(context),
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -721,6 +729,7 @@ class _MapScreenState extends State<MapScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: AppTheme.brutalBox(
+                      context,
                       color: AppTheme.red,
                       shadow: true,
                     ),
@@ -728,16 +737,16 @@ class _MapScreenState extends State<MapScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.directions,
                           size: 16,
-                          color: AppTheme.white,
+                          color: AppTheme.bg(context),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           'GO',
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.white,
+                            color: AppTheme.bg(context),
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),

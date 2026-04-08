@@ -99,9 +99,9 @@ class _AppShellState extends State<AppShell> {
                   height: 16,
                   decoration: BoxDecoration(
                     color: AppTheme.yellow,
-                    border: Border.all(color: AppTheme.black, width: 2),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: SizedBox(
                       width: 10,
                       height: 10,
@@ -116,17 +116,17 @@ class _AppShellState extends State<AppShell> {
                 Text(
                   'PROCESSING REEL...',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.black,
+                    color: AppTheme.fg(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
                   ),
                 ),
               ],
             ),
-            backgroundColor: AppTheme.white,
+            backgroundColor: AppTheme.bg(context),
             shape: RoundedRectangleBorder(
-              side: const BorderSide(
-                color: AppTheme.black,
+              side: BorderSide(
+                color: AppTheme.fg(context),
                 width: AppTheme.borderWidth,
               ),
             ),
@@ -148,27 +148,27 @@ class _AppShellState extends State<AppShell> {
                           width: 18,
                           height: 18,
                           color: AppTheme.neonGreen,
-                          child: const Icon(
+                          child: Icon(
                             Icons.check,
                             size: 14,
-                            color: AppTheme.black,
+                            color: AppTheme.fg(context),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Text(
                           'REEL SAVED',
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.black,
+                            color: AppTheme.fg(context),
                             fontWeight: FontWeight.w700,
                             fontSize: 12,
                           ),
                         ),
                       ],
                     ),
-                    backgroundColor: AppTheme.white,
+                    backgroundColor: AppTheme.bg(context),
                     shape: RoundedRectangleBorder(
-                      side: const BorderSide(
-                        color: AppTheme.black,
+                      side: BorderSide(
+                        color: AppTheme.fg(context),
                         width: AppTheme.borderWidth,
                       ),
                     ),
@@ -189,8 +189,8 @@ class _AppShellState extends State<AppShell> {
                     ),
                     backgroundColor: AppTheme.destructive,
                     shape: RoundedRectangleBorder(
-                      side: const BorderSide(
-                        color: AppTheme.black,
+                      side: BorderSide(
+                        color: AppTheme.fg(context),
                         width: AppTheme.borderWidth,
                       ),
                     ),
@@ -212,7 +212,7 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        color: AppTheme.white,
+        color: AppTheme.bg(context),
         child: IndexedStack(index: _currentIndex, children: _screens),
       ),
       bottomNavigationBar: _buildNavBar(),
@@ -221,10 +221,10 @@ class _AppShellState extends State<AppShell> {
 
   Widget _buildNavBar() {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.white,
+      decoration: BoxDecoration(
+        color: AppTheme.bg(context),
         border: Border(
-          top: BorderSide(color: AppTheme.black, width: AppTheme.borderWidth),
+          top: BorderSide(color: AppTheme.fg(context), width: AppTheme.borderWidth),
         ),
       ),
       child: SafeArea(
@@ -253,7 +253,7 @@ class _AppShellState extends State<AppShell> {
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.yellow : Colors.transparent,
           border: isSelected
-              ? Border.all(color: AppTheme.black, width: 2)
+              ? Border.all(color: AppTheme.fg(context), width: 2)
               : null,
         ),
         child: Column(
@@ -261,14 +261,14 @@ class _AppShellState extends State<AppShell> {
           children: [
             Icon(
               isSelected ? item.activeIcon : item.icon,
-              color: AppTheme.black,
+              color: isSelected ? AppTheme.black : AppTheme.fg(context),
               size: 24,
             ),
             const SizedBox(height: 2),
             Text(
               item.label,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
+                color: isSelected ? AppTheme.black : AppTheme.fg(context),
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,

@@ -27,24 +27,24 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
     final catColor = AppTheme.getCategoryColor(reel.category);
 
     return Scaffold(
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.bg(context),
       body: CustomScrollView(
         slivers: [
           // ── App Bar ──
           SliverAppBar(
             pinned: true,
-            backgroundColor: AppTheme.white,
+            backgroundColor: AppTheme.bg(context),
             surfaceTintColor: Colors.transparent,
             leading: GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(
                 margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.black, width: 2),
+                  border: Border.all(color: AppTheme.fg(context), width: 2),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back,
-                  color: AppTheme.black,
+                  color: AppTheme.fg(context),
                   size: 20,
                 ),
               ),
@@ -53,7 +53,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
               preferredSize: const Size.fromHeight(3),
               child: Container(
                 height: AppTheme.borderWidth,
-                color: AppTheme.black,
+                color: AppTheme.fg(context),
               ),
             ),
             actions: [
@@ -69,15 +69,15 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                   decoration: BoxDecoration(
                     color: AppTheme.yellow,
                     border: Border.all(
-                      color: AppTheme.black,
+                      color: AppTheme.fg(context),
                       width: 2,
                     ),
-                    boxShadow: AppTheme.brutalShadowSmall,
+                    boxShadow: AppTheme.brutalShadowSmall(context),
                   ),
                   child: Text(
                     'OPEN REEL',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
+                      color: AppTheme.fg(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -93,7 +93,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                   height: 36,
                   decoration: BoxDecoration(
                     color: AppTheme.destructive,
-                    border: Border.all(color: AppTheme.black, width: 2),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
                   ),
                   child: const Icon(
                     Icons.delete,
@@ -128,7 +128,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: catColor,
-                                border: Border.all(color: AppTheme.black, width: 2),
+                                border: Border.all(color: AppTheme.fg(context), width: 2),
                               ),
                               child: Text(
                                 reel.category.toUpperCase(),
@@ -147,13 +147,13 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.white,
-                                  border: Border.all(color: AppTheme.black, width: 2),
+                                  color: AppTheme.bg(context),
+                                  border: Border.all(color: AppTheme.fg(context), width: 2),
                                 ),
                                 child: Text(
                                   reel.subCategory.toUpperCase(),
                                   style: GoogleFonts.spaceMono(
-                                    color: AppTheme.black,
+                                    color: AppTheme.fg(context),
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -186,7 +186,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                         ? reel.title.toUpperCase()
                         : 'UNTITLED REEL',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
+                      color: AppTheme.fg(context),
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       height: 1.2,
@@ -221,7 +221,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                               decoration: BoxDecoration(
                                 color: AppTheme.red,
                                 border: Border.all(
-                                  color: AppTheme.black,
+                                  color: AppTheme.fg(context),
                                   width: 1,
                                 ),
                               ),
@@ -255,7 +255,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                               ? () => _navigateToLocation(loc)
                               : null,
                           child: Container(
-                            decoration: AppTheme.brutalCard(),
+                            decoration: AppTheme.brutalCard(context),
                             child: Row(
                               children: [
                                 // Green accent bar
@@ -277,7 +277,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                                         Text(
                                           loc.name.toUpperCase(),
                                           style: GoogleFonts.spaceMono(
-                                            color: AppTheme.black,
+                                            color: AppTheme.fg(context),
                                             fontSize: 13,
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -304,7 +304,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                                     decoration: BoxDecoration(
                                       color: AppTheme.red,
                                       border: Border.all(
-                                        color: AppTheme.black,
+                                        color: AppTheme.fg(context),
                                         width: 2,
                                       ),
                                     ),
@@ -338,15 +338,15 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                           decoration: BoxDecoration(
                             color: AppTheme.yellow,
                             border: Border.all(
-                              color: AppTheme.black,
+                              color: AppTheme.fg(context),
                               width: 2,
                             ),
-                            boxShadow: AppTheme.brutalShadowSmall,
+                            boxShadow: AppTheme.brutalShadowSmall(context),
                           ),
                           child: Text(
                             person.toUpperCase(),
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.black,
+                              color: AppTheme.fg(context),
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
@@ -373,14 +373,14 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                               decoration: BoxDecoration(
                                 color: AppTheme.neonGreen,
                                 border: Border.all(
-                                  color: AppTheme.black,
+                                  color: AppTheme.fg(context),
                                   width: 1.5,
                                 ),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.arrow_forward,
                                 size: 12,
-                                color: AppTheme.black,
+                                color: AppTheme.fg(context),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -411,7 +411,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                       decoration: BoxDecoration(
                         color: AppTheme.surfaceElevated,
                         border: Border.all(
-                          color: AppTheme.black,
+                          color: AppTheme.fg(context),
                           width: 2,
                         ),
                       ),
@@ -452,8 +452,8 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: AppTheme.blue,
-                          border: Border.all(color: AppTheme.black, width: 2),
-                          boxShadow: AppTheme.brutalShadowSmall,
+                          border: Border.all(color: AppTheme.fg(context), width: 2),
+                          boxShadow: AppTheme.brutalShadowSmall(context),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -499,12 +499,12 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
   Widget _sectionTitle(String title) {
     return Row(
       children: [
-        Container(width: 4, height: 18, color: AppTheme.black),
+        Container(width: 4, height: 18, color: AppTheme.fg(context)),
         const SizedBox(width: 8),
         Text(
           title,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.black,
+            color: AppTheme.fg(context),
             fontSize: 14,
             fontWeight: FontWeight.w700,
             letterSpacing: 1,
@@ -536,18 +536,18 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.white,
+        backgroundColor: AppTheme.bg(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
-          side: const BorderSide(
-            color: AppTheme.black,
+          side: BorderSide(
+            color: AppTheme.fg(context),
             width: AppTheme.borderWidth,
           ),
         ),
         title: Text(
           'DELETE THIS REEL?',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.black,
+            color: AppTheme.fg(context),
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -615,8 +615,8 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
               ),
               decoration: BoxDecoration(
                 color: AppTheme.destructive,
-                border: Border.all(color: AppTheme.black, width: 2),
-                boxShadow: AppTheme.brutalShadowSmall,
+                border: Border.all(color: AppTheme.fg(context), width: 2),
+                boxShadow: AppTheme.brutalShadowSmall(context),
               ),
               child: Text(
                 'DELETE',

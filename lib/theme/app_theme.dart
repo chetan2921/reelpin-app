@@ -64,21 +64,39 @@ class AppTheme {
   static const double borderWidth = 3.0;
   static const double thinBorderWidth = 2.0;
 
+  // ── Dynamic Color Helpers ──
+  static Color bg(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1A1A1A) : white;
+  }
+  
+  static Color fg(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark ? white : black;
+  }
+
+  static Color textSec(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark ? const Color(0xFFCCCCCC) : textSecondary;
+  }
+
+  static Color surfaceElevatedColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2A2A) : surfaceElevated;
+  }
+
   // ── Hard shadow ──
   static const Offset shadowOffset = Offset(4, 4);
-  static List<BoxShadow> get brutalShadow => [
-    const BoxShadow(
-      color: black,
+  
+  static List<BoxShadow> brutalShadow(BuildContext context) => [
+    BoxShadow(
+      color: fg(context),
       offset: shadowOffset,
       blurRadius: 0,
       spreadRadius: 0,
     ),
   ];
 
-  static List<BoxShadow> get brutalShadowSmall => [
-    const BoxShadow(
-      color: black,
-      offset: Offset(3, 3),
+  static List<BoxShadow> brutalShadowSmall(BuildContext context) => [
+    BoxShadow(
+      color: fg(context),
+      offset: const Offset(3, 3),
       blurRadius: 0,
       spreadRadius: 0,
     ),
@@ -119,158 +137,172 @@ class AppTheme {
   }
 
   // ── Brutal Box Decoration ──
-  static BoxDecoration brutalBox({
-    Color color = white,
+  static BoxDecoration brutalBox(
+    BuildContext context, {
+    Color? color,
     double borderRadius = 0,
     bool shadow = true,
     double borderW = borderWidth,
   }) {
     return BoxDecoration(
-      color: color,
+      color: color ?? bg(context),
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.all(color: black, width: borderW),
-      boxShadow: shadow ? brutalShadow : null,
+      border: Border.all(color: fg(context), width: borderW),
+      boxShadow: shadow ? brutalShadow(context) : null,
     );
   }
 
   // ── Brutal Card Decoration ──
-  static BoxDecoration brutalCard({
-    Color color = white,
+  static BoxDecoration brutalCard(
+    BuildContext context, {
+    Color? color,
     double borderRadius = 0,
   }) {
     return BoxDecoration(
-      color: color,
+      color: color ?? bg(context),
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.all(color: black, width: borderWidth),
-      boxShadow: brutalShadow,
+      border: Border.all(color: fg(context), width: borderWidth),
+      boxShadow: brutalShadow(context),
     );
   }
 
   // ── Backwards-compatible aliases ──
-  static BoxDecoration glassDecoration({
+  static BoxDecoration glassDecoration(
+    BuildContext context, {
     double opacity = 0.7,
     double borderRadius = 0,
   }) {
-    return brutalBox(borderRadius: borderRadius);
+    return brutalBox(context, borderRadius: borderRadius);
   }
 
-  static BoxDecoration cardDecoration({double borderRadius = 0}) {
-    return brutalCard(borderRadius: borderRadius);
+  static BoxDecoration cardDecoration(BuildContext context, {double borderRadius = 0}) {
+    return brutalCard(context, borderRadius: borderRadius);
   }
 
   // ══════════════════════════════════════════════════
   //  BRUTAL THEME DATA
   // ══════════════════════════════════════════════════
 
-  static ThemeData get brutalTheme {
+  static ThemeData get brutalTheme => _buildTheme(isDark: false);
+  static ThemeData get darkTheme => _buildTheme(isDark: true);
+
+  static ThemeData _buildTheme({required bool isDark}) {
+    final bgColor = isDark ? const Color(0xFF1A1A1A) : white;
+    final fgColor = isDark ? white : black;
+    final tSecondary = isDark ? const Color(0xFFCCCCCC) : textSecondary;
+    
     final headingText = GoogleFonts.spaceMonoTextTheme();
     final bodyText = GoogleFonts.spaceMonoTextTheme();
 
     return ThemeData(
-      brightness: Brightness.light,
-      colorScheme: const ColorScheme.light(
-        primary: black,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      colorScheme: ColorScheme(
+        brightness: isDark ? Brightness.dark : Brightness.light,
+        primary: fgColor,
         secondary: yellow,
         tertiary: blue,
-        surface: white,
-        onSurface: black,
-        onPrimary: white,
+        surface: bgColor,
+        onSurface: fgColor,
+        onPrimary: bgColor,
+        onSecondary: fgColor,
+        onTertiary: bgColor,
         error: destructive,
+        onError: white,
       ),
-      scaffoldBackgroundColor: white,
+      scaffoldBackgroundColor: bgColor,
       textTheme: bodyText.copyWith(
         displayLarge: headingText.displayLarge?.copyWith(
-          color: black,
+          color: fgColor,
           fontWeight: FontWeight.w900,
         ),
         headlineLarge: headingText.headlineLarge?.copyWith(
-          color: black,
+          color: fgColor,
           fontWeight: FontWeight.w900,
         ),
         headlineMedium: headingText.headlineMedium?.copyWith(
-          color: black,
+          color: fgColor,
           fontWeight: FontWeight.w700,
         ),
         titleLarge: headingText.titleLarge?.copyWith(
-          color: black,
+          color: fgColor,
           fontWeight: FontWeight.w700,
         ),
         bodyLarge: bodyText.bodyLarge?.copyWith(
-          color: black,
+          color: fgColor,
           fontWeight: FontWeight.w500,
         ),
         bodyMedium: bodyText.bodyMedium?.copyWith(
-          color: black,
+          color: fgColor,
         ),
         bodySmall: bodyText.bodySmall?.copyWith(
-          color: textSecondary,
+          color: tSecondary,
         ),
         labelLarge: bodyText.labelLarge?.copyWith(
-          color: black,
+          color: fgColor,
           fontWeight: FontWeight.w700,
         ),
         labelMedium: bodyText.labelMedium?.copyWith(
-          color: black,
+          color: fgColor,
           fontWeight: FontWeight.w600,
         ),
         labelSmall: bodyText.labelSmall?.copyWith(
-          color: textSecondary,
+          color: tSecondary,
           fontWeight: FontWeight.w600,
         ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: white,
+        backgroundColor: bgColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: GoogleFonts.spaceMono(
           fontSize: 22,
           fontWeight: FontWeight.w700,
-          color: black,
+          color: fgColor,
           letterSpacing: -0.5,
         ),
-        iconTheme: const IconThemeData(color: black, size: 24),
+        iconTheme: IconThemeData(color: fgColor, size: 24),
       ),
       cardTheme: CardThemeData(
-        color: white,
+        color: bgColor,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
-          side: const BorderSide(color: black, width: borderWidth),
+          side: BorderSide(color: fgColor, width: borderWidth),
         ),
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: white,
+        backgroundColor: bgColor,
         indicatorColor: yellow,
         labelTextStyle: WidgetStatePropertyAll(
           GoogleFonts.spaceMono(
             fontWeight: FontWeight.w700,
-            color: black,
+            color: fgColor,
             fontSize: 11,
           ),
         ),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: black, size: 24);
+            return const IconThemeData(color: black, size: 24); // Keep black icon inside yellow chip
           }
-          return const IconThemeData(color: black, size: 22);
+          return IconThemeData(color: fgColor, size: 22);
         }),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: white,
+        fillColor: bgColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(0),
-          borderSide: const BorderSide(color: black, width: borderWidth),
+          borderSide: BorderSide(color: fgColor, width: borderWidth),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(0),
-          borderSide: const BorderSide(color: black, width: borderWidth),
+          borderSide: BorderSide(color: fgColor, width: borderWidth),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(0),
-          borderSide: const BorderSide(color: blue, width: borderWidth),
+          borderSide: BorderSide(color: blue, width: borderWidth),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -282,17 +314,22 @@ class AppTheme {
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: white,
+        backgroundColor: isDark ? const Color(0xFF222222) : white,
         selectedColor: yellow,
         labelStyle: GoogleFonts.spaceMono(
           fontWeight: FontWeight.w700,
-          color: black,
+          color: fgColor,
+          fontSize: 12,
+        ),
+        secondaryLabelStyle: GoogleFonts.spaceMono(
+          fontWeight: FontWeight.w700,
+          color: black, // Black inside yellow
           fontSize: 12,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
         ),
-        side: const BorderSide(color: black, width: thinBorderWidth),
+        side: BorderSide(color: fgColor, width: thinBorderWidth),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -300,38 +337,38 @@ class AppTheme {
         foregroundColor: black,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
-          side: const BorderSide(color: black, width: borderWidth),
+          side: BorderSide(color: fgColor, width: borderWidth),
         ),
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: black,
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: fgColor,
       ),
-      dividerTheme: const DividerThemeData(
-        color: black,
+      dividerTheme: DividerThemeData(
+        color: fgColor,
         thickness: 2,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: white,
+        backgroundColor: bgColor,
         contentTextStyle: GoogleFonts.spaceMono(
-          color: black,
+          color: fgColor,
           fontWeight: FontWeight.w700,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
-          side: const BorderSide(color: black, width: borderWidth),
+          side: BorderSide(color: fgColor, width: borderWidth),
         ),
         behavior: SnackBarBehavior.floating,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: white,
+        backgroundColor: bgColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
-          side: const BorderSide(color: black, width: borderWidth),
+          side: BorderSide(color: fgColor, width: borderWidth),
         ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: bgColor,
       ),
     );
   }
-
-  // Keep old name working
-  static ThemeData get darkTheme => brutalTheme;
 }
