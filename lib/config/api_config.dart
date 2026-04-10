@@ -1,19 +1,19 @@
+import 'supabase_config.dart';
+
 class ApiConfig {
   ApiConfig._();
 
-  static const String _defaultLanBaseUrl = 'http://192.168.1.2:8000/api/v1';
-  static const String _legacyLanBaseUrl = 'http://192.168.1.3:8000/api/v1';
+  static const String _defaultLanBaseUrl = 'http://192.168.1.4:8000/api/v1';
+  static const String _legacyLanBaseUrl = 'http://192.168.1.2:8000/api/v1';
+  static const String _olderLanBaseUrl = 'http://192.168.1.3:8000/api/v1';
   static const String _androidEmulatorBaseUrl = 'http://10.0.2.2:8000/api/v1';
 
   /// Local development URL — auto-detects platform.
   static String get baseUrl {
     // Override with: flutter run --dart-define=API_BASE_URL=http://<ip>:8000/api/v1
     const fromEnv = String.fromEnvironment('API_BASE_URL');
-    final trimmed = fromEnv.trim();
-    if (trimmed.isNotEmpty) {
-      return trimmed;
-    }
-    return _defaultLanBaseUrl;
+    final local = SupabaseConfig.localValue('API_BASE_URL');
+    return _firstNonEmpty(fromEnv, local, fallback: _defaultLanBaseUrl);
   }
 
   /// Additional URLs to auto-try when the primary host is unreachable.
@@ -22,6 +22,7 @@ class ApiConfig {
     final candidates = <String>[
       _defaultLanBaseUrl,
       _legacyLanBaseUrl,
+      _olderLanBaseUrl,
       _androidEmulatorBaseUrl,
     ];
 
@@ -33,6 +34,20 @@ class ApiConfig {
       }
     }
     return fallbacks;
+  }
+
+  static String _firstNonEmpty(
+    String? primary,
+    String? secondary, {
+    required String fallback,
+  }) {
+    if (primary != null && primary.trim().isNotEmpty) {
+      return primary.trim();
+    }
+    if (secondary != null && secondary.trim().isNotEmpty) {
+      return secondary.trim();
+    }
+    return fallback;
   }
 
   /// Grouped categories for the filter sheet and broad category mapping.

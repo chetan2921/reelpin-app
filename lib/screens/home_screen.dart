@@ -450,7 +450,7 @@ class HomeScreen extends StatelessWidget {
                   Text(
                     'BROWSE CATEGORIES',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
+                      color: AppTheme.fg(context),
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1,
@@ -460,7 +460,7 @@ class HomeScreen extends StatelessWidget {
                   Container(
                     height: AppTheme.borderWidth,
                     margin: const EdgeInsets.symmetric(horizontal: 24),
-                    color: AppTheme.black,
+                    color: AppTheme.fg(context),
                   ),
                   const SizedBox(height: 8),
                   Expanded(

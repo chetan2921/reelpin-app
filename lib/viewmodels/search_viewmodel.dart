@@ -45,6 +45,7 @@ class SearchViewModel extends ChangeNotifier {
             )
             .toList();
       }
+      _error = null;
     } catch (e) {
       _error = e.toString();
     } finally {

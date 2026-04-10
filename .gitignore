@@ -3,7 +3,7 @@
 *.log
 *.pyc
 *.swp
-.DS_Store
+.DS_Stores
 .atom/
 .build/
 .buildlog/
@@ -48,3 +48,5 @@ app.*.map.json
 **/ios/Flutter/Secrets.xcconfig
 **/.env
 **/secrets.dart
+dart_defines.local.json
+assets/config/local.env

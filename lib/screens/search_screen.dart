@@ -6,9 +6,11 @@ import 'package:provider/provider.dart';
 import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
+import '../viewmodels/map_viewmodel.dart';
 import '../viewmodels/search_viewmodel.dart';
-import '../viewmodels/theme_viewmodel.dart';
+import '../viewmodels/session_viewmodel.dart';
 import '../widgets/search_result_tile.dart';
+import 'profile_screen.dart';
 import 'reel_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -35,8 +37,8 @@ class _SearchScreenState extends State<SearchScreen> {
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
-        child: Consumer2<SearchViewModel, HomeViewModel>(
-          builder: (context, vm, homeVm, _) {
+        child: Consumer3<SearchViewModel, HomeViewModel, SessionViewModel>(
+          builder: (context, vm, homeVm, sessionVm, _) {
             return Column(
               children: [
                 // ── Header ──
@@ -54,49 +56,49 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                       ),
                       const Spacer(),
-                      
-                      // Dark Mode Toggle
+
                       GestureDetector(
                         onTap: () {
-                          context.read<ThemeViewModel>().toggleTheme();
-                        },
-                        child: Consumer<ThemeViewModel>(
-                          builder: (context, themeVm, _) {
-                            final isDark = themeVm.themeMode == ThemeMode.dark;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: AppTheme.brutalBox(
-                                context,
-                                color: AppTheme.fg(context),
-                                shadow: false,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    isDark ? Icons.light_mode : Icons.dark_mode,
-                                    size: 16,
-                                    color: AppTheme.bg(context),
+                          final homeVm = context.read<HomeViewModel>();
+                          final mapVm = context.read<MapViewModel>();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MultiProvider(
+                                providers: [
+                                  ChangeNotifierProvider<HomeViewModel>.value(
+                                    value: homeVm,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    isDark ? 'LIGHT' : 'DARK',
-                                    style: GoogleFonts.spaceMono(
-                                      color: AppTheme.bg(context),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                  ChangeNotifierProvider<MapViewModel>.value(
+                                    value: mapVm,
                                   ),
                                 ],
+                                child: const ProfileScreen(),
                               ),
-                            );
-                          },
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: AppTheme.brutalBox(
+                            context,
+                            color: AppTheme.cyan.withAlpha(90),
+                            shadow: true,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            sessionVm.initials,
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.fg(context),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
-                      
-                      if (vm.hasResults) ...[
+
+                      if (vm.lastQuery.isNotEmpty) ...[
                         const SizedBox(width: 12),
                         GestureDetector(
                           onTap: () {
@@ -190,6 +192,8 @@ class _SearchScreenState extends State<SearchScreen> {
                       ? _buildError(context, vm)
                       : vm.hasResults
                       ? _buildResults(context, vm)
+                      : vm.lastQuery.isNotEmpty
+                      ? _buildNoResults(context, vm.lastQuery)
                       : _buildDiscoverContent(context, homeVm),
                 ),
               ],
@@ -200,61 +204,64 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildStats(BuildContext context, HomeViewModel vm) {
-    final total = vm.reels.length;
-    final pinned = vm.reels.where((r) => r.hasMapLocations).length;
-    final categories = vm.reels.map((r) => r.category).toSet().length;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-      decoration: AppTheme.brutalCard(context),
-      child: Row(
-        children: [
-          _statItem(context, '$total', 'SAVED', AppTheme.yellow),
-          Container(width: AppTheme.borderWidth, height: 56, color: AppTheme.fg(context)),
-          _statItem(context, '$pinned', 'PINNED', AppTheme.neonGreen),
-          Container(width: AppTheme.borderWidth, height: 56, color: AppTheme.fg(context)),
-          _statItem(context, '$categories', 'CATEGORIES', AppTheme.cyan),
-        ],
-      ),
-    );
-  }
-
-  Widget _statItem(BuildContext context, String value, String label, Color accent) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        color: accent.withAlpha(40),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _doSearch(SearchViewModel vm, String query) {
     if (query.trim().isEmpty) return;
     _focusNode.unfocus();
     vm.search(query);
+  }
+
+  Widget _buildNoResults(BuildContext context, String query) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Container(
+          width: double.infinity,
+          decoration: AppTheme.brutalCard(context),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: AppTheme.brutalBox(
+                    context,
+                    color: AppTheme.yellow,
+                    shadow: false,
+                  ),
+                  child: Icon(
+                    Icons.search_off,
+                    color: AppTheme.fg(context),
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'NO MATCHES FOUND',
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.fg(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'TRY A DIFFERENT PHRASE OR USE A CATEGORY NAME. SEARCH LOOKS THROUGH TITLES, SUMMARIES, TRANSCRIPTS, FACTS, PEOPLE, AND LOCATIONS.\n\nQUERY: ${query.toUpperCase()}',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.textSec(context),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // ── Discover (no search active) ──
@@ -279,13 +286,6 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         const SizedBox(height: 10),
         _buildQuickSearches(context),
-        const SizedBox(height: 24),
-
-        // Stats Row
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: _buildStats(context, homeVm),
-        ),
         const SizedBox(height: 24),
 
         // Recent saves
@@ -623,7 +623,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildCollectionSummary(BuildContext context, HomeViewModel homeVm) {
     final reels = homeVm.reels;
-    final pinned = reels.where((r) => r.hasMapLocations).length;
+    final pinned = homeVm.totalPinnedLocations;
     final topCat = _getTopCategory(homeVm);
 
     return Padding(
@@ -670,6 +670,7 @@ class _SearchScreenState extends State<SearchScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 24,
@@ -690,12 +691,18 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
           const Spacer(),
-          Text(
-            value,
-            style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.fg(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
             ),
           ),
         ],

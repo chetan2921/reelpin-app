@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +11,7 @@ import '../models/reel.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/map_viewmodel.dart';
+import '../viewmodels/theme_viewmodel.dart';
 import '../widgets/category_badge.dart';
 import 'reel_detail_screen.dart';
 
@@ -24,11 +24,26 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   static const _defaultLatLng = LatLng(20.0, 0.0);
+  static const String _darkMapStyle = '''
+[
+  {"elementType":"geometry","stylers":[{"color":"#0f1113"}]},
+  {"elementType":"labels.text.fill","stylers":[{"color":"#b7bcc6"}]},
+  {"elementType":"labels.text.stroke","stylers":[{"color":"#0f1113"}]},
+  {"featureType":"administrative","elementType":"geometry.stroke","stylers":[{"color":"#23272e"}]},
+  {"featureType":"landscape.man_made","elementType":"geometry","stylers":[{"color":"#15181b"}]},
+  {"featureType":"poi","elementType":"geometry","stylers":[{"color":"#171a1e"}]},
+  {"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#13261b"}]},
+  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#1e2329"}]},
+  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#0b0d10"}]},
+  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#2b3138"}]},
+  {"featureType":"transit","elementType":"geometry","stylers":[{"color":"#1c2025"}]},
+  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#09161f"}]}
+]
+''';
 
   GoogleMapController? _mapController;
   final Map<String, BitmapDescriptor> _categoryMarkers = {};
   LatLng? _userLatLng;
-  String? _userCountry;
   bool _hasCenteredOnCountry = false;
 
   int _lastMarkersCount = -1;
@@ -53,19 +68,7 @@ class _MapScreenState extends State<MapScreen> {
     if (!mounted || position == null) return;
 
     _userLatLng = LatLng(position.latitude, position.longitude);
-    await _resolveUserCountry(position.latitude, position.longitude);
     _centerMapOnUserCountry();
-  }
-
-  Future<void> _resolveUserCountry(double latitude, double longitude) async {
-    try {
-      final places = await placemarkFromCoordinates(latitude, longitude);
-      if (places.isNotEmpty && mounted) {
-        setState(() {
-          _userCountry = places.first.country;
-        });
-      }
-    } catch (_) {}
   }
 
   void _centerMapOnUserCountry() {
@@ -208,9 +211,10 @@ class _MapScreenState extends State<MapScreen> {
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
-        child: Consumer<MapViewModel>(
-          builder: (context, vm, _) {
+        child: Consumer2<MapViewModel, ThemeViewModel>(
+          builder: (context, vm, themeVm, _) {
             final markers = _buildMarkers(vm);
+            final totalPins = vm.totalPinnedLocations;
 
             if ((markers.length != _lastMarkersCount ||
                     vm.selectedCategory != _lastCategoryFilter) &&
@@ -231,6 +235,7 @@ class _MapScreenState extends State<MapScreen> {
                     target: _defaultLatLng,
                     zoom: 2,
                   ),
+                  style: themeVm.isDarkMode ? _darkMapStyle : null,
                   markers: markers,
                   onMapCreated: (controller) {
                     _mapController = controller;
@@ -284,9 +289,7 @@ class _MapScreenState extends State<MapScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _userCountry?.isNotEmpty == true
-                                    ? '${vm.reelsWithLocations.length} PLACES PINNED IN ${_userCountry!.toUpperCase()}'
-                                    : '${vm.reelsWithLocations.length} PLACES PINNED',
+                                '$totalPins PLACES PINNED',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.spaceMono(
@@ -483,7 +486,11 @@ class _MapScreenState extends State<MapScreen> {
                     bottom: 24,
                     left: 16,
                     right: 16,
-                    child: _buildPinSheet(context, vm.selectedReel!),
+                    child: _buildPinSheet(
+                      context,
+                      vm.selectedReel!,
+                      vm.selectedLocation,
+                    ),
                   ),
 
                 // ── Map buttons ──
@@ -535,17 +542,21 @@ class _MapScreenState extends State<MapScreen> {
   Set<Marker> _buildMarkers(MapViewModel vm) {
     final markers = <Marker>{};
     for (final reel in vm.reelsWithLocations) {
-      for (final loc in reel.mappableLocations) {
+      final locations = reel.mappableLocations;
+      for (var index = 0; index < locations.length; index++) {
+        final loc = locations[index];
         markers.add(
           Marker(
-            markerId: MarkerId('${reel.id}_${loc.name}'),
+            markerId: MarkerId(
+              '${reel.id}_${index}_${loc.name}_${loc.latitude}_${loc.longitude}',
+            ),
             position: LatLng(loc.latitude!, loc.longitude!),
             infoWindow: InfoWindow(title: reel.title, snippet: loc.name),
             icon:
                 _categoryMarkers[reel.subCategory] ??
                 _categoryMarkers[reel.category] ??
                 BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose),
-            onTap: () => vm.selectReel(reel),
+            onTap: () => vm.selectReel(reel, location: loc),
           ),
         );
       }
@@ -553,8 +564,16 @@ class _MapScreenState extends State<MapScreen> {
     return markers;
   }
 
-  Widget _buildPinSheet(BuildContext context, Reel reel) {
+  Widget _buildPinSheet(
+    BuildContext context,
+    Reel reel,
+    Location? selectedLocation,
+  ) {
     final catColor = AppTheme.getCategoryColor(reel.category);
+    final fallbackLocation = reel.mappableLocations.isNotEmpty
+        ? reel.mappableLocations.first
+        : null;
+    final activeLocation = selectedLocation ?? fallbackLocation;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -662,7 +681,13 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  reel.locations.map((l) => l.name).join(', ').toUpperCase(),
+                  (activeLocation != null
+                          ? [
+                              activeLocation.name,
+                              activeLocation.address ?? '',
+                            ].where((part) => part.isNotEmpty).join(' • ')
+                          : reel.locations.map((l) => l.name).join(', '))
+                      .toUpperCase(),
                   style: GoogleFonts.spaceMono(
                     color: AppTheme.textSecondary,
                     fontSize: 10,
@@ -711,8 +736,10 @@ class _MapScreenState extends State<MapScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
-                  onTap: () async {
-                    final loc = reel.mappableLocations.first;
+                  onTap: activeLocation == null
+                      ? null
+                      : () async {
+                    final loc = activeLocation;
                     final queryParam = loc.name.isNotEmpty
                         ? Uri.encodeComponent(loc.name)
                         : '${loc.latitude},${loc.longitude}';

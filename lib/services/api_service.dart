@@ -93,9 +93,9 @@ class ApiService {
   }) async {
     final res = await _requestWithFailover((baseUrl) {
       final params = <String, String>{
-        'user_id': ?userId,
-        'category': ?category,
         'limit': limit.toString(),
+        if (userId != null && userId.trim().isNotEmpty) 'user_id': userId,
+        if (category != null && category.trim().isNotEmpty) 'category': category,
       };
       final uri = Uri.parse('$baseUrl/reels').replace(queryParameters: params);
       return _client.get(uri).timeout(_requestTimeout);
@@ -145,6 +145,7 @@ class ApiService {
     String query, {
     String userId = 'default-user',
     String? category,
+    String? subcategory,
     int limit = 5,
   }) async {
     final res = await _requestWithFailover(
@@ -155,7 +156,10 @@ class ApiService {
             body: jsonEncode({
               'query': query,
               'user_id': userId,
-              'category': ?category,
+              if (category != null && category.trim().isNotEmpty)
+                'category': category,
+              if (subcategory != null && subcategory.trim().isNotEmpty)
+                'subcategory': subcategory,
               'limit': limit,
             }),
           )

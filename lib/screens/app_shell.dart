@@ -22,7 +22,11 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
-  late StreamSubscription _intentSub;
+  late StreamSubscription _mediaIntentSub;
+  bool _isProcessingSharedReel = false;
+  String _processingStatus = 'PROCESSING REEL...';
+  String? _lastHandledSharedUrl;
+  DateTime? _lastHandledSharedAt;
 
   final _screens = const [HomeScreen(), MapScreen(), SearchScreen()];
 
@@ -58,7 +62,7 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _initSharingIntent() {
-    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
+    _mediaIntentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
       (value) {
         _processSharedData(value);
       },
@@ -76,7 +80,10 @@ class _AppShellState extends State<AppShell> {
     if (files.isEmpty) return;
 
     final payload = files.first.path;
+    _handleSharedPayload(payload);
+  }
 
+  void _handleSharedPayload(String payload) {
     final urlRegex = RegExp(
       r'https?:\/\/(www\.)?(instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+|tiktok\.com\/[A-Za-z0-9@._\/-]+)(\/?\S*)?',
     );
@@ -84,127 +91,122 @@ class _AppShellState extends State<AppShell> {
 
     if (match != null) {
       final String extractedUrl = match.group(0)!;
+      if (_lastHandledSharedUrl == extractedUrl &&
+          _lastHandledSharedAt != null &&
+          DateTime.now().difference(_lastHandledSharedAt!).inSeconds < 8) {
+        return;
+      }
+      _lastHandledSharedUrl = extractedUrl;
+      _lastHandledSharedAt = DateTime.now();
 
       if (mounted) {
         setState(() => _currentIndex = 0);
 
-        final vm = context.read<HomeViewModel>();
+        _processSharedReel(extractedUrl);
+      }
+    }
+  }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: AppTheme.yellow,
-                    border: Border.all(color: AppTheme.fg(context), width: 2),
-                  ),
-                  child: Center(
-                    child: SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.black,
-                      ),
-                    ),
-                  ),
+  Future<void> _processSharedReel(String url) async {
+    final homeVm = context.read<HomeViewModel>();
+    final mapVm = context.read<MapViewModel>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() {
+      _isProcessingSharedReel = true;
+      _processingStatus = 'PROCESSING REEL...';
+    });
+
+    try {
+      final reel = await homeVm.processReel(url);
+      homeVm.upsertProcessedReel(reel);
+      mapVm.upsertProcessedReel(reel);
+
+      if (mounted) {
+        setState(() {
+          _processingStatus = reel.hasMapLocations
+              ? 'SYNCING REEL + MAP PINS...'
+              : 'SYNCING REEL...';
+        });
+      }
+
+      await Future.wait([
+        homeVm.loadReels(forceRefresh: true),
+        mapVm.loadMapReels(forceRefresh: true),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _isProcessingSharedReel = false;
+      });
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Container(
+                width: 18,
+                height: 18,
+                color: AppTheme.neonGreen,
+                child: Icon(
+                  Icons.check,
+                  size: 14,
+                  color: AppTheme.fg(context),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'PROCESSING REEL...',
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  reel.hasMapLocations
+                      ? 'REEL SAVED. LOCATIONS PINNED.'
+                      : 'REEL SAVED.',
                   style: GoogleFonts.spaceMono(
                     color: AppTheme.fg(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
                   ),
                 ),
-              ],
-            ),
-            backgroundColor: AppTheme.bg(context),
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                color: AppTheme.fg(context),
-                width: AppTheme.borderWidth,
               ),
-            ),
-            duration: const Duration(seconds: 3),
+            ],
           ),
-        );
-
-        vm
-            .processReel(extractedUrl)
-            .then((_) {
-              if (mounted) {
-                context.read<MapViewModel>().loadMapReels(forceRefresh: true);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        Container(
-                          width: 18,
-                          height: 18,
-                          color: AppTheme.neonGreen,
-                          child: Icon(
-                            Icons.check,
-                            size: 14,
-                            color: AppTheme.fg(context),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'REEL SAVED',
-                          style: GoogleFonts.spaceMono(
-                            color: AppTheme.fg(context),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: AppTheme.bg(context),
-                    shape: RoundedRectangleBorder(
-                      side: BorderSide(
-                        color: AppTheme.fg(context),
-                        width: AppTheme.borderWidth,
-                      ),
-                    ),
-                  ),
-                );
-              }
-            })
-            .catchError((error) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'FAILED: $error',
-                      style: GoogleFonts.spaceMono(
-                        color: AppTheme.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    backgroundColor: AppTheme.destructive,
-                    shape: RoundedRectangleBorder(
-                      side: BorderSide(
-                        color: AppTheme.fg(context),
-                        width: AppTheme.borderWidth,
-                      ),
-                    ),
-                  ),
-                );
-              }
-            });
-      }
+          backgroundColor: AppTheme.bg(context),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(
+              color: AppTheme.fg(context),
+              width: AppTheme.borderWidth,
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessingSharedReel = false;
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'FAILED: $error',
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppTheme.destructive,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(
+              color: AppTheme.fg(context),
+              width: AppTheme.borderWidth,
+            ),
+          ),
+        ),
+      );
     }
   }
 
   @override
   void dispose() {
-    _intentSub.cancel();
+    _mediaIntentSub.cancel();
     super.dispose();
   }
 
@@ -213,7 +215,51 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       body: Container(
         color: AppTheme.bg(context),
-        child: IndexedStack(index: _currentIndex, children: _screens),
+        child: Stack(
+          children: [
+            IndexedStack(index: _currentIndex, children: _screens),
+            if (_isProcessingSharedReel)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 18,
+                child: IgnorePointer(
+                  ignoring: true,
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: AppTheme.brutalBox(
+                      context,
+                      color: AppTheme.yellow,
+                      shadow: true,
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.8,
+                            color: AppTheme.fg(context),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _processingStatus,
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.fg(context),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: _buildNavBar(),
     );
