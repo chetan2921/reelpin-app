@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,6 +16,8 @@ import 'screens/setup_required_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
+import 'services/geofence_recall_service.dart';
+import 'services/notification_service.dart';
 import 'services/profile_service.dart';
 import 'services/reel_store.dart';
 import 'theme/app_theme.dart';
@@ -23,6 +30,12 @@ import 'viewmodels/theme_viewmodel.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseConfig.loadLocalConfig();
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   final isSupabaseConfigured = SupabaseConfig.isConfigured;
   if (isSupabaseConfigured) {
@@ -140,17 +153,35 @@ class AuthenticatedShell extends StatefulWidget {
 }
 
 class _AuthenticatedShellState extends State<AuthenticatedShell> {
+  late final AuthService _authService;
   late final ApiService _apiService;
   late final ReelStore _reelStore;
   late final ReelRepository _repository;
+  late final NotificationService _notificationService;
+  late final GeofenceRecallService _geofenceRecallService;
+  late final HomeViewModel _homeViewModel;
+  late final MapViewModel _mapViewModel;
+  late final SearchViewModel _searchViewModel;
+  StreamSubscription<String>? _tokenRefreshSubscription;
 
   @override
   void initState() {
     super.initState();
-    final authService = context.read<AuthService>();
+    _authService = context.read<AuthService>();
     _apiService = ApiService();
     _reelStore = ReelStore();
-    _repository = ReelRepository(_apiService, _reelStore, authService);
+    _repository = ReelRepository(_apiService, _reelStore, _authService);
+    _notificationService = NotificationService.instance;
+    _geofenceRecallService = GeofenceRecallService(
+      notificationService: _notificationService,
+    );
+    _homeViewModel = HomeViewModel(_repository);
+    _mapViewModel = MapViewModel(_repository);
+    _searchViewModel = SearchViewModel(_repository);
+    _homeViewModel.addListener(_syncGeofenceRegions);
+    _initializeProactiveRecall();
+    _homeViewModel.loadReels();
+    _mapViewModel.loadMapReels();
   }
 
   @override
@@ -160,15 +191,73 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
         Provider<ApiService>.value(value: _apiService),
         Provider<ReelStore>.value(value: _reelStore),
         Provider<ReelRepository>.value(value: _repository),
-        ChangeNotifierProvider(
-          create: (_) => HomeViewModel(_repository)..loadReels(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => MapViewModel(_repository)..loadMapReels(),
-        ),
-        ChangeNotifierProvider(create: (_) => SearchViewModel(_repository)),
+        Provider<NotificationService>.value(value: _notificationService),
+        Provider<GeofenceRecallService>.value(value: _geofenceRecallService),
+        ChangeNotifierProvider<HomeViewModel>.value(value: _homeViewModel),
+        ChangeNotifierProvider<MapViewModel>.value(value: _mapViewModel),
+        ChangeNotifierProvider<SearchViewModel>.value(value: _searchViewModel),
       ],
       child: const AppShell(),
     );
+  }
+
+  Future<void> _initializeProactiveRecall() async {
+    try {
+      await _notificationService.initialize();
+    } catch (e) {
+      debugPrint('Notification initialization skipped: $e');
+      return;
+    }
+
+    final userId = _authService.currentUser?.id;
+    if (userId == null || userId.trim().isEmpty) return;
+
+    try {
+      final token = await _notificationService.getFcmToken();
+      if (token != null && token.trim().isNotEmpty) {
+        await _apiService.registerPushToken(
+          userId: userId,
+          token: token,
+          platform: _notificationService.currentPlatform,
+        );
+      }
+    } catch (e) {
+      debugPrint('Push token registration skipped: $e');
+    }
+
+    _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((token) {
+      unawaited(
+        _apiService.registerPushToken(
+          userId: userId,
+          token: token,
+          platform: _notificationService.currentPlatform,
+        ).catchError((error) {
+          debugPrint('Push token refresh sync failed: $error');
+        }),
+      );
+    });
+
+    try {
+      await _geofenceRecallService.initialize();
+    } catch (e) {
+      debugPrint('Geofence recall initialization skipped: $e');
+    }
+  }
+
+  Future<void> _syncGeofenceRegions() async {
+    if (_homeViewModel.isLoading) return;
+    try {
+      await _geofenceRecallService.syncFromReels(_homeViewModel.reels);
+    } catch (e) {
+      debugPrint('Geofence sync skipped: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _homeViewModel.removeListener(_syncGeofenceRegions);
+    _geofenceRecallService.dispose();
+    _tokenRefreshSubscription?.cancel();
+    super.dispose();
   }
 }

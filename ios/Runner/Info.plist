@@ -88,5 +88,16 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>ReelPin uses your location to center the map near you and show nearby saved reel places.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>ReelPin uses your location in the background to remind you about saved places and reels when you are nearby.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>ReelPin uses your location in the background to remind you about saved places and reels when you are nearby.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>ReelPin sends helpful reminders when you are near places or contexts from reels you saved.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

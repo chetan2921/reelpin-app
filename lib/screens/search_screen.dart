@@ -83,7 +83,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           height: 44,
                           decoration: AppTheme.brutalBox(
                             context,
-                            color: AppTheme.cyan.withAlpha(90),
+                            color: AppTheme.hotPink,
                             shadow: true,
                           ),
                           alignment: Alignment.center,
@@ -316,7 +316,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: Text(
                     '${reels.length}',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppTheme.black,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -345,22 +345,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _buildCategoryGrid(context, homeVm),
 
         // Collection summary
-        if (reels.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Text(
-              'COLLECTION SUMMARY',
-              style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-          _buildCollectionSummary(context, homeVm),
-        ],
+        if (reels.isNotEmpty) ...[const SizedBox(height: 24)],
       ],
     );
   }
@@ -388,11 +373,7 @@ class _SearchScreenState extends State<SearchScreen> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: AppTheme.brutalBox(
-                context,
-                color: AppTheme.bg(context),
-                shadow: true,
-              ),
+              decoration: AppTheme.brutalBox(context, shadow: true),
               child: Center(
                 child: Text(
                   prompts[i].toUpperCase(),
@@ -432,7 +413,8 @@ class _SearchScreenState extends State<SearchScreen> {
             },
             child: Container(
               width: 190,
-              decoration: AppTheme.brutalCard(context),
+              decoration: AppTheme.brutalBox(context, shadow: true),
+
               child: Row(
                 children: [
                   // Color accent bar
@@ -619,106 +601,6 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildCollectionSummary(BuildContext context, HomeViewModel homeVm) {
-    final reels = homeVm.reels;
-    final pinned = homeVm.totalPinnedLocations;
-    final topCat = _getTopCategory(homeVm);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(0),
-        decoration: AppTheme.brutalCard(context),
-        child: Column(
-          children: [
-            _insightRow(
-              Icons.bookmark,
-              'TOTAL SAVED',
-              '${reels.length}',
-              AppTheme.yellow,
-            ),
-            Container(height: 2, color: AppTheme.fg(context)),
-            _insightRow(
-              Icons.location_on,
-              'WITH LOCATIONS',
-              '$pinned',
-              AppTheme.neonGreen,
-            ),
-            if (topCat != null) ...[
-              Container(height: 2, color: AppTheme.fg(context)),
-              _insightRow(
-                Icons.star,
-                'TOP CATEGORY',
-                topCat.toUpperCase(),
-                AppTheme.red,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _insightRow(
-    IconData icon,
-    String label,
-    String value,
-    Color accentColor,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: accentColor,
-              border: Border.all(color: AppTheme.fg(context), width: 1.5),
-            ),
-            child: Icon(icon, size: 14, color: AppTheme.fg(context)),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: GoogleFonts.spaceMono(
-              color: AppTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String? _getTopCategory(HomeViewModel homeVm) {
-    if (homeVm.reels.isEmpty) return null;
-    final counts = <String, int>{};
-    for (final r in homeVm.reels) {
-      counts[r.category] = (counts[r.category] ?? 0) + 1;
-    }
-    final sorted = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return sorted.first.key;
   }
 
   // ── Searching state ──
