@@ -15,6 +15,7 @@ class MapViewModel extends ChangeNotifier {
   String? _error;
   String? _selectedCategory;
   Reel? _selectedReel;
+  Location? _selectedLocation;
 
   List<Reel> get reelsWithLocations {
     if (_selectedCategory == null) {
@@ -31,6 +32,11 @@ class MapViewModel extends ChangeNotifier {
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
   Reel? get selectedReel => _selectedReel;
+  Location? get selectedLocation => _selectedLocation;
+  int get totalPinnedLocations => _reelsWithLocations.fold(
+    0,
+    (sum, reel) => sum + reel.mappableLocations.length,
+  );
 
   /// Load reels that have map-pinnable locations.
   Future<void> loadMapReels({bool forceRefresh = false}) async {
@@ -57,8 +63,19 @@ class MapViewModel extends ChangeNotifier {
   }
 
   /// Select a reel (when tapping a map pin).
-  void selectReel(Reel? reel) {
+  void selectReel(Reel? reel, {Location? location}) {
     _selectedReel = reel;
+    _selectedLocation = location;
+    notifyListeners();
+  }
+
+  void upsertProcessedReel(Reel reel) {
+    if (!reel.hasMapLocations) return;
+
+    _reelsWithLocations = [
+      reel,
+      ..._reelsWithLocations.where((existing) => existing.id != reel.id),
+    ];
     notifyListeners();
   }
 

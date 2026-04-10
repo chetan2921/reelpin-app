@@ -21,6 +21,9 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
   bool _transcriptExpanded = false;
 
   Reel get reel => widget.reel;
+  Color get _detailTextColor => Theme.of(context).brightness == Brightness.dark
+      ? const Color(0xFFD0D0D0)
+      : AppTheme.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +172,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                           child: Text(
                             reel.relativeDate.toUpperCase(),
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.textSecondary,
+                              color: _detailTextColor,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -231,7 +234,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                               child: Text(
                                 f,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.textSecondary,
+                                  color: _detailTextColor,
                                   fontSize: 13,
                                   height: 1.5,
                                 ),
@@ -287,7 +290,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                                           Text(
                                             loc.address!,
                                             style: GoogleFonts.spaceMono(
-                                              color: AppTheme.textSecondary,
+                                              color: _detailTextColor,
                                               fontSize: 11,
                                             ),
                                           ),
@@ -388,7 +391,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                               child: Text(
                                 item,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.textSecondary,
+                                  color: _detailTextColor,
                                   fontSize: 13,
                                   height: 1.5,
                                 ),
@@ -422,7 +425,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                           maxLines: 4,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.textSecondary,
+                            color: _detailTextColor,
                             fontSize: 12,
                             height: 1.6,
                           ),
@@ -430,7 +433,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                         secondChild: Text(
                           reel.transcript,
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.textSecondary,
+                            color: _detailTextColor,
                             fontSize: 12,
                             height: 1.6,
                           ),
@@ -523,7 +526,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
         Text(
           body,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.textSecondary,
+            color: _detailTextColor,
             fontSize: 13,
             height: 1.6,
           ),
@@ -555,7 +558,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
         content: Text(
           'This action cannot be undone.',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.textSecondary,
+            color: _detailTextColor,
             fontSize: 13,
           ),
         ),
@@ -565,7 +568,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
             child: Text(
               'CANCEL',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.textSecondary,
+                color: _detailTextColor,
                 fontWeight: FontWeight.w700,
               ),
             ),

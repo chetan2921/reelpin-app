@@ -28,6 +28,8 @@ class HomeViewModel extends ChangeNotifier {
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
   bool get isEmpty => _reels.isEmpty && !_isLoading;
+  int get totalPinnedLocations =>
+      _reels.fold(0, (sum, reel) => sum + reel.mappableLocations.length);
 
   /// Get a strictly unique list of categories present in the current loaded reels.
   List<String> get availableCategories {
@@ -56,6 +58,23 @@ class HomeViewModel extends ChangeNotifier {
 
   String _normalize(String value) => value.trim().toLowerCase();
 
+  void _sortAndStore(List<Reel> reels) {
+    reels.sort((a, b) {
+      if (a.createdAt == null && b.createdAt == null) return 0;
+      if (a.createdAt == null) return 1;
+      if (b.createdAt == null) return -1;
+      try {
+        return DateTime.parse(b.createdAt!).compareTo(
+          DateTime.parse(a.createdAt!),
+        );
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    _reels = reels;
+  }
+
   /// Load all reels from the backend.
   Future<void> loadReels({bool forceRefresh = false}) async {
     _isLoading = true;
@@ -66,22 +85,7 @@ class HomeViewModel extends ChangeNotifier {
       final fetchedReels = List<Reel>.from(
         await _repository.getReels(forceRefresh: forceRefresh),
       );
-
-      fetchedReels.sort((a, b) {
-        if (a.createdAt == null && b.createdAt == null) return 0;
-        if (a.createdAt == null) return 1;
-        if (b.createdAt == null) return -1;
-        try {
-          // Sort descending (newest first)
-          return DateTime.parse(
-            b.createdAt!,
-          ).compareTo(DateTime.parse(a.createdAt!));
-        } catch (_) {
-          return 0;
-        }
-      });
-
-      _reels = fetchedReels;
+      _sortAndStore(fetchedReels);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -104,8 +108,11 @@ class HomeViewModel extends ChangeNotifier {
 
     try {
       final reel = await _repository.processReel(url);
-      // Ensure the new reel goes straight to the top of the UI
-      _reels.insert(0, reel);
+      final next = [
+        reel,
+        ..._reels.where((existing) => existing.id != reel.id),
+      ];
+      _sortAndStore(next);
       return reel;
     } catch (e) {
       _error = e.toString();
@@ -120,6 +127,15 @@ class HomeViewModel extends ChangeNotifier {
   Future<void> deleteReel(String reelId) async {
     await _repository.deleteReel(reelId);
     _reels.removeWhere((r) => r.id == reelId);
+    notifyListeners();
+  }
+
+  void upsertProcessedReel(Reel reel) {
+    final next = [
+      reel,
+      ..._reels.where((existing) => existing.id != reel.id),
+    ];
+    _sortAndStore(next);
     notifyListeners();
   }
 }
