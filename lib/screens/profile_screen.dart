@@ -47,7 +47,7 @@ class ProfileScreen extends StatelessWidget {
                 Container(
                   decoration: AppTheme.brutalCard(
                     context,
-                    color: AppTheme.cyan.withAlpha(60),
+                    color: AppTheme.cyan.withGreen(30),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
@@ -167,8 +167,8 @@ class ProfileScreen extends StatelessWidget {
                       decoration: AppTheme.brutalBox(
                         context,
                         color: themeVm.isDarkMode
-                            ? AppTheme.neonGreen
-                            : AppTheme.yellow,
+                            ? AppTheme.grauzone
+                            : AppTheme.accentSoft,
                         shadow: false,
                       ),
                       child: Row(
@@ -183,7 +183,9 @@ class ProfileScreen extends StatelessWidget {
                           Text(
                             themeVm.themeLabel,
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
+                              color: themeVm.isDarkMode
+                                  ? AppTheme.background
+                                  : AppTheme.black,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -213,7 +215,9 @@ class ProfileScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Center(
                         child: Text(
-                          sessionVm.isSigningOut ? 'SIGNING OUT...' : 'SIGN OUT',
+                          sessionVm.isSigningOut
+                              ? 'SIGNING OUT...'
+                              : 'SIGN OUT',
                           style: GoogleFonts.spaceMono(
                             color: AppTheme.white,
                             fontSize: 14,

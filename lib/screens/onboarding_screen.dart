@@ -19,30 +19,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const _pages = [
     _OnboardingStep(
       label: 'STEP 01',
-      title: 'SHARE A REEL STRAIGHT INTO REELPIN',
+      title: 'SAVE REELS YOU ACTUALLY WANT TO COME BACK TO',
       body:
-          'SEND ANY INSTAGRAM OR TIKTOK REEL TO THE APP. REELPIN CATCHES THE SHARE INTENT AND STARTS WORKING IMMEDIATELY.',
+          'SEND A REEL TO REELPIN AND KEEP THE BEST IDEAS, SPOTS, TIPS, AND INSPIRATION IN ONE EASY PLACE.',
       accent: AppTheme.yellow,
       icon: Icons.ios_share,
-      bullet: 'NO COPY-PASTE REQUIRED',
+      bullet: 'SAVE IDEAS BEFORE THEY DISAPPEAR',
     ),
     _OnboardingStep(
       label: 'STEP 02',
-      title: 'AI EXTRACTS THE USEFUL PARTS',
+      title: 'FIND THE GOOD PARTS FASTER',
       body:
-          'YOUR FASTAPI PIPELINE TRANSCRIBES THE VIDEO, SUMMARIZES IT, TAGS IT, AND PULLS OUT PEOPLE, FACTS, AND LOCATIONS.',
+          'REELPIN HELPS YOU PULL OUT WHAT MATTERS SO YOU CAN FIND PLACES, TIPS, AND RECOMMENDATIONS WITHOUT REWATCHING EVERYTHING.',
       accent: AppTheme.blue,
       icon: Icons.auto_awesome,
-      bullet: 'BACKED BY SUPABASE + PINECONE',
+      bullet: 'LESS SCROLLING. MORE KEEPING.',
     ),
     _OnboardingStep(
       label: 'STEP 03',
-      title: 'SEARCH IT. MAP IT. KEEP IT.',
+      title: 'SEARCH IT. MAP IT. USE IT.',
       body:
-          'ONCE SAVED, YOUR REELS BECOME A PRIVATE KNOWLEDGE BASE YOU CAN BROWSE, SEARCH, AND EXPLORE ON THE MAP.',
+          'BUILD YOUR OWN REEL ARCHIVE FOR FOOD SPOTS, TRAVEL PLANS, FITNESS IDEAS, SHOPPING FINDS, AND MORE.',
       accent: AppTheme.orange,
       icon: Icons.map,
-      bullet: 'EVERYTHING TIED TO YOUR ACCOUNT',
+      bullet: 'YOUR FAVORITES, FINALLY ORGANIZED',
     ),
   ];
 
@@ -110,7 +110,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'TURN SCATTERED REELS INTO A STRUCTURED MEMORY SYSTEM.',
+                'KEEP THE REELS THAT INSPIRE YOU CLOSE.',
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.fg(context),
                   fontSize: 13,
@@ -158,15 +158,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
-                decoration: AppTheme.brutalBox(
-                  context,
-                  color: AppTheme.accentSoft,
-                  shadow: false,
+                decoration: BoxDecoration(
+                  color: AppTheme.neonGreen,
+                  border: Border.all(color: AppTheme.black, width: 3),
+                  boxShadow: AppTheme.inkShadow,
                 ),
                 child: Text(
                   step.bullet,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppTheme.black,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
@@ -178,9 +178,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onTap: _next,
                 child: Container(
                   width: double.infinity,
-                  decoration: AppTheme.brutalCard(
-                    context,
-                    color: AppTheme.fg(context),
+                  decoration: BoxDecoration(
+                    color: AppTheme.white,
+                    border: Border.all(color: AppTheme.black, width: 3),
+                    boxShadow: AppTheme.inkShadow,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 18),
@@ -190,7 +191,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ? 'CONTINUE TO LOGIN'
                             : 'NEXT',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.bg(context),
+                          color: AppTheme.black,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1,
@@ -233,60 +234,76 @@ class _OnboardingCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: double.infinity,
-          decoration: AppTheme.brutalCard(context, color: step.accent),
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 62,
-                  height: 62,
-                  decoration: BoxDecoration(
-                    color: AppTheme.bg(context),
-                    border: Border.all(color: AppTheme.fg(context), width: 2),
+        Expanded(
+          flex: 6,
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: step.accent,
+              border: Border.all(color: AppTheme.black, width: 3),
+              boxShadow: AppTheme.inkShadow,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 62,
+                    height: 62,
+                    decoration: BoxDecoration(
+                      color: AppTheme.white,
+                      border: Border.all(color: AppTheme.black, width: 2),
+                    ),
+                    child: Icon(step.icon, color: AppTheme.black, size: 30),
                   ),
-                  child: Icon(step.icon, color: AppTheme.fg(context), size: 30),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  step.label,
-                  style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
+                  const SizedBox(height: 18),
+                  Text(
+                    step.label,
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.black,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  step.title,
-                  style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    height: 1.12,
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 92,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        step.title,
+                        style: GoogleFonts.spaceMono(
+                          color: AppTheme.black,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          height: 1.12,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
         const SizedBox(height: 18),
-        Container(
-          width: double.infinity,
-          decoration: AppTheme.brutalCard(context),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Text(
-              step.body,
-              style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                height: 1.6,
+        Expanded(
+          flex: 4,
+          child: Container(
+            width: double.infinity,
+            decoration: AppTheme.brutalCard(context),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Text(
+                step.body,
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.fg(context),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  height: 1.6,
+                ),
               ),
             ),
           ),

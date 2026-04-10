@@ -102,6 +102,24 @@ class AppTheme {
     ),
   ];
 
+  static const List<BoxShadow> inkShadow = [
+    BoxShadow(
+      color: black,
+      offset: shadowOffset,
+      blurRadius: 0,
+      spreadRadius: 0,
+    ),
+  ];
+
+  static const List<BoxShadow> inkShadowSmall = [
+    BoxShadow(
+      color: black,
+      offset: Offset(3, 3),
+      blurRadius: 0,
+      spreadRadius: 0,
+    ),
+  ];
+
   // ── Category Colors (rotating brutalist palette) ──
   static const List<Color> _categoryPalette = [
     blue,

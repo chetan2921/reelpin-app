@@ -177,6 +177,31 @@ class ApiService {
 
   // ─── Helpers ───
 
+  Future<void> registerPushToken({
+    required String userId,
+    required String token,
+    required String platform,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            Uri.parse('$baseUrl/device-push-tokens'),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode({
+              'user_id': userId,
+              'token': token,
+              'platform': platform,
+            }),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      final detail = _extractError(res);
+      throw ApiException(detail, res.statusCode);
+    }
+  }
+
   Future<http.Response> _requestWithFailover(
     Future<http.Response> Function(String baseUrl) request,
   ) async {

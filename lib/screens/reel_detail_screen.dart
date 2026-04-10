@@ -71,10 +71,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: AppTheme.yellow,
-                    border: Border.all(
-                      color: AppTheme.fg(context),
-                      width: 2,
-                    ),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
                     boxShadow: AppTheme.brutalShadowSmall(context),
                   ),
                   child: Text(
@@ -131,7 +128,10 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: catColor,
-                                border: Border.all(color: AppTheme.fg(context), width: 2),
+                                border: Border.all(
+                                  color: AppTheme.fg(context),
+                                  width: 2,
+                                ),
                               ),
                               child: Text(
                                 reel.category.toUpperCase(),
@@ -151,7 +151,10 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: AppTheme.bg(context),
-                                  border: Border.all(color: AppTheme.fg(context), width: 2),
+                                  border: Border.all(
+                                    color: AppTheme.fg(context),
+                                    width: 2,
+                                  ),
                                 ),
                                 child: Text(
                                   reel.subCategory.toUpperCase(),
@@ -383,7 +386,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                               child: Icon(
                                 Icons.arrow_forward,
                                 size: 12,
-                                color: AppTheme.fg(context),
+                                color: AppTheme.black,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -425,7 +428,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                           maxLines: 4,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.spaceMono(
-                            color: _detailTextColor,
+                            color: AppTheme.black,
                             fontSize: 12,
                             height: 1.6,
                           ),
@@ -455,7 +458,10 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: AppTheme.blue,
-                          border: Border.all(color: AppTheme.fg(context), width: 2),
+                          border: Border.all(
+                            color: AppTheme.fg(context),
+                            width: 2,
+                          ),
                           boxShadow: AppTheme.brutalShadowSmall(context),
                         ),
                         child: Row(
@@ -557,10 +563,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
         ),
         content: Text(
           'This action cannot be undone.',
-          style: GoogleFonts.spaceMono(
-            color: _detailTextColor,
-            fontSize: 13,
-          ),
+          style: GoogleFonts.spaceMono(color: _detailTextColor, fontSize: 13),
         ),
         actions: [
           TextButton(
@@ -612,10 +615,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
               }
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: AppTheme.destructive,
                 border: Border.all(color: AppTheme.fg(context), width: 2),

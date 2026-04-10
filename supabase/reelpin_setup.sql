@@ -27,6 +27,16 @@ create table if not exists public.reels (
     created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.device_push_tokens (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users(id) on delete cascade,
+    fcm_token text not null unique,
+    platform text not null,
+    created_at timestamptz not null default timezone('utc', now()),
+    updated_at timestamptz not null default timezone('utc', now()),
+    last_seen_at timestamptz not null default timezone('utc', now())
+);
+
 alter table public.reels
     add column if not exists subcategory text not null default 'Other',
     add column if not exists secondary_categories jsonb not null default '[]'::jsonb,
@@ -85,6 +95,7 @@ create index if not exists idx_reels_user_id on public.reels(user_id);
 create index if not exists idx_reels_category on public.reels(category);
 create index if not exists idx_reels_subcategory on public.reels(subcategory);
 create index if not exists idx_reels_created_at on public.reels(created_at desc);
+create index if not exists idx_device_push_tokens_user_id on public.device_push_tokens(user_id);
 
 insert into public.profiles (id, email, full_name, avatar_url)
 select
@@ -144,6 +155,7 @@ create trigger on_auth_user_created
 
 alter table public.profiles enable row level security;
 alter table public.reels enable row level security;
+alter table public.device_push_tokens enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own"
@@ -188,3 +200,28 @@ create policy "reels_delete_own"
 on public.reels
 for delete
 using (auth.uid()::text = user_id);
+
+drop policy if exists "device_tokens_select_own" on public.device_push_tokens;
+create policy "device_tokens_select_own"
+on public.device_push_tokens
+for select
+using (auth.uid() = user_id);
+
+drop policy if exists "device_tokens_insert_own" on public.device_push_tokens;
+create policy "device_tokens_insert_own"
+on public.device_push_tokens
+for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "device_tokens_update_own" on public.device_push_tokens;
+create policy "device_tokens_update_own"
+on public.device_push_tokens
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "device_tokens_delete_own" on public.device_push_tokens;
+create policy "device_tokens_delete_own"
+on public.device_push_tokens
+for delete
+using (auth.uid() = user_id);

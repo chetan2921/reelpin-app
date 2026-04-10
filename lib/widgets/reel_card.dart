@@ -154,7 +154,7 @@ class _ReelCardState extends State<ReelCard>
                                   fontSize: 10,
                                   height: 1.4,
                                 ),
-                                maxLines: 6,
+                                maxLines: 5,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             )

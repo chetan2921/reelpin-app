@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -64,10 +62,7 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    await sessionVm.signInWithEmail(
-      email: email,
-      password: password,
-    );
+    await sessionVm.signInWithEmail(email: email, password: password);
   }
 
   @override
@@ -113,7 +108,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           child: Text(
                             _isSignUp ? 'SIGN UP' : 'SIGN IN',
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
+                              color: AppTheme.black,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                             ),
@@ -123,9 +118,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      _isSignUp
-                          ? 'CREATE YOUR REEL ARCHIVE.'
-                          : 'WELCOME BACK TO YOUR REEL ARCHIVE.',
+                      'WELCOME BACK TO YOUR REEL ARCHIVE.',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.fg(context),
                         fontSize: 24,
@@ -190,7 +183,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 context,
                                 controller: _nameController,
                                 label: 'FULL NAME',
-                                hint: 'CHETAN JAIN',
+                                hint: 'Your Name',
                                 validator: (value) {
                                   if (!_isSignUp) return null;
                                   if ((value ?? '').trim().isEmpty) {
@@ -210,7 +203,8 @@ class _AuthScreenState extends State<AuthScreen> {
                               validator: (value) {
                                 final text = (value ?? '').trim();
                                 if (text.isEmpty) return 'ENTER YOUR EMAIL';
-                                if (!text.contains('@') || !text.contains('.')) {
+                                if (!text.contains('@') ||
+                                    !text.contains('.')) {
                                   return 'ENTER A VALID EMAIL';
                                 }
                                 return null;
@@ -261,9 +255,13 @@ class _AuthScreenState extends State<AuthScreen> {
                                 opacity: sessionVm.isBusy ? 0.7 : 1,
                                 child: Container(
                                   width: double.infinity,
-                                  decoration: AppTheme.brutalCard(
-                                    context,
-                                    color: AppTheme.fg(context),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.white,
+                                    border: Border.all(
+                                      color: AppTheme.black,
+                                      width: 3,
+                                    ),
+                                    boxShadow: AppTheme.inkShadow,
                                   ),
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
@@ -284,7 +282,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                                   ? 'CREATE ACCOUNT'
                                                   : 'SIGN IN',
                                               style: GoogleFonts.spaceMono(
-                                                color: AppTheme.bg(context),
+                                                color: AppTheme.black,
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w700,
                                                 letterSpacing: 1,
@@ -340,16 +338,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                   decoration: BoxDecoration(
                                     color: AppTheme.white,
                                     border: Border.all(
-                                      color: const Color(0xFF1F1F1F),
-                                      width: 2,
+                                      color: AppTheme.black,
+                                      width: 3,
                                     ),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: AppTheme.black,
-                                        offset: Offset(4, 4),
-                                        blurRadius: 0,
-                                      ),
-                                    ],
+                                    boxShadow: AppTheme.inkShadow,
                                   ),
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
@@ -358,7 +350,11 @@ class _AuthScreenState extends State<AuthScreen> {
                                     ),
                                     child: Row(
                                       children: [
-                                        const _GoogleMark(size: 22),
+                                        Image.asset(
+                                          'assets/images/google_logo.png',
+                                          width: 22,
+                                          height: 22,
+                                        ),
                                         const SizedBox(width: 14),
                                         Expanded(
                                           child: Text(
@@ -366,7 +362,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                                 ? 'SIGN UP WITH GOOGLE'
                                                 : 'SIGN IN WITH GOOGLE',
                                             style: GoogleFonts.spaceMono(
-                                              color: const Color(0xFF1F1F1F),
+                                              color: AppTheme.black,
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
                                               letterSpacing: 0.7,
@@ -375,7 +371,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                         ),
                                         Icon(
                                           Icons.arrow_forward,
-                                          color: const Color(0xFF1F1F1F),
+                                          color: AppTheme.black,
                                         ),
                                       ],
                                     ),
@@ -413,7 +409,7 @@ class _AuthScreenState extends State<AuthScreen> {
           child: Text(
             label,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
+              color: active ? AppTheme.black : AppTheme.fg(context),
               fontSize: 13,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
@@ -432,11 +428,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }) {
     return Container(
       width: double.infinity,
-      decoration: AppTheme.brutalBox(
-        context,
-        color: color,
-        shadow: false,
-      ),
+      decoration: AppTheme.brutalBox(context, color: color, shadow: false),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Text(
@@ -497,148 +489,24 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(
-                color: AppTheme.fg(context),
-                width: 2,
-              ),
+              borderSide: BorderSide(color: AppTheme.fg(context), width: 2),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(
-                color: AppTheme.fg(context),
-                width: 3,
-              ),
+              borderSide: BorderSide(color: AppTheme.fg(context), width: 3),
             ),
             errorBorder: const OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(
-                color: AppTheme.red,
-                width: 2,
-              ),
+              borderSide: BorderSide(color: AppTheme.red, width: 2),
             ),
             focusedErrorBorder: const OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(
-                color: AppTheme.red,
-                width: 3,
-              ),
+              borderSide: BorderSide(color: AppTheme.red, width: 3),
             ),
           ),
           validator: validator,
         ),
       ],
     );
-  }
-}
-
-class _GoogleMark extends StatelessWidget {
-  const _GoogleMark({required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    final stroke = size / 5.2;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        children: [
-          _ring(
-            color: const Color(0xFF4285F4),
-            startAngle: -0.2,
-            sweepAngle: 1.35,
-            size: size,
-            stroke: stroke,
-          ),
-          _ring(
-            color: const Color(0xFFEA4335),
-            startAngle: 1.15,
-            sweepAngle: 1.1,
-            size: size,
-            stroke: stroke,
-          ),
-          _ring(
-            color: const Color(0xFFFBBC05),
-            startAngle: 2.25,
-            sweepAngle: 0.95,
-            size: size,
-            stroke: stroke,
-          ),
-          _ring(
-            color: const Color(0xFF34A853),
-            startAngle: 3.15,
-            sweepAngle: 1.1,
-            size: size,
-            stroke: stroke,
-          ),
-          Positioned(
-            right: 0,
-            top: size * 0.42,
-            child: Container(
-              width: size * 0.42,
-              height: stroke,
-              color: const Color(0xFF4285F4),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  final double size;
-
-  Widget _ring({
-    required Color color,
-    required double startAngle,
-    required double sweepAngle,
-    required double size,
-    required double stroke,
-  }) {
-    return CustomPaint(
-      size: Size.square(size),
-      painter: _ArcPainter(
-        color: color,
-        startAngle: startAngle * math.pi,
-        sweepAngle: sweepAngle * math.pi,
-        strokeWidth: stroke,
-      ),
-    );
-  }
-}
-
-class _ArcPainter extends CustomPainter {
-  const _ArcPainter({
-    required this.color,
-    required this.startAngle,
-    required this.sweepAngle,
-    required this.strokeWidth,
-  });
-
-  final Color color;
-  final double startAngle;
-  final double sweepAngle;
-  final double strokeWidth;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.drawArc(
-      rect.deflate(strokeWidth / 2),
-      startAngle,
-      sweepAngle,
-      false,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.square,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArcPainter oldDelegate) {
-    return oldDelegate.color != color ||
-        oldDelegate.startAngle != startAngle ||
-        oldDelegate.sweepAngle != sweepAngle ||
-        oldDelegate.strokeWidth != strokeWidth;
   }
 }

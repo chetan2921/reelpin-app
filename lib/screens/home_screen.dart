@@ -49,28 +49,6 @@ class HomeScreen extends StatelessWidget {
                                   letterSpacing: 2,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.yellow,
-                                  border: Border.all(
-                                    color: AppTheme.black,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Text(
-                                  'BETA',
-                                  style: GoogleFonts.spaceMono(
-                                    color: AppTheme.black,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
                               const Spacer(),
                               _buildFilterButton(context, vm),
                             ],
