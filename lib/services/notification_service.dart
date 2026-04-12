@@ -31,10 +31,16 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  bool _firebaseConfigured = false;
+
+  bool get isFirebaseConfigured => _firebaseConfigured;
 
   Future<void> initialize() async {
     if (_initialized) return;
     if (!_supportsNativeFirebaseMessaging) return;
+
+    _firebaseConfigured = Firebase.apps.isNotEmpty;
+    if (!_firebaseConfigured) return;
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings();
@@ -90,6 +96,7 @@ class NotificationService {
 
   Future<String?> getFcmToken() async {
     if (!SupabaseConfig.isConfigured) return null;
+    if (!_firebaseConfigured) return null;
     try {
       return FirebaseMessaging.instance.getToken();
     } catch (e) {
@@ -98,7 +105,10 @@ class NotificationService {
     }
   }
 
-  Stream<String> get onTokenRefresh => FirebaseMessaging.instance.onTokenRefresh;
+  Stream<String> get onTokenRefresh =>
+      _firebaseConfigured
+          ? FirebaseMessaging.instance.onTokenRefresh
+          : const Stream<String>.empty();
 
   Future<void> showMessageNotification({
     required String title,

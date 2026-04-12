@@ -33,8 +33,12 @@ Future<void> main() async {
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS)) {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    try {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    } catch (e) {
+      debugPrint('Firebase initialization skipped: $e');
+    }
   }
 
   final isSupabaseConfigured = SupabaseConfig.isConfigured;
@@ -225,17 +229,19 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
       debugPrint('Push token registration skipped: $e');
     }
 
-    _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((token) {
-      unawaited(
-        _apiService.registerPushToken(
-          userId: userId,
-          token: token,
-          platform: _notificationService.currentPlatform,
-        ).catchError((error) {
-          debugPrint('Push token refresh sync failed: $error');
-        }),
-      );
-    });
+    if (_notificationService.isFirebaseConfigured) {
+      _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((token) {
+        unawaited(
+          _apiService.registerPushToken(
+            userId: userId,
+            token: token,
+            platform: _notificationService.currentPlatform,
+          ).catchError((error) {
+            debugPrint('Push token refresh sync failed: $error');
+          }),
+        );
+      });
+    }
 
     try {
       await _geofenceRecallService.initialize();
