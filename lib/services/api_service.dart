@@ -14,6 +14,7 @@ class ApiService {
   final List<String> _fallbackBaseUrls;
   final http.Client _client;
   static const Duration _requestTimeout = Duration(seconds: 15);
+  static const Duration _jobPollingTimeout = Duration(minutes: 4);
 
   ApiService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
@@ -38,6 +39,21 @@ class ApiService {
   // ─── Process Reel from URL ───
 
   Future<Reel> processReel(String url, {String userId = 'default-user'}) async {
+    try {
+      final job = await _enqueueReelProcessing(url, userId: userId);
+      return _waitForProcessingJob(job['id'] as String);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 || e.statusCode == 405) {
+        return _processReelSynchronously(url, userId: userId);
+      }
+      rethrow;
+    }
+  }
+
+  Future<Reel> _processReelSynchronously(
+    String url, {
+    String userId = 'default-user',
+  }) async {
     final res = await _requestWithFailover(
       (baseUrl) => _client
           .post(
@@ -53,6 +69,93 @@ class ApiService {
       throw ApiException(detail, res.statusCode);
     }
     return Reel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<Map<String, dynamic>> _enqueueReelProcessing(
+    String url, {
+    String userId = 'default-user',
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            Uri.parse('$baseUrl/processing-jobs/reels'),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode({'url': url, 'user_id': userId}),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      final detail = _extractError(res);
+      throw ApiException(detail, res.statusCode);
+    }
+
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> _getProcessingJob(String jobId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .get(Uri.parse('$baseUrl/processing-jobs/$jobId'))
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      final detail = _extractError(res);
+      throw ApiException(detail, res.statusCode);
+    }
+
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Reel> _waitForProcessingJob(String jobId) async {
+    final startedAt = DateTime.now();
+    var attempt = 0;
+
+    while (DateTime.now().difference(startedAt) < _jobPollingTimeout) {
+      final job = await _getProcessingJob(jobId);
+      final status = (job['status'] as String? ?? '').toLowerCase();
+
+      if (status == 'completed') {
+        final reelPayload = job['reel'];
+        if (reelPayload is Map<String, dynamic>) {
+          return Reel.fromJson(reelPayload);
+        }
+
+        final reelId = job['result_reel_id'] as String?;
+        if (reelId != null && reelId.isNotEmpty) {
+          return getReel(reelId);
+        }
+
+        throw const ApiException(
+          'Processing finished but the reel result is missing.',
+          500,
+        );
+      }
+
+      if (status == 'failed') {
+        final message = job['error_message'] as String?;
+        throw ApiException(message ?? 'Reel processing failed.', 500);
+      }
+
+      await Future.delayed(_jobPollingDelay(attempt));
+      attempt += 1;
+    }
+
+    throw const ApiException(
+      'Processing is taking longer than expected. Please check again in a minute.',
+      504,
+    );
+  }
+
+  Duration _jobPollingDelay(int attempt) {
+    if (attempt < 3) {
+      return const Duration(seconds: 2);
+    }
+    if (attempt < 8) {
+      return const Duration(seconds: 3);
+    }
+    return const Duration(seconds: 5);
   }
 
   // ─── Process Video File ───

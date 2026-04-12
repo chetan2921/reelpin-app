@@ -85,7 +85,7 @@ class _AppShellState extends State<AppShell> {
 
   void _handleSharedPayload(String payload) {
     final urlRegex = RegExp(
-      r'https?:\/\/(www\.)?(instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+|tiktok\.com\/[A-Za-z0-9@._\/-]+)(\/?\S*)?',
+      r'https?:\/\/(www\.)?(instagram\.com\/(reel|p|tv)\/[A-Za-z0-9_-]+|((vt|vm)\.)?tiktok\.com\/[A-Za-z0-9@._\/-]+|youtube\.com\/shorts\/[A-Za-z0-9_-]+|youtu\.be\/[A-Za-z0-9_-]+)(\/?\S*)?',
     );
     final match = urlRegex.firstMatch(payload);
 
