@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 
+import '../models/processing_job.dart';
 import '../models/reel.dart';
 import '../repositories/reel_repository.dart';
 
@@ -64,9 +65,9 @@ class HomeViewModel extends ChangeNotifier {
       if (a.createdAt == null) return 1;
       if (b.createdAt == null) return -1;
       try {
-        return DateTime.parse(b.createdAt!).compareTo(
-          DateTime.parse(a.createdAt!),
-        );
+        return DateTime.parse(
+          b.createdAt!,
+        ).compareTo(DateTime.parse(a.createdAt!));
       } catch (_) {
         return 0;
       }
@@ -101,13 +102,16 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   /// Process a new reel (from shared URL) and trigger loading state.
-  Future<Reel> processReel(String url) async {
+  Future<Reel> processReel(
+    String url, {
+    void Function(ProcessingJob job)? onJobUpdate,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final reel = await _repository.processReel(url);
+      final reel = await _repository.processReel(url, onJobUpdate: onJobUpdate);
       final next = [
         reel,
         ..._reels.where((existing) => existing.id != reel.id),
@@ -131,10 +135,7 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   void upsertProcessedReel(Reel reel) {
-    final next = [
-      reel,
-      ..._reels.where((existing) => existing.id != reel.id),
-    ];
+    final next = [reel, ..._reels.where((existing) => existing.id != reel.id)];
     _sortAndStore(next);
     notifyListeners();
   }

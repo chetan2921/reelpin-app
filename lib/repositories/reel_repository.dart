@@ -1,4 +1,5 @@
 import '../models/reel.dart';
+import '../models/processing_job.dart';
 import '../models/search_result.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
@@ -63,8 +64,15 @@ class ReelRepository {
   }
 
   /// Process a reel from URL and add to cache.
-  Future<Reel> processReel(String url) async {
-    final reel = await _apiService.processReel(url, userId: _currentUserId);
+  Future<Reel> processReel(
+    String url, {
+    void Function(ProcessingJob job)? onJobUpdate,
+  }) async {
+    final reel = await _apiService.processReel(
+      url,
+      userId: _currentUserId,
+      onJobUpdate: onJobUpdate,
+    );
     _cachedReels.removeWhere((existing) => existing.id == reel.id);
     _cachedReels.insert(0, reel);
     _lastFetched = DateTime.now();
@@ -117,22 +125,19 @@ class ReelRepository {
     final filtered = category == null
         ? reels
         : reels
-            .where(
-              (reel) =>
-                  reel.category.toLowerCase() == category.toLowerCase() ||
-                  reel.subCategory.toLowerCase() == category.toLowerCase(),
-            )
-            .toList();
+              .where(
+                (reel) =>
+                    reel.category.toLowerCase() == category.toLowerCase() ||
+                    reel.subCategory.toLowerCase() == category.toLowerCase(),
+              )
+              .toList();
 
     final matches = <SearchResult>[];
     for (final reel in filtered) {
       final score = _scoreReel(reel, normalizedQuery, tokens);
       if (score > 0) {
         matches.add(
-          SearchResult(
-            reel: reel,
-            relevanceScore: score.clamp(0.0, 0.99),
-          ),
+          SearchResult(reel: reel, relevanceScore: score.clamp(0.0, 0.99)),
         );
       }
     }
@@ -174,7 +179,9 @@ class ReelRepository {
       if (locations.contains(token)) score += 0.08;
       if (people.contains(token)) score += 0.04;
       if (actions.contains(token)) score += 0.03;
-      if (category.contains(token) || subCategory.contains(token)) score += 0.05;
+      if (category.contains(token) || subCategory.contains(token)) {
+        score += 0.05;
+      }
     }
 
     return score;

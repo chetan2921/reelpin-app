@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../models/processing_job.dart';
 import '../models/reel.dart';
 import '../models/search_result.dart';
 
@@ -14,7 +15,7 @@ class ApiService {
   final List<String> _fallbackBaseUrls;
   final http.Client _client;
   static const Duration _requestTimeout = Duration(seconds: 15);
-  static const Duration _jobPollingTimeout = Duration(minutes: 4);
+  static const Duration _jobPollingTimeout = Duration(minutes: 8);
 
   ApiService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
@@ -38,10 +39,17 @@ class ApiService {
 
   // ─── Process Reel from URL ───
 
-  Future<Reel> processReel(String url, {String userId = 'default-user'}) async {
+  Future<Reel> processReel(
+    String url, {
+    String userId = 'default-user',
+    void Function(ProcessingJob job)? onJobUpdate,
+  }) async {
     try {
       final job = await _enqueueReelProcessing(url, userId: userId);
-      return _waitForProcessingJob(job['id'] as String);
+      return _waitForProcessingJob(
+        job['id'] as String,
+        onJobUpdate: onJobUpdate,
+      );
     } on ApiException catch (e) {
       if (e.statusCode == 404 || e.statusCode == 405) {
         return _processReelSynchronously(url, userId: userId);
@@ -93,7 +101,7 @@ class ApiService {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> _getProcessingJob(String jobId) async {
+  Future<ProcessingJob> _getProcessingJob(String jobId) async {
     final res = await _requestWithFailover(
       (baseUrl) => _client
           .get(Uri.parse('$baseUrl/processing-jobs/$jobId'))
@@ -105,24 +113,26 @@ class ApiService {
       throw ApiException(detail, res.statusCode);
     }
 
-    return jsonDecode(res.body) as Map<String, dynamic>;
+    return ProcessingJob.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
-  Future<Reel> _waitForProcessingJob(String jobId) async {
+  Future<Reel> _waitForProcessingJob(
+    String jobId, {
+    void Function(ProcessingJob job)? onJobUpdate,
+  }) async {
     final startedAt = DateTime.now();
     var attempt = 0;
 
     while (DateTime.now().difference(startedAt) < _jobPollingTimeout) {
       final job = await _getProcessingJob(jobId);
-      final status = (job['status'] as String? ?? '').toLowerCase();
+      onJobUpdate?.call(job);
 
-      if (status == 'completed') {
-        final reelPayload = job['reel'];
-        if (reelPayload is Map<String, dynamic>) {
-          return Reel.fromJson(reelPayload);
+      if (job.isCompleted) {
+        if (job.reel != null) {
+          return job.reel!;
         }
 
-        final reelId = job['result_reel_id'] as String?;
+        final reelId = job.resultReelId;
         if (reelId != null && reelId.isNotEmpty) {
           return getReel(reelId);
         }
@@ -133,12 +143,11 @@ class ApiService {
         );
       }
 
-      if (status == 'failed') {
-        final message = job['error_message'] as String?;
-        throw ApiException(message ?? 'Reel processing failed.', 500);
+      if (job.isTerminalFailure) {
+        throw ApiException(_jobFailureMessage(job), 500);
       }
 
-      await Future.delayed(_jobPollingDelay(attempt));
+      await Future.delayed(_jobPollingDelay(attempt, job));
       attempt += 1;
     }
 
@@ -148,14 +157,67 @@ class ApiService {
     );
   }
 
-  Duration _jobPollingDelay(int attempt) {
+  Duration _jobPollingDelay(int attempt, ProcessingJob job) {
+    Duration baseDelay;
     if (attempt < 3) {
-      return const Duration(seconds: 2);
+      baseDelay = const Duration(seconds: 2);
+    } else if (attempt < 8) {
+      baseDelay = const Duration(seconds: 3);
+    } else {
+      baseDelay = const Duration(seconds: 5);
     }
-    if (attempt < 8) {
-      return const Duration(seconds: 3);
+
+    if (!job.isRetryScheduled || job.nextRetryAt == null) {
+      if (job.recommendedPollAfterSeconds != null &&
+          job.recommendedPollAfterSeconds! > 0) {
+        return Duration(seconds: job.recommendedPollAfterSeconds!);
+      }
+      return baseDelay;
     }
-    return const Duration(seconds: 5);
+
+    final waitUntilRetry = job.nextRetryAt!.difference(DateTime.now());
+    if (waitUntilRetry <= Duration.zero) {
+      return baseDelay;
+    }
+
+    if (waitUntilRetry > const Duration(seconds: 30)) {
+      return const Duration(seconds: 30);
+    }
+
+    return waitUntilRetry;
+  }
+
+  String _jobFailureMessage(ProcessingJob job) {
+    final statusMessage = job.statusMessage?.trim();
+    if (statusMessage != null && statusMessage.isNotEmpty) {
+      return statusMessage;
+    }
+
+    final message = job.errorMessage?.trim();
+    if (message != null && message.isNotEmpty) {
+      return message;
+    }
+
+    switch (job.failureCode) {
+      case 'auth_failure':
+        return 'The source platform blocked access. Try again after updating backend cookies.';
+      case 'rate_limit':
+        return 'The source platform rate limited processing. Try again later.';
+      case 'no_audio':
+        return 'This video does not include an audio track.';
+      case 'transcript_unavailable':
+        return 'A transcript was not available for this media.';
+      case 'unsupported_post_type':
+        return 'This shared post type is not supported yet.';
+      case 'ocr_failure':
+        return 'Image text extraction failed for this post.';
+      case 'provider_timeout':
+        return 'An upstream provider timed out while processing this reel.';
+      case 'request_too_large':
+        return 'The media payload was too large to process.';
+      default:
+        return 'Reel processing failed.';
+    }
   }
 
   // ─── Process Video File ───
@@ -198,7 +260,8 @@ class ApiService {
       final params = <String, String>{
         'limit': limit.toString(),
         if (userId != null && userId.trim().isNotEmpty) 'user_id': userId,
-        if (category != null && category.trim().isNotEmpty) 'category': category,
+        if (category != null && category.trim().isNotEmpty)
+          'category': category,
       };
       final uri = Uri.parse('$baseUrl/reels').replace(queryParameters: params);
       return _client.get(uri).timeout(_requestTimeout);
@@ -342,7 +405,9 @@ class ApiService {
   String _extractError(http.Response res) {
     try {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      return body['detail'] as String? ?? 'Request failed';
+      return body['message'] as String? ??
+          body['detail'] as String? ??
+          'Request failed';
     } catch (_) {
       return 'Request failed (${res.statusCode})';
     }

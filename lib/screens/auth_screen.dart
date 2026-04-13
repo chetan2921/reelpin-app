@@ -98,8 +98,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: _isSignUp
-                                ? AppTheme.neonGreen
-                                : AppTheme.cyan,
+                                ? AppTheme.lime
+                                : AppTheme.darkTeal,
                             border: Border.all(
                               color: AppTheme.fg(context),
                               width: 2,
@@ -118,7 +118,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'WELCOME BACK TO YOUR REEL ARCHIVE.',
+                      _isSignUp
+                          ? 'JOIN THE COMMUNITY OF REEL SAVERS'
+                          : 'WELCOME BACK TO YOUR REEL ARCHIVE.',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.fg(context),
                         fontSize: 24,
@@ -126,7 +128,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         height: 1.1,
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 24),
                     Container(
                       decoration: AppTheme.brutalCard(context),
                       child: Row(
@@ -151,7 +153,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 24),
                     if (sessionVm.error != null) ...[
                       _messageBanner(
                         context,

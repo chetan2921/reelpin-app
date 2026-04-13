@@ -40,6 +40,8 @@ class ProfileScreen extends StatelessWidget {
               ...homeVm.reels.map((reel) => reel.category),
               ...homeVm.reels.map((reel) => reel.subCategory),
             }.length;
+            const heroTextColor = AppTheme.white;
+            const heroSupportColor = Color(0xFFD6F3EF);
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -47,7 +49,7 @@ class ProfileScreen extends StatelessWidget {
                 Container(
                   decoration: AppTheme.brutalCard(
                     context,
-                    color: AppTheme.cyan.withGreen(30),
+                    color: const Color.fromARGB(255, 2, 50, 46),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
@@ -70,7 +72,7 @@ class ProfileScreen extends StatelessWidget {
                               child: Text(
                                 sessionVm.initials,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.fg(context),
+                                  color: AppTheme.black,
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -84,7 +86,7 @@ class ProfileScreen extends StatelessWidget {
                                   Text(
                                     sessionVm.displayName.toUpperCase(),
                                     style: GoogleFonts.spaceMono(
-                                      color: AppTheme.fg(context),
+                                      color: heroTextColor,
                                       fontSize: 18,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -93,7 +95,7 @@ class ProfileScreen extends StatelessWidget {
                                   Text(
                                     sessionVm.email,
                                     style: GoogleFonts.spaceMono(
-                                      color: AppTheme.textSec(context),
+                                      color: heroSupportColor,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,
                                       height: 1.4,
@@ -108,7 +110,7 @@ class ProfileScreen extends StatelessWidget {
                         Text(
                           'YOUR ACCOUNT HOLDS THE FULL LIBRARY, MAP PINS, AND DISCOVER INSIGHTS FOR EVERYTHING YOU SEND TO REELPIN.',
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.fg(context),
+                            color: heroTextColor,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             height: 1.5,

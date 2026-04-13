@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
+import '../models/processing_job.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
@@ -118,7 +119,15 @@ class _AppShellState extends State<AppShell> {
     });
 
     try {
-      final reel = await homeVm.processReel(url);
+      final reel = await homeVm.processReel(
+        url,
+        onJobUpdate: (job) {
+          if (!mounted) return;
+          setState(() {
+            _processingStatus = _statusTextForJob(job);
+          });
+        },
+      );
       homeVm.upsertProcessedReel(reel);
       mapVm.upsertProcessedReel(reel);
 
@@ -148,11 +157,7 @@ class _AppShellState extends State<AppShell> {
                 width: 18,
                 height: 18,
                 color: AppTheme.neonGreen,
-                child: Icon(
-                  Icons.check,
-                  size: 14,
-                  color: AppTheme.fg(context),
-                ),
+                child: Icon(Icons.check, size: 14, color: AppTheme.fg(context)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -202,6 +207,50 @@ class _AppShellState extends State<AppShell> {
         ),
       );
     }
+  }
+
+  String _statusTextForJob(ProcessingJob job) {
+    final statusMessage = job.statusMessage?.trim();
+    if (statusMessage != null && statusMessage.isNotEmpty) {
+      return statusMessage.toUpperCase();
+    }
+
+    if (job.isRetryScheduled && job.nextRetryAt != null) {
+      return 'WAITING TO RETRY AT ${_formatRetryTime(job.nextRetryAt!)}...';
+    }
+
+    switch ((job.currentStep ?? '').toLowerCase()) {
+      case 'checking_cache':
+        return 'CHECKING CACHE...';
+      case 'downloading':
+        return 'DOWNLOADING REEL...';
+      case 'transcribing':
+        return 'TRANSCRIBING AUDIO...';
+      case 'ocr':
+        return 'READING IMAGE TEXT...';
+      case 'extracting':
+        return 'EXTRACTING DETAILS...';
+      case 'saving':
+        return 'SAVING REEL...';
+      case 'embedding':
+        return 'INDEXING SEARCH...';
+      case 'completed':
+        return 'FINALIZING...';
+      default:
+        return 'PROCESSING REEL...';
+    }
+  }
+
+  String _formatRetryTime(DateTime value) {
+    final local = value.toLocal();
+    final hour = local.hour == 0
+        ? 12
+        : local.hour > 12
+        ? local.hour - 12
+        : local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final suffix = local.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $suffix';
   }
 
   @override
@@ -270,7 +319,10 @@ class _AppShellState extends State<AppShell> {
       decoration: BoxDecoration(
         color: AppTheme.bg(context),
         border: Border(
-          top: BorderSide(color: AppTheme.fg(context), width: AppTheme.borderWidth),
+          top: BorderSide(
+            color: AppTheme.fg(context),
+            width: AppTheme.borderWidth,
+          ),
         ),
       ),
       child: SafeArea(

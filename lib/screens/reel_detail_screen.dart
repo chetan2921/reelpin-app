@@ -84,6 +84,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
               // Delete
               GestureDetector(
                 onTap: () => _confirmDelete(context),
@@ -94,6 +95,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                   decoration: BoxDecoration(
                     color: AppTheme.destructive,
                     border: Border.all(color: AppTheme.fg(context), width: 2),
+                    boxShadow: AppTheme.brutalShadowSmall(context),
                   ),
                   child: const Icon(
                     Icons.delete,
@@ -436,7 +438,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                         secondChild: Text(
                           reel.transcript,
                           style: GoogleFonts.spaceMono(
-                            color: _detailTextColor,
+                            color: AppTheme.black,
                             fontSize: 12,
                             height: 1.6,
                           ),

@@ -26,18 +26,22 @@ class _MapScreenState extends State<MapScreen> {
   static const _defaultLatLng = LatLng(20.0, 0.0);
   static const String _darkMapStyle = '''
 [
-  {"elementType":"geometry","stylers":[{"color":"#0f1113"}]},
-  {"elementType":"labels.text.fill","stylers":[{"color":"#b7bcc6"}]},
-  {"elementType":"labels.text.stroke","stylers":[{"color":"#0f1113"}]},
-  {"featureType":"administrative","elementType":"geometry.stroke","stylers":[{"color":"#23272e"}]},
-  {"featureType":"landscape.man_made","elementType":"geometry","stylers":[{"color":"#15181b"}]},
-  {"featureType":"poi","elementType":"geometry","stylers":[{"color":"#171a1e"}]},
-  {"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#13261b"}]},
-  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#1e2329"}]},
-  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#0b0d10"}]},
-  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#2b3138"}]},
-  {"featureType":"transit","elementType":"geometry","stylers":[{"color":"#1c2025"}]},
-  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#09161f"}]}
+  {"elementType":"geometry","stylers":[{"color":"#1a2024"}]},
+  {"elementType":"labels.icon","stylers":[{"visibility":"off"}]},
+  {"elementType":"labels.text.fill","stylers":[{"color":"#d5dde6"}]},
+  {"elementType":"labels.text.stroke","stylers":[{"color":"#1a2024"}]},
+  {"featureType":"administrative","elementType":"geometry.stroke","stylers":[{"color":"#46515a"}]},
+  {"featureType":"administrative.locality","elementType":"labels.text.fill","stylers":[{"color":"#f0f4f8"}]},
+  {"featureType":"landscape.man_made","elementType":"geometry","stylers":[{"color":"#232b30"}]},
+  {"featureType":"landscape.natural","elementType":"geometry","stylers":[{"color":"#20272b"}]},
+  {"featureType":"poi","elementType":"geometry","stylers":[{"color":"#242d33"}]},
+  {"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#214133"}]},
+  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#303840"}]},
+  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#161b1f"}]},
+  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#44515d"}]},
+  {"featureType":"road.highway","elementType":"geometry.stroke","stylers":[{"color":"#1b232a"}]},
+  {"featureType":"transit","elementType":"geometry","stylers":[{"color":"#2a333b"}]},
+  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#163246"}]}
 ]
 ''';
 
@@ -149,8 +153,9 @@ class _MapScreenState extends State<MapScreen> {
 
     // Letter (centered in square body)
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    final letterColor =
-        catColor.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
+    final letterColor = catColor.computeLuminance() > 0.5
+        ? AppTheme.black
+        : AppTheme.white;
     textPainter.text = TextSpan(
       text: category.isNotEmpty ? category[0].toUpperCase() : '?',
       style: TextStyle(
@@ -468,7 +473,7 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Reels with place mentions will\nshow up here on the map.',
+                            'Reels that clearly name places will\nshow up here on the map.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.spaceMono(
                               color: AppTheme.textSecondary,
@@ -570,6 +575,9 @@ class _MapScreenState extends State<MapScreen> {
     Location? selectedLocation,
   ) {
     final catColor = AppTheme.getCategoryColor(reel.category);
+    final supportingTextColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFD0D0D0)
+        : AppTheme.textSecondary;
     final fallbackLocation = reel.mappableLocations.isNotEmpty
         ? reel.mappableLocations.first
         : null;
@@ -652,7 +660,7 @@ class _MapScreenState extends State<MapScreen> {
             Text(
               reel.summary,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.textSecondary,
+                color: supportingTextColor,
                 fontSize: 11,
                 height: 1.4,
               ),
@@ -689,7 +697,7 @@ class _MapScreenState extends State<MapScreen> {
                           : reel.locations.map((l) => l.name).join(', '))
                       .toUpperCase(),
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSecondary,
+                    color: supportingTextColor,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
@@ -739,20 +747,20 @@ class _MapScreenState extends State<MapScreen> {
                   onTap: activeLocation == null
                       ? null
                       : () async {
-                    final loc = activeLocation;
-                    final queryParam = loc.name.isNotEmpty
-                        ? Uri.encodeComponent(loc.name)
-                        : '${loc.latitude},${loc.longitude}';
-                    final url =
-                        'https://www.google.com/maps/search/?api=1&query=$queryParam';
-                    final uri = Uri.parse(url);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    }
-                  },
+                          final loc = activeLocation;
+                          final queryParam = loc.name.isNotEmpty
+                              ? Uri.encodeComponent(loc.name)
+                              : '${loc.latitude},${loc.longitude}';
+                          final url =
+                              'https://www.google.com/maps/search/?api=1&query=$queryParam';
+                          final uri = Uri.parse(url);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
+                          }
+                        },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: AppTheme.brutalBox(

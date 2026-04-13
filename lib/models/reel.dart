@@ -5,12 +5,20 @@ class Location {
   final String? address;
   final double? latitude;
   final double? longitude;
+  final String? source;
+  final bool? isDirectMention;
+  final bool? isCaptionReference;
+  final bool? isTranscriptReference;
 
   const Location({
     required this.name,
     this.address,
     this.latitude,
     this.longitude,
+    this.source,
+    this.isDirectMention,
+    this.isCaptionReference,
+    this.isTranscriptReference,
   });
 
   factory Location.fromJson(Map<String, dynamic> json) {
@@ -18,6 +26,22 @@ class Location {
       if (value == null) return null;
       if (value is num) return value.toDouble();
       if (value is String) return double.tryParse(value);
+      return null;
+    }
+
+    bool? parseBool(dynamic value) {
+      if (value == null) return null;
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+          return true;
+        }
+        if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+          return false;
+        }
+      }
       return null;
     }
 
@@ -29,6 +53,25 @@ class Location {
           parseCoord(json['longitude']) ??
           parseCoord(json['lng']) ??
           parseCoord(json['lon']),
+      source:
+          json['source']?.toString() ??
+          json['location_source']?.toString() ??
+          json['mention_source']?.toString(),
+      isDirectMention: parseBool(
+        json['is_direct_mention'] ??
+            json['direct_mention'] ??
+            json['mentioned_directly'],
+      ),
+      isCaptionReference: parseBool(
+        json['mentioned_in_caption'] ??
+            json['caption_reference'] ??
+            json['from_caption'],
+      ),
+      isTranscriptReference: parseBool(
+        json['mentioned_in_transcript'] ??
+            json['transcript_reference'] ??
+            json['from_transcript'],
+      ),
     );
   }
 
@@ -37,10 +80,26 @@ class Location {
     if (address != null) 'address': address,
     if (latitude != null) 'latitude': latitude,
     if (longitude != null) 'longitude': longitude,
+    if (source != null) 'source': source,
+    if (isDirectMention != null) 'is_direct_mention': isDirectMention,
+    if (isCaptionReference != null) 'mentioned_in_caption': isCaptionReference,
+    if (isTranscriptReference != null)
+      'mentioned_in_transcript': isTranscriptReference,
   };
 
   /// Whether this location has valid coordinates for map pinning.
   bool get hasCoordinates => latitude != null && longitude != null;
+
+  bool get hasExplicitMentionSignal {
+    final normalizedSource = source?.trim().toLowerCase();
+    return isDirectMention == true ||
+        isCaptionReference == true ||
+        isTranscriptReference == true ||
+        normalizedSource == 'caption' ||
+        normalizedSource == 'transcript' ||
+        normalizedSource == 'direct' ||
+        normalizedSource == 'mentioned';
+  }
 }
 
 class Reel {
@@ -49,6 +108,7 @@ class Reel {
   final String url;
   final String title;
   final String summary;
+  final String caption;
   final String transcript;
   final String category;
   final String subCategory;
@@ -64,6 +124,7 @@ class Reel {
     required this.url,
     required this.title,
     required this.summary,
+    required this.caption,
     required this.transcript,
     required this.category,
     required this.subCategory,
@@ -80,6 +141,11 @@ class Reel {
     url: json['url'] as String,
     title: json['title'] as String? ?? '',
     summary: json['summary'] as String? ?? '',
+    caption:
+        json['caption'] as String? ??
+        json['reel_caption'] as String? ??
+        json['video_caption'] as String? ??
+        '',
     transcript: json['transcript'] as String? ?? '',
     category: json['category'] as String? ?? 'Other',
     subCategory:
@@ -117,6 +183,7 @@ class Reel {
     'url': url,
     'title': title,
     'summary': summary,
+    'caption': caption,
     'transcript': transcript,
     'category': category,
     'sub_category': subCategory,
@@ -128,11 +195,68 @@ class Reel {
   };
 
   /// All locations that can be pinned on a map.
-  List<Location> get mappableLocations =>
-      locations.where((l) => l.hasCoordinates).toList();
+  List<Location> get mappableLocations {
+    final candidates = locations.where((location) => location.hasCoordinates);
+    return candidates.where(_shouldPinLocation).toList();
+  }
 
   /// Whether this reel has any map-pinnable locations.
   bool get hasMapLocations => mappableLocations.isNotEmpty;
+
+  bool _shouldPinLocation(Location location) {
+    if (location.hasExplicitMentionSignal) {
+      return true;
+    }
+
+    final searchableText = _normalizedMapSourceText;
+    if (searchableText.isEmpty) {
+      return false;
+    }
+
+    return _matchableLocationPhrases(
+      location,
+    ).any((phrase) => _containsNormalizedPhrase(searchableText, phrase));
+  }
+
+  Iterable<String> _matchableLocationPhrases(Location location) sync* {
+    if (location.name.trim().isNotEmpty) {
+      yield location.name;
+    }
+
+    final address = location.address?.trim();
+    if (address != null && address.isNotEmpty) {
+      yield address;
+
+      final leadSegment = address.split(',').first.trim();
+      if (leadSegment.isNotEmpty && leadSegment != address) {
+        yield leadSegment;
+      }
+    }
+  }
+
+  String get _normalizedMapSourceText => _normalizeMatchText(
+    [
+      title,
+      caption,
+      transcript,
+    ].where((part) => part.trim().isNotEmpty).join(' '),
+  );
+
+  bool _containsNormalizedPhrase(String haystack, String needle) {
+    final normalizedNeedle = _normalizeMatchText(needle);
+    if (normalizedNeedle.isEmpty) {
+      return false;
+    }
+    return ' $haystack '.contains(' $normalizedNeedle ');
+  }
+
+  String _normalizeMatchText(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
 
   /// Formatted date string for display.
   String get displayDate {

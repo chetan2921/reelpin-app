@@ -28,6 +28,7 @@ class AppTheme {
   static const Color orange = Color(0xFFFF6F00);
   static const Color lime = Color(0xFFAEEA00);
   static const Color purple = Color(0xFF6A1B9A);
+  static const Color darkTeal = Color(0xFF0D6F69);
 
   // ── Semantic Shortcuts ──
   static const Color background = white;
@@ -66,24 +67,30 @@ class AppTheme {
 
   // ── Dynamic Color Helpers ──
   static Color bg(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1A1A1A) : white;
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1A1A1A)
+        : white;
   }
-  
+
   static Color fg(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark ? white : black;
   }
 
   static Color textSec(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark ? const Color(0xFFCCCCCC) : textSecondary;
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFCCCCCC)
+        : textSecondary;
   }
 
   static Color surfaceElevatedColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2A2A) : surfaceElevated;
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF2A2A2A)
+        : surfaceElevated;
   }
 
   // ── Hard shadow ──
   static const Offset shadowOffset = Offset(4, 4);
-  
+
   static List<BoxShadow> brutalShadow(BuildContext context) => [
     BoxShadow(
       color: fg(context),
@@ -136,7 +143,7 @@ class AppTheme {
 
   static Color getCategoryColor(String categoryOrSub) {
     int index = ApiConfig.broadCategories.indexOf(categoryOrSub);
-    
+
     if (index == -1) {
       for (int i = 0; i < ApiConfig.broadCategories.length; i++) {
         final broad = ApiConfig.broadCategories[i];
@@ -146,11 +153,11 @@ class AppTheme {
         }
       }
     }
-    
+
     if (index == -1) {
       index = categoryOrSub.hashCode.abs() % _categoryPalette.length;
     }
-    
+
     return _categoryPalette[index % _categoryPalette.length];
   }
 
@@ -193,7 +200,10 @@ class AppTheme {
     return brutalBox(context, borderRadius: borderRadius);
   }
 
-  static BoxDecoration cardDecoration(BuildContext context, {double borderRadius = 0}) {
+  static BoxDecoration cardDecoration(
+    BuildContext context, {
+    double borderRadius = 0,
+  }) {
     return brutalCard(context, borderRadius: borderRadius);
   }
 
@@ -208,7 +218,7 @@ class AppTheme {
     final bgColor = isDark ? const Color(0xFF1A1A1A) : white;
     final fgColor = isDark ? white : black;
     final tSecondary = isDark ? const Color(0xFFCCCCCC) : textSecondary;
-    
+
     final headingText = GoogleFonts.spaceMonoTextTheme();
     final bodyText = GoogleFonts.spaceMonoTextTheme();
 
@@ -249,12 +259,8 @@ class AppTheme {
           color: fgColor,
           fontWeight: FontWeight.w500,
         ),
-        bodyMedium: bodyText.bodyMedium?.copyWith(
-          color: fgColor,
-        ),
-        bodySmall: bodyText.bodySmall?.copyWith(
-          color: tSecondary,
-        ),
+        bodyMedium: bodyText.bodyMedium?.copyWith(color: fgColor),
+        bodySmall: bodyText.bodySmall?.copyWith(color: tSecondary),
         labelLarge: bodyText.labelLarge?.copyWith(
           color: fgColor,
           fontWeight: FontWeight.w700,
@@ -302,7 +308,10 @@ class AppTheme {
         ),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: black, size: 24); // Keep black icon inside yellow chip
+            return const IconThemeData(
+              color: black,
+              size: 24,
+            ); // Keep black icon inside yellow chip
           }
           return IconThemeData(color: fgColor, size: 22);
         }),
@@ -326,10 +335,7 @@ class AppTheme {
           horizontal: 16,
           vertical: 14,
         ),
-        hintStyle: GoogleFonts.spaceMono(
-          color: textTertiary,
-          fontSize: 14,
-        ),
+        hintStyle: GoogleFonts.spaceMono(color: textTertiary, fontSize: 14),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: isDark ? const Color(0xFF222222) : white,
@@ -344,9 +350,7 @@ class AppTheme {
           color: black, // Black inside yellow
           fontSize: 12,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
         side: BorderSide(color: fgColor, width: thinBorderWidth),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       ),
@@ -358,13 +362,8 @@ class AppTheme {
           side: BorderSide(color: fgColor, width: borderWidth),
         ),
       ),
-      progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: fgColor,
-      ),
-      dividerTheme: DividerThemeData(
-        color: fgColor,
-        thickness: 2,
-      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: fgColor),
+      dividerTheme: DividerThemeData(color: fgColor, thickness: 2),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: bgColor,
         contentTextStyle: GoogleFonts.spaceMono(
@@ -384,9 +383,7 @@ class AppTheme {
           side: BorderSide(color: fgColor, width: borderWidth),
         ),
       ),
-      bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: bgColor,
-      ),
+      bottomSheetTheme: BottomSheetThemeData(backgroundColor: bgColor),
     );
   }
 }
