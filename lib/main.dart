@@ -56,10 +56,7 @@ Future<void> main() async {
 }
 
 class ReelPinApp extends StatelessWidget {
-  const ReelPinApp({
-    super.key,
-    required this.isSupabaseConfigured,
-  });
+  const ReelPinApp({super.key, required this.isSupabaseConfigured});
 
   final bool isSupabaseConfigured;
 
@@ -67,7 +64,9 @@ class ReelPinApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeViewModel()..loadPreference()),
+        ChangeNotifierProvider(
+          create: (_) => ThemeViewModel()..loadPreference(),
+        ),
         if (isSupabaseConfigured) Provider(create: (_) => ProfileService()),
         if (isSupabaseConfigured)
           Provider(
@@ -167,6 +166,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
   late final MapViewModel _mapViewModel;
   late final SearchViewModel _searchViewModel;
   StreamSubscription<String>? _tokenRefreshSubscription;
+  StreamSubscription<ReelReadyNotification>? _reelReadySubscription;
 
   @override
   void initState() {
@@ -230,15 +230,19 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     }
 
     if (_notificationService.isFirebaseConfigured) {
-      _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((token) {
+      _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((
+        token,
+      ) {
         unawaited(
-          _apiService.registerPushToken(
-            userId: userId,
-            token: token,
-            platform: _notificationService.currentPlatform,
-          ).catchError((error) {
-            debugPrint('Push token refresh sync failed: $error');
-          }),
+          _apiService
+              .registerPushToken(
+                userId: userId,
+                token: token,
+                platform: _notificationService.currentPlatform,
+              )
+              .catchError((error) {
+                debugPrint('Push token refresh sync failed: $error');
+              }),
         );
       });
     }
@@ -247,6 +251,16 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
       await _geofenceRecallService.initialize();
     } catch (e) {
       debugPrint('Geofence recall initialization skipped: $e');
+    }
+
+    _reelReadySubscription = _notificationService.onReelReady.listen((event) {
+      unawaited(_refreshSavedReels());
+    });
+
+    final initialReelReady = _notificationService
+        .consumePendingInitialReelReady();
+    if (initialReelReady != null) {
+      await _refreshSavedReels();
     }
   }
 
@@ -259,11 +273,23 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     }
   }
 
+  Future<void> _refreshSavedReels() async {
+    try {
+      await Future.wait([
+        _homeViewModel.loadReels(forceRefresh: true),
+        _mapViewModel.loadMapReels(forceRefresh: true),
+      ]);
+    } catch (e) {
+      debugPrint('Saved reel refresh skipped: $e');
+    }
+  }
+
   @override
   void dispose() {
     _homeViewModel.removeListener(_syncGeofenceRegions);
     _geofenceRecallService.dispose();
     _tokenRefreshSubscription?.cancel();
+    _reelReadySubscription?.cancel();
     super.dispose();
   }
 }

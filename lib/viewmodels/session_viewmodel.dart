@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
+import '../services/share_handoff_service.dart';
 
 class SessionViewModel extends ChangeNotifier {
   SessionViewModel(this._authService) {
@@ -13,6 +14,7 @@ class SessionViewModel extends ChangeNotifier {
       _error = null;
       notifyListeners();
       _syncProfileSilently();
+      unawaited(_syncShareHandoffState());
     });
     _bootstrap();
   }
@@ -59,10 +61,8 @@ class SessionViewModel extends ChangeNotifier {
     return 'ReelPin User';
   }
 
-  String? get avatarUrl => _readString(currentUser?.userMetadata, const [
-    'avatar_url',
-    'picture',
-  ]);
+  String? get avatarUrl =>
+      _readString(currentUser?.userMetadata, const ['avatar_url', 'picture']);
 
   String get initials {
     final parts = displayName
@@ -108,6 +108,7 @@ class SessionViewModel extends ChangeNotifier {
     try {
       await _authService.signOut();
       _session = null;
+      await ShareHandoffService.instance.clear();
     } catch (e) {
       _error = _normalizeError(e);
     } finally {
@@ -191,6 +192,7 @@ class SessionViewModel extends ChangeNotifier {
   Future<void> _bootstrap() async {
     await Future<void>.delayed(const Duration(milliseconds: 850));
     await _syncProfileSilently();
+    await _syncShareHandoffState();
     _isBootstrapping = false;
     notifyListeners();
   }
@@ -203,6 +205,16 @@ class SessionViewModel extends ChangeNotifier {
     } catch (e) {
       debugPrint('Profile sync skipped: $e');
     }
+  }
+
+  Future<void> _syncShareHandoffState() async {
+    final userId = currentUser?.id;
+    if (userId == null || userId.trim().isEmpty) {
+      await ShareHandoffService.instance.clear();
+      return;
+    }
+
+    await ShareHandoffService.instance.syncAuthenticatedUser(userId);
   }
 
   String? _readString(Map<String, dynamic>? source, List<String> keys) {

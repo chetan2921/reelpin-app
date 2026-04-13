@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -19,6 +21,20 @@ bool get _supportsNativeFirebaseMessaging =>
     (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS);
 
+class ReelReadyNotification {
+  const ReelReadyNotification({
+    required this.title,
+    required this.body,
+    this.reelId,
+    this.jobId,
+  });
+
+  final String title;
+  final String body;
+  final String? reelId;
+  final String? jobId;
+}
+
 class NotificationService {
   NotificationService._();
 
@@ -29,11 +45,15 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
+  final StreamController<ReelReadyNotification> _reelReadyController =
+      StreamController<ReelReadyNotification>.broadcast();
 
   bool _initialized = false;
   bool _firebaseConfigured = false;
+  ReelReadyNotification? _pendingInitialReelReady;
 
   bool get isFirebaseConfigured => _firebaseConfigured;
+  Stream<ReelReadyNotification> get onReelReady => _reelReadyController.stream;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -42,7 +62,9 @@ class NotificationService {
     _firebaseConfigured = Firebase.apps.isNotEmpty;
     if (!_firebaseConfigured) return;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings();
     const settings = InitializationSettings(
       android: androidSettings,
@@ -83,13 +105,36 @@ class NotificationService {
     }
 
     FirebaseMessaging.onMessage.listen((message) {
+      final reelReady = _parseReelReady(message);
+      if (reelReady != null) {
+        unawaited(
+          showMessageNotification(title: reelReady.title, body: reelReady.body),
+        );
+        _reelReadyController.add(reelReady);
+        return;
+      }
+
       final notification = message.notification;
       if (notification == null) return;
-      showMessageNotification(
-        title: notification.title ?? 'ReelPin',
-        body: notification.body ?? '',
+      unawaited(
+        showMessageNotification(
+          title: notification.title ?? 'ReelPin',
+          body: notification.body ?? '',
+        ),
       );
     });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      final reelReady = _parseReelReady(message);
+      if (reelReady != null) {
+        _reelReadyController.add(reelReady);
+      }
+    });
+
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) {
+      _pendingInitialReelReady = _parseReelReady(initialMessage);
+    }
 
     _initialized = true;
   }
@@ -105,10 +150,15 @@ class NotificationService {
     }
   }
 
-  Stream<String> get onTokenRefresh =>
-      _firebaseConfigured
-          ? FirebaseMessaging.instance.onTokenRefresh
-          : const Stream<String>.empty();
+  Stream<String> get onTokenRefresh => _firebaseConfigured
+      ? FirebaseMessaging.instance.onTokenRefresh
+      : const Stream<String>.empty();
+
+  ReelReadyNotification? consumePendingInitialReelReady() {
+    final pending = _pendingInitialReelReady;
+    _pendingInitialReelReady = null;
+    return pending;
+  }
 
   Future<void> showMessageNotification({
     required String title,
@@ -160,5 +210,27 @@ class NotificationService {
     if (defaultTargetPlatform == TargetPlatform.android) return 'android';
     if (defaultTargetPlatform == TargetPlatform.macOS) return 'macos';
     return 'unknown';
+  }
+
+  ReelReadyNotification? _parseReelReady(RemoteMessage message) {
+    final type = message.data['type']?.trim().toLowerCase();
+    if (type != 'reel_ready') {
+      return null;
+    }
+
+    final notification = message.notification;
+    final title = notification?.title?.trim();
+    final body = notification?.body?.trim();
+    final reelId = message.data['reel_id']?.trim();
+    final jobId = message.data['job_id']?.trim();
+
+    return ReelReadyNotification(
+      title: title == null || title.isEmpty ? 'Reel pinned in ReelPin' : title,
+      body: body == null || body.isEmpty
+          ? 'Your saved reel is ready in ReelPin.'
+          : body,
+      reelId: reelId == null || reelId.isEmpty ? null : reelId,
+      jobId: jobId == null || jobId.isEmpty ? null : jobId,
+    );
   }
 }

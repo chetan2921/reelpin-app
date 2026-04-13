@@ -67,13 +67,15 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         child: Consumer<SessionViewModel>(
           builder: (context, sessionVm, _) {
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+              padding: layout.pagePadding(horizontal: 20, top: 20, bottom: 24),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -85,16 +87,20 @@ class _AuthScreenState extends State<AuthScreen> {
                           'REELPIN',
                           style: GoogleFonts.spaceMono(
                             color: AppTheme.fg(context),
-                            fontSize: 28,
+                            fontSize: layout.font(
+                              28,
+                              minFactor: 0.9,
+                              maxFactor: 1.08,
+                            ),
                             fontWeight: FontWeight.w700,
                             letterSpacing: 2,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: layout.inset(8)),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: layout.inset(8),
+                            vertical: layout.gap(4),
                           ),
                           decoration: BoxDecoration(
                             color: _isSignUp
@@ -109,26 +115,30 @@ class _AuthScreenState extends State<AuthScreen> {
                             _isSignUp ? 'SIGN UP' : 'SIGN IN',
                             style: GoogleFonts.spaceMono(
                               color: AppTheme.black,
-                              fontSize: 10,
+                              fontSize: layout.font(10),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
+                    SizedBox(height: layout.gap(18)),
                     Text(
                       _isSignUp
                           ? 'JOIN THE COMMUNITY OF REEL SAVERS'
                           : 'WELCOME BACK TO YOUR REEL ARCHIVE.',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.fg(context),
-                        fontSize: 24,
+                        fontSize: layout.font(
+                          24,
+                          minFactor: 0.9,
+                          maxFactor: 1.12,
+                        ),
                         fontWeight: FontWeight.w700,
                         height: 1.1,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: layout.gap(22)),
                     Container(
                       decoration: AppTheme.brutalCard(context),
                       child: Row(
@@ -141,7 +151,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                           Container(
                             width: AppTheme.borderWidth,
-                            height: 56,
+                            height: layout.gap(54),
                             color: AppTheme.fg(context),
                           ),
                           _modeButton(
@@ -153,7 +163,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: layout.gap(22)),
                     if (sessionVm.error != null) ...[
                       _messageBanner(
                         context,
@@ -161,7 +171,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         color: AppTheme.red,
                         textColor: AppTheme.white,
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: layout.gap(14)),
                     ],
                     if (sessionVm.statusMessage != null) ...[
                       _messageBanner(
@@ -170,13 +180,13 @@ class _AuthScreenState extends State<AuthScreen> {
                         color: AppTheme.neonGreen,
                         textColor: AppTheme.fg(context),
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: layout.gap(14)),
                     ],
                     Container(
                       width: double.infinity,
                       decoration: AppTheme.brutalCard(context),
                       child: Padding(
-                        padding: const EdgeInsets.all(18),
+                        padding: EdgeInsets.all(layout.inset(18)),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -194,7 +204,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   return null;
                                 },
                               ),
-                              const SizedBox(height: 14),
+                              SizedBox(height: layout.gap(14)),
                             ],
                             _inputField(
                               context,
@@ -212,7 +222,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: layout.gap(14)),
                             _inputField(
                               context,
                               controller: _passwordController,
@@ -229,7 +239,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               },
                             ),
                             if (_isSignUp) ...[
-                              const SizedBox(height: 14),
+                              SizedBox(height: layout.gap(14)),
                               _inputField(
                                 context,
                                 controller: _confirmPasswordController,
@@ -248,7 +258,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 },
                               ),
                             ],
-                            const SizedBox(height: 18),
+                            SizedBox(height: layout.gap(18)),
                             GestureDetector(
                               onTap: sessionVm.isBusy
                                   ? null
@@ -266,14 +276,14 @@ class _AuthScreenState extends State<AuthScreen> {
                                     boxShadow: AppTheme.inkShadow,
                                   ),
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: layout.gap(16),
                                     ),
                                     child: Center(
                                       child: sessionVm.isSigningIn
                                           ? SizedBox(
-                                              width: 20,
-                                              height: 20,
+                                              width: layout.inset(20),
+                                              height: layout.inset(20),
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2.5,
                                                 color: AppTheme.bg(context),
@@ -285,7 +295,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                                   : 'SIGN IN',
                                               style: GoogleFonts.spaceMono(
                                                 color: AppTheme.black,
-                                                fontSize: 14,
+                                                fontSize: layout.font(14),
                                                 fontWeight: FontWeight.w700,
                                                 letterSpacing: 1,
                                               ),
@@ -295,7 +305,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: layout.gap(14)),
                             Row(
                               children: [
                                 Expanded(
@@ -305,14 +315,14 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: layout.inset(10),
                                   ),
                                   child: Text(
                                     'OR',
                                     style: GoogleFonts.spaceMono(
                                       color: AppTheme.textSec(context),
-                                      fontSize: 11,
+                                      fontSize: layout.font(11),
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -325,7 +335,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
+                            SizedBox(height: layout.gap(14)),
                             GestureDetector(
                               onTap: sessionVm.isBusy
                                   ? null
@@ -346,18 +356,18 @@ class _AuthScreenState extends State<AuthScreen> {
                                     boxShadow: AppTheme.inkShadow,
                                   ),
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 16,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: layout.inset(16),
+                                      vertical: layout.gap(16),
                                     ),
                                     child: Row(
                                       children: [
                                         Image.asset(
                                           'assets/images/google_logo.png',
-                                          width: 22,
-                                          height: 22,
+                                          width: layout.inset(22),
+                                          height: layout.inset(22),
                                         ),
-                                        const SizedBox(width: 14),
+                                        SizedBox(width: layout.inset(14)),
                                         Expanded(
                                           child: Text(
                                             _isSignUp
@@ -365,7 +375,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                                 : 'SIGN IN WITH GOOGLE',
                                             style: GoogleFonts.spaceMono(
                                               color: AppTheme.black,
-                                              fontSize: 13,
+                                              fontSize: layout.font(13),
                                               fontWeight: FontWeight.w700,
                                               letterSpacing: 0.7,
                                             ),
@@ -401,18 +411,19 @@ class _AuthScreenState extends State<AuthScreen> {
     required bool active,
     required VoidCallback onTap,
   }) {
+    final layout = AppLayout.of(context);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: 56,
+          height: layout.gap(54),
           color: active ? AppTheme.yellow : AppTheme.bg(context),
           alignment: Alignment.center,
           child: Text(
             label,
             style: GoogleFonts.spaceMono(
               color: active ? AppTheme.black : AppTheme.fg(context),
-              fontSize: 13,
+              fontSize: layout.font(13),
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
             ),
@@ -428,16 +439,17 @@ class _AuthScreenState extends State<AuthScreen> {
     required Color color,
     required Color textColor,
   }) {
+    final layout = AppLayout.of(context);
     return Container(
       width: double.infinity,
       decoration: AppTheme.brutalBox(context, color: color, shadow: false),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: EdgeInsets.all(layout.inset(14)),
         child: Text(
           text,
           style: GoogleFonts.spaceMono(
             color: textColor,
-            fontSize: 11,
+            fontSize: layout.font(11),
             fontWeight: FontWeight.w700,
             height: 1.45,
           ),
@@ -455,6 +467,7 @@ class _AuthScreenState extends State<AuthScreen> {
     bool obscureText = false,
     TextInputType? keyboardType,
   }) {
+    final layout = AppLayout.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -462,32 +475,32 @@ class _AuthScreenState extends State<AuthScreen> {
           label,
           style: GoogleFonts.spaceMono(
             color: AppTheme.fg(context),
-            fontSize: 11,
+            fontSize: layout.font(11),
             fontWeight: FontWeight.w700,
             letterSpacing: 0.7,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: layout.gap(8)),
         TextFormField(
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
           style: GoogleFonts.spaceMono(
             color: AppTheme.fg(context),
-            fontSize: 13,
+            fontSize: layout.font(13),
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: GoogleFonts.spaceMono(
               color: AppTheme.textSec(context),
-              fontSize: 12,
+              fontSize: layout.font(12),
             ),
             filled: true,
             fillColor: AppTheme.bg(context),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: layout.inset(14),
+              vertical: layout.gap(14),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.zero,

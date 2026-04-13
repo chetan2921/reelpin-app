@@ -212,6 +212,8 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
@@ -257,16 +259,16 @@ class _MapScreenState extends State<MapScreen> {
 
                 // ── Top overlay ──
                 Positioned(
-                  top: 12,
-                  left: 16,
-                  right: 16,
+                  top: layout.gap(12),
+                  left: layout.inset(16),
+                  right: layout.inset(16),
                   child: Column(
                     children: [
                       // Info pill (brutalist)
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: layout.inset(14),
+                          vertical: layout.gap(10),
                         ),
                         decoration: AppTheme.brutalBox(
                           context,
@@ -276,8 +278,8 @@ class _MapScreenState extends State<MapScreen> {
                         child: Row(
                           children: [
                             Container(
-                              width: 20,
-                              height: 20,
+                              width: layout.inset(20),
+                              height: layout.inset(20),
                               decoration: BoxDecoration(
                                 color: AppTheme.red,
                                 border: Border.all(
@@ -288,10 +290,10 @@ class _MapScreenState extends State<MapScreen> {
                               child: Icon(
                                 Icons.pin_drop,
                                 color: AppTheme.bg(context),
-                                size: 12,
+                                size: layout.inset(12),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: layout.inset(8)),
                             Expanded(
                               child: Text(
                                 '$totalPins PLACES PINNED',
@@ -299,7 +301,7 @@ class _MapScreenState extends State<MapScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.spaceMono(
                                   color: AppTheme.fg(context),
-                                  fontSize: 11,
+                                  fontSize: layout.font(11),
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -307,15 +309,16 @@ class _MapScreenState extends State<MapScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: layout.gap(8)),
 
                       // Category chips
                       SizedBox(
-                        height: 38,
+                        height: layout.gap(38),
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: ApiConfig.broadCategories.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 6),
+                          separatorBuilder: (_, _) =>
+                              SizedBox(width: layout.inset(6)),
                           itemBuilder: (_, i) {
                             final cat = ApiConfig.broadCategories[i];
                             return CategoryBadge(
@@ -500,8 +503,10 @@ class _MapScreenState extends State<MapScreen> {
 
                 // ── Map buttons ──
                 Positioned(
-                  right: 16,
-                  bottom: vm.selectedReel != null ? 280 : 24,
+                  right: layout.inset(16),
+                  bottom: vm.selectedReel != null
+                      ? layout.gap(280)
+                      : layout.gap(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -511,7 +516,7 @@ class _MapScreenState extends State<MapScreen> {
                           onTap: () => _fitMarkers(markers),
                         ),
                       if (_userLatLng != null) ...[
-                        const SizedBox(height: 8),
+                        SizedBox(height: layout.gap(8)),
                         _mapButton(
                           icon: Icons.my_location,
                           onTap: _recenterToUserLocation,
@@ -529,17 +534,18 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _mapButton({required IconData icon, required VoidCallback onTap}) {
+    final layout = AppLayout.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: layout.inset(44),
+        height: layout.inset(44),
         decoration: AppTheme.brutalBox(
           context,
           color: AppTheme.bg(context),
           shadow: true,
         ),
-        child: Icon(icon, size: 20, color: AppTheme.fg(context)),
+        child: Icon(icon, size: layout.inset(20), color: AppTheme.fg(context)),
       ),
     );
   }

@@ -70,6 +70,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final step = _pages[_currentPage];
+    final layout = AppLayout.of(context);
     final buttonTextColor = step.accent.computeLuminance() > 0.5
         ? AppTheme.black
         : AppTheme.white;
@@ -78,53 +79,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          padding: layout.pagePadding(horizontal: 20, top: 18, bottom: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Text(
-                    'REELPIN',
-                    style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  // const SizedBox(width: 8),
-                  // Container(
-                  //   padding: const EdgeInsets.symmetric(
-                  //     horizontal: 8,
-                  //     vertical: 4,
-                  //   ),
-                  //   decoration: BoxDecoration(
-                  //     color: AppTheme.hotPink,
-                  //     border: Border.all(color: AppTheme.fg(context), width: 2),
-                  //   ),
-                  //   child: Text(
-                  //     'HOW IT WORKS',
-                  //     style: GoogleFonts.spaceMono(
-                  //       color: AppTheme.fg(context),
-                  //       fontSize: 10,
-                  //       fontWeight: FontWeight.w700,
-                  //     ),
-                  //   ),
-                  // ),
-                ],
+              Text(
+                'REELPIN',
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.fg(context),
+                  fontSize: layout.font(28, minFactor: 0.9, maxFactor: 1.08),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2,
+                ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: layout.gap(14)),
               Text(
                 'TURN SAVED REELS INTO PLANS YOU CAN ACTUALLY USE.',
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.fg(context),
-                  fontSize: 18,
+                  fontSize: layout.font(18, minFactor: 0.9, maxFactor: 1.08),
                   fontWeight: FontWeight.w700,
                   height: 1.35,
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: layout.gap(16)),
               Expanded(
                 child: PageView.builder(
                   controller: _pageController,
@@ -143,17 +121,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: layout.gap(12)),
               Row(
                 children: List.generate(
                   _pages.length,
                   (index) => AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     margin: EdgeInsets.only(
-                      right: index == _pages.length - 1 ? 0 : 8,
+                      right: index == _pages.length - 1 ? 0 : layout.inset(8),
                     ),
-                    width: _currentPage == index ? 40 : 16,
-                    height: 10,
+                    width: _currentPage == index
+                        ? layout.inset(38)
+                        : layout.inset(16),
+                    height: layout.gap(10),
                     decoration: BoxDecoration(
                       color: _currentPage == index
                           ? step.accent
@@ -163,7 +143,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: layout.gap(12)),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
                 switchInCurve: Curves.easeOutCubic,
@@ -182,14 +162,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 },
                 child: SizedBox(
                   key: ValueKey(step.bullet),
-                  height: 60,
+                  height: layout.gap(56),
                   width: double.infinity,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Positioned(
-                        top: 5,
-                        left: 5,
+                        top: layout.gap(4),
+                        left: layout.inset(4),
                         right: 0,
                         bottom: 0,
                         child: Container(
@@ -202,7 +182,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                       Positioned.fill(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: layout.inset(14),
+                          ),
                           decoration: AppTheme.brutalCard(
                             context,
                             color: AppTheme.bg(context),
@@ -210,8 +192,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: Row(
                             children: [
                               Container(
-                                width: 10,
-                                height: 10,
+                                width: layout.inset(10),
+                                height: layout.inset(10),
                                 decoration: BoxDecoration(
                                   color: step.accent,
                                   border: Border.all(
@@ -220,13 +202,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              SizedBox(width: layout.inset(10)),
                               Expanded(
                                 child: Text(
                                   step.bullet,
                                   style: GoogleFonts.spaceMono(
                                     color: AppTheme.fg(context),
-                                    fontSize: 10.5,
+                                    fontSize: layout.font(
+                                      10.5,
+                                      minFactor: 0.9,
+                                      maxFactor: 1.05,
+                                    ),
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.7,
                                   ),
@@ -240,18 +226,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: layout.gap(12)),
               GestureDetector(
                 onTap: _next,
                 child: SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: layout.gap(52),
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Positioned(
-                        top: 5,
-                        left: 5,
+                        top: layout.gap(4),
+                        left: layout.inset(4),
                         right: 0,
                         bottom: 0,
                         child: AnimatedContainer(
@@ -277,7 +263,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   : 'NEXT',
                               style: GoogleFonts.spaceMono(
                                 color: buttonTextColor,
-                                fontSize: 14,
+                                fontSize: layout.font(14),
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 1,
                               ),
@@ -291,14 +277,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               if (_currentPage != _pages.length - 1)
                 Transform.translate(
-                  offset: const Offset(0, 8),
+                  offset: Offset(0, layout.gap(10)),
                   child: Center(
                     child: TextButton(
                       onPressed: widget.onContinue,
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: layout.inset(12),
+                          vertical: layout.gap(6),
                         ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -307,7 +293,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         'SKIP',
                         style: GoogleFonts.spaceMono(
                           color: AppTheme.textSec(context),
-                          fontSize: 12,
+                          fontSize: layout.font(12),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -330,26 +316,40 @@ class _OnboardingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final heroBottom = (constraints.maxHeight * 0.28)
-            .clamp(108.0, 136.0)
+        final compactWidth = constraints.maxWidth < 360;
+        final compactHeight = constraints.maxHeight < 610;
+        final heroBottom =
+            (constraints.maxHeight * (compactHeight ? 0.22 : 0.245))
+                .clamp(layout.gap(88), layout.gap(126))
+                .toDouble();
+        final railWidth = (constraints.maxWidth * (compactWidth ? 0.24 : 0.29))
+            .clamp(layout.inset(88), layout.inset(126))
             .toDouble();
-        final railWidth = (constraints.maxWidth * 0.3)
-            .clamp(106.0, 128.0)
+        final titleWidth = (constraints.maxWidth - railWidth - layout.inset(74))
+            .clamp(layout.inset(150), layout.inset(238))
             .toDouble();
-        final titleWidth = (constraints.maxWidth * 0.58)
-            .clamp(170.0, 240.0)
-            .toDouble();
+        final heroRightInset = layout.inset(compactWidth ? 14 : 18);
+        final heroBackplateInset = layout.inset(compactWidth ? 10 : 14);
+        final bodyBottom = layout.gap(compactHeight ? 18 : 24);
+        final bodyRightInset = railWidth + layout.inset(compactWidth ? 10 : 14);
+        final railBottom = layout.gap(compactHeight ? 38 : 44);
+        final cardPadding = layout.inset(compactWidth ? 14 : 18);
+        final iconBoxSize = layout.inset(compactWidth ? 42 : 48);
+        final pinSize = layout.inset(compactWidth ? 18 : 20);
+        final iconFrameSize = iconBoxSize + layout.inset(8);
 
         return Stack(
           clipBehavior: Clip.none,
           children: [
             Positioned(
-              top: 14,
-              left: 14,
+              top: layout.gap(compactHeight ? 10 : 14),
+              left: heroBackplateInset,
               right: 0,
-              bottom: heroBottom - 8,
+              bottom: heroBottom - layout.gap(6),
               child: AnimatedSlide(
                 duration: const Duration(milliseconds: 320),
                 curve: Curves.easeOutCubic,
@@ -370,7 +370,7 @@ class _OnboardingCard extends StatelessWidget {
             Positioned(
               top: 0,
               left: 0,
-              right: 18,
+              right: heroRightInset,
               bottom: heroBottom,
               child: AnimatedSlide(
                 duration: const Duration(milliseconds: 320),
@@ -386,118 +386,17 @@ class _OnboardingCard extends StatelessWidget {
                       border: Border.all(color: AppTheme.black, width: 3),
                       boxShadow: AppTheme.inkShadow,
                     ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Padding(
+                      padding: EdgeInsets.all(cardPadding),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.white,
-                                      border: Border.all(
-                                        color: AppTheme.black,
-                                        width: 2,
-                                      ),
-                                      boxShadow: AppTheme.inkShadowSmall,
-                                    ),
-                                    child: Text(
-                                      step.label,
-                                      style: GoogleFonts.spaceMono(
-                                        color: AppTheme.black,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.8,
-                                      ),
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  AnimatedScale(
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeOutBack,
-                                    scale: isActive ? 1 : 0.92,
-                                    child: SizedBox(
-                                      width: 54,
-                                      height: 54,
-                                      child: Stack(
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          Positioned(
-                                            left: 0,
-                                            top: 0,
-                                            child: Container(
-                                              width: 48,
-                                              height: 48,
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.white,
-                                                border: Border.all(
-                                                  color: AppTheme.black,
-                                                  width: 2,
-                                                ),
-                                                boxShadow:
-                                                    AppTheme.inkShadowSmall,
-                                              ),
-                                              child: Icon(
-                                                step.icon,
-                                                color: AppTheme.black,
-                                                size: 24,
-                                              ),
-                                            ),
-                                          ),
-                                          Positioned(
-                                            right: -12,
-                                            top: -15,
-                                            child: AnimatedRotation(
-                                              duration: const Duration(
-                                                milliseconds: 320,
-                                              ),
-                                              turns: isActive ? 0 : -0.03,
-                                              child: Image.asset(
-                                                'assets/images/pin.png',
-                                                width: 24,
-                                                height: 24,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 22),
-                              AnimatedSlide(
-                                duration: const Duration(milliseconds: 320),
-                                curve: Curves.easeOutCubic,
-                                offset: isActive
-                                    ? Offset.zero
-                                    : const Offset(0, 0.08),
-                                child: SizedBox(
-                                  width: titleWidth,
-                                  child: Text(
-                                    step.title,
-                                    style: GoogleFonts.spaceMono(
-                                      color: AppTheme.black,
-                                      fontSize: 23,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 7,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: layout.inset(10),
+                                  vertical: layout.gap(6),
                                 ),
                                 decoration: BoxDecoration(
                                   color: AppTheme.white,
@@ -508,27 +407,125 @@ class _OnboardingCard extends StatelessWidget {
                                   boxShadow: AppTheme.inkShadowSmall,
                                 ),
                                 child: Text(
-                                  step.highlights.first,
+                                  step.label,
                                   style: GoogleFonts.spaceMono(
                                     color: AppTheme.black,
-                                    fontSize: 10,
+                                    fontSize: layout.font(10),
                                     fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              AnimatedScale(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutBack,
+                                scale: isActive ? 1 : 0.92,
+                                child: SizedBox(
+                                  width: iconFrameSize,
+                                  height: iconFrameSize,
+                                  child: Stack(
+                                    children: [
+                                      Positioned(
+                                        left: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          width: iconBoxSize,
+                                          height: iconBoxSize,
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.white,
+                                            border: Border.all(
+                                              color: AppTheme.black,
+                                              width: 2,
+                                            ),
+                                            boxShadow: AppTheme.inkShadowSmall,
+                                          ),
+                                          child: Icon(
+                                            step.icon,
+                                            color: AppTheme.black,
+                                            size: layout.inset(24),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: AnimatedRotation(
+                                          duration: const Duration(
+                                            milliseconds: 320,
+                                          ),
+                                          turns: isActive ? 0 : -0.03,
+                                          child: Image.asset(
+                                            'assets/images/pin.png',
+                                            width: pinSize,
+                                            height: pinSize,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                          SizedBox(height: layout.gap(compactHeight ? 14 : 22)),
+                          AnimatedSlide(
+                            duration: const Duration(milliseconds: 320),
+                            curve: Curves.easeOutCubic,
+                            offset: isActive
+                                ? Offset.zero
+                                : const Offset(0, 0.08),
+                            child: SizedBox(
+                              width: titleWidth,
+                              child: Text(
+                                step.title,
+                                style: GoogleFonts.spaceMono(
+                                  color: AppTheme.black,
+                                  fontSize: layout.font(
+                                    compactWidth ? 20 : 23,
+                                    minFactor: 0.88,
+                                    maxFactor: 1.05,
+                                  ),
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.14,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: layout.gap(compactHeight ? 12 : 18)),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: layout.inset(10),
+                              vertical: layout.gap(7),
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.white,
+                              border: Border.all(
+                                color: AppTheme.black,
+                                width: 2,
+                              ),
+                              boxShadow: AppTheme.inkShadowSmall,
+                            ),
+                            child: Text(
+                              step.highlights.first,
+                              style: GoogleFonts.spaceMono(
+                                color: AppTheme.black,
+                                fontSize: layout.font(10),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
             Positioned(
-              left: 18,
-              right: railWidth + 14,
-              bottom: 14,
+              left: layout.inset(18),
+              right: bodyRightInset,
+              bottom: bodyBottom,
               child: AnimatedSlide(
                 duration: const Duration(milliseconds: 320),
                 curve: Curves.easeOutCubic,
@@ -539,12 +536,17 @@ class _OnboardingCard extends StatelessWidget {
                   child: Container(
                     decoration: AppTheme.brutalCard(context),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
+                      padding: EdgeInsets.fromLTRB(
+                        layout.inset(14),
+                        layout.gap(14),
+                        layout.inset(14),
+                        layout.gap(14),
+                      ),
                       child: Text(
                         step.body,
                         style: GoogleFonts.spaceMono(
                           color: AppTheme.fg(context),
-                          fontSize: 12,
+                          fontSize: layout.font(12),
                           fontWeight: FontWeight.w500,
                           height: 1.5,
                         ),
@@ -557,7 +559,7 @@ class _OnboardingCard extends StatelessWidget {
             Positioned(
               right: 0,
               width: railWidth,
-              bottom: 28,
+              bottom: railBottom,
               child: AnimatedSlide(
                 duration: const Duration(milliseconds: 340),
                 curve: Curves.easeOutBack,
@@ -572,15 +574,20 @@ class _OnboardingCard extends StatelessWidget {
                       color: AppTheme.white,
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+                      padding: EdgeInsets.fromLTRB(
+                        layout.inset(10),
+                        layout.gap(10),
+                        layout.inset(10),
+                        layout.gap(12),
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 5,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: layout.inset(8),
+                              vertical: layout.gap(5),
                             ),
                             decoration: BoxDecoration(
                               color: step.accent,
@@ -595,22 +602,24 @@ class _OnboardingCard extends StatelessWidget {
                                 color: step.accent.computeLuminance() > 0.5
                                     ? AppTheme.black
                                     : AppTheme.white,
-                                fontSize: 9,
+                                fontSize: layout.font(9),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: layout.gap(10)),
                           ...step.highlights
                               .skip(1)
                               .map(
                                 (highlight) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
+                                  padding: EdgeInsets.only(
+                                    bottom: layout.gap(8),
+                                  ),
                                   child: Container(
                                     width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 7,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: layout.inset(8),
+                                      vertical: layout.gap(7),
                                     ),
                                     decoration: BoxDecoration(
                                       color: AppTheme.bg(context),
@@ -623,7 +632,7 @@ class _OnboardingCard extends StatelessWidget {
                                       highlight,
                                       style: GoogleFonts.spaceMono(
                                         color: AppTheme.fg(context),
-                                        fontSize: 9,
+                                        fontSize: layout.font(9),
                                         fontWeight: FontWeight.w700,
                                         height: 1.3,
                                       ),

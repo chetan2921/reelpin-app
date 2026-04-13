@@ -127,6 +127,19 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
+  Future<ProcessingJob> enqueueReelProcessing(String url) async {
+    _error = null;
+    notifyListeners();
+
+    try {
+      return await _repository.enqueueReelProcessing(url);
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   /// Delete a reel.
   Future<void> deleteReel(String reelId) async {
     await _repository.deleteReel(reelId);

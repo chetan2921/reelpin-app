@@ -23,6 +23,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  DateTime? _selectedSavedDate;
 
   @override
   void dispose() {
@@ -33,6 +34,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
@@ -43,19 +46,53 @@ class _SearchScreenState extends State<SearchScreen> {
               children: [
                 // ── Header ──
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  padding: EdgeInsets.fromLTRB(
+                    layout.inset(20),
+                    layout.gap(20),
+                    layout.inset(20),
+                    0,
+                  ),
                   child: Row(
                     children: [
                       Text(
                         'DISCOVER',
                         style: GoogleFonts.spaceMono(
                           color: AppTheme.fg(context),
-                          fontSize: 28,
+                          fontSize: layout.font(
+                            28,
+                            minFactor: 0.9,
+                            maxFactor: 1.08,
+                          ),
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                         ),
                       ),
                       const Spacer(),
+                      GestureDetector(
+                        onTap: () => _pickSavedDate(context, homeVm),
+                        child: Container(
+                          width: layout.inset(44),
+                          height: layout.inset(44),
+                          decoration: AppTheme.brutalBox(
+                            context,
+                            color: _selectedSavedDate != null
+                                ? AppTheme.yellow
+                                : AppTheme.bg(context),
+                            shadow: true,
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            _selectedSavedDate != null
+                                ? Icons.event_available
+                                : Icons.calendar_month,
+                            color: _selectedSavedDate != null
+                                ? AppTheme.black
+                                : AppTheme.fg(context),
+                            size: layout.inset(20),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: layout.inset(10)),
 
                       GestureDetector(
                         onTap: () {
@@ -79,8 +116,8 @@ class _SearchScreenState extends State<SearchScreen> {
                           );
                         },
                         child: Container(
-                          width: 44,
-                          height: 44,
+                          width: layout.inset(44),
+                          height: layout.inset(44),
                           decoration: AppTheme.brutalBox(
                             context,
                             color: AppTheme.hotPink,
@@ -91,7 +128,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             sessionVm.initials,
                             style: GoogleFonts.spaceMono(
                               color: AppTheme.fg(context),
-                              fontSize: 13,
+                              fontSize: layout.font(13),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -99,16 +136,16 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
 
                       if (vm.lastQuery.isNotEmpty) ...[
-                        const SizedBox(width: 12),
+                        SizedBox(width: layout.inset(12)),
                         GestureDetector(
                           onTap: () {
                             vm.clear();
                             _controller.clear();
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: layout.inset(12),
+                              vertical: layout.gap(8),
                             ),
                             decoration: AppTheme.brutalBox(
                               context,
@@ -119,7 +156,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               'CLEAR',
                               style: GoogleFonts.spaceMono(
                                 color: AppTheme.fg(context),
-                                fontSize: 11,
+                                fontSize: layout.font(11),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -129,11 +166,11 @@ class _SearchScreenState extends State<SearchScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: layout.gap(16)),
 
                 // ── Search Input ──
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.symmetric(horizontal: layout.inset(20)),
                   child: Container(
                     decoration: AppTheme.brutalBox(context, shadow: true),
                     child: TextField(
@@ -141,7 +178,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       focusNode: _focusNode,
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.fg(context),
-                        fontSize: 13,
+                        fontSize: layout.font(13),
                         fontWeight: FontWeight.w500,
                       ),
                       cursorColor: AppTheme.fg(context),
@@ -149,19 +186,19 @@ class _SearchScreenState extends State<SearchScreen> {
                         hintText: 'SEARCH YOUR SAVED REELS...',
                         hintStyle: GoogleFonts.spaceMono(
                           color: AppTheme.textSec(context),
-                          fontSize: 12,
+                          fontSize: layout.font(12),
                         ),
                         prefixIcon: Icon(
                           Icons.search,
                           color: AppTheme.fg(context),
-                          size: 22,
+                          size: layout.inset(22),
                         ),
                         suffixIcon: vm.isSearching
                             ? Padding(
-                                padding: const EdgeInsets.all(14),
+                                padding: EdgeInsets.all(layout.inset(14)),
                                 child: SizedBox(
-                                  width: 16,
-                                  height: 16,
+                                  width: layout.inset(16),
+                                  height: layout.inset(16),
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
                                     color: AppTheme.fg(context),
@@ -172,9 +209,9 @@ class _SearchScreenState extends State<SearchScreen> {
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: layout.inset(16),
+                          vertical: layout.gap(14),
                         ),
                       ),
                       onSubmitted: (q) => _doSearch(vm, q),
@@ -182,7 +219,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: layout.gap(16)),
 
                 // ── Content ──
                 Expanded(
@@ -208,6 +245,114 @@ class _SearchScreenState extends State<SearchScreen> {
     if (query.trim().isEmpty) return;
     _focusNode.unfocus();
     vm.search(query);
+  }
+
+  Future<void> _pickSavedDate(
+    BuildContext context,
+    HomeViewModel homeVm,
+  ) async {
+    final datedReels = homeVm.reels
+        .where((reel) => reel.createdAt != null)
+        .toList();
+    final now = DateTime.now();
+    final initialDate = _selectedSavedDate ?? now;
+
+    if (datedReels.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'NO SAVED REELS WITH DATES YET.',
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.fg(context),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppTheme.bg(context),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: AppTheme.fg(context), width: 2),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final parsedDates = datedReels
+        .map((reel) => DateTime.tryParse(reel.createdAt!)?.toLocal())
+        .whereType<DateTime>()
+        .toList();
+    if (parsedDates.isEmpty) return;
+
+    parsedDates.sort();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _clampDate(initialDate, parsedDates.first, now),
+      firstDate: parsedDates.first,
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppTheme.yellow,
+              onPrimary: AppTheme.black,
+              surface: AppTheme.bg(context),
+              onSurface: AppTheme.fg(context),
+            ),
+            dialogTheme: DialogThemeData(
+              backgroundColor: AppTheme.bg(context),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.zero,
+                side: BorderSide(
+                  color: AppTheme.fg(context),
+                  width: AppTheme.borderWidth,
+                ),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked == null || !mounted) return;
+    setState(() {
+      _selectedSavedDate = DateUtils.dateOnly(picked);
+    });
+  }
+
+  DateTime _clampDate(DateTime value, DateTime min, DateTime max) {
+    if (value.isBefore(min)) return min;
+    if (value.isAfter(max)) return max;
+    return value;
+  }
+
+  List _reelsForDate(List reels, DateTime selectedDate) {
+    final target = DateUtils.dateOnly(selectedDate);
+    return reels.where((reel) {
+      final createdAt = reel.createdAt;
+      if (createdAt == null) return false;
+      final parsed = DateTime.tryParse(createdAt)?.toLocal();
+      if (parsed == null) return false;
+      return DateUtils.isSameDay(DateUtils.dateOnly(parsed), target);
+    }).toList();
+  }
+
+  String _formatSelectedDate(DateTime value) {
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+    return '${months[value.month - 1]} ${value.day}, ${value.year}';
   }
 
   Widget _buildNoResults(BuildContext context, String query) {
@@ -267,10 +412,67 @@ class _SearchScreenState extends State<SearchScreen> {
   // ── Discover (no search active) ──
   Widget _buildDiscoverContent(BuildContext context, HomeViewModel homeVm) {
     final reels = homeVm.reels;
+    final dateReels = _selectedSavedDate == null
+        ? const []
+        : _reelsForDate(reels, _selectedSavedDate!);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
       children: [
+        if (_selectedSavedDate != null) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'SAVED ON ${_formatSelectedDate(_selectedSavedDate!)}',
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.fg(context),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedSavedDate = null;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: AppTheme.brutalBox(
+                      context,
+                      color: AppTheme.bg(context),
+                      shadow: true,
+                    ),
+                    child: Text(
+                      'CLEAR DATE',
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.fg(context),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (dateReels.isNotEmpty) ...[
+            _buildRecentSaves(context, dateReels),
+            const SizedBox(height: 24),
+          ] else ...[
+            _buildDateEmptyState(context, _selectedSavedDate!),
+            const SizedBox(height: 24),
+          ],
+        ],
+
         // Quick searches
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
@@ -289,7 +491,7 @@ class _SearchScreenState extends State<SearchScreen> {
         const SizedBox(height: 24),
 
         // Recent saves
-        if (reels.isNotEmpty) ...[
+        if (_selectedSavedDate == null && reels.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Row(
@@ -347,6 +549,49 @@ class _SearchScreenState extends State<SearchScreen> {
         // Collection summary
         if (reels.isNotEmpty) ...[const SizedBox(height: 24)],
       ],
+    );
+  }
+
+  Widget _buildDateEmptyState(BuildContext context, DateTime selectedDate) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        width: double.infinity,
+        decoration: AppTheme.brutalCard(context),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: AppTheme.brutalBox(
+                  context,
+                  color: AppTheme.yellow,
+                  shadow: false,
+                ),
+                child: Icon(
+                  Icons.event_busy,
+                  size: 22,
+                  color: AppTheme.fg(context),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'NO REELS SAVED ON ${_formatSelectedDate(selectedDate)}',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.fg(context),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

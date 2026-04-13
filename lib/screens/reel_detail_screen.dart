@@ -28,6 +28,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final catColor = AppTheme.getCategoryColor(reel.category);
+    final layout = AppLayout.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -64,10 +65,10 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
               GestureDetector(
                 onTap: () => _openUrl(reel.url),
                 child: Container(
-                  margin: const EdgeInsets.only(right: 4),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
+                  margin: EdgeInsets.only(right: layout.inset(4)),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.inset(12),
+                    vertical: layout.gap(7),
                   ),
                   decoration: BoxDecoration(
                     color: AppTheme.yellow,
@@ -78,20 +79,20 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                     'OPEN REEL',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.fg(context),
-                      fontSize: 11,
+                      fontSize: layout.font(11),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: layout.inset(8)),
               // Delete
               GestureDetector(
                 onTap: () => _confirmDelete(context),
                 child: Container(
-                  margin: const EdgeInsets.only(right: 12),
-                  width: 36,
-                  height: 36,
+                  margin: EdgeInsets.only(right: layout.inset(12)),
+                  width: layout.inset(36),
+                  height: layout.inset(36),
                   decoration: BoxDecoration(
                     color: AppTheme.destructive,
                     border: Border.all(color: AppTheme.fg(context), width: 2),
@@ -110,7 +111,12 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
           // ── Content ──
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+              padding: EdgeInsets.fromLTRB(
+                layout.inset(20),
+                layout.gap(16),
+                layout.inset(20),
+                layout.gap(40),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -139,7 +145,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                                 reel.category.toUpperCase(),
                                 style: GoogleFonts.spaceMono(
                                   color: _contrastText(catColor),
-                                  fontSize: 10,
+                                  fontSize: layout.font(10),
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.3,
                                 ),
@@ -162,7 +168,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                                   reel.subCategory.toUpperCase(),
                                   style: GoogleFonts.spaceMono(
                                     color: AppTheme.fg(context),
-                                    fontSize: 10,
+                                    fontSize: layout.font(10),
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -171,14 +177,14 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                         ),
                       ),
                       if (reel.relativeDate.isNotEmpty) ...[
-                        const SizedBox(width: 12),
+                        SizedBox(width: layout.inset(12)),
                         Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: EdgeInsets.only(top: layout.gap(4)),
                           child: Text(
                             reel.relativeDate.toUpperCase(),
                             style: GoogleFonts.spaceMono(
                               color: _detailTextColor,
-                              fontSize: 11,
+                              fontSize: layout.font(11),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -186,7 +192,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: layout.gap(16)),
 
                   // Title
                   Text(
@@ -195,17 +201,21 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                         : 'UNTITLED REEL',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.fg(context),
-                      fontSize: 22,
+                      fontSize: layout.font(22, maxFactor: 1.1),
                       fontWeight: FontWeight.w700,
                       height: 1.2,
                       letterSpacing: -0.5,
                     ),
                   ),
 
-                  const SizedBox(height: 4),
-                  Container(height: 4, width: 60, color: AppTheme.yellow),
+                  SizedBox(height: layout.gap(4)),
+                  Container(
+                    height: layout.gap(4),
+                    width: layout.inset(60),
+                    color: AppTheme.yellow,
+                  ),
 
-                  const SizedBox(height: 20),
+                  SizedBox(height: layout.gap(20)),
 
                   // ── Sections ──
                   if (reel.summary.isNotEmpty) ...[
@@ -508,15 +518,20 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
   }
 
   Widget _sectionTitle(String title) {
+    final layout = AppLayout.of(context);
     return Row(
       children: [
-        Container(width: 4, height: 18, color: AppTheme.fg(context)),
-        const SizedBox(width: 8),
+        Container(
+          width: layout.inset(4),
+          height: layout.gap(18),
+          color: AppTheme.fg(context),
+        ),
+        SizedBox(width: layout.inset(8)),
         Text(
           title,
           style: GoogleFonts.spaceMono(
             color: AppTheme.fg(context),
-            fontSize: 14,
+            fontSize: layout.font(14),
             fontWeight: FontWeight.w700,
             letterSpacing: 1,
           ),
@@ -526,16 +541,17 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
   }
 
   Widget _section(String title, String body) {
+    final layout = AppLayout.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle(title),
-        const SizedBox(height: 10),
+        SizedBox(height: layout.gap(10)),
         Text(
           body,
           style: GoogleFonts.spaceMono(
             color: _detailTextColor,
-            fontSize: 13,
+            fontSize: layout.font(13),
             height: 1.6,
           ),
         ),

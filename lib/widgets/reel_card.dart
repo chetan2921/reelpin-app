@@ -49,6 +49,7 @@ class _ReelCardState extends State<ReelCard>
   Widget build(BuildContext context) {
     final reel = widget.reel;
     final catColor = AppTheme.getCategoryColor(reel.category);
+    final layout = AppLayout.of(context);
 
     return GestureDetector(
       onTapDown: (_) {
@@ -89,12 +90,17 @@ class _ReelCardState extends State<ReelCard>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ── Top accent bar (solid, no gradient) ──
-                  Container(height: 6, color: catColor),
+                  Container(height: layout.gap(6), color: catColor),
 
                   // ── Content ──
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                      padding: EdgeInsets.fromLTRB(
+                        layout.inset(10),
+                        layout.gap(10),
+                        layout.inset(10),
+                        layout.gap(8),
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -117,7 +123,7 @@ class _ReelCardState extends State<ReelCard>
                                 reel.subCategory.toUpperCase(),
                                 style: GoogleFonts.spaceMono(
                                   color: _contrastText(catColor),
-                                  fontSize: 8,
+                                  fontSize: layout.font(8, minFactor: 0.9),
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5,
                                 ),
@@ -126,7 +132,7 @@ class _ReelCardState extends State<ReelCard>
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: layout.gap(8)),
 
                           // Title
                           Text(
@@ -135,14 +141,14 @@ class _ReelCardState extends State<ReelCard>
                                 : 'UNTITLED REEL',
                             style: GoogleFonts.spaceMono(
                               color: AppTheme.fg(context),
-                              fontSize: 12,
+                              fontSize: layout.font(12),
                               fontWeight: FontWeight.w700,
                               height: 1.3,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: layout.gap(4)),
 
                           // Summary
                           if (reel.summary.isNotEmpty)
@@ -151,7 +157,7 @@ class _ReelCardState extends State<ReelCard>
                                 reel.summary,
                                 style: GoogleFonts.spaceMono(
                                   color: AppTheme.textSec(context),
-                                  fontSize: 10,
+                                  fontSize: layout.font(10),
                                   height: 1.4,
                                 ),
                                 maxLines: 5,
@@ -163,7 +169,7 @@ class _ReelCardState extends State<ReelCard>
 
                           // ── Bottom info row ──
                           Container(
-                            padding: const EdgeInsets.only(top: 6),
+                            padding: EdgeInsets.only(top: layout.gap(6)),
                             decoration: BoxDecoration(
                               border: Border(
                                 top: BorderSide(
@@ -177,10 +183,10 @@ class _ReelCardState extends State<ReelCard>
                                 if (reel.hasMapLocations) ...[
                                   Icon(
                                     Icons.location_on,
-                                    size: 12,
+                                    size: layout.inset(12),
                                     color: AppTheme.fg(context),
                                   ),
-                                  const SizedBox(width: 2),
+                                  SizedBox(width: layout.inset(2)),
                                 ],
                                 Expanded(
                                   child: Text(
@@ -190,7 +196,7 @@ class _ReelCardState extends State<ReelCard>
                                         : reel.relativeDate.toUpperCase(),
                                     style: GoogleFonts.spaceMono(
                                       color: AppTheme.fg(context),
-                                      fontSize: 9,
+                                      fontSize: layout.font(9),
                                       fontWeight: FontWeight.w700,
                                     ),
                                     maxLines: 1,
@@ -203,7 +209,7 @@ class _ReelCardState extends State<ReelCard>
                                     reel.relativeDate.toUpperCase(),
                                     style: GoogleFonts.spaceMono(
                                       color: AppTheme.textSec(context),
-                                      fontSize: 9,
+                                      fontSize: layout.font(9),
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -219,11 +225,11 @@ class _ReelCardState extends State<ReelCard>
             ),
             // The tiny hole indicating pierced paper
             Positioned(
-              right: 14,
-              top: 14,
+              right: layout.inset(14),
+              top: layout.gap(14),
               child: Container(
-                width: 5,
-                height: 5,
+                width: layout.inset(5),
+                height: layout.inset(5),
                 decoration: const BoxDecoration(
                   color: AppTheme.black,
                   shape: BoxShape.circle,
@@ -232,12 +238,12 @@ class _ReelCardState extends State<ReelCard>
             ),
             // The pin
             Positioned(
-              right: -6,
-              top: -6,
+              right: -layout.inset(6),
+              top: -layout.gap(6),
               child: Image.asset(
                 'assets/images/pin.png',
-                width: 26,
-                height: 26,
+                width: layout.inset(26),
+                height: layout.inset(26),
               ),
             ),
           ],

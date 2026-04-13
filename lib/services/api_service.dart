@@ -58,6 +58,24 @@ class ApiService {
     }
   }
 
+  Future<ProcessingJob> enqueueReelProcessing(
+    String url, {
+    String userId = 'default-user',
+  }) async {
+    try {
+      final job = await _enqueueReelProcessing(url, userId: userId);
+      return ProcessingJob.fromJson(job);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 || e.statusCode == 405) {
+        throw const ApiException(
+          'Background processing is not available on the backend yet.',
+          405,
+        );
+      }
+      rethrow;
+    }
+  }
+
   Future<Reel> _processReelSynchronously(
     String url, {
     String userId = 'default-user',

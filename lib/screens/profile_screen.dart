@@ -12,6 +12,8 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
       appBar: AppBar(
@@ -21,7 +23,7 @@ class ProfileScreen extends StatelessWidget {
           'PROFILE',
           style: GoogleFonts.spaceMono(
             color: AppTheme.fg(context),
-            fontSize: 22,
+            fontSize: layout.font(22),
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
           ),
@@ -44,7 +46,12 @@ class ProfileScreen extends StatelessWidget {
             const heroSupportColor = Color(0xFFD6F3EF);
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              padding: EdgeInsets.fromLTRB(
+                layout.inset(20),
+                layout.gap(8),
+                layout.inset(20),
+                layout.gap(32),
+              ),
               children: [
                 Container(
                   decoration: AppTheme.brutalCard(
@@ -52,15 +59,15 @@ class ProfileScreen extends StatelessWidget {
                     color: const Color.fromARGB(255, 2, 50, 46),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.all(layout.inset(20)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
                             Container(
-                              width: 64,
-                              height: 64,
+                              width: layout.inset(64),
+                              height: layout.inset(64),
                               decoration: BoxDecoration(
                                 color: AppTheme.yellow,
                                 border: Border.all(
@@ -73,12 +80,12 @@ class ProfileScreen extends StatelessWidget {
                                 sessionVm.initials,
                                 style: GoogleFonts.spaceMono(
                                   color: AppTheme.black,
-                                  fontSize: 22,
+                                  fontSize: layout.font(22),
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 14),
+                            SizedBox(width: layout.inset(14)),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,16 +94,16 @@ class ProfileScreen extends StatelessWidget {
                                     sessionVm.displayName.toUpperCase(),
                                     style: GoogleFonts.spaceMono(
                                       color: heroTextColor,
-                                      fontSize: 18,
+                                      fontSize: layout.font(18),
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  SizedBox(height: layout.gap(6)),
                                   Text(
                                     sessionVm.email,
                                     style: GoogleFonts.spaceMono(
                                       color: heroSupportColor,
-                                      fontSize: 11,
+                                      fontSize: layout.font(11),
                                       fontWeight: FontWeight.w500,
                                       height: 1.4,
                                     ),
@@ -106,12 +113,12 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 18),
+                        SizedBox(height: layout.gap(18)),
                         Text(
                           'YOUR ACCOUNT HOLDS THE FULL LIBRARY, MAP PINS, AND DISCOVER INSIGHTS FOR EVERYTHING YOU SEND TO REELPIN.',
                           style: GoogleFonts.spaceMono(
                             color: heroTextColor,
-                            fontSize: 11,
+                            fontSize: layout.font(11),
                             fontWeight: FontWeight.w600,
                             height: 1.5,
                           ),
@@ -120,9 +127,9 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'COLLECTION STATS'),
-                const SizedBox(height: 10),
+                SizedBox(height: layout.gap(10)),
                 Container(
                   decoration: AppTheme.brutalCard(context),
                   child: Row(
@@ -150,9 +157,9 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'PREFERENCES'),
-                const SizedBox(height: 10),
+                SizedBox(height: layout.gap(10)),
                 _actionCard(
                   context,
                   color: AppTheme.bg(context),
@@ -162,9 +169,9 @@ class ProfileScreen extends StatelessWidget {
                   trailing: GestureDetector(
                     onTap: () => themeVm.toggleTheme(),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.inset(12),
+                        vertical: layout.gap(10),
                       ),
                       decoration: AppTheme.brutalBox(
                         context,
@@ -188,7 +195,7 @@ class ProfileScreen extends StatelessWidget {
                               color: themeVm.isDarkMode
                                   ? AppTheme.background
                                   : AppTheme.black,
-                              fontSize: 11,
+                              fontSize: layout.font(11),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -197,9 +204,9 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'ACCOUNT'),
-                const SizedBox(height: 10),
+                SizedBox(height: layout.gap(10)),
                 GestureDetector(
                   onTap: () async {
                     await sessionVm.signOut();
@@ -214,7 +221,7 @@ class ProfileScreen extends StatelessWidget {
                       color: AppTheme.red,
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(vertical: layout.gap(16)),
                       child: Center(
                         child: Text(
                           sessionVm.isSigningOut
@@ -222,7 +229,7 @@ class ProfileScreen extends StatelessWidget {
                               : 'SIGN OUT',
                           style: GoogleFonts.spaceMono(
                             color: AppTheme.white,
-                            fontSize: 14,
+                            fontSize: layout.font(14),
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1,
                           ),
@@ -240,11 +247,12 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _sectionTitle(BuildContext context, String text) {
+    final layout = AppLayout.of(context);
     return Text(
       text,
       style: GoogleFonts.spaceMono(
         color: AppTheme.textSec(context),
-        fontSize: 11,
+        fontSize: layout.font(11),
         fontWeight: FontWeight.w700,
         letterSpacing: 1,
       ),
@@ -252,9 +260,10 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _divider(BuildContext context) {
+    final layout = AppLayout.of(context);
     return Container(
       width: AppTheme.borderWidth,
-      height: 90,
+      height: layout.gap(90),
       color: AppTheme.fg(context),
     );
   }
@@ -265,26 +274,27 @@ class ProfileScreen extends StatelessWidget {
     required String label,
     required Color color,
   }) {
+    final layout = AppLayout.of(context);
     return Expanded(
       child: Container(
         color: color.withAlpha(50),
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: EdgeInsets.symmetric(vertical: layout.gap(16)),
         child: Column(
           children: [
             Text(
               value,
               style: GoogleFonts.spaceMono(
                 color: AppTheme.fg(context),
-                fontSize: 22,
+                fontSize: layout.font(22),
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: layout.gap(6)),
             Text(
               label,
               style: GoogleFonts.spaceMono(
                 color: AppTheme.fg(context),
-                fontSize: 10,
+                fontSize: layout.font(10),
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.6,
               ),
@@ -302,10 +312,11 @@ class ProfileScreen extends StatelessWidget {
     required String subtitle,
     required Widget trailing,
   }) {
+    final layout = AppLayout.of(context);
     return Container(
       decoration: AppTheme.brutalCard(context, color: color),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(layout.inset(16)),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -317,16 +328,16 @@ class ProfileScreen extends StatelessWidget {
                     title,
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.fg(context),
-                      fontSize: 13,
+                      fontSize: layout.font(13),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: layout.gap(6)),
                   Text(
                     subtitle,
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.textSec(context),
-                      fontSize: 11,
+                      fontSize: layout.font(11),
                       fontWeight: FontWeight.w500,
                       height: 1.45,
                     ),
@@ -334,7 +345,7 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: layout.inset(12)),
             trailing,
           ],
         ),

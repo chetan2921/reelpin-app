@@ -112,7 +112,7 @@ class ApiConfig {
       'Photography & Videography',
       'DIY & Crafts',
       'Gaming',
-      'Sports & Cricket',
+      'Sports',
       'Gardening & Plants',
       'Pets & Animals',
     ],

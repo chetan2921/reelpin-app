@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
-import '../models/processing_job.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
@@ -21,11 +21,10 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late StreamSubscription _mediaIntentSub;
-  bool _isProcessingSharedReel = false;
-  String _processingStatus = 'PROCESSING REEL...';
+  bool _isQueueingSharedReel = false;
   String? _lastHandledSharedUrl;
   DateTime? _lastHandledSharedAt;
 
@@ -52,6 +51,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initSharingIntent();
     _requestLocationOnStartup();
   }
@@ -82,6 +82,7 @@ class _AppShellState extends State<AppShell> {
 
     final payload = files.first.path;
     _handleSharedPayload(payload);
+    unawaited(ReceiveSharingIntent.instance.reset());
   }
 
   void _handleSharedPayload(String payload) {
@@ -101,52 +102,27 @@ class _AppShellState extends State<AppShell> {
       _lastHandledSharedAt = DateTime.now();
 
       if (mounted) {
-        setState(() => _currentIndex = 0);
-
-        _processSharedReel(extractedUrl);
+        _enqueueSharedReel(extractedUrl);
       }
     }
   }
 
-  Future<void> _processSharedReel(String url) async {
+  Future<void> _enqueueSharedReel(String url) async {
+    if (_isQueueingSharedReel) return;
+
     final homeVm = context.read<HomeViewModel>();
-    final mapVm = context.read<MapViewModel>();
     final messenger = ScaffoldMessenger.of(context);
 
     setState(() {
-      _isProcessingSharedReel = true;
-      _processingStatus = 'PROCESSING REEL...';
+      _isQueueingSharedReel = true;
     });
 
     try {
-      final reel = await homeVm.processReel(
-        url,
-        onJobUpdate: (job) {
-          if (!mounted) return;
-          setState(() {
-            _processingStatus = _statusTextForJob(job);
-          });
-        },
-      );
-      homeVm.upsertProcessedReel(reel);
-      mapVm.upsertProcessedReel(reel);
-
-      if (mounted) {
-        setState(() {
-          _processingStatus = reel.hasMapLocations
-              ? 'SYNCING REEL + MAP PINS...'
-              : 'SYNCING REEL...';
-        });
-      }
-
-      await Future.wait([
-        homeVm.loadReels(forceRefresh: true),
-        mapVm.loadMapReels(forceRefresh: true),
-      ]);
+      await homeVm.enqueueReelProcessing(url);
 
       if (!mounted) return;
       setState(() {
-        _isProcessingSharedReel = false;
+        _isQueueingSharedReel = false;
       });
 
       messenger.showSnackBar(
@@ -162,9 +138,7 @@ class _AppShellState extends State<AppShell> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  reel.hasMapLocations
-                      ? 'REEL SAVED. LOCATIONS PINNED.'
-                      : 'REEL SAVED.',
+                  'SAVED TO REELPIN. PROCESSING IN BACKGROUND.',
                   style: GoogleFonts.spaceMono(
                     color: AppTheme.fg(context),
                     fontWeight: FontWeight.w700,
@@ -183,15 +157,23 @@ class _AppShellState extends State<AppShell> {
           ),
         ),
       );
+
+      if (!mounted) return;
+      if (Theme.of(context).platform == TargetPlatform.android) {
+        Future<void>.delayed(const Duration(milliseconds: 350), () async {
+          if (!mounted) return;
+          await SystemNavigator.pop();
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _isProcessingSharedReel = false;
+        _isQueueingSharedReel = false;
       });
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            'FAILED: $error',
+            'COULD NOT START BACKGROUND SAVE: $error',
             style: GoogleFonts.spaceMono(
               color: AppTheme.white,
               fontWeight: FontWeight.w700,
@@ -209,54 +191,19 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  String _statusTextForJob(ProcessingJob job) {
-    final statusMessage = job.statusMessage?.trim();
-    if (statusMessage != null && statusMessage.isNotEmpty) {
-      return statusMessage.toUpperCase();
-    }
-
-    if (job.isRetryScheduled && job.nextRetryAt != null) {
-      return 'WAITING TO RETRY AT ${_formatRetryTime(job.nextRetryAt!)}...';
-    }
-
-    switch ((job.currentStep ?? '').toLowerCase()) {
-      case 'checking_cache':
-        return 'CHECKING CACHE...';
-      case 'downloading':
-        return 'DOWNLOADING REEL...';
-      case 'transcribing':
-        return 'TRANSCRIBING AUDIO...';
-      case 'ocr':
-        return 'READING IMAGE TEXT...';
-      case 'extracting':
-        return 'EXTRACTING DETAILS...';
-      case 'saving':
-        return 'SAVING REEL...';
-      case 'embedding':
-        return 'INDEXING SEARCH...';
-      case 'completed':
-        return 'FINALIZING...';
-      default:
-        return 'PROCESSING REEL...';
-    }
-  }
-
-  String _formatRetryTime(DateTime value) {
-    final local = value.toLocal();
-    final hour = local.hour == 0
-        ? 12
-        : local.hour > 12
-        ? local.hour - 12
-        : local.hour;
-    final minute = local.minute.toString().padLeft(2, '0');
-    final suffix = local.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $suffix';
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _mediaIntentSub.cancel();
+    super.dispose();
   }
 
   @override
-  void dispose() {
-    _mediaIntentSub.cancel();
-    super.dispose();
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+
+    unawaited(context.read<HomeViewModel>().loadReels(forceRefresh: true));
+    unawaited(context.read<MapViewModel>().loadMapReels(forceRefresh: true));
   }
 
   @override
@@ -264,51 +211,7 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       body: Container(
         color: AppTheme.bg(context),
-        child: Stack(
-          children: [
-            IndexedStack(index: _currentIndex, children: _screens),
-            if (_isProcessingSharedReel)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 18,
-                child: IgnorePointer(
-                  ignoring: true,
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: AppTheme.brutalBox(
-                      context,
-                      color: AppTheme.yellow,
-                      shadow: true,
-                    ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.8,
-                            color: AppTheme.fg(context),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _processingStatus,
-                            style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: IndexedStack(index: _currentIndex, children: _screens),
       ),
       bottomNavigationBar: _buildNavBar(),
     );

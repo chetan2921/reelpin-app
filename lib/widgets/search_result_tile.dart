@@ -15,6 +15,7 @@ class SearchResultTile extends StatelessWidget {
     final reel = result.reel;
     final catColor = AppTheme.getCategoryColor(reel.category);
     final score = result.relevanceScore;
+    final layout = AppLayout.of(context);
 
     return GestureDetector(
       onTap: () {
@@ -24,7 +25,7 @@ class SearchResultTile extends StatelessWidget {
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: EdgeInsets.all(layout.inset(14)),
         decoration: AppTheme.brutalCard(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,13 +44,16 @@ class SearchResultTile extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: catColor,
-                        border: Border.all(color: AppTheme.fg(context), width: 2),
+                        border: Border.all(
+                          color: AppTheme.fg(context),
+                          width: 2,
+                        ),
                       ),
                       child: Text(
                         reel.category.toUpperCase(),
                         style: GoogleFonts.spaceMono(
                           color: _contrastText(catColor),
-                          fontSize: 9,
+                          fontSize: layout.font(9),
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.3,
                         ),
@@ -57,11 +61,11 @@ class SearchResultTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: layout.inset(8)),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.inset(8),
+                    vertical: layout.gap(3),
                   ),
                   decoration: BoxDecoration(
                     color: _scoreColor(score),
@@ -71,21 +75,21 @@ class SearchResultTile extends StatelessWidget {
                     result.relevancePercent,
                     style: GoogleFonts.spaceMono(
                       color: _contrastText(_scoreColor(score)),
-                      fontSize: 10,
+                      fontSize: layout.font(10),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: layout.gap(12)),
 
             // Title
             Text(
               reel.title.isNotEmpty ? reel.title : 'UNTITLED',
               style: GoogleFonts.spaceMono(
                 color: AppTheme.fg(context),
-                fontSize: 14,
+                fontSize: layout.font(14),
                 fontWeight: FontWeight.w700,
                 height: 1.3,
               ),
@@ -95,12 +99,12 @@ class SearchResultTile extends StatelessWidget {
 
             // Summary
             if (reel.summary.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              SizedBox(height: layout.gap(6)),
               Text(
                 reel.summary,
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.textSec(context),
-                  fontSize: 11,
+                  fontSize: layout.font(11),
                   height: 1.4,
                 ),
                 maxLines: 2,
@@ -109,9 +113,9 @@ class SearchResultTile extends StatelessWidget {
             ],
 
             // Relevance bar (thick, flat, no rounded ends)
-            const SizedBox(height: 12),
+            SizedBox(height: layout.gap(12)),
             Container(
-              height: 4,
+              height: layout.gap(4),
               width: double.infinity,
               decoration: BoxDecoration(
                 color: AppTheme.surfaceElevatedColor(context),
@@ -120,9 +124,7 @@ class SearchResultTile extends StatelessWidget {
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: score.clamp(0.0, 1.0),
-                child: Container(
-                  color: _scoreColor(score),
-                ),
+                child: Container(color: _scoreColor(score)),
               ),
             ),
           ],

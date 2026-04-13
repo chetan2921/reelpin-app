@@ -16,6 +16,8 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
@@ -32,7 +34,12 @@ class HomeScreen extends StatelessWidget {
                   // ── Header ──
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                      padding: EdgeInsets.fromLTRB(
+                        layout.inset(20),
+                        layout.gap(20),
+                        layout.inset(20),
+                        0,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -44,7 +51,11 @@ class HomeScreen extends StatelessWidget {
                                 'REELPIN',
                                 style: GoogleFonts.spaceMono(
                                   color: AppTheme.fg(context),
-                                  fontSize: 28,
+                                  fontSize: layout.font(
+                                    28,
+                                    minFactor: 0.9,
+                                    maxFactor: 1.08,
+                                  ),
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 2,
                                 ),
@@ -61,12 +72,18 @@ class HomeScreen extends StatelessWidget {
                   // ── Category Filter Chips ──
                   SliverToBoxAdapter(
                     child: SizedBox(
-                      height: 56,
+                      height: layout.gap(56),
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                        padding: EdgeInsets.fromLTRB(
+                          layout.inset(20),
+                          layout.gap(12),
+                          layout.inset(20),
+                          layout.gap(4),
+                        ),
                         itemCount: ApiConfig.broadCategories.length + 1,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        separatorBuilder: (_, _) =>
+                            SizedBox(width: layout.inset(8)),
                         itemBuilder: (_, i) {
                           if (i == 0) {
                             return CategoryBadge(
@@ -97,7 +114,7 @@ class HomeScreen extends StatelessWidget {
                     _buildReelGrid(context, vm),
 
                   // ── Bottom spacing ──
-                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                  SliverToBoxAdapter(child: SizedBox(height: layout.gap(96))),
                 ],
               ),
             );
@@ -108,39 +125,54 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildFilterButton(BuildContext context, HomeViewModel vm) {
+    final layout = AppLayout.of(context);
     return GestureDetector(
       onTap: () => _showFilterSheet(context, vm),
       child: Container(
-        width: 40,
-        height: 40,
+        width: layout.inset(40),
+        height: layout.inset(40),
         decoration: AppTheme.brutalBox(context, shadow: true),
         child: Icon(
           Icons.tune,
           color: AppTheme.fg(context),
-          size: 20,
+          size: layout.inset(20),
         ),
       ),
     );
   }
 
-
   // ── Grid ──
   Widget _buildReelGrid(BuildContext context, HomeViewModel vm) {
+    final layout = AppLayout.of(context);
+    final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
+    final spacing = layout.inset(14);
+    final aspect = layout.gridAspect(
+      compact: 0.74,
+      regular: 0.80,
+      wide: 0.88,
+      tablet: 0.92,
+    );
+
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: EdgeInsets.fromLTRB(
+        layout.inset(20),
+        layout.gap(12),
+        layout.inset(20),
+        0,
+      ),
       sliver: AnimationLimiter(
         child: SliverGrid(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 14,
-            crossAxisSpacing: 14,
-            childAspectRatio: 0.80,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            childAspectRatio: aspect,
           ),
           delegate: SliverChildBuilderDelegate((context, index) {
             final reel = vm.reels[index];
             return AnimationConfiguration.staggeredGrid(
               position: index,
-              columnCount: 2,
+              columnCount: columns,
               duration: const Duration(milliseconds: 300),
               child: ScaleAnimation(
                 scale: 0.96,
@@ -155,13 +187,16 @@ class HomeScreen extends StatelessWidget {
                               ReelDetailScreen(reel: reel),
                           transitionsBuilder: (_, anim, _, child) {
                             return SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(1, 0),
-                                end: Offset.zero,
-                              ).animate(CurvedAnimation(
-                                parent: anim,
-                                curve: Curves.easeOut,
-                              )),
+                              position:
+                                  Tween<Offset>(
+                                    begin: const Offset(1, 0),
+                                    end: Offset.zero,
+                                  ).animate(
+                                    CurvedAnimation(
+                                      parent: anim,
+                                      curve: Curves.easeOut,
+                                    ),
+                                  ),
                               child: child,
                             );
                           },
@@ -182,14 +217,29 @@ class HomeScreen extends StatelessWidget {
 
   // ── Shimmer (brutalist: blocky yellow/black pulse) ──
   Widget _buildShimmerGrid(BuildContext context) {
+    final layout = AppLayout.of(context);
+    final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
+    final spacing = layout.inset(14);
+    final aspect = layout.gridAspect(
+      compact: 0.74,
+      regular: 0.80,
+      wide: 0.88,
+      tablet: 0.92,
+    );
+
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: EdgeInsets.fromLTRB(
+        layout.inset(20),
+        layout.gap(12),
+        layout.inset(20),
+        0,
+      ),
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
-          childAspectRatio: 0.80,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisSpacing: spacing,
+          crossAxisSpacing: spacing,
+          childAspectRatio: aspect,
         ),
         delegate: SliverChildBuilderDelegate(
           (_, _) => Shimmer.fromColors(
@@ -213,45 +263,46 @@ class HomeScreen extends StatelessWidget {
 
   // ── Empty ──
   Widget _buildEmptyState(BuildContext context) {
+    final layout = AppLayout.of(context);
     return SliverFillRemaining(
       hasScrollBody: false,
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: EdgeInsets.symmetric(horizontal: layout.inset(32)),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 72,
-                height: 72,
+                width: layout.inset(72),
+                height: layout.inset(72),
                 decoration: AppTheme.brutalBox(context, color: AppTheme.yellow),
                 child: Icon(
                   Icons.video_library,
-                  size: 32,
+                  size: layout.inset(32),
                   color: AppTheme.fg(context),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: layout.gap(20)),
               Text(
                 'NO REELS YET',
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.fg(context),
-                  fontSize: 20,
+                  fontSize: layout.font(20),
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: layout.gap(8)),
               Text(
                 'Share a reel from Instagram or TikTok\nto start building your collection.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.textSec(context),
-                  fontSize: 12,
+                  fontSize: layout.font(12),
                   height: 1.6,
                 ),
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: layout.gap(28)),
               _buildHowItWorks(context),
             ],
           ),
@@ -261,8 +312,9 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildHowItWorks(BuildContext context) {
+    final layout = AppLayout.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(layout.inset(16)),
       decoration: AppTheme.brutalCard(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,16 +323,16 @@ class HomeScreen extends StatelessWidget {
             'HOW IT WORKS',
             style: GoogleFonts.spaceMono(
               color: AppTheme.fg(context),
-              fontSize: 13,
+              fontSize: layout.font(13),
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: layout.gap(14)),
           _step(context, '01', 'Find a reel on Instagram or TikTok'),
-          const SizedBox(height: 10),
+          SizedBox(height: layout.gap(10)),
           _step(context, '02', 'Tap share and choose ReelPin'),
-          const SizedBox(height: 10),
+          SizedBox(height: layout.gap(10)),
           _step(context, '03', 'AI extracts all the info and places'),
         ],
       ),
@@ -288,11 +340,12 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _step(BuildContext context, String num, String text) {
+    final layout = AppLayout.of(context);
     return Row(
       children: [
         Container(
-          width: 28,
-          height: 28,
+          width: layout.inset(28),
+          height: layout.inset(28),
           decoration: BoxDecoration(
             color: AppTheme.yellow,
             border: Border.all(color: AppTheme.fg(context), width: 2),
@@ -302,18 +355,18 @@ class HomeScreen extends StatelessWidget {
             num,
             style: GoogleFonts.spaceMono(
               color: AppTheme.fg(context),
-              fontSize: 11,
+              fontSize: layout.font(11),
               fontWeight: FontWeight.w700,
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: layout.inset(10)),
         Expanded(
           child: Text(
             text,
             style: GoogleFonts.spaceMono(
               color: AppTheme.textSec(context),
-              fontSize: 12,
+              fontSize: layout.font(12),
             ),
           ),
         ),
@@ -323,13 +376,14 @@ class HomeScreen extends StatelessWidget {
 
   // ── Error ──
   Widget _buildErrorState(BuildContext context, HomeViewModel vm) {
+    final layout = AppLayout.of(context);
     return SliverFillRemaining(
       hasScrollBody: false,
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: EdgeInsets.symmetric(horizontal: layout.inset(32)),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(layout.inset(24)),
             decoration: AppTheme.brutalBox(
               context,
               color: AppTheme.bg(context),
@@ -339,8 +393,8 @@ class HomeScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: layout.inset(48),
+                  height: layout.inset(48),
                   decoration: BoxDecoration(
                     color: AppTheme.destructive,
                     border: Border.all(color: AppTheme.fg(context), width: 2),
@@ -351,31 +405,31 @@ class HomeScreen extends StatelessWidget {
                     color: AppTheme.white,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: layout.gap(16)),
                 Text(
                   'COULD NOT CONNECT',
                   style: GoogleFonts.spaceMono(
                     color: AppTheme.fg(context),
-                    fontSize: 16,
+                    fontSize: layout.font(16),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: layout.gap(6)),
                 Text(
                   vm.error ?? '',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
                     color: AppTheme.textSec(context),
-                    fontSize: 12,
+                    fontSize: layout.font(12),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: layout.gap(20)),
                 GestureDetector(
                   onTap: () => vm.loadReels(forceRefresh: true),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: layout.inset(24),
+                      vertical: layout.gap(12),
                     ),
                     decoration: AppTheme.brutalBox(
                       context,
@@ -387,7 +441,7 @@ class HomeScreen extends StatelessWidget {
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.white,
                         fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                        fontSize: layout.font(14),
                       ),
                     ),
                   ),
@@ -470,7 +524,9 @@ class HomeScreen extends StatelessWidget {
                                 child: Text(
                                   broad.toUpperCase(),
                                   style: GoogleFonts.spaceMono(
-                                    color: catColor.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white,
+                                    color: catColor.computeLuminance() > 0.5
+                                        ? AppTheme.black
+                                        : AppTheme.white,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                   ),

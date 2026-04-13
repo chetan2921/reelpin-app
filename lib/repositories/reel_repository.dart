@@ -79,6 +79,10 @@ class ReelRepository {
     return reel;
   }
 
+  Future<ProcessingJob> enqueueReelProcessing(String url) {
+    return _apiService.enqueueReelProcessing(url, userId: _currentUserId);
+  }
+
   /// Delete a reel and remove from cache.
   Future<void> deleteReel(String reelId) async {
     await _reelStore.deleteReel(reelId: reelId, userId: _currentUserId);

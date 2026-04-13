@@ -24,10 +24,14 @@ class CategoryBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = AppTheme.getCategoryColor(category);
+    final layout = AppLayout.of(context);
 
     if (small) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: EdgeInsets.symmetric(
+          horizontal: layout.inset(8),
+          vertical: layout.gap(3),
+        ),
         decoration: BoxDecoration(
           color: color,
           border: Border.all(color: AppTheme.fg(context), width: 2),
@@ -36,7 +40,7 @@ class CategoryBadge extends StatelessWidget {
           category.toUpperCase(),
           style: GoogleFonts.spaceMono(
             color: _contrastText(color),
-            fontSize: 9,
+            fontSize: layout.font(9),
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
@@ -49,8 +53,8 @@ class CategoryBadge extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: customHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        height: layout.gap(customHeight),
+        padding: EdgeInsets.symmetric(horizontal: layout.inset(14)),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.yellow : AppTheme.bg(context),
           border: Border.all(
@@ -67,7 +71,7 @@ class CategoryBadge extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(
               color: isSelected ? AppTheme.black : AppTheme.fg(context),
-              fontSize: customFontSize,
+              fontSize: layout.font(customFontSize),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.3,
             ),

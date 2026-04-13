@@ -196,8 +196,25 @@ class Reel {
 
   /// All locations that can be pinned on a map.
   List<Location> get mappableLocations {
-    final candidates = locations.where((location) => location.hasCoordinates);
-    return candidates.where(_shouldPinLocation).toList();
+    final candidates = locations
+        .where((location) => location.hasCoordinates)
+        .toList();
+    if (candidates.isEmpty) {
+      return const [];
+    }
+
+    final matches = candidates.where(_shouldPinLocation).toList();
+    if (matches.isNotEmpty) {
+      return matches;
+    }
+
+    // If the backend only extracted a small set of coordinates, keep them
+    // instead of dropping the reel entirely when text matching is imperfect.
+    if (candidates.length <= 2) {
+      return candidates;
+    }
+
+    return candidates.where(_isSpecificFallbackLocation).take(2).toList();
   }
 
   /// Whether this reel has any map-pinnable locations.
@@ -213,9 +230,11 @@ class Reel {
       return false;
     }
 
-    return _matchableLocationPhrases(
-      location,
-    ).any((phrase) => _containsNormalizedPhrase(searchableText, phrase));
+    return _matchableLocationPhrases(location).any(
+      (phrase) =>
+          _containsNormalizedPhrase(searchableText, phrase) ||
+          _containsMeaningfulTokenMatch(searchableText, phrase),
+    );
   }
 
   Iterable<String> _matchableLocationPhrases(Location location) sync* {
@@ -239,6 +258,9 @@ class Reel {
       title,
       caption,
       transcript,
+      summary,
+      keyFacts.join(' '),
+      actionableItems.join(' '),
     ].where((part) => part.trim().isNotEmpty).join(' '),
   );
 
@@ -248,6 +270,45 @@ class Reel {
       return false;
     }
     return ' $haystack '.contains(' $normalizedNeedle ');
+  }
+
+  bool _containsMeaningfulTokenMatch(String haystack, String phrase) {
+    final tokens = _normalizeMatchText(phrase)
+        .split(' ')
+        .where(
+          (token) =>
+              token.isNotEmpty &&
+              (token.length >= 4 || RegExp(r'\d').hasMatch(token)),
+        )
+        .toList();
+
+    if (tokens.isEmpty) {
+      return false;
+    }
+
+    final matched = tokens
+        .where((token) => ' $haystack '.contains(' $token '))
+        .length;
+
+    if (tokens.length == 1) {
+      return matched == 1;
+    }
+
+    return matched >= 2;
+  }
+
+  bool _isSpecificFallbackLocation(Location location) {
+    final normalizedName = _normalizeMatchText(location.name);
+    if (normalizedName.isEmpty) {
+      return false;
+    }
+
+    final tokenCount = normalizedName
+        .split(' ')
+        .where((t) => t.isNotEmpty)
+        .length;
+    return tokenCount >= 2 ||
+        (location.address != null && location.address!.trim().isNotEmpty);
   }
 
   String _normalizeMatchText(String value) {
