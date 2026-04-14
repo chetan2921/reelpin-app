@@ -11,9 +11,8 @@ import 'location_service.dart';
 import 'notification_service.dart';
 
 class GeofenceRecallService {
-  GeofenceRecallService({
-    required NotificationService notificationService,
-  }) : _notificationService = notificationService;
+  GeofenceRecallService({required NotificationService notificationService})
+    : _notificationService = notificationService;
 
   static const _contextsKey = 'geofence_recall_contexts';
   static const _cooldownPrefix = 'geofence_recall_last_trigger_';
@@ -29,7 +28,7 @@ class GeofenceRecallService {
   bool _initialized = false;
   String? _lastSyncFingerprint;
 
-  Future<void> initialize() async {
+  Future<void> initialize({bool requestPermissions = true}) async {
     if (_initialized) return;
     if (kIsWeb ||
         (defaultTargetPlatform != TargetPlatform.android &&
@@ -40,7 +39,9 @@ class GeofenceRecallService {
     final didInitialize = await _geofencingService.initialize();
     if (!didInitialize) return;
 
-    await _geofencingService.requestPermissions();
+    if (requestPermissions) {
+      await _geofencingService.requestPermissions();
+    }
     await _geofencingService.startService(
       notificationTitle: 'ReelPin Recall Active',
       notificationText: 'Watching your saved places nearby',
@@ -62,9 +63,6 @@ class GeofenceRecallService {
   }
 
   Future<void> syncFromReels(List<Reel> reels) async {
-    if (!_initialized) {
-      await initialize();
-    }
     if (!_initialized) return;
 
     final fingerprint = reels
@@ -120,13 +118,16 @@ class GeofenceRecallService {
     final lastTriggerKey = '$_cooldownPrefix${event.regionId}';
     final lastTriggeredMs = prefs.getInt(lastTriggerKey);
     if (lastTriggeredMs != null) {
-      final lastTriggered = DateTime.fromMillisecondsSinceEpoch(lastTriggeredMs);
+      final lastTriggered = DateTime.fromMillisecondsSinceEpoch(
+        lastTriggeredMs,
+      );
       if (DateTime.now().difference(lastTriggered) < _cooldownWindow) {
         return;
       }
     }
 
-    final region = _contexts[event.regionId] ??
+    final region =
+        _contexts[event.regionId] ??
         (await _loadStoredContexts())[event.regionId];
     if (region == null) return;
 
@@ -143,35 +144,29 @@ class GeofenceRecallService {
     final currentLocation = await LocationService.instance
         .getCurrentOrLastKnownLocation(requestPermissionIfNeeded: false);
 
-    final weighted = regions.map((region) {
-      final distanceScore = currentLocation == null
-          ? 0.0
-          : _distanceSquared(
-              region.latitude,
-              region.longitude,
-              currentLocation.latitude,
-              currentLocation.longitude,
-            );
-      return _RegionWeight(
-        region: region,
-        distanceSquared: distanceScore,
-      );
-    }).toList()
-      ..sort((a, b) {
-        final reelCountCompare = b.region.reelCount.compareTo(a.region.reelCount);
-        if (reelCountCompare != 0) return reelCountCompare;
-        return a.distanceSquared.compareTo(b.distanceSquared);
-      });
+    final weighted =
+        regions.map((region) {
+          final distanceScore = currentLocation == null
+              ? 0.0
+              : _distanceSquared(
+                  region.latitude,
+                  region.longitude,
+                  currentLocation.latitude,
+                  currentLocation.longitude,
+                );
+          return _RegionWeight(region: region, distanceSquared: distanceScore);
+        }).toList()..sort((a, b) {
+          final reelCountCompare = b.region.reelCount.compareTo(
+            a.region.reelCount,
+          );
+          if (reelCountCompare != 0) return reelCountCompare;
+          return a.distanceSquared.compareTo(b.distanceSquared);
+        });
 
     return weighted.take(maxRegions).map((item) => item.region).toList();
   }
 
-  double _distanceSquared(
-    double lat1,
-    double lng1,
-    double lat2,
-    double lng2,
-  ) {
+  double _distanceSquared(double lat1, double lng1, double lat2, double lng2) {
     final latDelta = lat1 - lat2;
     final lngDelta = lng1 - lng2;
     return latDelta * latDelta + lngDelta * lngDelta;
@@ -193,10 +188,7 @@ class GeofenceRecallService {
 }
 
 class _RegionWeight {
-  const _RegionWeight({
-    required this.region,
-    required this.distanceSquared,
-  });
+  const _RegionWeight({required this.region, required this.distanceSquared});
 
   final RecallRegion region;
   final double distanceSquared;

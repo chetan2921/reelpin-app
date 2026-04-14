@@ -167,6 +167,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
   late final SearchViewModel _searchViewModel;
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<ReelReadyNotification>? _reelReadySubscription;
+  Timer? _pushSyncRetryTimer;
 
   @override
   void initState() {
@@ -183,7 +184,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     _mapViewModel = MapViewModel(_repository);
     _searchViewModel = SearchViewModel(_repository);
     _homeViewModel.addListener(_syncGeofenceRegions);
-    _initializeProactiveRecall();
+    _initializeBackgroundMessaging();
     _homeViewModel.loadReels();
     _mapViewModel.loadMapReels();
   }
@@ -205,9 +206,9 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     );
   }
 
-  Future<void> _initializeProactiveRecall() async {
+  Future<void> _initializeBackgroundMessaging() async {
     try {
-      await _notificationService.initialize();
+      await _notificationService.initialize(requestPermissions: false);
     } catch (e) {
       debugPrint('Notification initialization skipped: $e');
       return;
@@ -216,18 +217,12 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     final userId = _authService.currentUser?.id;
     if (userId == null || userId.trim().isEmpty) return;
 
-    try {
-      final token = await _notificationService.getFcmToken();
-      if (token != null && token.trim().isNotEmpty) {
-        await _apiService.registerPushToken(
-          userId: userId,
-          token: token,
-          platform: _notificationService.currentPlatform,
-        );
-      }
-    } catch (e) {
-      debugPrint('Push token registration skipped: $e');
-    }
+    await _syncPushTokenRegistration();
+    _pushSyncRetryTimer?.cancel();
+    _pushSyncRetryTimer = Timer(
+      const Duration(seconds: 5),
+      () => unawaited(_syncPushTokenRegistration()),
+    );
 
     if (_notificationService.isFirebaseConfigured) {
       _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((
@@ -247,12 +242,6 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
       });
     }
 
-    try {
-      await _geofenceRecallService.initialize();
-    } catch (e) {
-      debugPrint('Geofence recall initialization skipped: $e');
-    }
-
     _reelReadySubscription = _notificationService.onReelReady.listen((event) {
       unawaited(_refreshSavedReels());
     });
@@ -261,6 +250,24 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
         .consumePendingInitialReelReady();
     if (initialReelReady != null) {
       await _refreshSavedReels();
+    }
+  }
+
+  Future<void> _syncPushTokenRegistration() async {
+    final userId = _authService.currentUser?.id;
+    if (userId == null || userId.trim().isEmpty) return;
+
+    try {
+      final token = await _notificationService.getFcmToken();
+      if (token == null || token.trim().isEmpty) return;
+
+      await _apiService.registerPushToken(
+        userId: userId,
+        token: token,
+        platform: _notificationService.currentPlatform,
+      );
+    } catch (e) {
+      debugPrint('Push token registration skipped: $e');
     }
   }
 
@@ -290,6 +297,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     _geofenceRecallService.dispose();
     _tokenRefreshSubscription?.cancel();
     _reelReadySubscription?.cancel();
+    _pushSyncRetryTimer?.cancel();
     super.dispose();
   }
 }

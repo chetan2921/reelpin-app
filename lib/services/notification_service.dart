@@ -55,12 +55,18 @@ class NotificationService {
   bool get isFirebaseConfigured => _firebaseConfigured;
   Stream<ReelReadyNotification> get onReelReady => _reelReadyController.stream;
 
-  Future<void> initialize() async {
-    if (_initialized) return;
+  Future<void> initialize({bool requestPermissions = true}) async {
     if (!_supportsNativeFirebaseMessaging) return;
 
     _firebaseConfigured = Firebase.apps.isNotEmpty;
     if (!_firebaseConfigured) return;
+
+    if (_initialized) {
+      if (requestPermissions) {
+        await requestUserPermission();
+      }
+      return;
+    }
 
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
@@ -75,12 +81,9 @@ class NotificationService {
 
     final messaging = FirebaseMessaging.instance;
     await messaging.setAutoInitEnabled(true);
-    await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
+    if (requestPermissions) {
+      await requestUserPermission();
+    }
 
     await messaging.setForegroundNotificationPresentationOptions(
       alert: true,
@@ -137,6 +140,19 @@ class NotificationService {
     }
 
     _initialized = true;
+  }
+
+  Future<NotificationSettings?> requestUserPermission() async {
+    if (!_supportsNativeFirebaseMessaging || !_firebaseConfigured) {
+      return null;
+    }
+
+    return FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
   }
 
   Future<String?> getFcmToken() async {

@@ -25,27 +25,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       accent: AppTheme.yellow,
       icon: Icons.bookmark_added_outlined,
       bullet: 'ONE SHARE AND IT IS SAVED',
-      highlights: ['FOOD SPOTS', 'PLACES TO GO', 'THINGS TO BUY'],
+      highlights: ['SPOTS', 'PLACES TO GO', 'THINGS TO BUY'],
     ),
     _OnboardingStep(
       label: 'FIND IT FAST',
       title: 'COME BACK TO THE GOOD PART IN SECONDS',
       body:
           'OPEN A SAVED REEL LATER AND GET THE PART YOU CARE ABOUT WITHOUT SCRUBBING THROUGH THE WHOLE VIDEO AGAIN.',
-      accent: AppTheme.blue,
+      accent: AppTheme.hotPink,
       icon: Icons.auto_awesome,
       bullet: 'LESS REWATCHING, MORE USING',
-      highlights: ['SPOTS', 'TIPS', 'WHY YOU SAVED IT'],
+      highlights: ['IDEAS', 'TIPS', 'WHY YOU SAVED IT'],
     ),
     _OnboardingStep(
       label: 'USE IT OUTSIDE THE APP',
       title: 'SEE CLEARLY NAMED PLACES ON YOUR MAP',
       body:
           'WHEN A REEL CALLS OUT A PLACE BY NAME, REELPIN DROPS IT ON YOUR MAP SO YOU CAN ACTUALLY GO THERE LATER.',
-      accent: AppTheme.hotPink,
+      accent: AppTheme.blue,
       icon: Icons.map,
       bullet: 'SAVE NOW, USE IT WHEN YOU ARE OUT',
-      highlights: ['TRIP IDEAS', 'LOCAL SAVES', 'PLANS THAT STICK'],
+      highlights: ['TRIPS', 'LOCAL SAVES', 'PLANS THAT STICK'],
     ),
   ];
 
@@ -334,9 +334,9 @@ class _OnboardingCard extends StatelessWidget {
             .toDouble();
         final heroRightInset = layout.inset(compactWidth ? 14 : 18);
         final heroBackplateInset = layout.inset(compactWidth ? 10 : 14);
-        final bodyBottom = layout.gap(compactHeight ? 18 : 24);
+        final bodyBottom = layout.gap(compactHeight ? 22 : 28);
         final bodyRightInset = railWidth + layout.inset(compactWidth ? 10 : 14);
-        final railBottom = layout.gap(compactHeight ? 38 : 44);
+        final railBottom = layout.gap(compactHeight ? 44 : 50);
         final cardPadding = layout.inset(compactWidth ? 14 : 18);
         final iconBoxSize = layout.inset(compactWidth ? 42 : 48);
         final pinSize = layout.inset(compactWidth ? 18 : 20);
@@ -492,7 +492,7 @@ class _OnboardingCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          SizedBox(height: layout.gap(compactHeight ? 12 : 18)),
+                          SizedBox(height: layout.gap(compactHeight ? 8 : 14)),
                           Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: layout.inset(10),

@@ -20,6 +20,8 @@ class _AuthScreenState extends State<AuthScreen> {
   final _confirmPasswordController = TextEditingController();
 
   bool _isSignUp = false;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
 
   @override
   void dispose() {
@@ -228,7 +230,21 @@ class _AuthScreenState extends State<AuthScreen> {
                               controller: _passwordController,
                               label: 'PASSWORD',
                               hint: 'MIN 6 CHARACTERS',
-                              obscureText: true,
+                              obscureText: !_showPassword,
+                              suffixIcon: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _showPassword = !_showPassword;
+                                  });
+                                },
+                                child: Icon(
+                                  _showPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: AppTheme.fg(context),
+                                  size: layout.inset(18),
+                                ),
+                              ),
                               validator: (value) {
                                 final text = value ?? '';
                                 if (text.isEmpty) return 'ENTER YOUR PASSWORD';
@@ -245,7 +261,22 @@ class _AuthScreenState extends State<AuthScreen> {
                                 controller: _confirmPasswordController,
                                 label: 'CONFIRM PASSWORD',
                                 hint: 'REPEAT PASSWORD',
-                                obscureText: true,
+                                obscureText: !_showConfirmPassword,
+                                suffixIcon: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _showConfirmPassword =
+                                          !_showConfirmPassword;
+                                    });
+                                  },
+                                  child: Icon(
+                                    _showConfirmPassword
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
+                                    color: AppTheme.fg(context),
+                                    size: layout.inset(18),
+                                  ),
+                                ),
                                 validator: (value) {
                                   final text = value ?? '';
                                   if (text.isEmpty) {
@@ -466,6 +497,7 @@ class _AuthScreenState extends State<AuthScreen> {
     required String? Function(String?) validator,
     bool obscureText = false,
     TextInputType? keyboardType,
+    Widget? suffixIcon,
   }) {
     final layout = AppLayout.of(context);
     return Column(
@@ -498,6 +530,16 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             filled: true,
             fillColor: AppTheme.bg(context),
+            suffixIcon: suffixIcon == null
+                ? null
+                : Padding(
+                    padding: EdgeInsets.only(right: layout.inset(8)),
+                    child: suffixIcon,
+                  ),
+            suffixIconConstraints: BoxConstraints(
+              minWidth: layout.inset(36),
+              minHeight: layout.inset(36),
+            ),
             contentPadding: EdgeInsets.symmetric(
               horizontal: layout.inset(14),
               vertical: layout.gap(14),

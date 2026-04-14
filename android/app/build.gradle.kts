@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -14,6 +15,21 @@ if (localPropsFile.exists()) {
     localProps.load(localPropsFile.inputStream())
 }
 val mapsApiKey: String = localProps.getProperty("MAPS_API_KEY", "")
+
+val requestedTasks = gradle.startParameter.taskNames.map(String::lowercase)
+val isReleaseBuildRequested = requestedTasks.any { "release" in it }
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+
+if (hasReleaseKeystore) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+} else if (isReleaseBuildRequested) {
+    throw GradleException(
+        "Missing android/key.properties for release build. Add keyAlias, keyPassword, storeFile, and storePassword before building a Play Store bundle.",
+    )
+}
+
 val hasGoogleServicesConfig = listOf(
     "google-services.json",
     "src/debug/google-services.json",
@@ -49,9 +65,22 @@ android {
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
+    if (hasReleaseKeystore) {
+        signingConfigs {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

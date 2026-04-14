@@ -5,8 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/location_service.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
+import '../services/geofence_recall_service.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
@@ -22,11 +26,15 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+  static const _permissionsPromptedKey =
+      'app_shell_initial_permissions_prompted_v1';
+
   int _currentIndex = 0;
   late StreamSubscription _mediaIntentSub;
   bool _isQueueingSharedReel = false;
   String? _lastHandledSharedUrl;
   DateTime? _lastHandledSharedAt;
+  bool _isCheckingInitialPermissions = false;
 
   final _screens = const [HomeScreen(), MapScreen(), SearchScreen()];
 
@@ -53,12 +61,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initSharingIntent();
-    _requestLocationOnStartup();
-  }
-
-  void _requestLocationOnStartup() {
-    Future.microtask(() async {
-      await LocationService.instance.warmUpLocation();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybePromptInitialPermissions());
     });
   }
 
@@ -204,6 +208,156 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     unawaited(context.read<HomeViewModel>().loadReels(forceRefresh: true));
     unawaited(context.read<MapViewModel>().loadMapReels(forceRefresh: true));
+    unawaited(_refreshPushRegistrationIfPossible());
+  }
+
+  Future<void> _maybePromptInitialPermissions() async {
+    if (!mounted || _isCheckingInitialPermissions) return;
+
+    _isCheckingInitialPermissions = true;
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyPrompted = prefs.getBool(_permissionsPromptedKey) ?? false;
+    if (alreadyPrompted) {
+      _isCheckingInitialPermissions = false;
+      return;
+    }
+
+    if (!mounted) {
+      _isCheckingInitialPermissions = false;
+      return;
+    }
+
+    final enable = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppTheme.bg(dialogContext),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.zero,
+            side: BorderSide(
+              color: AppTheme.fg(dialogContext),
+              width: AppTheme.borderWidth,
+            ),
+          ),
+          title: Text(
+            'ALLOW REELPIN ALERTS?',
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.fg(dialogContext),
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+          content: Text(
+            'TURN ON NOTIFICATIONS AND LOCATION SO REELPIN CAN TELL YOU WHEN A REEL IS READY AND WHEN YOU ARE NEAR A PLACE YOU SAVED.',
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.textSec(dialogContext),
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(
+                'NOT NOW',
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.textSec(dialogContext),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () => Navigator.pop(dialogContext, true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: AppTheme.brutalBox(
+                  dialogContext,
+                  color: AppTheme.yellow,
+                  shadow: true,
+                ),
+                child: Text(
+                  'ENABLE',
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.black,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    await prefs.setBool(_permissionsPromptedKey, true);
+    _isCheckingInitialPermissions = false;
+
+    if (enable == true) {
+      await _enableReelPinPermissions();
+    }
+  }
+
+  Future<void> _enableReelPinPermissions() async {
+    final notificationService = context.read<NotificationService>();
+    final geofenceRecallService = context.read<GeofenceRecallService>();
+    final apiService = context.read<ApiService>();
+    final authService = context.read<AuthService>();
+    final homeVm = context.read<HomeViewModel>();
+
+    try {
+      await notificationService.initialize(requestPermissions: true);
+    } catch (e) {
+      debugPrint('Notification permission setup skipped: $e');
+    }
+
+    final userId = authService.currentUser?.id;
+    if (userId != null && userId.trim().isNotEmpty) {
+      try {
+        final token = await notificationService.getFcmToken();
+        if (token != null && token.trim().isNotEmpty) {
+          await apiService.registerPushToken(
+            userId: userId,
+            token: token,
+            platform: notificationService.currentPlatform,
+          );
+        }
+      } catch (e) {
+        debugPrint('Push token registration skipped after prompt: $e');
+      }
+    }
+
+    try {
+      await geofenceRecallService.initialize(requestPermissions: true);
+      await geofenceRecallService.syncFromReels(homeVm.reels);
+    } catch (e) {
+      debugPrint('Geofence recall setup skipped after prompt: $e');
+    }
+  }
+
+  Future<void> _refreshPushRegistrationIfPossible() async {
+    final notificationService = context.read<NotificationService>();
+    final apiService = context.read<ApiService>();
+    final authService = context.read<AuthService>();
+    final userId = authService.currentUser?.id;
+    if (userId == null || userId.trim().isEmpty) return;
+
+    try {
+      final token = await notificationService.getFcmToken();
+      if (token == null || token.trim().isEmpty) return;
+
+      await apiService.registerPushToken(
+        userId: userId,
+        token: token,
+        platform: notificationService.currentPlatform,
+      );
+    } catch (e) {
+      debugPrint('Push token refresh on resume skipped: $e');
+    }
   }
 
   @override
