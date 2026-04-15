@@ -16,7 +16,6 @@ import 'screens/setup_required_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
-import 'services/geofence_recall_service.dart';
 import 'services/notification_service.dart';
 import 'services/profile_service.dart';
 import 'services/reel_store.dart';
@@ -161,7 +160,6 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
   late final ReelStore _reelStore;
   late final ReelRepository _repository;
   late final NotificationService _notificationService;
-  late final GeofenceRecallService _geofenceRecallService;
   late final HomeViewModel _homeViewModel;
   late final MapViewModel _mapViewModel;
   late final SearchViewModel _searchViewModel;
@@ -177,13 +175,9 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     _reelStore = ReelStore();
     _repository = ReelRepository(_apiService, _reelStore, _authService);
     _notificationService = NotificationService.instance;
-    _geofenceRecallService = GeofenceRecallService(
-      notificationService: _notificationService,
-    );
     _homeViewModel = HomeViewModel(_repository);
     _mapViewModel = MapViewModel(_repository);
     _searchViewModel = SearchViewModel(_repository);
-    _homeViewModel.addListener(_syncGeofenceRegions);
     _initializeBackgroundMessaging();
     _homeViewModel.loadReels();
     _mapViewModel.loadMapReels();
@@ -197,7 +191,6 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
         Provider<ReelStore>.value(value: _reelStore),
         Provider<ReelRepository>.value(value: _repository),
         Provider<NotificationService>.value(value: _notificationService),
-        Provider<GeofenceRecallService>.value(value: _geofenceRecallService),
         ChangeNotifierProvider<HomeViewModel>.value(value: _homeViewModel),
         ChangeNotifierProvider<MapViewModel>.value(value: _mapViewModel),
         ChangeNotifierProvider<SearchViewModel>.value(value: _searchViewModel),
@@ -271,15 +264,6 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     }
   }
 
-  Future<void> _syncGeofenceRegions() async {
-    if (_homeViewModel.isLoading) return;
-    try {
-      await _geofenceRecallService.syncFromReels(_homeViewModel.reels);
-    } catch (e) {
-      debugPrint('Geofence sync skipped: $e');
-    }
-  }
-
   Future<void> _refreshSavedReels() async {
     try {
       await Future.wait([
@@ -293,8 +277,6 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
 
   @override
   void dispose() {
-    _homeViewModel.removeListener(_syncGeofenceRegions);
-    _geofenceRecallService.dispose();
     _tokenRefreshSubscription?.cancel();
     _reelReadySubscription?.cancel();
     _pushSyncRetryTimer?.cancel();

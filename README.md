@@ -20,7 +20,6 @@ The app is built around a simple idea:
 - Discover screen with search, quick prompts, category browsing, recent saves, and date filtering.
 - Reel detail screen with summary, facts, transcript, locations, people mentioned, and action items.
 - Map screen with custom pins for extracted places.
-- Nearby recall notifications for saved places when background geofencing is enabled.
 - Theme persistence.
 - Profile screen with collection stats and settings.
 
@@ -30,19 +29,6 @@ On Android, sharing a reel to ReelPin uses a native share receiver that queues t
 
 On the app side, ReelPin does not wait for the reel to finish processing in the foreground. The backend worker completes the job, stores the reel, and sends a `reel_ready` push notification. When the app receives that notification, it refreshes saved reels so the finished content is visible when the user opens ReelPin.
 
-## Nearby Recall
-
-ReelPin can monitor saved places in the background and notify the user when they are near a place connected to a saved reel.
-
-This relies on:
-
-- notification permission
-- location permission
-- background geofencing support
-- reels that include map-pinnable locations
-
-On Android, the background location service uses a persistent system notification because the OS requires it for this kind of monitoring.
-
 ## Tech Stack
 
 - Flutter
@@ -51,7 +37,6 @@ On Android, the background location service uses a persistent system notificatio
 - Firebase Cloud Messaging
 - flutter_local_notifications
 - google_maps_flutter
-- flutter_background_geofencing
 - receive_sharing_intent
 
 ## Backend Expectations
@@ -181,11 +166,11 @@ flutter build apk
 - Map shows saved places that were extracted and geocoded.
 - Reel detail shows the processed information for one saved reel.
 
-### Nearby Recall
+### Reel Ready Notifications
 
-1. User grants notification and location permission.
-2. ReelPin syncs geofence regions from saved map locations.
-3. When the user is near a saved place, ReelPin sends a contextual reminder.
+1. User grants notification permission.
+2. The backend finishes processing the shared reel.
+3. ReelPin sends a notification so the user can come back to the finished reel.
 
 ## Notes
 

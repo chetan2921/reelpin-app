@@ -1,4 +1,4 @@
-package com.example.reelpin
+package com.chetanjain.reelpin
 
 import android.content.Context
 import android.content.Intent

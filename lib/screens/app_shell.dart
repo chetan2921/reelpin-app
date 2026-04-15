@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
-import '../services/geofence_recall_service.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
@@ -249,7 +248,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             ),
           ),
           content: Text(
-            'TURN ON NOTIFICATIONS AND LOCATION SO REELPIN CAN TELL YOU WHEN A REEL IS READY AND WHEN YOU ARE NEAR A PLACE YOU SAVED.',
+            'TURN ON NOTIFICATIONS SO REELPIN CAN TELL YOU WHEN A REEL IS READY.',
             style: GoogleFonts.spaceMono(
               color: AppTheme.textSec(dialogContext),
               fontSize: 12,
@@ -304,10 +303,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Future<void> _enableReelPinPermissions() async {
     final notificationService = context.read<NotificationService>();
-    final geofenceRecallService = context.read<GeofenceRecallService>();
     final apiService = context.read<ApiService>();
     final authService = context.read<AuthService>();
-    final homeVm = context.read<HomeViewModel>();
 
     try {
       await notificationService.initialize(requestPermissions: true);
@@ -329,13 +326,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       } catch (e) {
         debugPrint('Push token registration skipped after prompt: $e');
       }
-    }
-
-    try {
-      await geofenceRecallService.initialize(requestPermissions: true);
-      await geofenceRecallService.syncFromReels(homeVm.reels);
-    } catch (e) {
-      debugPrint('Geofence recall setup skipped after prompt: $e');
     }
   }
 

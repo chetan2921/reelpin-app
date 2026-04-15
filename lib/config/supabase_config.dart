@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class SupabaseConfig {
@@ -11,7 +12,6 @@ class SupabaseConfig {
   );
   static const String _redirectSchemeFromEnv = String.fromEnvironment(
     'SUPABASE_REDIRECT_SCHEME',
-    defaultValue: 'com.chetan.reelpin',
   );
   static const String _redirectHostFromEnv = String.fromEnvironment(
     'SUPABASE_REDIRECT_HOST',
@@ -40,7 +40,7 @@ class SupabaseConfig {
   static String get redirectScheme => _firstNonEmpty(
     _redirectSchemeFromEnv,
     _localValues['SUPABASE_REDIRECT_SCHEME'],
-    fallback: 'com.chetan.reelpin',
+    fallback: _defaultRedirectScheme(),
   );
 
   static String get redirectHost => _firstNonEmpty(
@@ -55,6 +55,13 @@ class SupabaseConfig {
   static String get redirectUrl => '$redirectScheme://$redirectHost';
 
   static String? localValue(String key) => _localValues[key];
+
+  static String _defaultRedirectScheme() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'com.chetanjain.reelpin';
+    }
+    return 'com.chetan.reelpin';
+  }
 
   static Map<String, String> _parseEnv(String raw) {
     final values = <String, String>{};

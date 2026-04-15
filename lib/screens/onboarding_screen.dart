@@ -79,7 +79,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         child: Padding(
-          padding: layout.pagePadding(horizontal: 20, top: 18, bottom: 20),
+          padding: layout.pagePadding(horizontal: 20, top: 18, bottom: 30),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -143,7 +143,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
-              SizedBox(height: layout.gap(12)),
+              SizedBox(height: layout.gap(10)),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
                 switchInCurve: Curves.easeOutCubic,
@@ -226,12 +226,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
-              SizedBox(height: layout.gap(12)),
+              SizedBox(height: layout.gap(10)),
               GestureDetector(
                 onTap: _next,
                 child: SizedBox(
                   width: double.infinity,
-                  height: layout.gap(52),
+                  height: layout.gap(60),
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -277,7 +277,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               if (_currentPage != _pages.length - 1)
                 Transform.translate(
-                  offset: Offset(0, layout.gap(10)),
+                  offset: Offset(0, layout.gap(8)),
                   child: Center(
                     child: TextButton(
                       onPressed: widget.onContinue,
@@ -323,8 +323,8 @@ class _OnboardingCard extends StatelessWidget {
         final compactWidth = constraints.maxWidth < 360;
         final compactHeight = constraints.maxHeight < 610;
         final heroBottom =
-            (constraints.maxHeight * (compactHeight ? 0.22 : 0.245))
-                .clamp(layout.gap(88), layout.gap(126))
+            (constraints.maxHeight * (compactHeight ? 0.28 : 0.31))
+                .clamp(layout.gap(118), layout.gap(172))
                 .toDouble();
         final railWidth = (constraints.maxWidth * (compactWidth ? 0.24 : 0.29))
             .clamp(layout.inset(88), layout.inset(126))
@@ -334,9 +334,9 @@ class _OnboardingCard extends StatelessWidget {
             .toDouble();
         final heroRightInset = layout.inset(compactWidth ? 14 : 18);
         final heroBackplateInset = layout.inset(compactWidth ? 10 : 14);
-        final bodyBottom = layout.gap(compactHeight ? 22 : 28);
+        final bodyBottom = layout.gap(compactHeight ? 70 : 82);
         final bodyRightInset = railWidth + layout.inset(compactWidth ? 10 : 14);
-        final railBottom = layout.gap(compactHeight ? 44 : 50);
+        final railBottom = layout.gap(compactHeight ? 94 : 106);
         final cardPadding = layout.inset(compactWidth ? 14 : 18);
         final iconBoxSize = layout.inset(compactWidth ? 42 : 48);
         final pinSize = layout.inset(compactWidth ? 18 : 20);

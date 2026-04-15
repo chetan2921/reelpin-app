@@ -230,14 +230,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_background_geofencing:
-    dependency: "direct main"
-    description:
-      name: flutter_background_geofencing
-      sha256: "82749a70ffd10b75fccacd1600049e244ded5a7ea33a20134886e1e1504b90ab"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   flutter_lints:
     dependency: "direct dev"
     description:

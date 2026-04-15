@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../config/supabase_config.dart';
-import '../models/recall_region.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -40,8 +39,8 @@ class NotificationService {
 
   static final NotificationService instance = NotificationService._();
 
-  static const proactiveRecallChannelId = 'reelpin_proactive_recall';
-  static const proactiveRecallChannelName = 'Proactive Recall';
+  static const updatesChannelId = 'reelpin_updates';
+  static const updatesChannelName = 'Reel Updates';
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
@@ -98,10 +97,9 @@ class NotificationService {
           >()
           ?.createNotificationChannel(
             const AndroidNotificationChannel(
-              proactiveRecallChannelId,
-              proactiveRecallChannelName,
-              description:
-                  'Context-aware reminders about places and reel insights you saved.',
+              updatesChannelId,
+              updatesChannelName,
+              description: 'Notifications for completed reel processing.',
               importance: Importance.high,
             ),
           );
@@ -186,8 +184,8 @@ class NotificationService {
       body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          proactiveRecallChannelId,
-          proactiveRecallChannelName,
+          updatesChannelId,
+          updatesChannelName,
           importance: Importance.high,
           priority: Priority.high,
           icon: 'ic_launcher',
@@ -195,29 +193,6 @@ class NotificationService {
         iOS: DarwinNotificationDetails(),
       ),
     );
-  }
-
-  Future<void> showProactiveRecallNotification(RecallRegion region) async {
-    final body = _buildRecallBody(region);
-    await showMessageNotification(
-      title: 'You are near ${region.locationName}',
-      body: body,
-    );
-  }
-
-  String _buildRecallBody(RecallRegion region) {
-    final category = region.primaryCategory;
-    if (category.toLowerCase().contains('fitness') ||
-        category.toLowerCase().contains('gym')) {
-      return 'You saved ${region.reelCount} workout reel${region.reelCount == 1 ? '' : 's'} for this spot. Tap to jump back in.';
-    }
-
-    if (category.toLowerCase().contains('food') ||
-        category.toLowerCase().contains('travel')) {
-      return 'You are close to ${region.locationName}. ReelPin found ${region.reelCount} saved idea${region.reelCount == 1 ? '' : 's'} here.';
-    }
-
-    return 'You saved ${region.reelCount} reel${region.reelCount == 1 ? '' : 's'} linked to ${region.locationName}. Open ReelPin to revisit them.';
   }
 
   String get currentPlatform {
