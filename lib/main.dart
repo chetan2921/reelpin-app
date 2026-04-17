@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -22,12 +23,14 @@ import 'services/reel_store.dart';
 import 'theme/app_theme.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/map_viewmodel.dart';
+import 'viewmodels/category_filters_viewmodel.dart';
 import 'viewmodels/search_viewmodel.dart';
 import 'viewmodels/session_viewmodel.dart';
 import 'viewmodels/theme_viewmodel.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  GoogleFonts.config.allowRuntimeFetching = false;
   await SupabaseConfig.loadLocalConfig();
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
@@ -162,6 +165,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
   late final NotificationService _notificationService;
   late final HomeViewModel _homeViewModel;
   late final MapViewModel _mapViewModel;
+  late final CategoryFiltersViewModel _categoryFiltersViewModel;
   late final SearchViewModel _searchViewModel;
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<ReelReadyNotification>? _reelReadySubscription;
@@ -177,10 +181,12 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     _notificationService = NotificationService.instance;
     _homeViewModel = HomeViewModel(_repository);
     _mapViewModel = MapViewModel(_repository);
+    _categoryFiltersViewModel = CategoryFiltersViewModel(_repository);
     _searchViewModel = SearchViewModel(_repository);
     _initializeBackgroundMessaging();
     _homeViewModel.loadReels();
     _mapViewModel.loadMapReels();
+    _categoryFiltersViewModel.loadCategoryFilters();
   }
 
   @override
@@ -193,6 +199,9 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
         Provider<NotificationService>.value(value: _notificationService),
         ChangeNotifierProvider<HomeViewModel>.value(value: _homeViewModel),
         ChangeNotifierProvider<MapViewModel>.value(value: _mapViewModel),
+        ChangeNotifierProvider<CategoryFiltersViewModel>.value(
+          value: _categoryFiltersViewModel,
+        ),
         ChangeNotifierProvider<SearchViewModel>.value(value: _searchViewModel),
       ],
       child: const AppShell(),
@@ -269,6 +278,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
       await Future.wait([
         _homeViewModel.loadReels(forceRefresh: true),
         _mapViewModel.loadMapReels(forceRefresh: true),
+        _categoryFiltersViewModel.loadCategoryFilters(forceRefresh: true),
       ]);
     } catch (e) {
       debugPrint('Saved reel refresh skipped: $e');

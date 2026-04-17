@@ -165,7 +165,7 @@ class ProfileScreen extends StatelessWidget {
                   color: AppTheme.bg(context),
                   title: 'THEME MODE',
                   subtitle:
-                      'DEFAULTS TO DARK AND NOW PERSISTS ACROSS APP RESTARTS.',
+                      'FOLLOWS YOUR DEVICE BY DEFAULT. THIS TOGGLE SETS A MANUAL OVERRIDE.',
                   trailing: GestureDetector(
                     onTap: () => themeVm.toggleTheme(),
                     child: Container(

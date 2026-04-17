@@ -239,8 +239,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 },
                                 child: Icon(
                                   _showPassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
                                   color: AppTheme.fg(context),
                                   size: layout.inset(18),
                                 ),
@@ -271,8 +271,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                   },
                                   child: Icon(
                                     _showConfirmPassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
                                     color: AppTheme.fg(context),
                                     size: layout.inset(18),
                                   ),

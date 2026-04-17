@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -6,10 +7,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../config/api_config.dart';
 import '../models/reel.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
 import '../viewmodels/theme_viewmodel.dart';
 import '../widgets/category_badge.dart';
@@ -49,6 +50,7 @@ class _MapScreenState extends State<MapScreen> {
   final Map<String, BitmapDescriptor> _categoryMarkers = {};
   LatLng? _userLatLng;
   bool _hasCenteredOnCountry = false;
+  bool _isSyncingMarkers = false;
 
   int _lastMarkersCount = -1;
   String? _lastCategoryFilter;
@@ -56,7 +58,6 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    _initCustomMarkers();
     _initUserLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -100,11 +101,35 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _initCustomMarkers() async {
-    for (final cat in ApiConfig.allCategories) {
-      _categoryMarkers[cat] = await _createCustomPin(cat);
+  Future<void> _syncCategoryMarkers(CategoryFiltersViewModel categoryVm) async {
+    if (_isSyncingMarkers) return;
+
+    _isSyncingMarkers = true;
+    final labels = <String>[
+      ...categoryVm.categories,
+      for (final category in categoryVm.groups) ...category.subcategories,
+    ];
+
+    var didAddMarker = false;
+    try {
+      for (final label in labels) {
+        if (_categoryMarkers.containsKey(label)) continue;
+
+        final colorSource = categoryVm.categories.contains(label)
+            ? label
+            : categoryVm.groups
+                  .firstWhere((group) => group.subcategories.contains(label))
+                  .category;
+        _categoryMarkers[label] = await _createCustomPin(colorSource);
+        didAddMarker = true;
+      }
+    } finally {
+      _isSyncingMarkers = false;
     }
-    if (mounted) setState(() {});
+
+    if (didAddMarker && mounted) {
+      setState(() {});
+    }
   }
 
   /// Brutalist map pin: flat colored square with thick black border
@@ -218,8 +243,12 @@ class _MapScreenState extends State<MapScreen> {
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
-        child: Consumer2<MapViewModel, ThemeViewModel>(
-          builder: (context, vm, themeVm, _) {
+        child: Consumer3<MapViewModel, ThemeViewModel, CategoryFiltersViewModel>(
+          builder: (context, vm, themeVm, categoryVm, _) {
+            if (categoryVm.hasGroups) {
+              unawaited(_syncCategoryMarkers(categoryVm));
+            }
+
             final markers = _buildMarkers(vm);
             final totalPins = vm.totalPinnedLocations;
 
@@ -316,11 +345,11 @@ class _MapScreenState extends State<MapScreen> {
                         height: layout.gap(38),
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: ApiConfig.broadCategories.length,
+                          itemCount: categoryVm.categories.length,
                           separatorBuilder: (_, _) =>
                               SizedBox(width: layout.inset(6)),
                           itemBuilder: (_, i) {
-                            final cat = ApiConfig.broadCategories[i];
+                            final cat = categoryVm.categories[i];
                             return CategoryBadge(
                               category: cat,
                               isSelected: vm.selectedCategory == cat,
@@ -724,7 +753,8 @@ class _MapScreenState extends State<MapScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ReelDetailScreen(reel: reel),
+                        builder: (_) =>
+                            ReelDetailScreen.withProviders(context, reel: reel),
                       ),
                     );
                   },

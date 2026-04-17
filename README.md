@@ -1,33 +1,115 @@
 # ReelPin
 
-ReelPin is a Flutter app for saving short-form video links, processing them in the background, and organizing the results into something you can actually use later.
+ReelPin is a Flutter app for saving reels, posts, and shorts that you want to come back to later.
 
-The app is built around a simple idea:
+You share a link into ReelPin, the backend processes it in the background, and the app turns that saved post into something easier to browse: summaries, key facts, locations, people mentioned, category filters, map pins, and searchable saved results.
 
-1. You find a reel worth keeping.
-2. You share it to ReelPin.
-3. The backend processes it asynchronously.
-4. ReelPin sends a push notification when it is ready.
-5. You open the app later and browse the saved reel, extracted details, map pins, and search results.
+## Screenshots
 
-## What The App Includes
+### Onboarding
 
-- Email and Google sign in with Supabase auth.
-- A first-run onboarding flow.
-- Background reel enqueue from the share sheet.
-- Push notification support for completed reel processing.
-- Home feed for saved reels.
-- Discover screen with search, quick prompts, category browsing, recent saves, and date filtering.
-- Reel detail screen with summary, facts, transcript, locations, people mentioned, and action items.
-- Map screen with custom pins for extracted places.
-- Theme persistence.
-- Profile screen with collection stats and settings.
+![Onboarding](docs/screenshots/onboarding.jpeg)
 
-## Current Share Flow
+### Auth
 
-On Android, sharing a reel to ReelPin uses a native share receiver that queues the backend job without opening the full Flutter UI flow.
+![Sign up](docs/screenshots/auth-signup.jpeg)
 
-On the app side, ReelPin does not wait for the reel to finish processing in the foreground. The backend worker completes the job, stores the reel, and sends a `reel_ready` push notification. When the app receives that notification, it refreshes saved reels so the finished content is visible when the user opens ReelPin.
+### Home
+
+![Home feed](docs/screenshots/home-feed.jpeg)
+
+### Discover
+
+![Discover screen](docs/screenshots/discover.jpeg)
+
+### Profile
+
+![Profile screen](docs/screenshots/profile.jpeg)
+
+### Reel Detail
+
+![Reel detail](docs/screenshots/reel-detail.jpeg)
+
+### Map
+
+![Map screen](docs/screenshots/map-screen.jpeg)
+
+## What The App Does
+
+- Save Instagram reels, posts, TikToks, and YouTube Shorts by sharing them into ReelPin.
+- Queue background processing jobs instead of blocking the user in the foreground.
+- Show a share confirmation popup when a reel is accepted for background processing.
+- Register the device for push notifications and refresh the saved library when a reel is ready.
+- Browse saved reels from a card-based Home screen.
+- Search saved reels from Discover with live search as you type.
+- Filter saved reels by category and subcategory using the backend-driven category tree.
+- Browse extracted places on a map with custom category-colored pins.
+- Open a detail view with summary, facts, transcript, locations, people mentioned, and action items.
+- Follow the device theme by default, with a manual theme override in Profile.
+
+## Main Screens
+
+### Home
+
+Home is the main saved-reel feed. It shows:
+
+- Saved reels in a responsive grid
+- Category chips across the top
+- A filter sheet for category and subcategory selection
+- Long-press deletion from reel cards
+
+### Discover
+
+Discover is for search and browsing. It includes:
+
+- Live search while typing
+- Quick search prompts
+- Recent saves
+- Date-based browsing
+- Category browsing cards
+
+### Map
+
+Map shows places extracted from saved reels. It includes:
+
+- Custom category-colored pins
+- Category filtering
+- A bottom sheet for the selected reel and place
+- Direct navigation out to Google Maps
+
+### Reel Detail
+
+The detail screen includes:
+
+- Category and subcategory badges
+- Open original reel action
+- Delete action
+- Summary
+- Key facts
+- Locations
+- People mentioned
+- Action items
+- Expandable transcript
+
+### Profile
+
+Profile shows:
+
+- Collection stats
+- Theme toggle
+- Account sign out
+
+## Share And Processing Flow
+
+The app is built around the Android and iOS share flow.
+
+1. You share a supported reel or post into ReelPin.
+2. ReelPin extracts the URL and queues a background processing job.
+3. The app shows a short confirmation popup that the reel was saved and is processing in the background.
+4. The backend worker processes the content asynchronously.
+5. When the backend sends a `reel_ready` notification, the app refreshes the saved library.
+
+The app does not wait for processing to finish in the foreground.
 
 ## Tech Stack
 
@@ -39,17 +121,18 @@ On the app side, ReelPin does not wait for the reel to finish processing in the 
 - google_maps_flutter
 - receive_sharing_intent
 
-## Backend Expectations
+## Backend Contract
 
-This app expects a ReelPin backend that supports:
+This app expects a ReelPin backend with these endpoints:
 
-- processing jobs at `/api/v1/processing-jobs/reels`
-- polling job status at `/api/v1/processing-jobs/<job_id>`
-- saved reel APIs at `/api/v1/reels`
-- search at `/api/v1/search`
-- device push token registration at `/api/v1/device-push-tokens`
+- `POST /api/v1/processing-jobs/reels`
+- `GET /api/v1/processing-jobs/{job_id}`
+- `GET /api/v1/reels`
+- `GET /api/v1/reels/category-filters`
+- `POST /api/v1/search`
+- `POST /api/v1/device-push-tokens`
 
-The current app is wired for the backend flow where the worker sends a push notification after a reel finishes processing successfully.
+The app uses the backend category-filter tree for its filter UI. It does not rely on a hardcoded category list anymore.
 
 ## Local Setup
 
@@ -64,13 +147,13 @@ The current app is wired for the backend flow where the worker sends a push noti
 
 ### Supabase Config
 
-Create or update:
+Create:
 
 ```text
 assets/config/local.env
 ```
 
-With values like:
+Example:
 
 ```env
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
@@ -88,7 +171,7 @@ Create:
 android/local.properties
 ```
 
-And include:
+Add:
 
 ```properties
 MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
@@ -96,16 +179,16 @@ MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 
 ### Firebase Config
 
-Add the Firebase platform files that match the app package:
+Add the Firebase files for the app package:
 
 - `android/app/google-services.json`
 - `ios/Runner/GoogleService-Info.plist`
 
-Without these files, push notifications will not work correctly on real devices.
+Without these files, real-device push notifications will not work.
 
 ### Android Release Signing
 
-Release APK and bundle builds require:
+Release builds require:
 
 ```text
 android/key.properties
@@ -119,8 +202,6 @@ keyPassword=...
 storeFile=...
 storePassword=...
 ```
-
-If `android/key.properties` is missing, release builds fail by design.
 
 ## Run The App
 
@@ -137,43 +218,14 @@ Analyze:
 flutter analyze
 ```
 
-Build a debug APK:
-
-```bash
-flutter build apk --debug
-```
-
-Build a release APK:
+Build release APK:
 
 ```bash
 flutter build apk
 ```
 
-## Main User Flows
-
-### Save A Reel
-
-1. Share a reel to ReelPin.
-2. ReelPin queues the backend processing job.
-3. The backend finishes processing asynchronously.
-4. The user receives a `Reel pinned in ReelPin` notification.
-5. The reel appears in Home, Discover, and Map when relevant.
-
-### Browse Saved Reels
-
-- Home shows the saved reel grid.
-- Discover helps users search by phrase, category, or saved date.
-- Map shows saved places that were extracted and geocoded.
-- Reel detail shows the processed information for one saved reel.
-
-### Reel Ready Notifications
-
-1. User grants notification permission.
-2. The backend finishes processing the shared reel.
-3. ReelPin sends a notification so the user can come back to the finished reel.
-
 ## Notes
 
-- The app uses responsive sizing helpers for dense screens so layouts adapt better across device sizes.
-- Push handling is set up for foreground, background, and app-open-from-notification cases.
-- Android share handoff is optimized to avoid blocking the user while scrolling through reels.
+- Theme follows the device by default unless the user changes it from Profile.
+- Category colors are stable across the app and do not depend on the order of loaded categories.
+- The filter sheet uses backend-driven categories and subcategories, with a local fallback derived from saved reels if the category endpoint is unavailable.

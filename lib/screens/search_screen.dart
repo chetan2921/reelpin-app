@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import '../config/api_config.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
 import '../viewmodels/search_viewmodel.dart';
@@ -21,12 +23,16 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
+  static const _searchDebounceDelay = Duration(milliseconds: 300);
+
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   DateTime? _selectedSavedDate;
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -40,209 +46,237 @@ class _SearchScreenState extends State<SearchScreen> {
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
-        child: Consumer3<SearchViewModel, HomeViewModel, SessionViewModel>(
-          builder: (context, vm, homeVm, sessionVm, _) {
-            return Column(
-              children: [
-                // ── Header ──
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    layout.inset(20),
-                    layout.gap(20),
-                    layout.inset(20),
-                    0,
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'DISCOVER',
-                        style: GoogleFonts.spaceMono(
-                          color: AppTheme.fg(context),
-                          fontSize: layout.font(
-                            28,
-                            minFactor: 0.9,
-                            maxFactor: 1.08,
-                          ),
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2,
-                        ),
+        child:
+            Consumer4<
+              SearchViewModel,
+              HomeViewModel,
+              SessionViewModel,
+              CategoryFiltersViewModel
+            >(
+              builder: (context, vm, homeVm, sessionVm, categoryVm, _) {
+                return Column(
+                  children: [
+                    // ── Header ──
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        layout.inset(20),
+                        layout.gap(20),
+                        layout.inset(20),
+                        0,
                       ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => _pickSavedDate(context, homeVm),
-                        child: Container(
-                          width: layout.inset(44),
-                          height: layout.inset(44),
-                          decoration: AppTheme.brutalBox(
-                            context,
-                            color: _selectedSavedDate != null
-                                ? AppTheme.yellow
-                                : AppTheme.bg(context),
-                            shadow: true,
-                          ),
-                          alignment: Alignment.center,
-                          child: Icon(
-                            _selectedSavedDate != null
-                                ? Icons.event_available
-                                : Icons.calendar_month,
-                            color: _selectedSavedDate != null
-                                ? AppTheme.black
-                                : AppTheme.fg(context),
-                            size: layout.inset(20),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: layout.inset(10)),
-
-                      GestureDetector(
-                        onTap: () {
-                          final homeVm = context.read<HomeViewModel>();
-                          final mapVm = context.read<MapViewModel>();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => MultiProvider(
-                                providers: [
-                                  ChangeNotifierProvider<HomeViewModel>.value(
-                                    value: homeVm,
-                                  ),
-                                  ChangeNotifierProvider<MapViewModel>.value(
-                                    value: mapVm,
-                                  ),
-                                ],
-                                child: const ProfileScreen(),
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: layout.inset(44),
-                          height: layout.inset(44),
-                          decoration: AppTheme.brutalBox(
-                            context,
-                            color: AppTheme.hotPink,
-                            shadow: true,
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            sessionVm.initials,
+                      child: Row(
+                        children: [
+                          Text(
+                            'DISCOVER',
                             style: GoogleFonts.spaceMono(
                               color: AppTheme.fg(context),
-                              fontSize: layout.font(13),
+                              fontSize: layout.font(
+                                28,
+                                minFactor: 0.9,
+                                maxFactor: 1.08,
+                              ),
                               fontWeight: FontWeight.w700,
+                              letterSpacing: 2,
                             ),
                           ),
-                        ),
-                      ),
-
-                      if (vm.lastQuery.isNotEmpty) ...[
-                        SizedBox(width: layout.inset(12)),
-                        GestureDetector(
-                          onTap: () {
-                            vm.clear();
-                            _controller.clear();
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: layout.inset(12),
-                              vertical: layout.gap(8),
-                            ),
-                            decoration: AppTheme.brutalBox(
-                              context,
-                              color: AppTheme.bg(context),
-                              shadow: true,
-                            ),
-                            child: Text(
-                              'CLEAR',
-                              style: GoogleFonts.spaceMono(
-                                color: AppTheme.fg(context),
-                                fontSize: layout.font(11),
-                                fontWeight: FontWeight.w700,
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => _pickSavedDate(context, homeVm),
+                            child: Container(
+                              width: layout.inset(44),
+                              height: layout.inset(44),
+                              decoration: AppTheme.brutalBox(
+                                context,
+                                color: _selectedSavedDate != null
+                                    ? AppTheme.yellow
+                                    : AppTheme.bg(context),
+                                shadow: true,
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                _selectedSavedDate != null
+                                    ? Icons.event_available
+                                    : Icons.calendar_month,
+                                color: _selectedSavedDate != null
+                                    ? AppTheme.black
+                                    : AppTheme.fg(context),
+                                size: layout.inset(20),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                SizedBox(height: layout.gap(16)),
+                          SizedBox(width: layout.inset(10)),
 
-                // ── Search Input ──
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: layout.inset(20)),
-                  child: Container(
-                    decoration: AppTheme.brutalBox(context, shadow: true),
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      style: GoogleFonts.spaceMono(
-                        color: AppTheme.fg(context),
-                        fontSize: layout.font(13),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      cursorColor: AppTheme.fg(context),
-                      decoration: InputDecoration(
-                        hintText: 'SEARCH YOUR SAVED REELS...',
-                        hintStyle: GoogleFonts.spaceMono(
-                          color: AppTheme.textSec(context),
-                          fontSize: layout.font(12),
-                        ),
-                        prefixIcon: Icon(
-                          Icons.search,
-                          color: AppTheme.fg(context),
-                          size: layout.inset(22),
-                        ),
-                        suffixIcon: vm.isSearching
-                            ? Padding(
-                                padding: EdgeInsets.all(layout.inset(14)),
-                                child: SizedBox(
-                                  width: layout.inset(16),
-                                  height: layout.inset(16),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: AppTheme.fg(context),
+                          GestureDetector(
+                            onTap: () {
+                              final homeVm = context.read<HomeViewModel>();
+                              final mapVm = context.read<MapViewModel>();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MultiProvider(
+                                    providers: [
+                                      ChangeNotifierProvider<
+                                        HomeViewModel
+                                      >.value(value: homeVm),
+                                      ChangeNotifierProvider<
+                                        MapViewModel
+                                      >.value(value: mapVm),
+                                    ],
+                                    child: const ProfileScreen(),
                                   ),
                                 ),
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: layout.inset(16),
-                          vertical: layout.gap(14),
+                              );
+                            },
+                            child: Container(
+                              width: layout.inset(44),
+                              height: layout.inset(44),
+                              decoration: AppTheme.brutalBox(
+                                context,
+                                color: AppTheme.hotPink,
+                                shadow: true,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                sessionVm.initials,
+                                style: GoogleFonts.spaceMono(
+                                  color: AppTheme.fg(context),
+                                  fontSize: layout.font(13),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          if (vm.lastQuery.isNotEmpty) ...[
+                            SizedBox(width: layout.inset(12)),
+                            GestureDetector(
+                              onTap: () {
+                                _searchDebounce?.cancel();
+                                vm.clear();
+                                _controller.clear();
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: layout.inset(12),
+                                  vertical: layout.gap(8),
+                                ),
+                                decoration: AppTheme.brutalBox(
+                                  context,
+                                  color: AppTheme.bg(context),
+                                  shadow: true,
+                                ),
+                                child: Text(
+                                  'CLEAR',
+                                  style: GoogleFonts.spaceMono(
+                                    color: AppTheme.fg(context),
+                                    fontSize: layout.font(11),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: layout.gap(16)),
+
+                    // ── Search Input ──
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.inset(20),
+                      ),
+                      child: Container(
+                        decoration: AppTheme.brutalBox(context, shadow: true),
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          style: GoogleFonts.spaceMono(
+                            color: AppTheme.fg(context),
+                            fontSize: layout.font(13),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          cursorColor: AppTheme.fg(context),
+                          decoration: InputDecoration(
+                            hintText: 'SEARCH YOUR SAVED REELS...',
+                            hintStyle: GoogleFonts.spaceMono(
+                              color: AppTheme.textSec(context),
+                              fontSize: layout.font(12),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: AppTheme.fg(context),
+                              size: layout.inset(22),
+                            ),
+                            suffixIcon: vm.isSearching
+                                ? Padding(
+                                    padding: EdgeInsets.all(layout.inset(14)),
+                                    child: SizedBox(
+                                      width: layout.inset(16),
+                                      height: layout.inset(16),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: AppTheme.fg(context),
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: layout.inset(16),
+                              vertical: layout.gap(14),
+                            ),
+                          ),
+                          onChanged: (value) => _handleSearchChanged(vm, value),
+                          onSubmitted: (q) => _doSearch(vm, q),
+                          textInputAction: TextInputAction.search,
                         ),
                       ),
-                      onSubmitted: (q) => _doSearch(vm, q),
-                      textInputAction: TextInputAction.search,
                     ),
-                  ),
-                ),
-                SizedBox(height: layout.gap(16)),
+                    SizedBox(height: layout.gap(16)),
 
-                // ── Content ──
-                Expanded(
-                  child: vm.isSearching
-                      ? _buildSearchingState(context)
-                      : vm.error != null
-                      ? _buildError(context, vm)
-                      : vm.hasResults
-                      ? _buildResults(context, vm)
-                      : vm.lastQuery.isNotEmpty
-                      ? _buildNoResults(context, vm.lastQuery)
-                      : _buildDiscoverContent(context, homeVm),
-                ),
-              ],
-            );
-          },
-        ),
+                    // ── Content ──
+                    Expanded(
+                      child: vm.isSearching
+                          ? _buildSearchingState(context)
+                          : vm.error != null
+                          ? _buildError(context, vm)
+                          : vm.hasResults
+                          ? _buildResults(context, vm)
+                          : vm.lastQuery.isNotEmpty
+                          ? _buildNoResults(context, vm.lastQuery)
+                          : _buildDiscoverContent(context, homeVm, categoryVm),
+                    ),
+                  ],
+                );
+              },
+            ),
       ),
     );
   }
 
+  void _handleSearchChanged(SearchViewModel vm, String query) {
+    _searchDebounce?.cancel();
+
+    if (query.trim().isEmpty) {
+      vm.clear();
+      return;
+    }
+
+    _searchDebounce = Timer(_searchDebounceDelay, () {
+      if (!mounted) return;
+      vm.search(query);
+    });
+  }
+
   void _doSearch(SearchViewModel vm, String query) {
-    if (query.trim().isEmpty) return;
+    _searchDebounce?.cancel();
+    if (query.trim().isEmpty) {
+      vm.clear();
+      return;
+    }
     _focusNode.unfocus();
     vm.search(query);
   }
@@ -410,7 +444,11 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   // ── Discover (no search active) ──
-  Widget _buildDiscoverContent(BuildContext context, HomeViewModel homeVm) {
+  Widget _buildDiscoverContent(
+    BuildContext context,
+    HomeViewModel homeVm,
+    CategoryFiltersViewModel categoryVm,
+  ) {
     final reels = homeVm.reels;
     final dateReels = _selectedSavedDate == null
         ? const []
@@ -544,7 +582,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
         ),
-        _buildCategoryGrid(context, homeVm),
+        _buildCategoryGrid(context, homeVm, categoryVm),
 
         // Collection summary
         if (reels.isNotEmpty) ...[const SizedBox(height: 24)],
@@ -653,7 +691,10 @@ class _SearchScreenState extends State<SearchScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => ReelDetailScreen(reel: reel)),
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ReelDetailScreen.withProviders(context, reel: reel),
+                ),
               );
             },
             child: Container(
@@ -743,8 +784,12 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildCategoryGrid(BuildContext context, HomeViewModel homeVm) {
-    final categories = ApiConfig.broadCategories;
+  Widget _buildCategoryGrid(
+    BuildContext context,
+    HomeViewModel homeVm,
+    CategoryFiltersViewModel categoryVm,
+  ) {
+    final categories = categoryVm.categories;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -761,16 +806,7 @@ class _SearchScreenState extends State<SearchScreen> {
           itemCount: categories.length,
           itemBuilder: (_, i) {
             final cat = categories[i];
-            final count = homeVm.reels
-                .where(
-                  (r) =>
-                      r.category == cat ||
-                      (ApiConfig.categoryGroups[cat]?.contains(r.category) ??
-                          false) ||
-                      (ApiConfig.categoryGroups[cat]?.contains(r.subCategory) ??
-                          false),
-                )
-                .length;
+            final count = homeVm.reels.where((r) => r.category == cat).length;
             final color = AppTheme.getCategoryColor(cat);
 
             return AnimationConfiguration.staggeredGrid(

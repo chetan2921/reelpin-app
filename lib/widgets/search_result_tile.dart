@@ -21,7 +21,9 @@ class SearchResultTile extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => ReelDetailScreen(reel: reel)),
+          MaterialPageRoute(
+            builder: (_) => ReelDetailScreen.withProviders(context, reel: reel),
+          ),
         );
       },
       child: Container(
@@ -58,25 +60,6 @@ class SearchResultTile extends StatelessWidget {
                           letterSpacing: 0.3,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: layout.inset(8)),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: layout.inset(8),
-                    vertical: layout.gap(3),
-                  ),
-                  decoration: BoxDecoration(
-                    color: _scoreColor(score),
-                    border: Border.all(color: AppTheme.black, width: 2),
-                  ),
-                  child: Text(
-                    result.relevancePercent,
-                    style: GoogleFonts.spaceMono(
-                      color: _contrastText(_scoreColor(score)),
-                      fontSize: layout.font(10),
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),

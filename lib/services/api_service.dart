@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/processing_job.dart';
+import '../models/reel_category_filters.dart';
 import '../models/reel.dart';
 import '../models/search_result.dart';
 
@@ -324,6 +325,26 @@ class ApiService {
   }
 
   // ─── RAG Search ───
+
+  Future<ReelCategoryFiltersResponse> getReelCategoryFilters({
+    required String userId,
+  }) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final uri = Uri.parse(
+        '$baseUrl/reels/category-filters',
+      ).replace(queryParameters: {'user_id': userId});
+      return _client.get(uri).timeout(_requestTimeout);
+    });
+
+    if (res.statusCode != 200) {
+      final detail = _extractError(res);
+      throw ApiException(detail, res.statusCode);
+    }
+
+    return ReelCategoryFiltersResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
 
   Future<List<SearchResult>> searchReels(
     String query, {

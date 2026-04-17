@@ -1,5 +1,7 @@
+import java.io.File
 import java.util.Properties
 import org.gradle.api.GradleException
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -14,7 +16,35 @@ val localPropsFile = rootProject.file("local.properties")
 if (localPropsFile.exists()) {
     localProps.load(localPropsFile.inputStream())
 }
-val mapsApiKey: String = localProps.getProperty("MAPS_API_KEY", "")
+
+fun readSimpleConfigValue(file: File, key: String): String? {
+    if (!file.exists()) return null
+
+    return file.useLines { lines ->
+        lines
+            .map(String::trim)
+            .filter { line ->
+                line.isNotEmpty() &&
+                    !line.startsWith("#") &&
+                    line.contains("=")
+            }
+            .map { line ->
+                val separator = line.indexOf('=')
+                line.substring(0, separator).trim() to
+                    line.substring(separator + 1).trim()
+            }
+            .firstOrNull { (parsedKey, value) ->
+                parsedKey == key && value.isNotEmpty()
+            }
+            ?.second
+    }
+}
+
+val mapsApiKey: String =
+    localProps.getProperty("MAPS_API_KEY")?.trim().takeUnless { it.isNullOrEmpty() }
+        ?: readSimpleConfigValue(rootProject.file("../assets/config/local.env"), "MAPS_API_KEY")
+        ?: readSimpleConfigValue(rootProject.file("../ios/Flutter/Secrets.xcconfig"), "MAPS_API_KEY")
+        ?: ""
 
 val requestedTasks = gradle.startParameter.taskNames.map(String::lowercase)
 val isReleaseBuildRequested = requestedTasks.any { "release" in it }
@@ -51,10 +81,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "com.chetanjain.reelpin"
         minSdk = flutter.minSdkVersion
@@ -82,6 +108,12 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 

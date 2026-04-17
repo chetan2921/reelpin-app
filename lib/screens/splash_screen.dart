@@ -37,10 +37,12 @@ class SplashScreen extends StatelessWidget {
                         color: AppTheme.yellow,
                         shadow: false,
                       ),
-                      child: Icon(
-                        Icons.push_pin,
-                        size: 52,
-                        color: AppTheme.fg(context),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Image.asset(
+                          'assets/images/splash_icon.png',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ],

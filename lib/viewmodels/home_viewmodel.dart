@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import '../config/api_config.dart';
 
 import '../models/processing_job.dart';
 import '../models/reel.dart';
@@ -15,46 +14,37 @@ class HomeViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String? _selectedCategory;
+  String? _selectedSubcategory;
 
   List<Reel> get reels {
-    if (_selectedCategory == null) {
+    if (_selectedCategory == null && _selectedSubcategory == null) {
       return List.unmodifiable(_reels);
     }
 
-    final selected = _selectedCategory!;
-    return List.unmodifiable(_reels.where((r) => _matchesFilter(r, selected)));
+    return List.unmodifiable(_reels.where(_matchesFilters));
   }
 
   bool get isLoading => _isLoading;
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
+  String? get selectedSubcategory => _selectedSubcategory;
+  List<Reel> get allReels => List.unmodifiable(_reels);
   bool get isEmpty => _reels.isEmpty && !_isLoading;
   int get totalPinnedLocations =>
       _reels.fold(0, (sum, reel) => sum + reel.mappableLocations.length);
 
-  /// Get a strictly unique list of categories present in the current loaded reels.
-  List<String> get availableCategories {
-    final cats = <String>{
-      ..._reels.map((e) => e.category),
-      ..._reels.map((e) => e.subCategory),
-    }.toList();
-    cats.sort();
-    return cats;
-  }
-
-  bool _matchesFilter(Reel reel, String selected) {
-    final grouped = ApiConfig.categoryGroups[selected];
-    if (grouped != null) {
-      return _matchesCategoryOrSubCategory(reel, selected) ||
-          grouped.any((c) => _matchesCategoryOrSubCategory(reel, c));
+  bool _matchesFilters(Reel reel) {
+    if (_selectedCategory != null &&
+        _normalize(reel.category) != _normalize(_selectedCategory!)) {
+      return false;
     }
-    return _matchesCategoryOrSubCategory(reel, selected);
-  }
 
-  bool _matchesCategoryOrSubCategory(Reel reel, String value) {
-    final normalized = _normalize(value);
-    return _normalize(reel.category) == normalized ||
-        _normalize(reel.subCategory) == normalized;
+    if (_selectedSubcategory != null &&
+        _normalize(reel.subCategory) != _normalize(_selectedSubcategory!)) {
+      return false;
+    }
+
+    return true;
   }
 
   String _normalize(String value) => value.trim().toLowerCase();
@@ -98,6 +88,19 @@ class HomeViewModel extends ChangeNotifier {
   /// Filter by category. Pass null to clear filter.
   void filterByCategory(String? category) {
     _selectedCategory = _selectedCategory == category ? null : category;
+    _selectedSubcategory = null;
+    notifyListeners();
+  }
+
+  void applyFilters({String? category, String? subcategory}) {
+    _selectedCategory = category;
+    _selectedSubcategory = subcategory;
+    notifyListeners();
+  }
+
+  void clearFilters() {
+    _selectedCategory = null;
+    _selectedSubcategory = null;
     notifyListeners();
   }
 
@@ -143,6 +146,14 @@ class HomeViewModel extends ChangeNotifier {
   /// Delete a reel.
   Future<void> deleteReel(String reelId) async {
     await _repository.deleteReel(reelId);
+    _removeReelLocally(reelId);
+  }
+
+  void removeReel(String reelId) {
+    _removeReelLocally(reelId);
+  }
+
+  void _removeReelLocally(String reelId) {
     _reels.removeWhere((r) => r.id == reelId);
     notifyListeners();
   }

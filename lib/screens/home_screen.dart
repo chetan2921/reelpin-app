@@ -4,8 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../config/api_config.dart';
+import '../models/reel.dart';
+import '../models/reel_category_filters.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../widgets/category_badge.dart';
 import '../widgets/reel_card.dart';
@@ -22,10 +24,13 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
-        child: Consumer<HomeViewModel>(
-          builder: (context, vm, _) {
+        child: Consumer2<HomeViewModel, CategoryFiltersViewModel>(
+          builder: (context, vm, categoryVm, _) {
             return RefreshIndicator(
-              onRefresh: () => vm.loadReels(forceRefresh: true),
+              onRefresh: () => Future.wait([
+                vm.loadReels(forceRefresh: true),
+                categoryVm.loadCategoryFilters(forceRefresh: true),
+              ]),
               color: AppTheme.fg(context),
               backgroundColor: AppTheme.yellow,
               child: CustomScrollView(
@@ -61,7 +66,7 @@ class HomeScreen extends StatelessWidget {
                                 ),
                               ),
                               const Spacer(),
-                              _buildFilterButton(context, vm),
+                              _buildFilterButton(context, vm, categoryVm),
                             ],
                           ),
                         ],
@@ -81,7 +86,7 @@ class HomeScreen extends StatelessWidget {
                           layout.inset(20),
                           layout.gap(4),
                         ),
-                        itemCount: ApiConfig.broadCategories.length + 1,
+                        itemCount: categoryVm.categories.length + 1,
                         separatorBuilder: (_, _) =>
                             SizedBox(width: layout.inset(8)),
                         itemBuilder: (_, i) {
@@ -92,7 +97,7 @@ class HomeScreen extends StatelessWidget {
                               onTap: () => vm.filterByCategory(null),
                             );
                           }
-                          final cat = ApiConfig.broadCategories[i - 1];
+                          final cat = categoryVm.categories[i - 1];
                           return CategoryBadge(
                             category: cat,
                             isSelected: vm.selectedCategory == cat,
@@ -124,10 +129,14 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFilterButton(BuildContext context, HomeViewModel vm) {
+  Widget _buildFilterButton(
+    BuildContext context,
+    HomeViewModel vm,
+    CategoryFiltersViewModel categoryVm,
+  ) {
     final layout = AppLayout.of(context);
     return GestureDetector(
-      onTap: () => _showFilterSheet(context, vm),
+      onTap: () => _showFilterSheet(context, vm, categoryVm),
       child: Container(
         width: layout.inset(40),
         height: layout.inset(40),
@@ -184,7 +193,10 @@ class HomeScreen extends StatelessWidget {
                         context,
                         PageRouteBuilder(
                           pageBuilder: (_, _, _) =>
-                              ReelDetailScreen(reel: reel),
+                              ReelDetailScreen.withProviders(
+                                context,
+                                reel: reel,
+                              ),
                           transitionsBuilder: (_, anim, _, child) {
                             return SlideTransition(
                               position:
@@ -455,107 +467,359 @@ class HomeScreen extends StatelessWidget {
   }
 
   // ── Filter sheet ──
-  void _showFilterSheet(BuildContext context, HomeViewModel vm) {
+  void _showFilterSheet(
+    BuildContext context,
+    HomeViewModel vm,
+    CategoryFiltersViewModel categoryVm,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (_, controller) {
-            return Container(
-              decoration: BoxDecoration(
-                color: AppTheme.bg(context),
-                border: Border.all(
-                  color: AppTheme.fg(context),
-                  width: AppTheme.borderWidth,
-                ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  Container(width: 40, height: 4, color: AppTheme.fg(context)),
-                  const SizedBox(height: 16),
-                  Text(
-                    'BROWSE CATEGORIES',
-                    style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    height: AppTheme.borderWidth,
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
+        String? selectedCategory = vm.selectedCategory;
+        String? selectedSubcategory = vm.selectedSubcategory;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final categoryItems = _buildCategoryFilterItems(
+              vm.allReels,
+              categoryVm.groups,
+            );
+            final topCategory = categoryItems.isNotEmpty
+                ? categoryItems.first
+                : null;
+
+            _CategoryFilterItem? selectedItem;
+            for (final item in categoryItems) {
+              if (item.category == selectedCategory) {
+                selectedItem = item;
+                break;
+              }
+            }
+
+            final subcategories = selectedItem?.subcategories ?? const [];
+            if (selectedSubcategory != null &&
+                !subcategories.any(
+                  (item) => item.name == selectedSubcategory,
+                )) {
+              selectedSubcategory = null;
+            }
+
+            final previewCount = _countFilteredReels(
+              vm.allReels,
+              category: selectedCategory,
+              subcategory: selectedSubcategory,
+            );
+            final activeFilterLabel = selectedSubcategory != null
+                ? '$selectedCategory / $selectedSubcategory'
+                : selectedCategory ?? 'ALL REELS';
+            final usingFallbackFilters =
+                categoryVm.groups.isEmpty && categoryItems.isNotEmpty;
+            final topCategoryAccentColor = topCategory != null
+                ? AppTheme.getCategoryColor(topCategory.category)
+                : AppTheme.yellow;
+            final currentAccentColor = selectedCategory != null
+                ? AppTheme.getCategoryColor(selectedCategory!)
+                : topCategoryAccentColor;
+            final applyAccentColor = selectedCategory != null
+                ? currentAccentColor
+                : AppTheme.yellow;
+            final applyTextColor = applyAccentColor.computeLuminance() > 0.5
+                ? AppTheme.black
+                : AppTheme.white;
+
+            return FractionallySizedBox(
+              heightFactor: 0.82,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.bg(context),
+                  border: Border.all(
                     color: AppTheme.fg(context),
+                    width: AppTheme.borderWidth,
                   ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: controller,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 8,
-                      ),
-                      itemCount: ApiConfig.broadCategories.length,
-                      itemBuilder: (context, i) {
-                        final broad = ApiConfig.broadCategories[i];
-                        final subs = ApiConfig.categoryGroups[broad]!;
-                        final catColor = AppTheme.getCategoryColor(broad);
-                        return Column(
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: 12,
-                                top: 20,
-                              ),
+                            Center(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
+                                width: 40,
+                                height: 4,
+                                color: AppTheme.fg(context),
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'FILTER SAVED REELS',
+                                        style: GoogleFonts.spaceMono(
+                                          color: AppTheme.fg(context),
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Use the dropdowns to jump straight to the category you want.',
+                                        style: GoogleFonts.spaceMono(
+                                          color: AppTheme.textSec(context),
+                                          fontSize: 11,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                color: catColor,
-                                child: Text(
-                                  broad.toUpperCase(),
-                                  style: GoogleFonts.spaceMono(
-                                    color: catColor.computeLuminance() > 0.5
-                                        ? AppTheme.black
-                                        : AppTheme.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
+                                const SizedBox(width: 12),
+                                GestureDetector(
+                                  onTap: () => Navigator.pop(context),
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: AppTheme.brutalBox(
+                                      context,
+                                      color: AppTheme.bg(context),
+                                      shadow: true,
+                                    ),
+                                    child: Icon(
+                                      Icons.close,
+                                      color: AppTheme.fg(context),
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Expanded(
+                        child: categoryVm.isLoading && !categoryVm.hasGroups
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                child: _buildFilterSheetStatus(
+                                  context,
+                                  label: 'LOADING FILTERS...',
+                                ),
+                              )
+                            : categoryVm.error != null &&
+                                  !categoryVm.hasGroups &&
+                                  categoryItems.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                child: _buildFilterSheetError(
+                                  context,
+                                  categoryVm,
+                                ),
+                              )
+                            : categoryItems.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                child: _buildFilterSheetEmpty(context),
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  0,
+                                  24,
+                                  24,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildFilterDropdownField(
+                                      context,
+                                      label: 'CATEGORY',
+                                      hint: 'ALL CATEGORIES',
+                                      value: selectedCategory,
+                                      enabled: categoryItems.isNotEmpty,
+                                      accentColor: currentAccentColor,
+                                      items: categoryItems
+                                          .map(
+                                            (item) => _FilterOption(
+                                              label: item.category,
+                                              count: item.count,
+                                              accentColor:
+                                                  AppTheme.getCategoryColor(
+                                                    item.category,
+                                                  ),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (value) {
+                                        setSheetState(() {
+                                          selectedCategory = value;
+                                          selectedSubcategory = null;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _buildFilterDropdownField(
+                                      context,
+                                      label: 'SUBCATEGORY',
+                                      hint: selectedCategory == null
+                                          ? 'SELECT CATEGORY FIRST'
+                                          : 'ALL SUBCATEGORIES',
+                                      value: selectedSubcategory,
+                                      enabled:
+                                          selectedCategory != null &&
+                                          subcategories.isNotEmpty,
+                                      accentColor: currentAccentColor,
+                                      items: subcategories
+                                          .map(
+                                            (subcategory) => _FilterOption(
+                                              label: subcategory.name,
+                                              count: subcategory.count,
+                                              accentColor: currentAccentColor,
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (value) {
+                                        setSheetState(() {
+                                          selectedSubcategory = value;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      selectedCategory == null
+                                          ? 'Pick a category to unlock subcategory filters.'
+                                          : subcategories.isEmpty
+                                          ? 'No saved subcategories in this category yet.'
+                                          : '${subcategories.length} subcategor${subcategories.length == 1 ? 'y' : 'ies'} available in ${selectedCategory!.toLowerCase()}.',
+                                      style: GoogleFonts.spaceMono(
+                                        color: AppTheme.textSec(context),
+                                        fontSize: 10,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                    if (usingFallbackFilters) ...[
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'Using your saved reels to build filters right now.',
+                                        style: GoogleFonts.spaceMono(
+                                          color: AppTheme.textSec(context),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                    const Spacer(),
+                                    _buildCompactFilterSummary(
+                                      context,
+                                      activeFilterLabel: activeFilterLabel,
+                                      previewCount: previewCount,
+                                      totalCount: vm.allReels.length,
+                                      currentAccentColor: currentAccentColor,
+                                      topCategory: topCategory,
+                                      topAccentColor: topCategoryAccentColor,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                        decoration: BoxDecoration(
+                          color: AppTheme.bg(context),
+                          border: Border(
+                            top: BorderSide(
+                              color: AppTheme.fg(context),
+                              width: AppTheme.thinBorderWidth,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setSheetState(() {
+                                    selectedCategory = null;
+                                    selectedSubcategory = null;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  decoration: AppTheme.brutalBox(
+                                    context,
+                                    color: AppTheme.bg(context),
+                                    shadow: true,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'RESET',
+                                    style: GoogleFonts.spaceMono(
+                                      color: AppTheme.fg(context),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: subs.map((cat) {
-                                return CategoryBadge(
-                                  category: cat,
-                                  customHeight: 34,
-                                  customFontSize: 10,
-                                  isSelected: vm.selectedCategory == cat,
-                                  onTap: () {
-                                    vm.filterByCategory(cat);
-                                    Navigator.pop(context);
-                                  },
-                                );
-                              }).toList(),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: GestureDetector(
+                                onTap: () {
+                                  vm.applyFilters(
+                                    category: selectedCategory,
+                                    subcategory: selectedSubcategory,
+                                  );
+                                  Navigator.pop(context);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  decoration: AppTheme.brutalBox(
+                                    context,
+                                    color: applyAccentColor,
+                                    shadow: true,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'APPLY / $previewCount REEL${previewCount == 1 ? '' : 'S'}',
+                                    style: GoogleFonts.spaceMono(
+                                      color: applyTextColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                            const SizedBox(height: 8),
                           ],
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             );
           },
@@ -563,4 +827,493 @@ class HomeScreen extends StatelessWidget {
       },
     );
   }
+
+  Widget _buildFilterSheetStatus(
+    BuildContext context, {
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: AppTheme.brutalBox(context, shadow: true),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              color: AppTheme.fg(context),
+              strokeWidth: 2.4,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.fg(context),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSheetError(
+    BuildContext context,
+    CategoryFiltersViewModel categoryVm,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: AppTheme.brutalBox(
+        context,
+        color: AppTheme.bg(context),
+        shadow: true,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'COULD NOT LOAD FILTERS',
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.fg(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            categoryVm.error ?? '',
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.textSec(context),
+              fontSize: 11,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          GestureDetector(
+            onTap: () => categoryVm.loadCategoryFilters(forceRefresh: true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: AppTheme.brutalBox(
+                context,
+                color: AppTheme.red,
+                shadow: true,
+              ),
+              child: Text(
+                'RETRY',
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSheetEmpty(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: AppTheme.brutalBox(context, shadow: true),
+      child: Text(
+        'NO CATEGORY FILTERS YET. SAVE A FEW REELS FIRST, THEN OPEN FILTERS AGAIN.',
+        style: GoogleFonts.spaceMono(
+          color: AppTheme.fg(context),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactFilterSummary(
+    BuildContext context, {
+    required String activeFilterLabel,
+    required int previewCount,
+    required int totalCount,
+    required Color currentAccentColor,
+    required _CategoryFilterItem? topCategory,
+    required Color topAccentColor,
+  }) {
+    final layout = AppLayout.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _buildFilterInfoCard(
+            context,
+            label: 'CURRENT FILTER',
+            title: activeFilterLabel,
+            subtitle: '$previewCount OF $totalCount REELS',
+            accentColor: currentAccentColor,
+          ),
+        ),
+        SizedBox(width: layout.inset(12)),
+        Expanded(
+          child: _buildFilterInfoCard(
+            context,
+            label: 'TOP CATEGORY',
+            title: topCategory?.category ?? 'NONE YET',
+            subtitle: topCategory == null
+                ? 'SAVE REELS TO BUILD FILTERS'
+                : '${topCategory.count} REELS SAVED',
+            accentColor: topAccentColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterInfoCard(
+    BuildContext context, {
+    required String label,
+    required String title,
+    required String subtitle,
+    required Color accentColor,
+  }) {
+    final layout = AppLayout.of(context);
+    final accentText = accentColor.computeLuminance() > 0.5
+        ? AppTheme.black
+        : AppTheme.white;
+    final fixedHeight = layout.gap(126);
+    return Container(
+      constraints: BoxConstraints(
+        minHeight: fixedHeight,
+        maxHeight: fixedHeight,
+      ),
+      padding: EdgeInsets.all(layout.inset(16)),
+      decoration: AppTheme.brutalBox(context, shadow: true),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.textSec(context),
+              fontSize: layout.font(10),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
+          ),
+          SizedBox(height: layout.gap(10)),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: layout.inset(10),
+              vertical: layout.gap(6),
+            ),
+            decoration: BoxDecoration(
+              color: accentColor,
+              border: Border.all(color: AppTheme.fg(context), width: 2),
+            ),
+            child: Text(
+              title.toUpperCase(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.spaceMono(
+                color: accentText,
+                fontSize: layout.font(11),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          SizedBox(height: layout.gap(10)),
+          Text(
+            subtitle,
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.textSec(context),
+              fontSize: layout.font(10),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterDropdownField(
+    BuildContext context, {
+    required String label,
+    required String hint,
+    required String? value,
+    required bool enabled,
+    required Color accentColor,
+    required List<_FilterOption> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final layout = AppLayout.of(context);
+    final resolvedAccent = enabled
+        ? accentColor
+        : AppTheme.surfaceElevatedColor(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.spaceMono(
+            color: AppTheme.textSec(context),
+            fontSize: layout.font(10),
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+          ),
+        ),
+        SizedBox(height: layout.gap(8)),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: layout.inset(12)),
+          decoration: AppTheme.brutalBox(
+            context,
+            color: enabled
+                ? AppTheme.bg(context)
+                : AppTheme.surfaceElevatedColor(context),
+            shadow: true,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: layout.inset(8),
+                height: layout.gap(42),
+                color: resolvedAccent,
+              ),
+              SizedBox(width: layout.inset(12)),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: value,
+                    isExpanded: true,
+                    menuMaxHeight: 320,
+                    dropdownColor: AppTheme.bg(context),
+                    iconEnabledColor: AppTheme.fg(context),
+                    iconDisabledColor: AppTheme.textSec(context),
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.fg(context),
+                      fontSize: layout.font(11),
+                      fontWeight: FontWeight.w700,
+                    ),
+                    hint: Text(
+                      hint,
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.textSec(context),
+                        fontSize: layout.font(11),
+                      ),
+                    ),
+                    selectedItemBuilder: (_) => items
+                        .map(
+                          (item) => Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              item.label.toUpperCase(),
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.spaceMono(
+                                color: AppTheme.fg(context),
+                                fontSize: layout.font(11),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    items: items
+                        .map(
+                          (item) => DropdownMenuItem<String>(
+                            value: item.label,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.label.toUpperCase(),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                SizedBox(width: layout.inset(10)),
+                                _buildCountBadge(
+                                  context,
+                                  item.count,
+                                  backgroundColor: item.accentColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: enabled ? onChanged : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountBadge(
+    BuildContext context,
+    int count, {
+    required Color backgroundColor,
+  }) {
+    final layout = AppLayout.of(context);
+    final textColor = backgroundColor.computeLuminance() > 0.5
+        ? AppTheme.black
+        : AppTheme.white;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.inset(8),
+        vertical: layout.gap(3),
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border.all(color: AppTheme.fg(context), width: 1.5),
+      ),
+      child: Text(
+        '$count',
+        style: GoogleFonts.spaceMono(
+          color: textColor,
+          fontSize: layout.font(9),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  List<_CategoryFilterItem> _buildCategoryFilterItems(
+    List<Reel> reels,
+    List<ReelCategoryGroup> groups,
+  ) {
+    final sourceGroups = groups.isNotEmpty
+        ? groups
+        : _deriveCategoryGroups(reels);
+
+    final items =
+        sourceGroups.map((group) {
+          final categoryCount = reels
+              .where((reel) => _matchesLabel(reel.category, group.category))
+              .length;
+          final subcategories =
+              group.subcategories.map((subcategory) {
+                final count = reels
+                    .where(
+                      (reel) =>
+                          _matchesLabel(reel.category, group.category) &&
+                          _matchesLabel(reel.subCategory, subcategory),
+                    )
+                    .length;
+                return _SubcategoryFilterItem(name: subcategory, count: count);
+              }).toList()..sort((left, right) {
+                final countCompare = right.count.compareTo(left.count);
+                if (countCompare != 0) return countCompare;
+                return left.name.toLowerCase().compareTo(
+                  right.name.toLowerCase(),
+                );
+              });
+
+          return _CategoryFilterItem(
+            category: group.category,
+            count: categoryCount,
+            subcategories: subcategories,
+          );
+        }).toList()..sort((left, right) {
+          final countCompare = right.count.compareTo(left.count);
+          if (countCompare != 0) return countCompare;
+          return left.category.toLowerCase().compareTo(
+            right.category.toLowerCase(),
+          );
+        });
+
+    return items;
+  }
+
+  List<ReelCategoryGroup> _deriveCategoryGroups(List<Reel> reels) {
+    final grouped = <String, Set<String>>{};
+    final categoryLabels = <String, String>{};
+
+    for (final reel in reels) {
+      final category = reel.category.trim();
+      if (category.isEmpty) continue;
+
+      final categoryKey = category.toLowerCase();
+      categoryLabels.putIfAbsent(categoryKey, () => category);
+      final subcategories = grouped.putIfAbsent(categoryKey, () => <String>{});
+
+      final subcategory = reel.subCategory.trim();
+      if (subcategory.isNotEmpty && !_matchesLabel(category, subcategory)) {
+        subcategories.add(subcategory);
+      }
+    }
+
+    final groups =
+        grouped.entries.map((entry) {
+          final subcategories = entry.value.toList()
+            ..sort(
+              (left, right) =>
+                  left.toLowerCase().compareTo(right.toLowerCase()),
+            );
+          return ReelCategoryGroup(
+            category: categoryLabels[entry.key] ?? entry.key,
+            subcategories: subcategories,
+          );
+        }).toList()..sort(
+          (left, right) => left.category.toLowerCase().compareTo(
+            right.category.toLowerCase(),
+          ),
+        );
+
+    return groups;
+  }
+
+  int _countFilteredReels(
+    List<Reel> reels, {
+    String? category,
+    String? subcategory,
+  }) {
+    return reels.where((reel) {
+      if (category != null && !_matchesLabel(reel.category, category)) {
+        return false;
+      }
+      if (subcategory != null &&
+          !_matchesLabel(reel.subCategory, subcategory)) {
+        return false;
+      }
+      return true;
+    }).length;
+  }
+
+  bool _matchesLabel(String left, String right) =>
+      left.trim().toLowerCase() == right.trim().toLowerCase();
+}
+
+class _CategoryFilterItem {
+  final String category;
+  final int count;
+  final List<_SubcategoryFilterItem> subcategories;
+
+  const _CategoryFilterItem({
+    required this.category,
+    required this.count,
+    required this.subcategories,
+  });
+}
+
+class _SubcategoryFilterItem {
+  final String name;
+  final int count;
+
+  const _SubcategoryFilterItem({required this.name, required this.count});
+}
+
+class _FilterOption {
+  final String label;
+  final int count;
+  final Color accentColor;
+
+  const _FilterOption({
+    required this.label,
+    required this.count,
+    required this.accentColor,
+  });
 }

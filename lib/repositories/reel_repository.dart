@@ -1,5 +1,6 @@
 import '../models/reel.dart';
 import '../models/processing_job.dart';
+import '../models/reel_category_filters.dart';
 import '../models/search_result.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
@@ -83,6 +84,10 @@ class ReelRepository {
     return _apiService.enqueueReelProcessing(url, userId: _currentUserId);
   }
 
+  Future<ReelCategoryFiltersResponse> getCategoryFilters() {
+    return _apiService.getReelCategoryFilters(userId: _currentUserId);
+  }
+
   /// Delete a reel and remove from cache.
   Future<void> deleteReel(String reelId) async {
     await _reelStore.deleteReel(reelId: reelId, userId: _currentUserId);
@@ -90,12 +95,17 @@ class ReelRepository {
   }
 
   /// RAG search.
-  Future<List<SearchResult>> search(String query, {String? category}) async {
+  Future<List<SearchResult>> search(
+    String query, {
+    String? category,
+    String? subcategory,
+  }) async {
     try {
       final remote = await _apiService.searchReels(
         query,
         userId: _currentUserId,
         category: category,
+        subcategory: subcategory,
       );
       if (remote.isNotEmpty) {
         return remote;
@@ -104,7 +114,7 @@ class ReelRepository {
       // Fall back to a local semantic-ish search when backend search fails.
     }
 
-    return _searchLocally(query, category: category);
+    return _searchLocally(query, category: category, subcategory: subcategory);
   }
 
   /// Invalidate cache.
@@ -116,6 +126,7 @@ class ReelRepository {
   Future<List<SearchResult>> _searchLocally(
     String query, {
     String? category,
+    String? subcategory,
   }) async {
     final reels = await getReels(forceRefresh: true);
     final normalizedQuery = query.trim().toLowerCase();
@@ -126,15 +137,17 @@ class ReelRepository {
         .where((token) => token.isNotEmpty)
         .toList();
 
-    final filtered = category == null
-        ? reels
-        : reels
-              .where(
-                (reel) =>
-                    reel.category.toLowerCase() == category.toLowerCase() ||
-                    reel.subCategory.toLowerCase() == category.toLowerCase(),
-              )
-              .toList();
+    final filtered = reels.where((reel) {
+      if (category != null &&
+          reel.category.toLowerCase() != category.toLowerCase()) {
+        return false;
+      }
+      if (subcategory != null &&
+          reel.subCategory.toLowerCase() != subcategory.toLowerCase()) {
+        return false;
+      }
+      return true;
+    }).toList();
 
     final matches = <SearchResult>[];
     for (final reel in filtered) {

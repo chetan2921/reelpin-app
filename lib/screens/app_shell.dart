@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
 import 'home_screen.dart';
@@ -27,6 +28,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   static const _permissionsPromptedKey =
       'app_shell_initial_permissions_prompted_v1';
+  static const _shareConfirmationDuration = Duration(milliseconds: 1400);
 
   int _currentIndex = 0;
   late StreamSubscription _mediaIntentSub;
@@ -121,6 +123,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     });
 
     try {
+      await _refreshPushRegistrationIfPossible();
       await homeVm.enqueueReelProcessing(url);
 
       if (!mounted) return;
@@ -152,6 +155,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             ],
           ),
           backgroundColor: AppTheme.bg(context),
+          behavior: SnackBarBehavior.floating,
+          duration: _shareConfirmationDuration,
           shape: RoundedRectangleBorder(
             side: BorderSide(
               color: AppTheme.fg(context),
@@ -163,10 +168,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
       if (!mounted) return;
       if (Theme.of(context).platform == TargetPlatform.android) {
-        Future<void>.delayed(const Duration(milliseconds: 350), () async {
-          if (!mounted) return;
-          await SystemNavigator.pop();
-        });
+        await Future<void>.delayed(_shareConfirmationDuration);
+        if (!mounted) return;
+        await SystemNavigator.pop();
       }
     } catch (error) {
       if (!mounted) return;
@@ -207,6 +211,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     unawaited(context.read<HomeViewModel>().loadReels(forceRefresh: true));
     unawaited(context.read<MapViewModel>().loadMapReels(forceRefresh: true));
+    unawaited(
+      context.read<CategoryFiltersViewModel>().loadCategoryFilters(
+        forceRefresh: true,
+      ),
+    );
     unawaited(_refreshPushRegistrationIfPossible());
   }
 

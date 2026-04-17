@@ -4,17 +4,65 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/reel.dart';
+import '../repositories/reel_repository.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
+import '../viewmodels/search_viewmodel.dart';
 
 class ReelDetailScreen extends StatefulWidget {
   final Reel reel;
 
   const ReelDetailScreen({super.key, required this.reel});
 
+  static Widget withProviders(
+    BuildContext sourceContext, {
+    required Reel reel,
+  }) {
+    Widget child = ReelDetailScreen(reel: reel);
+
+    final searchVm = _tryReadProvider<SearchViewModel>(sourceContext);
+    if (searchVm != null) {
+      child = ChangeNotifierProvider<SearchViewModel>.value(
+        value: searchVm,
+        child: child,
+      );
+    }
+
+    final mapVm = _tryReadProvider<MapViewModel>(sourceContext);
+    if (mapVm != null) {
+      child = ChangeNotifierProvider<MapViewModel>.value(
+        value: mapVm,
+        child: child,
+      );
+    }
+
+    final homeVm = _tryReadProvider<HomeViewModel>(sourceContext);
+    if (homeVm != null) {
+      child = ChangeNotifierProvider<HomeViewModel>.value(
+        value: homeVm,
+        child: child,
+      );
+    }
+
+    final repository = _tryReadProvider<ReelRepository>(sourceContext);
+    if (repository != null) {
+      child = Provider<ReelRepository>.value(value: repository, child: child);
+    }
+
+    return child;
+  }
+
   @override
   State<ReelDetailScreen> createState() => _ReelDetailScreenState();
+}
+
+T? _tryReadProvider<T>(BuildContext context) {
+  try {
+    return Provider.of<T>(context, listen: false);
+  } catch (_) {
+    return null;
+  }
 }
 
 class _ReelDetailScreenState extends State<ReelDetailScreen> {
@@ -78,7 +126,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                   child: Text(
                     'OPEN REEL',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppTheme.black,
                       fontSize: layout.font(11),
                       fontWeight: FontWeight.w700,
                     ),
@@ -364,7 +412,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
                           child: Text(
                             person.toUpperCase(),
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
+                              color: AppTheme.black,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
@@ -594,13 +642,15 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
               ),
             ),
           ),
-          GestureDetector(
-            onTap: () async {
+          TextButton(
+            onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await context.read<HomeViewModel>().deleteReel(reel.id);
+                await context.read<ReelRepository>().deleteReel(reel.id);
                 if (context.mounted) {
-                  context.read<MapViewModel>().loadMapReels(forceRefresh: true);
+                  _maybeRead<HomeViewModel>()?.removeReel(reel.id);
+                  _maybeRead<MapViewModel>()?.removeReel(reel.id);
+                  _maybeRead<SearchViewModel>()?.removeReel(reel.id);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -652,6 +702,14 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
         ],
       ),
     );
+  }
+
+  T? _maybeRead<T>() {
+    try {
+      return Provider.of<T>(context, listen: false);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _openUrl(String url) async {

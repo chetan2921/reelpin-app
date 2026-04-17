@@ -339,7 +339,7 @@ class _OnboardingCard extends StatelessWidget {
         final railBottom = layout.gap(compactHeight ? 94 : 106);
         final cardPadding = layout.inset(compactWidth ? 14 : 18);
         final iconBoxSize = layout.inset(compactWidth ? 42 : 48);
-        final pinSize = layout.inset(compactWidth ? 18 : 20);
+        final pinSize = layout.inset(compactWidth ? 24 : 28);
         final iconFrameSize = iconBoxSize + layout.inset(8);
 
         return Stack(
@@ -386,49 +386,49 @@ class _OnboardingCard extends StatelessWidget {
                       border: Border.all(color: AppTheme.black, width: 3),
                       boxShadow: AppTheme.inkShadow,
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.all(cardPadding),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.all(cardPadding),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: layout.inset(10),
-                                  vertical: layout.gap(6),
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.white,
-                                  border: Border.all(
-                                    color: AppTheme.black,
-                                    width: 2,
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: layout.inset(10),
+                                      vertical: layout.gap(6),
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.white,
+                                      border: Border.all(
+                                        color: AppTheme.black,
+                                        width: 2,
+                                      ),
+                                      boxShadow: AppTheme.inkShadowSmall,
+                                    ),
+                                    child: Text(
+                                      step.label,
+                                      style: GoogleFonts.spaceMono(
+                                        color: AppTheme.black,
+                                        fontSize: layout.font(10),
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
                                   ),
-                                  boxShadow: AppTheme.inkShadowSmall,
-                                ),
-                                child: Text(
-                                  step.label,
-                                  style: GoogleFonts.spaceMono(
-                                    color: AppTheme.black,
-                                    fontSize: layout.font(10),
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
-                              AnimatedScale(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeOutBack,
-                                scale: isActive ? 1 : 0.92,
-                                child: SizedBox(
-                                  width: iconFrameSize,
-                                  height: iconFrameSize,
-                                  child: Stack(
-                                    children: [
-                                      Positioned(
-                                        left: 0,
-                                        bottom: 0,
+                                  const Spacer(),
+                                  AnimatedScale(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeOutBack,
+                                    scale: isActive ? 1 : 0.92,
+                                    child: SizedBox(
+                                      width: iconFrameSize,
+                                      height: iconFrameSize,
+                                      child: Align(
+                                        alignment: Alignment.bottomLeft,
                                         child: Container(
                                           width: iconBoxSize,
                                           height: iconBoxSize,
@@ -447,76 +447,78 @@ class _OnboardingCard extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: AnimatedRotation(
-                                          duration: const Duration(
-                                            milliseconds: 320,
-                                          ),
-                                          turns: isActive ? 0 : -0.03,
-                                          child: Image.asset(
-                                            'assets/images/pin.png',
-                                            width: pinSize,
-                                            height: pinSize,
-                                          ),
-                                        ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(
+                                height: layout.gap(compactHeight ? 14 : 22),
+                              ),
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 320),
+                                curve: Curves.easeOutCubic,
+                                offset: isActive
+                                    ? Offset.zero
+                                    : const Offset(0, 0.08),
+                                child: SizedBox(
+                                  width: titleWidth,
+                                  child: Text(
+                                    step.title,
+                                    style: GoogleFonts.spaceMono(
+                                      color: AppTheme.black,
+                                      fontSize: layout.font(
+                                        compactWidth ? 20 : 23,
+                                        minFactor: 0.88,
+                                        maxFactor: 1.05,
                                       ),
-                                    ],
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                height: layout.gap(compactHeight ? 8 : 14),
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: layout.inset(10),
+                                  vertical: layout.gap(7),
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.white,
+                                  border: Border.all(
+                                    color: AppTheme.black,
+                                    width: 2,
+                                  ),
+                                  boxShadow: AppTheme.inkShadowSmall,
+                                ),
+                                child: Text(
+                                  step.highlights.first,
+                                  style: GoogleFonts.spaceMono(
+                                    color: AppTheme.black,
+                                    fontSize: layout.font(10),
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          SizedBox(height: layout.gap(compactHeight ? 14 : 22)),
-                          AnimatedSlide(
-                            duration: const Duration(milliseconds: 320),
-                            curve: Curves.easeOutCubic,
-                            offset: isActive
-                                ? Offset.zero
-                                : const Offset(0, 0.08),
-                            child: SizedBox(
-                              width: titleWidth,
-                              child: Text(
-                                step.title,
-                                style: GoogleFonts.spaceMono(
-                                  color: AppTheme.black,
-                                  fontSize: layout.font(
-                                    compactWidth ? 20 : 23,
-                                    minFactor: 0.88,
-                                    maxFactor: 1.05,
-                                  ),
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.14,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: layout.gap(compactHeight ? 8 : 14)),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: layout.inset(10),
-                              vertical: layout.gap(7),
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.white,
-                              border: Border.all(
-                                color: AppTheme.black,
-                                width: 2,
-                              ),
-                              boxShadow: AppTheme.inkShadowSmall,
-                            ),
-                            child: Text(
-                              step.highlights.first,
-                              style: GoogleFonts.spaceMono(
-                                color: AppTheme.black,
-                                fontSize: layout.font(10),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        // Positioned(
+                        //   top: layout.gap(150),
+                        //   right: layout.inset(50),
+                        //   child: AnimatedRotation(
+                        //     duration: const Duration(milliseconds: 320),
+                        //     turns: isActive ? 0 : -0.03,
+                        //     child: Image.asset(
+                        //       'assets/images/pin.png',
+                        //       width: pinSize,
+                        //       height: pinSize,
+                        //     ),
+                        //   ),
+                        // ),
+                      ],
                     ),
                   ),
                 ),

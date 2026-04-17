@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../config/api_config.dart';
+import '../models/reel_category_filters.dart';
 
 class AppTheme {
   AppTheme._();
@@ -144,23 +144,19 @@ class AppTheme {
   ];
 
   static Color getCategoryColor(String categoryOrSub) {
-    int index = ApiConfig.broadCategories.indexOf(categoryOrSub);
+    final parentCategory =
+        ReelCategoryCatalog.parentCategoryFor(categoryOrSub) ?? categoryOrSub;
+    final normalized = parentCategory.trim().toLowerCase();
+    final index = _stablePaletteIndex(normalized);
+    return _categoryPalette[index];
+  }
 
-    if (index == -1) {
-      for (int i = 0; i < ApiConfig.broadCategories.length; i++) {
-        final broad = ApiConfig.broadCategories[i];
-        if (ApiConfig.categoryGroups[broad]?.contains(categoryOrSub) ?? false) {
-          index = i;
-          break;
-        }
-      }
+  static int _stablePaletteIndex(String value) {
+    var hash = 0;
+    for (final codeUnit in value.codeUnits) {
+      hash = ((hash * 31) + codeUnit) & 0x7fffffff;
     }
-
-    if (index == -1) {
-      index = categoryOrSub.hashCode.abs() % _categoryPalette.length;
-    }
-
-    return _categoryPalette[index % _categoryPalette.length];
+    return hash % _categoryPalette.length;
   }
 
   // ── Brutal Box Decoration ──
