@@ -35,6 +35,11 @@ class ShareReceiverActivity : Activity() {
             return
         }
 
+        Toast.makeText(
+            applicationContext,
+            "Saved to ReelPin. Processing in background.",
+            Toast.LENGTH_LONG
+        ).show()
         ShareEnqueueService.enqueue(applicationContext, sharedUrl)
         finishQuietly()
     }

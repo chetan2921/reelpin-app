@@ -6,33 +6,49 @@ You share a link into ReelPin, the backend processes it in the background, and t
 
 ## Screenshots
 
-### Onboarding
-
-![Onboarding](docs/screenshots/onboarding.jpeg)
-
-### Auth
-
-![Sign up](docs/screenshots/auth-signup.jpeg)
-
-### Home
-
-![Home feed](docs/screenshots/home-feed.jpeg)
-
-### Discover
-
-![Discover screen](docs/screenshots/discover.jpeg)
-
-### Profile
-
-![Profile screen](docs/screenshots/profile.jpeg)
-
-### Reel Detail
-
-![Reel detail](docs/screenshots/reel-detail.jpeg)
-
-### Map
-
-![Map screen](docs/screenshots/map-screen.jpeg)
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/screenshots/onboarding.jpeg" alt="Onboarding" width="220">
+      <br>
+      <sub>Onboarding</sub>
+    </td>
+    <td align="center">
+      <img src="docs/screenshots/auth-signup.jpeg" alt="Auth" width="220">
+      <br>
+      <sub>Auth</sub>
+    </td>
+    <td align="center">
+      <img src="docs/screenshots/home-feed.jpeg" alt="Home feed" width="220">
+      <br>
+      <sub>Home</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/screenshots/discover.jpeg" alt="Discover screen" width="220">
+      <br>
+      <sub>Discover</sub>
+    </td>
+    <td align="center">
+      <img src="docs/screenshots/profile.jpeg" alt="Profile screen" width="220">
+      <br>
+      <sub>Profile</sub>
+    </td>
+    <td align="center">
+      <img src="docs/screenshots/reel-detail.jpeg" alt="Reel detail" width="220">
+      <br>
+      <sub>Reel Detail</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="3">
+      <img src="docs/screenshots/map-screen.jpeg" alt="Map screen" width="220">
+      <br>
+      <sub>Map</sub>
+    </td>
+  </tr>
+</table>
 
 ## What The App Does
 

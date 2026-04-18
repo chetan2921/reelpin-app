@@ -34,6 +34,8 @@ class ReelReadyNotification {
   final String? jobId;
 }
 
+enum NotificationPermissionState { enabled, disabled, unavailable }
+
 class NotificationService {
   NotificationService._();
 
@@ -46,6 +48,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final StreamController<ReelReadyNotification> _reelReadyController =
       StreamController<ReelReadyNotification>.broadcast();
+  final Map<String, DateTime> _recentReelReadyKeys = {};
 
   bool _initialized = false;
   bool _firebaseConfigured = false;
@@ -108,9 +111,15 @@ class NotificationService {
     FirebaseMessaging.onMessage.listen((message) {
       final reelReady = _parseReelReady(message);
       if (reelReady != null) {
-        unawaited(
-          showMessageNotification(title: reelReady.title, body: reelReady.body),
-        );
+        if (_shouldPresentReelReady(reelReady)) {
+          unawaited(
+            showMessageNotification(
+              title: reelReady.title,
+              body: reelReady.body,
+              notificationId: _notificationIdFor(reelReady),
+            ),
+          );
+        }
         _reelReadyController.add(reelReady);
         return;
       }
@@ -145,12 +154,53 @@ class NotificationService {
       return null;
     }
 
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.requestNotificationsPermission();
+    }
+
     return FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
       provisional: false,
     );
+  }
+
+  Future<NotificationPermissionState> getPermissionState() async {
+    if (!_supportsNativeFirebaseMessaging) {
+      return NotificationPermissionState.unavailable;
+    }
+
+    _firebaseConfigured = Firebase.apps.isNotEmpty;
+    if (!_firebaseConfigured) {
+      return NotificationPermissionState.unavailable;
+    }
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final enabled = await _localNotifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.areNotificationsEnabled();
+      if (enabled != null) {
+        return enabled
+            ? NotificationPermissionState.enabled
+            : NotificationPermissionState.disabled;
+      }
+    }
+
+    final settings = await FirebaseMessaging.instance.getNotificationSettings();
+    final status = settings.authorizationStatus;
+    if (status == AuthorizationStatus.authorized ||
+        status == AuthorizationStatus.provisional) {
+      return NotificationPermissionState.enabled;
+    }
+
+    return NotificationPermissionState.disabled;
   }
 
   Future<String?> getFcmToken() async {
@@ -177,9 +227,10 @@ class NotificationService {
   Future<void> showMessageNotification({
     required String title,
     required String body,
+    int? notificationId,
   }) async {
     await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      notificationId ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000),
       title,
       body,
       const NotificationDetails(
@@ -223,5 +274,31 @@ class NotificationService {
       reelId: reelId == null || reelId.isEmpty ? null : reelId,
       jobId: jobId == null || jobId.isEmpty ? null : jobId,
     );
+  }
+
+  bool _shouldPresentReelReady(ReelReadyNotification notification) {
+    final key = notification.reelId ?? notification.jobId ?? notification.body;
+    final now = DateTime.now();
+    _recentReelReadyKeys.removeWhere(
+      (_, timestamp) => now.difference(timestamp) > const Duration(minutes: 2),
+    );
+
+    final lastSeen = _recentReelReadyKeys[key];
+    if (lastSeen != null &&
+        now.difference(lastSeen) < const Duration(seconds: 30)) {
+      return false;
+    }
+
+    _recentReelReadyKeys[key] = now;
+    return true;
+  }
+
+  int _notificationIdFor(ReelReadyNotification notification) {
+    final source = notification.reelId ?? notification.jobId ?? notification.body;
+    var hash = 0;
+    for (final codeUnit in source.codeUnits) {
+      hash = ((hash * 31) + codeUnit) & 0x7fffffff;
+    }
+    return hash;
   }
 }

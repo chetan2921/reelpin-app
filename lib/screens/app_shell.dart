@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/category_filters_viewmodel.dart';
@@ -27,11 +29,11 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   static const _permissionsPromptedKey =
-      'app_shell_initial_permissions_prompted_v1';
+      'app_shell_initial_permissions_prompted_v3';
   static const _shareConfirmationDuration = Duration(milliseconds: 1400);
 
   int _currentIndex = 0;
-  late StreamSubscription _mediaIntentSub;
+  StreamSubscription? _mediaIntentSub;
   bool _isQueueingSharedReel = false;
   String? _lastHandledSharedUrl;
   DateTime? _lastHandledSharedAt;
@@ -68,6 +70,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   void _initSharingIntent() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return;
+    }
+
     _mediaIntentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
       (value) {
         _processSharedData(value);
@@ -201,7 +207,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _mediaIntentSub.cancel();
+    _mediaIntentSub?.cancel();
     super.dispose();
   }
 
@@ -230,84 +236,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       return;
     }
 
-    if (!mounted) {
-      _isCheckingInitialPermissions = false;
-      return;
-    }
-
-    final enable = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppTheme.bg(dialogContext),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
-            side: BorderSide(
-              color: AppTheme.fg(dialogContext),
-              width: AppTheme.borderWidth,
-            ),
-          ),
-          title: Text(
-            'ALLOW REELPIN ALERTS?',
-            style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(dialogContext),
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
-          ),
-          content: Text(
-            'TURN ON NOTIFICATIONS SO REELPIN CAN TELL YOU WHEN A REEL IS READY.',
-            style: GoogleFonts.spaceMono(
-              color: AppTheme.textSec(dialogContext),
-              fontSize: 12,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(
-                'NOT NOW',
-                style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSec(dialogContext),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: () => Navigator.pop(dialogContext, true),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: AppTheme.brutalBox(
-                  dialogContext,
-                  color: AppTheme.yellow,
-                  shadow: true,
-                ),
-                child: Text(
-                  'ENABLE',
-                  style: GoogleFonts.spaceMono(
-                    color: AppTheme.black,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
     await prefs.setBool(_permissionsPromptedKey, true);
     _isCheckingInitialPermissions = false;
-
-    if (enable == true) {
-      await _enableReelPinPermissions();
-    }
+    await _enableReelPinPermissions();
+    await _enableLocationPermissions();
   }
 
   Future<void> _enableReelPinPermissions() async {
@@ -335,6 +267,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       } catch (e) {
         debugPrint('Push token registration skipped after prompt: $e');
       }
+    }
+  }
+
+  Future<void> _enableLocationPermissions() async {
+    try {
+      await LocationService.instance.warmUpLocation();
+    } catch (e) {
+      debugPrint('Location permission setup skipped: $e');
     }
   }
 

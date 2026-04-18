@@ -5,6 +5,8 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../services/api_service.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
@@ -110,6 +112,9 @@ class _SearchScreenState extends State<SearchScreen> {
                             onTap: () {
                               final homeVm = context.read<HomeViewModel>();
                               final mapVm = context.read<MapViewModel>();
+                              final apiService = context.read<ApiService>();
+                              final notificationService = context
+                                  .read<NotificationService>();
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -121,6 +126,12 @@ class _SearchScreenState extends State<SearchScreen> {
                                       ChangeNotifierProvider<
                                         MapViewModel
                                       >.value(value: mapVm),
+                                      Provider<ApiService>.value(
+                                        value: apiService,
+                                      ),
+                                      Provider<NotificationService>.value(
+                                        value: notificationService,
+                                      ),
                                     ],
                                     child: const ProfileScreen(),
                                   ),

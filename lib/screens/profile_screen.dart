@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/session_viewmodel.dart';
@@ -204,6 +207,8 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                SizedBox(height: layout.gap(14)),
+                const _NotificationPreferenceCard(),
                 SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'ACCOUNT'),
                 SizedBox(height: layout.gap(10)),
@@ -315,6 +320,210 @@ class ProfileScreen extends StatelessWidget {
     final layout = AppLayout.of(context);
     return Container(
       decoration: AppTheme.brutalCard(context, color: color),
+      child: Padding(
+        padding: EdgeInsets.all(layout.inset(16)),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.fg(context),
+                      fontSize: layout.font(13),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: layout.gap(6)),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.textSec(context),
+                      fontSize: layout.font(11),
+                      fontWeight: FontWeight.w500,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: layout.inset(12)),
+            trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationPreferenceCard extends StatefulWidget {
+  const _NotificationPreferenceCard();
+
+  @override
+  State<_NotificationPreferenceCard> createState() =>
+      _NotificationPreferenceCardState();
+}
+
+class _NotificationPreferenceCardState
+    extends State<_NotificationPreferenceCard> {
+  NotificationPermissionState? _permissionState;
+  bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPermissionState();
+    });
+  }
+
+  Future<void> _loadPermissionState() async {
+    final notificationService = context.read<NotificationService>();
+    await notificationService.initialize(requestPermissions: false);
+    final state = await notificationService.getPermissionState();
+    if (!mounted) return;
+    setState(() {
+      _permissionState = state;
+    });
+  }
+
+  Future<void> _enableNotifications() async {
+    if (_isUpdating) return;
+
+    setState(() {
+      _isUpdating = true;
+    });
+
+    final notificationService = context.read<NotificationService>();
+    final apiService = context.read<ApiService>();
+    final authService = context.read<AuthService>();
+
+    try {
+      await notificationService.initialize(requestPermissions: false);
+      await notificationService.requestUserPermission();
+
+      final state = await notificationService.getPermissionState();
+      if (state == NotificationPermissionState.enabled) {
+        final userId = authService.currentUser?.id;
+        if (userId != null && userId.trim().isNotEmpty) {
+          final token = await notificationService.getFcmToken();
+          if (token != null && token.trim().isNotEmpty) {
+            await apiService.registerPushToken(
+              userId: userId,
+              token: token,
+              platform: notificationService.currentPlatform,
+            );
+          }
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _permissionState = state;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    final state = _permissionState;
+    final isEnabled = state == NotificationPermissionState.enabled;
+    final isUnavailable = state == NotificationPermissionState.unavailable;
+    final buttonColor = isEnabled
+        ? AppTheme.neonGreen
+        : isUnavailable
+        ? AppTheme.surfaceElevatedColor(context)
+        : AppTheme.yellow;
+    final buttonTextColor = buttonColor.computeLuminance() > 0.5
+        ? AppTheme.black
+        : AppTheme.white;
+
+    return _ProfileActionCard(
+      title: 'NOTIFICATIONS',
+      subtitle: isUnavailable
+          ? 'NOTIFICATION SERVICES ARE NOT AVAILABLE IN THIS BUILD.'
+          : 'ENABLE ALERTS HERE SO REELPIN CAN TELL YOU WHEN A REEL IS SAVED AND READY.',
+      trailing: GestureDetector(
+        onTap: isUnavailable ? null : _enableNotifications,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: layout.inset(12),
+            vertical: layout.gap(10),
+          ),
+          decoration: AppTheme.brutalBox(
+            context,
+            color: buttonColor,
+            shadow: false,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isUpdating) ...[
+                SizedBox(
+                  width: layout.inset(14),
+                  height: layout.inset(14),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: buttonTextColor,
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ] else ...[
+                Icon(
+                  isEnabled ? Icons.notifications_active : Icons.notifications,
+                  size: 16,
+                  color: buttonTextColor,
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                _isUpdating
+                    ? 'CHECKING'
+                    : isEnabled
+                    ? 'ENABLED'
+                    : isUnavailable
+                    ? 'UNAVAILABLE'
+                    : 'ENABLE',
+                style: GoogleFonts.spaceMono(
+                  color: buttonTextColor,
+                  fontSize: layout.font(11),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileActionCard extends StatelessWidget {
+  const _ProfileActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Container(
+      decoration: AppTheme.brutalCard(context, color: AppTheme.bg(context)),
       child: Padding(
         padding: EdgeInsets.all(layout.inset(16)),
         child: Row(
