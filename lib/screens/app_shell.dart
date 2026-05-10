@@ -3,34 +3,34 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/api_service.dart';
-import '../services/auth_service.dart';
-import '../services/location_service.dart';
+import '../providers/app_providers.dart';
 import '../services/notification_service.dart';
+import '../services/api_service.dart';
+import '../services/share_handoff_service.dart';
 import '../theme/app_theme.dart';
-import '../viewmodels/category_filters_viewmodel.dart';
-import '../viewmodels/home_viewmodel.dart';
-import '../viewmodels/map_viewmodel.dart';
 import 'home_screen.dart';
 import 'map_screen.dart';
+import 'paywall_screen.dart';
 import 'search_screen.dart';
 
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
   static const _permissionsPromptedKey =
-      'app_shell_initial_permissions_prompted_v3';
+      'app_shell_initial_permissions_prompted_v5';
   static const _shareConfirmationDuration = Duration(milliseconds: 1400);
+  static const _resumeRefreshInterval = Duration(minutes: 5);
 
   int _currentIndex = 0;
   StreamSubscription? _mediaIntentSub;
@@ -38,6 +38,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   String? _lastHandledSharedUrl;
   DateTime? _lastHandledSharedAt;
   bool _isCheckingInitialPermissions = false;
+  DateTime? _lastResumeRefreshAt;
 
   final _screens = const [HomeScreen(), MapScreen(), SearchScreen()];
 
@@ -104,9 +105,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     if (match != null) {
       final String extractedUrl = match.group(0)!;
+      final analytics = ref.read(shareFlowAnalyticsServiceProvider);
+      unawaited(analytics.recordShareDetected(extractedUrl));
       if (_lastHandledSharedUrl == extractedUrl &&
           _lastHandledSharedAt != null &&
           DateTime.now().difference(_lastHandledSharedAt!).inSeconds < 8) {
+        unawaited(analytics.recordDuplicateShareSkipped(extractedUrl));
         return;
       }
       _lastHandledSharedUrl = extractedUrl;
@@ -121,7 +125,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Future<void> _enqueueSharedReel(String url) async {
     if (_isQueueingSharedReel) return;
 
-    final homeVm = context.read<HomeViewModel>();
+    final homeVm = ref.read(homeViewModelProvider);
+    final analytics = ref.read(shareFlowAnalyticsServiceProvider);
     final messenger = ScaffoldMessenger.of(context);
 
     setState(() {
@@ -129,13 +134,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     });
 
     try {
-      await _refreshPushRegistrationIfPossible();
+      await _syncPushTokenRegistrationIfPossible();
+      unawaited(analytics.recordEnqueueStarted(url));
       await homeVm.enqueueReelProcessing(url);
+      unawaited(ref.read(entitlementsViewModelProvider).refresh());
 
       if (!mounted) return;
       setState(() {
         _isQueueingSharedReel = false;
       });
+      unawaited(analytics.recordEnqueueSucceeded(url));
 
       messenger.showSnackBar(
         SnackBar(
@@ -179,10 +187,22 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         await SystemNavigator.pop();
       }
     } catch (error) {
+      if (error is ApiException && error.isMonthlyReelLimitReached) {
+        unawaited(analytics.recordEnqueueFailed(url, error));
+        await ref.read(entitlementsViewModelProvider).refresh();
+        if (!mounted) return;
+        setState(() {
+          _isQueueingSharedReel = false;
+        });
+        await openPaywall(context, entryPoint: PaywallEntryPoint.saveLimit);
+        return;
+      }
+
       if (!mounted) return;
       setState(() {
         _isQueueingSharedReel = false;
       });
+      unawaited(analytics.recordEnqueueFailed(url, error));
       messenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -215,14 +235,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed || !mounted) return;
 
-    unawaited(context.read<HomeViewModel>().loadReels(forceRefresh: true));
-    unawaited(context.read<MapViewModel>().loadMapReels(forceRefresh: true));
+    final now = DateTime.now();
+    if (_lastResumeRefreshAt != null &&
+        now.difference(_lastResumeRefreshAt!) < _resumeRefreshInterval) {
+      return;
+    }
+    _lastResumeRefreshAt = now;
+
     unawaited(
-      context.read<CategoryFiltersViewModel>().loadCategoryFilters(
-        forceRefresh: true,
-      ),
+      ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
     );
-    unawaited(_refreshPushRegistrationIfPossible());
   }
 
   Future<void> _maybePromptInitialPermissions() async {
@@ -236,25 +258,34 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       return;
     }
 
-    await prefs.setBool(_permissionsPromptedKey, true);
+    final attempted = await _enableReelPinPermissions();
+    if (attempted) {
+      await prefs.setBool(_permissionsPromptedKey, true);
+    }
     _isCheckingInitialPermissions = false;
-    await _enableReelPinPermissions();
-    await _enableLocationPermissions();
   }
 
-  Future<void> _enableReelPinPermissions() async {
-    final notificationService = context.read<NotificationService>();
-    final apiService = context.read<ApiService>();
-    final authService = context.read<AuthService>();
+  Future<bool> _enableReelPinPermissions() async {
+    final notificationService = ref.read(notificationServiceProvider);
+    final apiService = ref.read(apiServiceProvider);
+    final authService = ref.read(authServiceProvider);
 
     try {
-      await notificationService.initialize(requestPermissions: true);
+      await notificationService.initialize(requestPermissions: false);
+      final initialState = await notificationService.getPermissionState();
+      if (initialState == NotificationPermissionState.disabled) {
+        await notificationService.requestUserPermission();
+      }
     } catch (e) {
       debugPrint('Notification permission setup skipped: $e');
+      return false;
     }
 
+    final currentState = await notificationService.getPermissionState();
     final userId = authService.currentUser?.id;
-    if (userId != null && userId.trim().isNotEmpty) {
+    if (currentState == NotificationPermissionState.enabled &&
+        userId != null &&
+        userId.trim().isNotEmpty) {
       try {
         final token = await notificationService.getFcmToken();
         if (token != null && token.trim().isNotEmpty) {
@@ -263,39 +294,42 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             token: token,
             platform: notificationService.currentPlatform,
           );
+          await ShareHandoffService.instance.syncPushToken(
+            token: token,
+            platform: notificationService.currentPlatform,
+          );
         }
       } catch (e) {
         debugPrint('Push token registration skipped after prompt: $e');
       }
     }
+
+    return true;
   }
 
-  Future<void> _enableLocationPermissions() async {
-    try {
-      await LocationService.instance.warmUpLocation();
-    } catch (e) {
-      debugPrint('Location permission setup skipped: $e');
-    }
-  }
-
-  Future<void> _refreshPushRegistrationIfPossible() async {
-    final notificationService = context.read<NotificationService>();
-    final apiService = context.read<ApiService>();
-    final authService = context.read<AuthService>();
+  Future<void> _syncPushTokenRegistrationIfPossible() async {
+    final notificationService = ref.read(notificationServiceProvider);
+    final apiService = ref.read(apiServiceProvider);
+    final authService = ref.read(authServiceProvider);
     final userId = authService.currentUser?.id;
     if (userId == null || userId.trim().isEmpty) return;
 
     try {
+      await notificationService.initialize(requestPermissions: false);
       final token = await notificationService.getFcmToken();
       if (token == null || token.trim().isEmpty) return;
 
       await apiService.registerPushToken(
         userId: userId,
-        token: token,
+        token: token.trim(),
+        platform: notificationService.currentPlatform,
+      );
+      await ShareHandoffService.instance.syncPushToken(
+        token: token.trim(),
         platform: notificationService.currentPlatform,
       );
     } catch (e) {
-      debugPrint('Push token refresh on resume skipped: $e');
+      debugPrint('Push token registration skipped before share enqueue: $e');
     }
   }
 

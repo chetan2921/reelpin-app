@@ -8,7 +8,8 @@ import '../config/api_config.dart';
 import '../models/processing_job.dart';
 import '../models/reel_category_filters.dart';
 import '../models/reel.dart';
-import '../models/search_result.dart';
+import '../models/search_response.dart';
+import '../models/user_entitlement.dart';
 
 /// Stateless HTTP API wrapper for the ReelPin backend.
 class ApiService {
@@ -92,8 +93,10 @@ class ApiService {
     );
 
     if (res.statusCode != 200) {
-      final detail = _extractError(res);
-      throw ApiException(detail, res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not save this reel right now.',
+      );
     }
     return Reel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
@@ -113,8 +116,10 @@ class ApiService {
     );
 
     if (res.statusCode != 200) {
-      final detail = _extractError(res);
-      throw ApiException(detail, res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not queue this reel right now.',
+      );
     }
 
     return jsonDecode(res.body) as Map<String, dynamic>;
@@ -128,8 +133,10 @@ class ApiService {
     );
 
     if (res.statusCode != 200) {
-      final detail = _extractError(res);
-      throw ApiException(detail, res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load the processing status right now.',
+      );
     }
 
     return ProcessingJob.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
@@ -262,8 +269,10 @@ class ApiService {
     });
 
     if (res.statusCode != 200) {
-      final detail = _extractError(res);
-      throw ApiException(detail, res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not process this video right now.',
+      );
     }
     return Reel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
@@ -287,7 +296,10 @@ class ApiService {
     });
 
     if (res.statusCode != 200) {
-      throw ApiException('Failed to load reels', res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load saved reels right now.',
+      );
     }
     final List<dynamic> data = jsonDecode(res.body) as List<dynamic>;
     return data.map((r) => Reel.fromJson(r as Map<String, dynamic>)).toList();
@@ -302,11 +314,13 @@ class ApiService {
           .timeout(_requestTimeout),
     );
 
-    if (res.statusCode == 404) {
-      throw ApiException('Reel not found', 404);
-    }
     if (res.statusCode != 200) {
-      throw ApiException('Failed to load reel', res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: res.statusCode == 404
+            ? 'Reel not found.'
+            : 'Could not load this reel right now.',
+      );
     }
     return Reel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
@@ -320,7 +334,10 @@ class ApiService {
           .timeout(_requestTimeout),
     );
     if (res.statusCode != 200) {
-      throw ApiException('Failed to delete reel', res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not delete this reel right now.',
+      );
     }
   }
 
@@ -337,8 +354,10 @@ class ApiService {
     });
 
     if (res.statusCode != 200) {
-      final detail = _extractError(res);
-      throw ApiException(detail, res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load category filters right now.',
+      );
     }
 
     return ReelCategoryFiltersResponse.fromJson(
@@ -346,38 +365,82 @@ class ApiService {
     );
   }
 
-  Future<List<SearchResult>> searchReels(
+  Future<SearchResponse> searchReels(
     String query, {
     String userId = 'default-user',
     String? category,
     String? subcategory,
     int limit = 5,
+    http.Client? client,
   }) async {
-    final res = await _requestWithFailover(
-      (baseUrl) => _client
-          .post(
-            Uri.parse('$baseUrl/search'),
-            headers: {'Content-Type': 'application/json; charset=UTF-8'},
-            body: jsonEncode({
-              'query': query,
-              'user_id': userId,
-              if (category != null && category.trim().isNotEmpty)
-                'category': category,
-              if (subcategory != null && subcategory.trim().isNotEmpty)
-                'subcategory': subcategory,
-              'limit': limit,
-            }),
+    final res = client == null
+        ? await _requestWithFailover(
+            (baseUrl) => _client
+                .post(
+                  Uri.parse('$baseUrl/search'),
+                  headers: {'Content-Type': 'application/json; charset=UTF-8'},
+                  body: jsonEncode({
+                    'query': query,
+                    'user_id': userId,
+                    if (category != null && category.trim().isNotEmpty)
+                      'category': category,
+                    if (subcategory != null && subcategory.trim().isNotEmpty)
+                      'subcategory': subcategory,
+                    'limit': limit,
+                  }),
+                )
+                .timeout(_requestTimeout),
           )
-          .timeout(_requestTimeout),
-    );
+        : await _requestWithClientFailover(
+            client,
+            (baseUrl, activeClient) => activeClient
+                .post(
+                  Uri.parse('$baseUrl/search'),
+                  headers: {'Content-Type': 'application/json; charset=UTF-8'},
+                  body: jsonEncode({
+                    'query': query,
+                    'user_id': userId,
+                    if (category != null && category.trim().isNotEmpty)
+                      'category': category,
+                    if (subcategory != null && subcategory.trim().isNotEmpty)
+                      'subcategory': subcategory,
+                    'limit': limit,
+                  }),
+                )
+                .timeout(_requestTimeout),
+          );
 
     if (res.statusCode != 200) {
-      throw ApiException('Search failed', res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Search is not available right now.',
+      );
     }
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    return (data['results'] as List<dynamic>)
-        .map((r) => SearchResult.fromJson(r as Map<String, dynamic>))
-        .toList();
+    return SearchResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<UserEntitlement> getAccountEntitlements({
+    required String userId,
+  }) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final uri = Uri.parse(
+        '$baseUrl/account/entitlements',
+      ).replace(queryParameters: {'user_id': userId});
+      return _client.get(uri).timeout(_requestTimeout);
+    });
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load account entitlements right now.',
+      );
+    }
+
+    return UserEntitlement.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
   }
 
   // ─── Helpers ───
@@ -402,8 +465,10 @@ class ApiService {
     );
 
     if (res.statusCode != 200) {
-      final detail = _extractError(res);
-      throw ApiException(detail, res.statusCode);
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not register this device right now.',
+      );
     }
   }
 
@@ -441,14 +506,72 @@ class ApiService {
     );
   }
 
-  String _extractError(http.Response res) {
+  Future<http.Response> _requestWithClientFailover(
+    http.Client client,
+    Future<http.Response> Function(String baseUrl, http.Client client) request,
+  ) async {
+    final candidates = <String>[
+      _baseUrl,
+      ..._fallbackBaseUrls.where((u) => u != _baseUrl),
+    ];
+
+    Object? lastNetworkError;
+    for (final candidate in candidates) {
+      try {
+        final response = await request(candidate, client);
+        _baseUrl = candidate;
+        return response;
+      } on TimeoutException catch (e) {
+        lastNetworkError = e;
+      } on SocketException catch (e) {
+        lastNetworkError = e;
+      } on http.ClientException catch (e) {
+        lastNetworkError = e;
+      }
+    }
+
+    if (lastNetworkError is TimeoutException) {
+      throw ApiException(
+        'Request timed out. Please check server/network.',
+        408,
+      );
+    }
+
+    if (lastNetworkError is http.ClientException) {
+      throw lastNetworkError;
+    }
+
+    throw ApiException(
+      'Cannot connect to server. Tried: ${candidates.join(', ')}',
+      503,
+    );
+  }
+
+  ApiException _exceptionFromResponse(
+    http.Response res, {
+    required String fallbackMessage,
+  }) {
+    final payload = _extractErrorPayload(res);
+    return ApiException(
+      payload.message ?? fallbackMessage,
+      res.statusCode,
+      errorCode: payload.errorCode,
+      detail: payload.detail,
+      retryable: payload.retryable,
+    );
+  }
+
+  _ApiErrorPayload _extractErrorPayload(http.Response res) {
     try {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      return body['message'] as String? ??
-          body['detail'] as String? ??
-          'Request failed';
+      return _ApiErrorPayload(
+        message: body['message']?.toString(),
+        detail: body['detail']?.toString(),
+        errorCode: body['error_code']?.toString(),
+        retryable: body['retryable'] == true,
+      );
     } catch (_) {
-      return 'Request failed (${res.statusCode})';
+      return _ApiErrorPayload(message: 'Request failed (${res.statusCode})');
     }
   }
 }
@@ -457,9 +580,37 @@ class ApiService {
 class ApiException implements Exception {
   final String message;
   final int statusCode;
+  final String? errorCode;
+  final String? detail;
+  final bool retryable;
 
-  const ApiException(this.message, this.statusCode);
+  const ApiException(
+    this.message,
+    this.statusCode, {
+    this.errorCode,
+    this.detail,
+    this.retryable = false,
+  });
+
+  bool get isUpgradeRequired => statusCode == 402;
+  bool get isMonthlyReelLimitReached =>
+      errorCode == 'monthly_reel_limit_reached';
+  bool get isHistoryUpgradeRequired => errorCode == 'history_upgrade_required';
 
   @override
   String toString() => message;
+}
+
+class _ApiErrorPayload {
+  const _ApiErrorPayload({
+    this.message,
+    this.detail,
+    this.errorCode,
+    this.retryable = false,
+  });
+
+  final String? message;
+  final String? detail;
+  final String? errorCode;
+  final bool retryable;
 }

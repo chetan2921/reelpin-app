@@ -1,77 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/reel.dart';
-import '../repositories/reel_repository.dart';
+import '../providers/app_providers.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import '../viewmodels/home_viewmodel.dart';
-import '../viewmodels/map_viewmodel.dart';
-import '../viewmodels/search_viewmodel.dart';
+import 'paywall_screen.dart';
 
-class ReelDetailScreen extends StatefulWidget {
+class ReelDetailScreen extends ConsumerStatefulWidget {
   final Reel reel;
 
   const ReelDetailScreen({super.key, required this.reel});
 
-  static Widget withProviders(
-    BuildContext sourceContext, {
-    required Reel reel,
-  }) {
-    Widget child = ReelDetailScreen(reel: reel);
-
-    final searchVm = _tryReadProvider<SearchViewModel>(sourceContext);
-    if (searchVm != null) {
-      child = ChangeNotifierProvider<SearchViewModel>.value(
-        value: searchVm,
-        child: child,
-      );
-    }
-
-    final mapVm = _tryReadProvider<MapViewModel>(sourceContext);
-    if (mapVm != null) {
-      child = ChangeNotifierProvider<MapViewModel>.value(
-        value: mapVm,
-        child: child,
-      );
-    }
-
-    final homeVm = _tryReadProvider<HomeViewModel>(sourceContext);
-    if (homeVm != null) {
-      child = ChangeNotifierProvider<HomeViewModel>.value(
-        value: homeVm,
-        child: child,
-      );
-    }
-
-    final repository = _tryReadProvider<ReelRepository>(sourceContext);
-    if (repository != null) {
-      child = Provider<ReelRepository>.value(value: repository, child: child);
-    }
-
-    return child;
-  }
-
   @override
-  State<ReelDetailScreen> createState() => _ReelDetailScreenState();
+  ConsumerState<ReelDetailScreen> createState() => _ReelDetailScreenState();
 }
 
-T? _tryReadProvider<T>(BuildContext context) {
-  try {
-    return Provider.of<T>(context, listen: false);
-  } catch (_) {
-    return null;
-  }
-}
-
-class _ReelDetailScreenState extends State<ReelDetailScreen> {
+class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   bool _transcriptExpanded = false;
+  late Reel _activeReel;
+  bool _isRefreshingReel = false;
+  ApiException? _reelAccessError;
+  String? _reelLoadError;
 
-  Reel get reel => widget.reel;
+  Reel get reel => _activeReel;
   Color get _detailTextColor => Theme.of(context).brightness == Brightness.dark
       ? const Color(0xFFD0D0D0)
       : AppTheme.textSecondary;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeReel = widget.reel;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshReel();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,389 +134,452 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Category + time
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: catColor,
-                                border: Border.all(
-                                  color: AppTheme.fg(context),
-                                  width: 2,
-                                ),
-                              ),
-                              child: Text(
-                                reel.category.toUpperCase(),
-                                style: GoogleFonts.spaceMono(
-                                  color: _contrastText(catColor),
-                                  fontSize: layout.font(10),
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
+                  if (_isRefreshingReel) ...[
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.inset(10),
+                        vertical: layout.gap(8),
+                      ),
+                      decoration: AppTheme.brutalBox(
+                        context,
+                        color: AppTheme.bg(context),
+                        shadow: true,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: layout.inset(14),
+                            height: layout.inset(14),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.fg(context),
                             ),
-                            if (reel.subCategory != reel.category)
+                          ),
+                          SizedBox(width: layout.inset(8)),
+                          Text(
+                            'CHECKING ACCESS...',
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.fg(context),
+                              fontSize: layout.font(10),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: layout.gap(16)),
+                  ],
+
+                  if (_reelAccessError?.isHistoryUpgradeRequired == true) ...[
+                    _buildLockedHistoryState(context),
+                  ] else ...[
+                    if (_reelLoadError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(layout.inset(14)),
+                        decoration: AppTheme.brutalBox(
+                          context,
+                          color: const Color(0xFFFFF2B6),
+                          shadow: true,
+                        ),
+                        child: Text(
+                          _reelLoadError!,
+                          style: GoogleFonts.spaceMono(
+                            color: AppTheme.black,
+                            fontSize: layout.font(11),
+                            fontWeight: FontWeight.w700,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: layout.gap(16)),
+                    ],
+
+                    // Category + time
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.bg(context),
+                                  color: catColor,
                                   border: Border.all(
                                     color: AppTheme.fg(context),
                                     width: 2,
                                   ),
                                 ),
                                 child: Text(
-                                  reel.subCategory.toUpperCase(),
+                                  reel.category.toUpperCase(),
                                   style: GoogleFonts.spaceMono(
-                                    color: AppTheme.fg(context),
+                                    color: _contrastText(catColor),
                                     fontSize: layout.font(10),
                                     fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.3,
                                   ),
                                 ),
                               ),
-                          ],
-                        ),
-                      ),
-                      if (reel.relativeDate.isNotEmpty) ...[
-                        SizedBox(width: layout.inset(12)),
-                        Padding(
-                          padding: EdgeInsets.only(top: layout.gap(4)),
-                          child: Text(
-                            reel.relativeDate.toUpperCase(),
-                            style: GoogleFonts.spaceMono(
-                              color: _detailTextColor,
-                              fontSize: layout.font(11),
-                              fontWeight: FontWeight.w700,
-                            ),
+                              if (reel.subCategory != reel.category)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.bg(context),
+                                    border: Border.all(
+                                      color: AppTheme.fg(context),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    reel.subCategory.toUpperCase(),
+                                    style: GoogleFonts.spaceMono(
+                                      color: AppTheme.fg(context),
+                                      fontSize: layout.font(10),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
+                        if (reel.relativeDate.isNotEmpty) ...[
+                          SizedBox(width: layout.inset(12)),
+                          Padding(
+                            padding: EdgeInsets.only(top: layout.gap(4)),
+                            child: Text(
+                              reel.relativeDate.toUpperCase(),
+                              style: GoogleFonts.spaceMono(
+                                color: _detailTextColor,
+                                fontSize: layout.font(11),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                  SizedBox(height: layout.gap(16)),
-
-                  // Title
-                  Text(
-                    reel.title.isNotEmpty
-                        ? reel.title.toUpperCase()
-                        : 'UNTITLED REEL',
-                    style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
-                      fontSize: layout.font(22, maxFactor: 1.1),
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                      letterSpacing: -0.5,
                     ),
-                  ),
+                    SizedBox(height: layout.gap(16)),
 
-                  SizedBox(height: layout.gap(4)),
-                  Container(
-                    height: layout.gap(4),
-                    width: layout.inset(60),
-                    color: AppTheme.yellow,
-                  ),
-
-                  SizedBox(height: layout.gap(20)),
-
-                  // ── Sections ──
-                  if (reel.summary.isNotEmpty) ...[
-                    _section('SUMMARY', reel.summary),
-                    const SizedBox(height: 20),
-                  ],
-
-                  if (reel.keyFacts.isNotEmpty) ...[
-                    _sectionTitle('KEY FACTS'),
-                    const SizedBox(height: 10),
-                    ...reel.keyFacts.map(
-                      (f) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(top: 4),
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: AppTheme.red,
-                                border: Border.all(
-                                  color: AppTheme.fg(context),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                f,
-                                style: GoogleFonts.spaceMono(
-                                  color: _detailTextColor,
-                                  fontSize: 13,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    // Title
+                    Text(
+                      reel.title.isNotEmpty
+                          ? reel.title.toUpperCase()
+                          : 'UNTITLED REEL',
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.fg(context),
+                        fontSize: layout.font(22, maxFactor: 1.1),
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                  ],
 
-                  if (reel.locations.isNotEmpty) ...[
-                    _sectionTitle('LOCATIONS'),
-                    const SizedBox(height: 10),
-                    ...reel.locations.map(
-                      (loc) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: GestureDetector(
-                          onTap: loc.hasCoordinates
-                              ? () => _navigateToLocation(loc)
-                              : null,
-                          child: Container(
-                            decoration: AppTheme.brutalCard(context),
-                            child: Row(
-                              children: [
-                                // Green accent bar
-                                Container(
-                                  width: 6,
-                                  height: 56,
-                                  color: AppTheme.neonGreen,
+                    SizedBox(height: layout.gap(4)),
+                    Container(
+                      height: layout.gap(4),
+                      width: layout.inset(60),
+                      color: AppTheme.yellow,
+                    ),
+
+                    SizedBox(height: layout.gap(20)),
+
+                    // ── Sections ──
+                    if (reel.summary.isNotEmpty) ...[
+                      _section('SUMMARY', reel.summary),
+                      const SizedBox(height: 20),
+                    ],
+
+                    if (reel.keyFacts.isNotEmpty) ...[
+                      _sectionTitle('KEY FACTS'),
+                      const SizedBox(height: 10),
+                      ...reel.keyFacts.map(
+                        (f) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                margin: const EdgeInsets.only(top: 4),
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.red,
+                                  border: Border.all(
+                                    color: AppTheme.fg(context),
+                                    width: 1,
+                                  ),
                                 ),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          loc.name.toUpperCase(),
-                                          style: GoogleFonts.spaceMono(
-                                            color: AppTheme.fg(context),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        if (loc.address != null) ...[
-                                          const SizedBox(height: 2),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  f,
+                                  style: GoogleFonts.spaceMono(
+                                    color: _detailTextColor,
+                                    fontSize: 13,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    if (reel.locations.isNotEmpty) ...[
+                      _sectionTitle('LOCATIONS'),
+                      const SizedBox(height: 10),
+                      ...reel.locations.map(
+                        (loc) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: GestureDetector(
+                            onTap: loc.hasCoordinates
+                                ? () => _navigateToLocation(loc)
+                                : null,
+                            child: Container(
+                              decoration: AppTheme.brutalCard(context),
+                              child: Row(
+                                children: [
+                                  // Green accent bar
+                                  Container(
+                                    width: 6,
+                                    height: 56,
+                                    color: AppTheme.neonGreen,
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
                                           Text(
-                                            loc.address!,
+                                            loc.name.toUpperCase(),
                                             style: GoogleFonts.spaceMono(
-                                              color: _detailTextColor,
-                                              fontSize: 11,
+                                              color: AppTheme.fg(context),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
                                             ),
                                           ),
+                                          if (loc.address != null) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              loc.address!,
+                                              style: GoogleFonts.spaceMono(
+                                                color: _detailTextColor,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
                                         ],
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                if (loc.hasCoordinates)
-                                  Container(
-                                    width: 36,
-                                    height: 36,
-                                    margin: const EdgeInsets.only(right: 10),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.red,
-                                      border: Border.all(
-                                        color: AppTheme.fg(context),
-                                        width: 2,
                                       ),
                                     ),
-                                    child: const Icon(
-                                      Icons.navigation,
-                                      size: 16,
-                                      color: AppTheme.white,
-                                    ),
                                   ),
-                              ],
+                                  if (loc.hasCoordinates)
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      margin: const EdgeInsets.only(right: 10),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.red,
+                                        border: Border.all(
+                                          color: AppTheme.fg(context),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.navigation,
+                                        size: 16,
+                                        color: AppTheme.white,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                      const SizedBox(height: 16),
+                    ],
 
-                  if (reel.peopleMentioned.isNotEmpty) ...[
-                    _sectionTitle('PEOPLE MENTIONED'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: reel.peopleMentioned.map((person) {
-                        return Container(
+                    if (reel.peopleMentioned.isNotEmpty) ...[
+                      _sectionTitle('PEOPLE MENTIONED'),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: reel.peopleMentioned.map((person) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.yellow,
+                              border: Border.all(
+                                color: AppTheme.fg(context),
+                                width: 2,
+                              ),
+                              boxShadow: AppTheme.brutalShadowSmall(context),
+                            ),
+                            child: Text(
+                              person.toUpperCase(),
+                              style: GoogleFonts.spaceMono(
+                                color: AppTheme.black,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    if (reel.actionableItems.isNotEmpty) ...[
+                      _sectionTitle('ACTION ITEMS'),
+                      const SizedBox(height: 10),
+                      ...reel.actionableItems.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                margin: const EdgeInsets.only(top: 2),
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.neonGreen,
+                                  border: Border.all(
+                                    color: AppTheme.fg(context),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.arrow_forward,
+                                  size: 12,
+                                  color: AppTheme.black,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  item,
+                                  style: GoogleFonts.spaceMono(
+                                    color: _detailTextColor,
+                                    fontSize: 13,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Transcript
+                    if (reel.transcript.isNotEmpty) ...[
+                      _sectionTitle('TRANSCRIPT'),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceElevated,
+                          border: Border.all(
+                            color: AppTheme.fg(context),
+                            width: 2,
+                          ),
+                        ),
+                        child: AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 250),
+                          firstChild: Text(
+                            reel.transcript,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.black,
+                              fontSize: 12,
+                              height: 1.6,
+                            ),
+                          ),
+                          secondChild: Text(
+                            reel.transcript,
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.black,
+                              fontSize: 12,
+                              height: 1.6,
+                            ),
+                          ),
+                          crossFadeState: _transcriptExpanded
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () => setState(
+                          () => _transcriptExpanded = !_transcriptExpanded,
+                        ),
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                            horizontal: 12,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.yellow,
+                            color: AppTheme.blue,
                             border: Border.all(
                               color: AppTheme.fg(context),
                               width: 2,
                             ),
                             boxShadow: AppTheme.brutalShadowSmall(context),
                           ),
-                          child: Text(
-                            person.toUpperCase(),
-                            style: GoogleFonts.spaceMono(
-                              color: AppTheme.black,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  if (reel.actionableItems.isNotEmpty) ...[
-                    _sectionTitle('ACTION ITEMS'),
-                    const SizedBox(height: 10),
-                    ...reel.actionableItems.map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(top: 2),
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: AppTheme.neonGreen,
-                                border: Border.all(
-                                  color: AppTheme.fg(context),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.arrow_forward,
-                                size: 12,
-                                color: AppTheme.black,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                item,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _transcriptExpanded
+                                    ? 'SHOW LESS'
+                                    : 'SHOW FULL TRANSCRIPT',
                                 style: GoogleFonts.spaceMono(
-                                  color: _detailTextColor,
-                                  fontSize: 13,
-                                  height: 1.5,
+                                  color: AppTheme.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Transcript
-                  if (reel.transcript.isNotEmpty) ...[
-                    _sectionTitle('TRANSCRIPT'),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceElevated,
-                        border: Border.all(
-                          color: AppTheme.fg(context),
-                          width: 2,
-                        ),
-                      ),
-                      child: AnimatedCrossFade(
-                        duration: const Duration(milliseconds: 250),
-                        firstChild: Text(
-                          reel.transcript,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.spaceMono(
-                            color: AppTheme.black,
-                            fontSize: 12,
-                            height: 1.6,
-                          ),
-                        ),
-                        secondChild: Text(
-                          reel.transcript,
-                          style: GoogleFonts.spaceMono(
-                            color: AppTheme.black,
-                            fontSize: 12,
-                            height: 1.6,
-                          ),
-                        ),
-                        crossFadeState: _transcriptExpanded
-                            ? CrossFadeState.showSecond
-                            : CrossFadeState.showFirst,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () => setState(
-                        () => _transcriptExpanded = !_transcriptExpanded,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.blue,
-                          border: Border.all(
-                            color: AppTheme.fg(context),
-                            width: 2,
-                          ),
-                          boxShadow: AppTheme.brutalShadowSmall(context),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _transcriptExpanded
-                                  ? 'SHOW LESS'
-                                  : 'SHOW FULL TRANSCRIPT',
-                              style: GoogleFonts.spaceMono(
-                                color: AppTheme.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                              const SizedBox(width: 4),
+                              AnimatedRotation(
+                                duration: const Duration(milliseconds: 250),
+                                turns: _transcriptExpanded ? 0.5 : 0,
+                                child: const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  size: 18,
+                                  color: AppTheme.white,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            AnimatedRotation(
-                              duration: const Duration(milliseconds: 250),
-                              turns: _transcriptExpanded ? 0.5 : 0,
-                              child: const Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 18,
-                                color: AppTheme.white,
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ],
               ),
@@ -607,6 +636,64 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
     );
   }
 
+  Widget _buildLockedHistoryState(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Container(
+      width: double.infinity,
+      decoration: AppTheme.brutalCard(context, color: const Color(0xFFFFF2B6)),
+      child: Padding(
+        padding: EdgeInsets.all(layout.inset(18)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'FULL HISTORY IS PRO',
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.black,
+                fontSize: layout.font(18),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: layout.gap(10)),
+            Text(
+              'This saved reel is outside the Free history window. Upgrade to Pro to open older saves again.',
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.black,
+                fontSize: layout.font(12),
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+              ),
+            ),
+            SizedBox(height: layout.gap(14)),
+            GestureDetector(
+              onTap: () =>
+                  openPaywall(context, entryPoint: PaywallEntryPoint.history),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: layout.inset(12),
+                  vertical: layout.gap(10),
+                ),
+                decoration: AppTheme.brutalBox(
+                  context,
+                  color: AppTheme.hotPink,
+                  shadow: true,
+                ),
+                child: Text(
+                  'VIEW PRO',
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.white,
+                    fontSize: layout.font(11),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _confirmDelete(BuildContext context) {
     showDialog(
       context: context,
@@ -646,11 +733,11 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await context.read<ReelRepository>().deleteReel(reel.id);
+                await ref.read(reelRepositoryProvider).deleteReel(reel.id);
                 if (context.mounted) {
-                  _maybeRead<HomeViewModel>()?.removeReel(reel.id);
-                  _maybeRead<MapViewModel>()?.removeReel(reel.id);
-                  _maybeRead<SearchViewModel>()?.removeReel(reel.id);
+                  _maybeRead(homeViewModelProvider)?.removeReel(reel.id);
+                  _maybeRead(mapViewModelProvider)?.removeReel(reel.id);
+                  _maybeRead(searchViewModelProvider)?.removeReel(reel.id);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -704,9 +791,9 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
     );
   }
 
-  T? _maybeRead<T>() {
+  T? _maybeRead<T>(ProviderListenable<T> provider) {
     try {
-      return Provider.of<T>(context, listen: false);
+      return ref.read(provider);
     } catch (_) {
       return null;
     }
@@ -727,6 +814,50 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _refreshReel() async {
+    setState(() {
+      _isRefreshingReel = true;
+      _reelAccessError = null;
+      _reelLoadError = null;
+    });
+
+    try {
+      final latest = await ref
+          .read(reelRepositoryProvider)
+          .getReel(widget.reel.id, forceRefresh: true);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _activeReel = latest;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        if (error.isHistoryUpgradeRequired) {
+          _reelAccessError = error;
+        } else {
+          _reelLoadError = error.message;
+        }
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _reelLoadError = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingReel = false;
+        });
+      }
     }
   }
 }

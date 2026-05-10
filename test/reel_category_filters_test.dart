@@ -22,10 +22,10 @@ void main() {
     expect(response.totalCategories, 2);
     expect(response.categories.first.category, 'Movies');
 
-    ReelCategoryCatalog.replaceAll(response.categories);
+    final catalog = ReelCategoryCatalog(response.categories);
 
-    expect(ReelCategoryCatalog.categories, ['Movies', 'Travel']);
-    expect(ReelCategoryCatalog.parentCategoryFor('Trailers'), 'Movies');
-    expect(ReelCategoryCatalog.subcategoriesFor('Travel'), ['Food Guides']);
+    expect(catalog.categories, ['Movies', 'Travel']);
+    expect(catalog.parentCategoryFor('Trailers'), 'Movies');
+    expect(catalog.subcategoriesFor('Travel'), ['Food Guides']);
   });
 }

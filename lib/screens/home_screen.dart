@@ -1,129 +1,219 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../models/reel.dart';
 import '../models/reel_category_filters.dart';
+import '../models/user_entitlement.dart';
+import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../widgets/category_badge.dart';
 import '../widgets/reel_card.dart';
+import 'paywall_screen.dart';
 import 'reel_detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final layout = AppLayout.of(context);
+    final vm = ref.watch(homeViewModelProvider);
+    final categoryVm = ref.watch(categoryFiltersViewModelProvider);
+    final entitlements = ref.watch(entitlementsViewModelProvider).entitlement;
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
-        child: Consumer2<HomeViewModel, CategoryFiltersViewModel>(
-          builder: (context, vm, categoryVm, _) {
-            return RefreshIndicator(
-              onRefresh: () => Future.wait([
-                vm.loadReels(forceRefresh: true),
-                categoryVm.loadCategoryFilters(forceRefresh: true),
-              ]),
-              color: AppTheme.fg(context),
-              backgroundColor: AppTheme.yellow,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  // ── Header ──
+        child: RefreshIndicator(
+          onRefresh: () => Future.wait([
+            vm.loadReels(forceRefresh: true),
+            categoryVm.loadCategoryFilters(forceRefresh: true),
+          ]),
+          color: AppTheme.fg(context),
+          backgroundColor: AppTheme.yellow,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification.metrics.pixels >=
+                  notification.metrics.maxScrollExtent - 320) {
+                vm.loadMoreReels();
+              }
+              return false;
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // ── Header ──
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      layout.inset(20),
+                      layout.gap(20),
+                      layout.inset(20),
+                      0,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title row
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              'REELPIN',
+                              style: GoogleFonts.spaceMono(
+                                color: AppTheme.fg(context),
+                                fontSize: layout.font(
+                                  28,
+                                  minFactor: 0.9,
+                                  maxFactor: 1.08,
+                                ),
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            const Spacer(),
+                            _buildFilterButton(context, vm, categoryVm),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Category Filter Chips ──
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: layout.gap(56),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.fromLTRB(
+                        layout.inset(20),
+                        layout.gap(12),
+                        layout.inset(20),
+                        layout.gap(4),
+                      ),
+                      itemCount: categoryVm.categories.length + 1,
+                      separatorBuilder: (_, _) =>
+                          SizedBox(width: layout.inset(8)),
+                      itemBuilder: (_, i) {
+                        if (i == 0) {
+                          return CategoryBadge(
+                            category: 'All',
+                            isSelected: vm.selectedCategory == null,
+                            onTap: () => vm.filterByCategory(null),
+                          );
+                        }
+                        final cat = categoryVm.categories[i - 1];
+                        return CategoryBadge(
+                          category: cat,
+                          isSelected: vm.selectedCategory == cat,
+                          onTap: () => vm.filterByCategory(cat),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                if (_showFreeHistoryBanner(entitlements))
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
                         layout.inset(20),
-                        layout.gap(20),
-                        layout.inset(20),
                         0,
+                        layout.inset(20),
+                        layout.gap(10),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Title row
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text(
-                                'REELPIN',
-                                style: GoogleFonts.spaceMono(
-                                  color: AppTheme.fg(context),
-                                  fontSize: layout.font(
-                                    28,
-                                    minFactor: 0.9,
-                                    maxFactor: 1.08,
-                                  ),
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                              const Spacer(),
-                              _buildFilterButton(context, vm, categoryVm),
-                            ],
-                          ),
-                        ],
-                      ),
+                      child: _buildFreePlanBanner(context, entitlements!),
                     ),
                   ),
 
-                  // ── Category Filter Chips ──
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: layout.gap(56),
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.fromLTRB(
-                          layout.inset(20),
-                          layout.gap(12),
-                          layout.inset(20),
-                          layout.gap(4),
-                        ),
-                        itemCount: categoryVm.categories.length + 1,
-                        separatorBuilder: (_, _) =>
-                            SizedBox(width: layout.inset(8)),
-                        itemBuilder: (_, i) {
-                          if (i == 0) {
-                            return CategoryBadge(
-                              category: 'All',
-                              isSelected: vm.selectedCategory == null,
-                              onTap: () => vm.filterByCategory(null),
-                            );
-                          }
-                          final cat = categoryVm.categories[i - 1];
-                          return CategoryBadge(
-                            category: cat,
-                            isSelected: vm.selectedCategory == cat,
-                            onTap: () => vm.filterByCategory(cat),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  // ── Content ──
-                  if (vm.isLoading)
-                    _buildShimmerGrid(context)
-                  else if (vm.error != null)
-                    _buildErrorState(context, vm)
-                  else if (vm.isEmpty)
-                    _buildEmptyState(context)
-                  else
-                    _buildReelGrid(context, vm),
-
-                  // ── Bottom spacing ──
-                  SliverToBoxAdapter(child: SizedBox(height: layout.gap(96))),
+                // ── Content ──
+                if (vm.isLoading)
+                  _buildShimmerGrid(context)
+                else if (vm.error != null)
+                  _buildErrorState(context, vm)
+                else if (vm.isEmpty)
+                  _buildEmptyState(context)
+                else ...[
+                  _buildReelGrid(context, vm),
+                  _buildPaginationState(context, vm),
                 ],
+
+                // ── Bottom spacing ──
+                SliverToBoxAdapter(child: SizedBox(height: layout.gap(96))),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationState(BuildContext context, HomeViewModel vm) {
+    final layout = AppLayout.of(context);
+    if (vm.isLoadingMore) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            layout.inset(20),
+            layout.gap(16),
+            layout.inset(20),
+            0,
+          ),
+          child: Center(
+            child: SizedBox(
+              width: layout.inset(24),
+              height: layout.inset(24),
+              child: CircularProgressIndicator(
+                color: AppTheme.fg(context),
+                strokeWidth: 2.5,
               ),
-            );
-          },
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!vm.hasMoreReels) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          layout.inset(20),
+          layout.gap(16),
+          layout.inset(20),
+          0,
+        ),
+        child: GestureDetector(
+          onTap: vm.loadMoreReels,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              vertical: layout.gap(12),
+              horizontal: layout.inset(16),
+            ),
+            decoration: AppTheme.brutalBox(
+              context,
+              color: AppTheme.bg(context),
+              shadow: true,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              'LOAD MORE SAVED REELS',
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.fg(context),
+                fontSize: layout.font(11),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -145,6 +235,77 @@ class HomeScreen extends StatelessWidget {
           Icons.tune,
           color: AppTheme.fg(context),
           size: layout.inset(20),
+        ),
+      ),
+    );
+  }
+
+  bool _showFreeHistoryBanner(UserEntitlement? entitlements) {
+    return entitlements != null &&
+        entitlements.isFree &&
+        entitlements.limits.accessibleHistoryDays != null;
+  }
+
+  Widget _buildFreePlanBanner(
+    BuildContext context,
+    UserEntitlement entitlements,
+  ) {
+    final layout = AppLayout.of(context);
+    final savedThisMonth = entitlements.usage.reelsSavedThisMonth;
+    final monthlyLimit = entitlements.limits.reelsPerMonth ?? 30;
+    final historyDays = entitlements.limits.accessibleHistoryDays ?? 30;
+
+    return GestureDetector(
+      onTap: () => openPaywall(context),
+      child: Container(
+        decoration: AppTheme.brutalCard(
+          context,
+          color: const Color(0xFFFFF2B6),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(layout.inset(14)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: layout.inset(18),
+                height: layout.inset(18),
+                margin: EdgeInsets.only(top: layout.gap(2)),
+                color: AppTheme.yellow,
+                child: Icon(
+                  Icons.lock_outline,
+                  size: layout.inset(12),
+                  color: AppTheme.black,
+                ),
+              ),
+              SizedBox(width: layout.inset(10)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SHOWING LAST $historyDays DAYS ON FREE',
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.black,
+                        fontSize: layout.font(11),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: layout.gap(6)),
+                    Text(
+                      '$savedThisMonth / $monthlyLimit SAVES USED THIS MONTH. TAP TO SEE PRO.',
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.black,
+                        fontSize: layout.font(10),
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -193,10 +354,7 @@ class HomeScreen extends StatelessWidget {
                         context,
                         PageRouteBuilder(
                           pageBuilder: (_, _, _) =>
-                              ReelDetailScreen.withProviders(
-                                context,
-                                reel: reel,
-                              ),
+                              ReelDetailScreen(reel: reel),
                           transitionsBuilder: (_, anim, _, child) {
                             return SlideTransition(
                               position:

@@ -55,24 +55,18 @@ class ReelCategoryFiltersResponse {
 }
 
 class ReelCategoryCatalog {
-  ReelCategoryCatalog._();
+  const ReelCategoryCatalog(this.groups);
 
-  static List<ReelCategoryGroup> _groups = const [];
+  final List<ReelCategoryGroup> groups;
 
-  static List<ReelCategoryGroup> get groups => List.unmodifiable(_groups);
+  List<String> get categories =>
+      groups.map((group) => group.category).toList(growable: false);
 
-  static List<String> get categories =>
-      _groups.map((group) => group.category).toList(growable: false);
-
-  static void replaceAll(List<ReelCategoryGroup> groups) {
-    _groups = List<ReelCategoryGroup>.unmodifiable(groups);
-  }
-
-  static String? parentCategoryFor(String? value) {
+  String? parentCategoryFor(String? value) {
     final label = value?.trim();
     if (label == null || label.isEmpty) return null;
 
-    for (final group in _groups) {
+    for (final group in groups) {
       if (_matches(group.category, label)) {
         return group.category;
       }
@@ -86,11 +80,11 @@ class ReelCategoryCatalog {
     return null;
   }
 
-  static List<String> subcategoriesFor(String? category) {
+  List<String> subcategoriesFor(String? category) {
     final label = category?.trim();
     if (label == null || label.isEmpty) return const [];
 
-    for (final group in _groups) {
+    for (final group in groups) {
       if (_matches(group.category, label)) {
         return List<String>.unmodifiable(group.subcategories);
       }

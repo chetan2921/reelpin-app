@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/supabase_config.dart';
 
@@ -19,6 +20,9 @@ bool get _supportsNativeFirebaseMessaging =>
     !kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS);
+
+bool get _usesSystemForegroundPresentation =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
 class ReelReadyNotification {
   const ReelReadyNotification({
@@ -43,6 +47,8 @@ class NotificationService {
 
   static const updatesChannelId = 'reelpin_updates';
   static const updatesChannelName = 'Reel Updates';
+  static const _permissionStateStorageKey =
+      'notification_permission_state_v1';
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
@@ -53,11 +59,13 @@ class NotificationService {
   bool _initialized = false;
   bool _firebaseConfigured = false;
   ReelReadyNotification? _pendingInitialReelReady;
+  NotificationPermissionState? _lastKnownPermissionState;
 
   bool get isFirebaseConfigured => _firebaseConfigured;
   Stream<ReelReadyNotification> get onReelReady => _reelReadyController.stream;
 
   Future<void> initialize({bool requestPermissions = true}) async {
+    _lastKnownPermissionState ??= await getLastKnownPermissionState();
     if (!_supportsNativeFirebaseMessaging) return;
 
     _firebaseConfigured = Firebase.apps.isNotEmpty;
@@ -88,9 +96,9 @@ class NotificationService {
     }
 
     await messaging.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
+      alert: _usesSystemForegroundPresentation,
+      badge: _usesSystemForegroundPresentation,
+      sound: _usesSystemForegroundPresentation,
     );
 
     if (!kIsWeb) {
@@ -111,7 +119,8 @@ class NotificationService {
     FirebaseMessaging.onMessage.listen((message) {
       final reelReady = _parseReelReady(message);
       if (reelReady != null) {
-        if (_shouldPresentReelReady(reelReady)) {
+        if (_shouldPresentReelReady(reelReady) &&
+            _shouldShowLocalForegroundNotification(message)) {
           unawaited(
             showMessageNotification(
               title: reelReady.title,
@@ -125,7 +134,9 @@ class NotificationService {
       }
 
       final notification = message.notification;
-      if (notification == null) return;
+      if (notification == null || !_shouldShowLocalForegroundNotification(message)) {
+        return;
+      }
       unawaited(
         showMessageNotification(
           title: notification.title ?? 'ReelPin',
@@ -162,22 +173,59 @@ class NotificationService {
           ?.requestNotificationsPermission();
     }
 
-    return FirebaseMessaging.instance.requestPermission(
+    final settings = await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
       provisional: false,
     );
+    await _persistPermissionState(
+      _mapAuthorizationStatus(settings.authorizationStatus),
+    );
+    return settings;
+  }
+
+  Future<NotificationPermissionState?> getLastKnownPermissionState() async {
+    if (_lastKnownPermissionState != null) {
+      return _lastKnownPermissionState;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final rawValue = prefs.getString(_permissionStateStorageKey);
+    if (rawValue == null || rawValue.trim().isEmpty) {
+      return null;
+    }
+
+    switch (rawValue) {
+      case 'enabled':
+        _lastKnownPermissionState = NotificationPermissionState.enabled;
+        break;
+      case 'disabled':
+        _lastKnownPermissionState = NotificationPermissionState.disabled;
+        break;
+      case 'unavailable':
+        _lastKnownPermissionState = NotificationPermissionState.unavailable;
+        break;
+      default:
+        _lastKnownPermissionState = null;
+        break;
+    }
+
+    return _lastKnownPermissionState;
   }
 
   Future<NotificationPermissionState> getPermissionState() async {
     if (!_supportsNativeFirebaseMessaging) {
-      return NotificationPermissionState.unavailable;
+      const state = NotificationPermissionState.unavailable;
+      await _persistPermissionState(state);
+      return state;
     }
 
     _firebaseConfigured = Firebase.apps.isNotEmpty;
     if (!_firebaseConfigured) {
-      return NotificationPermissionState.unavailable;
+      const state = NotificationPermissionState.unavailable;
+      await _persistPermissionState(state);
+      return state;
     }
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
@@ -187,20 +235,18 @@ class NotificationService {
           >()
           ?.areNotificationsEnabled();
       if (enabled != null) {
-        return enabled
+        final state = enabled
             ? NotificationPermissionState.enabled
             : NotificationPermissionState.disabled;
+        await _persistPermissionState(state);
+        return state;
       }
     }
 
     final settings = await FirebaseMessaging.instance.getNotificationSettings();
-    final status = settings.authorizationStatus;
-    if (status == AuthorizationStatus.authorized ||
-        status == AuthorizationStatus.provisional) {
-      return NotificationPermissionState.enabled;
-    }
-
-    return NotificationPermissionState.disabled;
+    final state = _mapAuthorizationStatus(settings.authorizationStatus);
+    await _persistPermissionState(state);
+    return state;
   }
 
   Future<String?> getFcmToken() async {
@@ -291,6 +337,36 @@ class NotificationService {
 
     _recentReelReadyKeys[key] = now;
     return true;
+  }
+
+  bool _shouldShowLocalForegroundNotification(RemoteMessage message) {
+    if (_usesSystemForegroundPresentation && message.notification != null) {
+      return false;
+    }
+    return true;
+  }
+
+  NotificationPermissionState _mapAuthorizationStatus(
+    AuthorizationStatus status,
+  ) {
+    if (status == AuthorizationStatus.authorized ||
+        status == AuthorizationStatus.provisional) {
+      return NotificationPermissionState.enabled;
+    }
+
+    return NotificationPermissionState.disabled;
+  }
+
+  Future<void> _persistPermissionState(
+    NotificationPermissionState state,
+  ) async {
+    _lastKnownPermissionState = state;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_permissionStateStorageKey, switch (state) {
+      NotificationPermissionState.enabled => 'enabled',
+      NotificationPermissionState.disabled => 'disabled',
+      NotificationPermissionState.unavailable => 'unavailable',
+    });
   }
 
   int _notificationIdFor(ReelReadyNotification notification) {

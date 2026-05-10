@@ -7,10 +7,13 @@ import '../repositories/reel_repository.dart';
 class MapViewModel extends ChangeNotifier {
   final ReelRepository _repository;
 
-  MapViewModel(this._repository);
+  MapViewModel(this._repository) {
+    _repository.addListener(_syncFromRepository);
+  }
 
   List<Reel> _reelsWithLocations = [];
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   String? _error;
   String? _selectedCategory;
   Reel? _selectedReel;
@@ -25,6 +28,8 @@ class MapViewModel extends ChangeNotifier {
   }
 
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMoreReels => _repository.hasMoreReels;
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
   Reel? get selectedReel => _selectedReel;
@@ -34,20 +39,59 @@ class MapViewModel extends ChangeNotifier {
     (sum, reel) => sum + reel.mappableLocations.length,
   );
 
+  void _syncFromRepository() {
+    _reelsWithLocations = _repository.cachedReels
+        .where((reel) => reel.hasMapLocations)
+        .toList(growable: false);
+
+    if (_selectedReel != null &&
+        _reelsWithLocations.every((reel) => reel.id != _selectedReel!.id)) {
+      _selectedReel = null;
+      _selectedLocation = null;
+    }
+
+    notifyListeners();
+  }
+
   /// Load reels that have map-pinnable locations.
   Future<void> loadMapReels({bool forceRefresh = false}) async {
+    if (_isLoading) return;
+
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      _reelsWithLocations = await _repository.getReelsWithLocations(
-        forceRefresh: forceRefresh,
-      );
+      await _repository.loadInitialReels(forceRefresh: forceRefresh);
+      _reelsWithLocations = _repository.cachedReels
+          .where((reel) => reel.hasMapLocations)
+          .toList(growable: false);
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMoreReels() async {
+    if (_isLoading || _isLoadingMore || !hasMoreReels) {
+      return;
+    }
+
+    _isLoadingMore = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _repository.loadMoreReels();
+      _reelsWithLocations = _repository.cachedReels
+          .where((reel) => reel.hasMapLocations)
+          .toList(growable: false);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -62,6 +106,17 @@ class MapViewModel extends ChangeNotifier {
   void selectReel(Reel? reel, {Location? location}) {
     _selectedReel = reel;
     _selectedLocation = location;
+    notifyListeners();
+  }
+
+  void reset() {
+    _reelsWithLocations = const [];
+    _isLoading = false;
+    _isLoadingMore = false;
+    _error = null;
+    _selectedCategory = null;
+    _selectedReel = null;
+    _selectedLocation = null;
     notifyListeners();
   }
 
@@ -91,4 +146,10 @@ class MapViewModel extends ChangeNotifier {
       _normalize(reel.category) == _normalize(_selectedCategory!);
 
   String _normalize(String value) => value.trim().toLowerCase();
+
+  @override
+  void dispose() {
+    _repository.removeListener(_syncFromRepository);
+    super.dispose();
+  }
 }

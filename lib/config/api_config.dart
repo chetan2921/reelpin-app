@@ -4,7 +4,7 @@ class ApiConfig {
   ApiConfig._();
 
   static const String _productionBaseUrl =
-      'https://reelpin-api-production.up.railway.app/api/v1';
+      'https://api-64-227-168-119.nip.io/api/v1';
   static const String _defaultLanBaseUrl = 'http://192.168.1.4:8000/api/v1';
   static const String _legacyLanBaseUrl = 'http://192.168.1.2:8000/api/v1';
   static const String _olderLanBaseUrl = 'http://192.168.1.3:8000/api/v1';

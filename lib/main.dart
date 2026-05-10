@@ -4,32 +4,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
+import 'providers/app_providers.dart';
 import 'repositories/reel_repository.dart';
 import 'screens/app_shell.dart';
 import 'screens/auth_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/setup_required_screen.dart';
 import 'screens/splash_screen.dart';
+import 'services/app_update_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
-import 'services/profile_service.dart';
 import 'services/reel_store.dart';
+import 'services/share_handoff_service.dart';
 import 'theme/app_theme.dart';
+import 'viewmodels/category_filters_viewmodel.dart';
+import 'viewmodels/entitlements_viewmodel.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/map_viewmodel.dart';
-import 'viewmodels/category_filters_viewmodel.dart';
 import 'viewmodels/search_viewmodel.dart';
-import 'viewmodels/session_viewmodel.dart';
-import 'viewmodels/theme_viewmodel.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ReelStore.configureDatabaseFactory();
   GoogleFonts.config.allowRuntimeFetching = false;
   await SupabaseConfig.loadLocalConfig();
   if (!kIsWeb &&
@@ -54,65 +57,56 @@ Future<void> main() async {
     );
   }
 
-  runApp(ReelPinApp(isSupabaseConfigured: isSupabaseConfigured));
+  runApp(
+    ProviderScope(
+      child: ReelPinApp(isSupabaseConfigured: isSupabaseConfigured),
+    ),
+  );
 }
 
-class ReelPinApp extends StatelessWidget {
+class ReelPinApp extends ConsumerWidget {
   const ReelPinApp({super.key, required this.isSupabaseConfigured});
 
   final bool isSupabaseConfigured;
 
   @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (_) => ThemeViewModel()..loadPreference(),
-        ),
-        if (isSupabaseConfigured) Provider(create: (_) => ProfileService()),
-        if (isSupabaseConfigured)
-          Provider(
-            create: (context) => AuthService(context.read<ProfileService>()),
-          ),
-        if (isSupabaseConfigured)
-          ChangeNotifierProvider(
-            create: (context) => SessionViewModel(context.read<AuthService>()),
-          ),
-      ],
-      child: Consumer<ThemeViewModel>(
-        builder: (context, themeVm, _) {
-          return MaterialApp(
-            title: 'ReelPin',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.brutalTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: themeVm.themeMode,
-            home: isSupabaseConfigured
-                ? const AppEntry()
-                : const SetupRequiredScreen(),
-          );
-        },
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeVm = ref.watch(themeViewModelProvider);
+
+    return MaterialApp(
+      title: 'ReelPin',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.brutalTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeVm.themeMode,
+      home: isSupabaseConfigured
+          ? const AppEntry()
+          : const SetupRequiredScreen(),
     );
   }
 }
 
-class AppEntry extends StatefulWidget {
+class AppEntry extends ConsumerStatefulWidget {
   const AppEntry({super.key});
 
   @override
-  State<AppEntry> createState() => _AppEntryState();
+  ConsumerState<AppEntry> createState() => _AppEntryState();
 }
 
-class _AppEntryState extends State<AppEntry> {
+class _AppEntryState extends ConsumerState<AppEntry> {
   static const _minimumSplashDuration = Duration(milliseconds: 1600);
+  static const _onboardingCompletedKey = 'app_entry_onboarding_completed_v1';
+
   bool _hasCompletedSplash = false;
   bool _hasCompletedOnboarding = false;
+  bool _isLoadingOnboardingState = true;
 
   @override
   void initState() {
     super.initState();
+    unawaited(AppUpdateService.checkForImmediateUpdate());
     _holdSplash();
+    _loadOnboardingState();
   }
 
   Future<void> _holdSplash() async {
@@ -123,89 +117,93 @@ class _AppEntryState extends State<AppEntry> {
     });
   }
 
+  Future<void> _loadOnboardingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _hasCompletedOnboarding = prefs.getBool(_onboardingCompletedKey) ?? false;
+      _isLoadingOnboardingState = false;
+    });
+  }
+
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingCompletedKey, true);
+    if (!mounted) return;
+    setState(() {
+      _hasCompletedOnboarding = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<SessionViewModel>(
-      builder: (context, sessionVm, _) {
-        if (!_hasCompletedSplash || sessionVm.isBootstrapping) {
-          return const SplashScreen();
-        }
+    final sessionVm = ref.watch(sessionViewModelProvider);
 
-        if (!sessionVm.isAuthenticated) {
-          if (!_hasCompletedOnboarding) {
-            return OnboardingScreen(
-              onContinue: () {
-                setState(() {
-                  _hasCompletedOnboarding = true;
-                });
-              },
-            );
-          }
-          return const AuthScreen();
-        }
+    if (!_hasCompletedSplash ||
+        sessionVm.isBootstrapping ||
+        _isLoadingOnboardingState) {
+      return const SplashScreen();
+    }
 
-        return const AuthenticatedShell();
-      },
-    );
+    if (!sessionVm.isAuthenticated) {
+      if (!_hasCompletedOnboarding) {
+        return OnboardingScreen(
+          onContinue: () {
+            unawaited(_completeOnboarding());
+          },
+        );
+      }
+      return const AuthScreen();
+    }
+
+    return const AuthenticatedShell();
   }
 }
 
-class AuthenticatedShell extends StatefulWidget {
+class AuthenticatedShell extends ConsumerStatefulWidget {
   const AuthenticatedShell({super.key});
 
   @override
-  State<AuthenticatedShell> createState() => _AuthenticatedShellState();
+  ConsumerState<AuthenticatedShell> createState() => _AuthenticatedShellState();
 }
 
-class _AuthenticatedShellState extends State<AuthenticatedShell> {
+class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
+  static const _pushRegistrationInterval = Duration(hours: 12);
+
   late final AuthService _authService;
   late final ApiService _apiService;
-  late final ReelStore _reelStore;
   late final ReelRepository _repository;
   late final NotificationService _notificationService;
   late final HomeViewModel _homeViewModel;
   late final MapViewModel _mapViewModel;
   late final CategoryFiltersViewModel _categoryFiltersViewModel;
   late final SearchViewModel _searchViewModel;
+  late final EntitlementsViewModel _entitlementsViewModel;
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<ReelReadyNotification>? _reelReadySubscription;
-  Timer? _pushSyncRetryTimer;
+  String? _lastRegisteredPushUserId;
+  String? _lastRegisteredPushToken;
+  DateTime? _lastRegisteredPushAt;
 
   @override
   void initState() {
     super.initState();
-    _authService = context.read<AuthService>();
-    _apiService = ApiService();
-    _reelStore = ReelStore();
-    _repository = ReelRepository(_apiService, _reelStore, _authService);
-    _notificationService = NotificationService.instance;
-    _homeViewModel = HomeViewModel(_repository);
-    _mapViewModel = MapViewModel(_repository);
-    _categoryFiltersViewModel = CategoryFiltersViewModel(_repository);
-    _searchViewModel = SearchViewModel(_repository);
+    _authService = ref.read(authServiceProvider);
+    _apiService = ref.read(apiServiceProvider);
+    _repository = ref.read(reelRepositoryProvider);
+    _notificationService = ref.read(notificationServiceProvider);
+    _homeViewModel = ref.read(homeViewModelProvider);
+    _mapViewModel = ref.read(mapViewModelProvider);
+    _categoryFiltersViewModel = ref.read(categoryFiltersViewModelProvider);
+    _searchViewModel = ref.read(searchViewModelProvider);
+    _entitlementsViewModel = ref.read(entitlementsViewModelProvider);
     _initializeBackgroundMessaging();
-    _homeViewModel.loadReels();
-    _mapViewModel.loadMapReels();
-    _categoryFiltersViewModel.loadCategoryFilters();
+    unawaited(_entitlementsViewModel.refresh(reloadContent: true));
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        Provider<ApiService>.value(value: _apiService),
-        Provider<ReelStore>.value(value: _reelStore),
-        Provider<ReelRepository>.value(value: _repository),
-        Provider<NotificationService>.value(value: _notificationService),
-        ChangeNotifierProvider<HomeViewModel>.value(value: _homeViewModel),
-        ChangeNotifierProvider<MapViewModel>.value(value: _mapViewModel),
-        ChangeNotifierProvider<CategoryFiltersViewModel>.value(
-          value: _categoryFiltersViewModel,
-        ),
-        ChangeNotifierProvider<SearchViewModel>.value(value: _searchViewModel),
-      ],
-      child: const AppShell(),
-    );
+    return const AppShell();
   }
 
   Future<void> _initializeBackgroundMessaging() async {
@@ -220,26 +218,15 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     if (userId == null || userId.trim().isEmpty) return;
 
     await _syncPushTokenRegistration();
-    _pushSyncRetryTimer?.cancel();
-    _pushSyncRetryTimer = Timer(
-      const Duration(seconds: 5),
-      () => unawaited(_syncPushTokenRegistration()),
-    );
 
     if (_notificationService.isFirebaseConfigured) {
       _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((
         token,
       ) {
         unawaited(
-          _apiService
-              .registerPushToken(
-                userId: userId,
-                token: token,
-                platform: _notificationService.currentPlatform,
-              )
-              .catchError((error) {
-                debugPrint('Push token refresh sync failed: $error');
-              }),
+          _syncPushTokenRegistration(candidateToken: token).catchError((error) {
+            debugPrint('Push token refresh sync failed: $error');
+          }),
         );
       });
     }
@@ -255,19 +242,41 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
     }
   }
 
-  Future<void> _syncPushTokenRegistration() async {
+  Future<void> _syncPushTokenRegistration({String? candidateToken}) async {
     final userId = _authService.currentUser?.id;
     if (userId == null || userId.trim().isEmpty) return;
 
     try {
-      final token = await _notificationService.getFcmToken();
+      final token = candidateToken?.trim().isNotEmpty == true
+          ? candidateToken!.trim()
+          : await _notificationService.getFcmToken();
       if (token == null || token.trim().isEmpty) return;
+
+      final normalizedToken = token.trim();
+      final recentlyRegistered =
+          _lastRegisteredPushAt != null &&
+          DateTime.now().difference(_lastRegisteredPushAt!) <
+              _pushRegistrationInterval;
+      final isDuplicateRegistration =
+          _lastRegisteredPushUserId == userId &&
+          _lastRegisteredPushToken == normalizedToken &&
+          recentlyRegistered;
+      if (isDuplicateRegistration) {
+        return;
+      }
 
       await _apiService.registerPushToken(
         userId: userId,
-        token: token,
+        token: normalizedToken,
         platform: _notificationService.currentPlatform,
       );
+      await ShareHandoffService.instance.syncPushToken(
+        token: normalizedToken,
+        platform: _notificationService.currentPlatform,
+      );
+      _lastRegisteredPushUserId = userId;
+      _lastRegisteredPushToken = normalizedToken;
+      _lastRegisteredPushAt = DateTime.now();
     } catch (e) {
       debugPrint('Push token registration skipped: $e');
     }
@@ -275,11 +284,7 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
 
   Future<void> _refreshSavedReels() async {
     try {
-      await Future.wait([
-        _homeViewModel.loadReels(forceRefresh: true),
-        _mapViewModel.loadMapReels(forceRefresh: true),
-        _categoryFiltersViewModel.loadCategoryFilters(forceRefresh: true),
-      ]);
+      await _entitlementsViewModel.refresh(reloadContent: true);
     } catch (e) {
       debugPrint('Saved reel refresh skipped: $e');
     }
@@ -287,9 +292,17 @@ class _AuthenticatedShellState extends State<AuthenticatedShell> {
 
   @override
   void dispose() {
+    _searchViewModel.clear();
+    _categoryFiltersViewModel.reset();
+    _mapViewModel.reset();
+    _homeViewModel.reset();
+    _repository.clearCache();
+    _entitlementsViewModel.reset();
     _tokenRefreshSubscription?.cancel();
     _reelReadySubscription?.cancel();
-    _pushSyncRetryTimer?.cancel();
+    _lastRegisteredPushUserId = null;
+    _lastRegisteredPushToken = null;
+    _lastRegisteredPushAt = null;
     super.dispose();
   }
 }

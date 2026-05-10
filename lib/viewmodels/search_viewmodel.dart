@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/search_result.dart';
+import '../models/user_entitlement.dart';
 import '../repositories/reel_repository.dart';
 
 /// ViewModel for the RAG Search screen.
 class SearchViewModel extends ChangeNotifier {
+  static const minimumQueryLength = 3;
+
   final ReelRepository _repository;
 
   SearchViewModel(this._repository);
@@ -16,6 +19,7 @@ class SearchViewModel extends ChangeNotifier {
   String? _selectedSubcategory;
   String _lastQuery = '';
   int _searchRequestId = 0;
+  SearchMode? _backendSearchMode;
 
   List<SearchResult> get results => List.unmodifiable(_results);
   bool get isSearching => _isSearching;
@@ -24,6 +28,9 @@ class SearchViewModel extends ChangeNotifier {
   String? get selectedSubcategory => _selectedSubcategory;
   String get lastQuery => _lastQuery;
   bool get hasResults => _results.isNotEmpty;
+  SearchMode? get backendSearchMode => _backendSearchMode;
+  bool get isQueryTooShort =>
+      _lastQuery.isNotEmpty && _lastQuery.length < minimumQueryLength;
 
   /// Execute a RAG search query.
   Future<void> search(String query) async {
@@ -33,8 +40,18 @@ class SearchViewModel extends ChangeNotifier {
       return;
     }
 
-    final requestId = ++_searchRequestId;
     _lastQuery = normalizedQuery;
+    if (normalizedQuery.length < minimumQueryLength) {
+      _repository.cancelActiveSearch();
+      _searchRequestId += 1;
+      _results = [];
+      _error = null;
+      _isSearching = false;
+      notifyListeners();
+      return;
+    }
+
+    final requestId = ++_searchRequestId;
     _isSearching = true;
     _error = null;
     notifyListeners();
@@ -48,7 +65,10 @@ class SearchViewModel extends ChangeNotifier {
       if (requestId != _searchRequestId) return;
 
       _results = fetched;
+      _backendSearchMode = _repository.lastSearchMode;
       _error = null;
+    } on SearchCancelledException {
+      return;
     } catch (e) {
       if (requestId != _searchRequestId) return;
       _error = e.toString();
@@ -82,9 +102,11 @@ class SearchViewModel extends ChangeNotifier {
 
   /// Clear search results.
   void clear() {
+    _repository.cancelActiveSearch();
     _searchRequestId += 1;
     _results.clear();
     _lastQuery = '';
+    _backendSearchMode = null;
     _error = null;
     _isSearching = false;
     notifyListeners();

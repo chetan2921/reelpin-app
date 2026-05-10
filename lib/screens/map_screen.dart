@@ -2,29 +2,30 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/reel.dart';
+import '../models/user_entitlement.dart';
+import '../providers/app_providers.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
-import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
-import '../viewmodels/theme_viewmodel.dart';
 import '../widgets/category_badge.dart';
 import 'reel_detail_screen.dart';
 
-class MapScreen extends StatefulWidget {
+class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen> {
   static const _defaultLatLng = LatLng(20.0, 0.0);
+  static const _markerCacheLimit = 96;
   static const String _darkMapStyle = '''
 [
   {"elementType":"geometry","stylers":[{"color":"#1a2024"}]},
@@ -51,6 +52,8 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _userLatLng;
   bool _hasCenteredOnCountry = false;
   bool _isSyncingMarkers = false;
+  bool _shouldResyncMarkers = false;
+  MapViewModel? _trackedMapViewModel;
 
   int _lastMarkersCount = -1;
   String? _lastCategoryFilter;
@@ -61,9 +64,22 @@ class _MapScreenState extends State<MapScreen> {
     _initUserLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<MapViewModel>().loadMapReels(forceRefresh: true);
+        ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true);
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final mapVm = ref.read(mapViewModelProvider);
+    if (!identical(_trackedMapViewModel, mapVm)) {
+      _trackedMapViewModel?.removeListener(_handleMapViewModelChanged);
+      _trackedMapViewModel = mapVm;
+      _trackedMapViewModel?.addListener(_handleMapViewModelChanged);
+      _scheduleVisibleMarkerSync();
+    }
   }
 
   Future<void> _initUserLocation() async {
@@ -101,26 +117,52 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _syncCategoryMarkers(CategoryFiltersViewModel categoryVm) async {
+  void _handleMapViewModelChanged() {
+    _scheduleVisibleMarkerSync();
+  }
+
+  void _scheduleVisibleMarkerSync() {
+    final mapVm = _trackedMapViewModel;
+    if (mapVm == null) return;
+    if (_isSyncingMarkers) {
+      _shouldResyncMarkers = true;
+      return;
+    }
+
+    unawaited(_syncVisibleMarkers(mapVm));
+  }
+
+  Future<void> _syncVisibleMarkers(MapViewModel mapVm) async {
     if (_isSyncingMarkers) return;
 
     _isSyncingMarkers = true;
-    final labels = <String>[
-      ...categoryVm.categories,
-      for (final category in categoryVm.groups) ...category.subcategories,
-    ];
+    final requiredColors = <String, String>{};
+    for (final reel in mapVm.reelsWithLocations) {
+      requiredColors[reel.category] = reel.category;
+      if (reel.subCategory.trim().isNotEmpty) {
+        requiredColors[reel.subCategory] = reel.category;
+      }
+    }
+    if (requiredColors.length > _markerCacheLimit) {
+      final limitedEntries = requiredColors.entries
+          .take(_markerCacheLimit)
+          .toList(growable: false);
+      requiredColors
+        ..clear()
+        ..addEntries(limitedEntries);
+    }
+
+    _categoryMarkers.removeWhere(
+      (label, _) => !requiredColors.containsKey(label),
+    );
 
     var didAddMarker = false;
     try {
-      for (final label in labels) {
+      for (final entry in requiredColors.entries) {
+        final label = entry.key;
         if (_categoryMarkers.containsKey(label)) continue;
 
-        final colorSource = categoryVm.categories.contains(label)
-            ? label
-            : categoryVm.groups
-                  .firstWhere((group) => group.subcategories.contains(label))
-                  .category;
-        _categoryMarkers[label] = await _createCustomPin(colorSource);
+        _categoryMarkers[label] = await _createCustomPin(entry.value);
         didAddMarker = true;
       }
     } finally {
@@ -129,6 +171,11 @@ class _MapScreenState extends State<MapScreen> {
 
     if (didAddMarker && mounted) {
       setState(() {});
+    }
+
+    if (_shouldResyncMarkers) {
+      _shouldResyncMarkers = false;
+      _scheduleVisibleMarkerSync();
     }
   }
 
@@ -238,19 +285,25 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
+    final vm = ref.watch(mapViewModelProvider);
+    final themeVm = ref.watch(themeViewModelProvider);
+    final categoryVm = ref.watch(categoryFiltersViewModelProvider);
+    final entitlements = ref.watch(entitlementsViewModelProvider).entitlement;
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
       body: SafeArea(
         bottom: false,
-        child: Consumer3<MapViewModel, ThemeViewModel, CategoryFiltersViewModel>(
-          builder: (context, vm, themeVm, categoryVm, _) {
-            if (categoryVm.hasGroups) {
-              unawaited(_syncCategoryMarkers(categoryVm));
-            }
-
-            final markers = _buildMarkers(vm);
+        child: Builder(
+          builder: (context) {
+            final markers = _buildMarkers(vm, entitlements);
             final totalPins = vm.totalPinnedLocations;
+            final visiblePins = markers.length;
+            final mapPinLimit = entitlements?.limits.mapPins;
+            final isPinLimited =
+                entitlements?.isFree == true &&
+                mapPinLimit != null &&
+                totalPins > mapPinLimit;
 
             if ((markers.length != _lastMarkersCount ||
                     vm.selectedCategory != _lastCategoryFilter) &&
@@ -325,7 +378,9 @@ class _MapScreenState extends State<MapScreen> {
                             SizedBox(width: layout.inset(8)),
                             Expanded(
                               child: Text(
-                                '$totalPins PLACES PINNED',
+                                isPinLimited
+                                    ? '$visiblePins OF $totalPins PINS SHOWN ON FREE'
+                                    : '$visiblePins PLACES PINNED',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.spaceMono(
@@ -338,6 +393,29 @@ class _MapScreenState extends State<MapScreen> {
                           ],
                         ),
                       ),
+                      if (isPinLimited) ...[
+                        SizedBox(height: layout.gap(8)),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: layout.inset(12),
+                            vertical: layout.gap(10),
+                          ),
+                          decoration: AppTheme.brutalBox(
+                            context,
+                            color: const Color(0xFFFFF2B6),
+                            shadow: true,
+                          ),
+                          child: Text(
+                            'FREE SHOWS THE FIRST $mapPinLimit MAP PINS. PRO REMOVES THE CAP.',
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.black,
+                              fontSize: layout.font(10),
+                              fontWeight: FontWeight.w700,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
                       SizedBox(height: layout.gap(8)),
 
                       // Category chips
@@ -360,6 +438,43 @@ class _MapScreenState extends State<MapScreen> {
                           },
                         ),
                       ),
+                      if (vm.isLoadingMore || vm.hasMoreReels) ...[
+                        SizedBox(height: layout.gap(8)),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: vm.isLoadingMore ? null : vm.loadMoreReels,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: layout.inset(12),
+                                vertical: layout.gap(8),
+                              ),
+                              decoration: AppTheme.brutalBox(
+                                context,
+                                color: AppTheme.bg(context),
+                                shadow: true,
+                              ),
+                              child: vm.isLoadingMore
+                                  ? SizedBox(
+                                      width: layout.inset(14),
+                                      height: layout.inset(14),
+                                      child: CircularProgressIndicator(
+                                        color: AppTheme.fg(context),
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      'LOAD MORE PINS',
+                                      style: GoogleFonts.spaceMono(
+                                        color: AppTheme.fg(context),
+                                        fontSize: layout.font(10),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -463,9 +578,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
 
                 // ── Empty ──
-                if (!vm.isLoading &&
-                    vm.error == null &&
-                    vm.reelsWithLocations.isEmpty)
+                if (!vm.isLoading && vm.error == null && markers.isEmpty)
                   Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -579,11 +692,19 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Set<Marker> _buildMarkers(MapViewModel vm) {
+  Set<Marker> _buildMarkers(MapViewModel vm, UserEntitlement? entitlements) {
     final markers = <Marker>{};
+    final maxPins = entitlements?.isFree == true
+        ? entitlements?.limits.mapPins
+        : null;
+    var pinsAdded = 0;
+
     for (final reel in vm.reelsWithLocations) {
       final locations = reel.mappableLocations;
       for (var index = 0; index < locations.length; index++) {
+        if (maxPins != null && pinsAdded >= maxPins) {
+          return markers;
+        }
         final loc = locations[index];
         markers.add(
           Marker(
@@ -599,6 +720,7 @@ class _MapScreenState extends State<MapScreen> {
             onTap: () => vm.selectReel(reel, location: loc),
           ),
         );
+        pinsAdded += 1;
       }
     }
     return markers;
@@ -660,7 +782,7 @@ class _MapScreenState extends State<MapScreen> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () => context.read<MapViewModel>().selectReel(null),
+                onTap: () => ref.read(mapViewModelProvider).selectReel(null),
                 child: Container(
                   width: 28,
                   height: 28,
@@ -753,8 +875,7 @@ class _MapScreenState extends State<MapScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            ReelDetailScreen.withProviders(context, reel: reel),
+                        builder: (_) => ReelDetailScreen(reel: reel),
                       ),
                     );
                   },
@@ -832,5 +953,11 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _trackedMapViewModel?.removeListener(_handleMapViewModelChanged);
+    super.dispose();
   }
 }

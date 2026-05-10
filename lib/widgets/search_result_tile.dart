@@ -22,7 +22,7 @@ class SearchResultTile extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ReelDetailScreen.withProviders(context, reel: reel),
+            builder: (_) => ReelDetailScreen(reel: reel),
           ),
         );
       },

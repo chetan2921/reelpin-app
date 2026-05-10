@@ -3,8 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/reel_category_filters.dart';
-
 class AppTheme {
   AppTheme._();
 
@@ -143,10 +141,8 @@ class AppTheme {
     Color(0xFF00E5FF),
   ];
 
-  static Color getCategoryColor(String categoryOrSub) {
-    final parentCategory =
-        ReelCategoryCatalog.parentCategoryFor(categoryOrSub) ?? categoryOrSub;
-    final normalized = parentCategory.trim().toLowerCase();
+  static Color getCategoryColor(String category) {
+    final normalized = category.trim().toLowerCase();
     final index = _stablePaletteIndex(normalized);
     return _categoryPalette[index];
   }

@@ -339,7 +339,6 @@ class _OnboardingCard extends StatelessWidget {
         final railBottom = layout.gap(compactHeight ? 94 : 106);
         final cardPadding = layout.inset(compactWidth ? 14 : 18);
         final iconBoxSize = layout.inset(compactWidth ? 42 : 48);
-        final pinSize = layout.inset(compactWidth ? 24 : 28);
         final iconFrameSize = iconBoxSize + layout.inset(8);
 
         return Stack(

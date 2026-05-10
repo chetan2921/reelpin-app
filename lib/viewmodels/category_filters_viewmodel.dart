@@ -4,26 +4,34 @@ import '../models/reel_category_filters.dart';
 import '../repositories/reel_repository.dart';
 
 class CategoryFiltersViewModel extends ChangeNotifier {
-  CategoryFiltersViewModel(this._repository) {
-    ReelCategoryCatalog.replaceAll(const []);
-  }
+  CategoryFiltersViewModel(this._repository);
 
   final ReelRepository _repository;
 
   List<ReelCategoryGroup> _groups = const [];
+  ReelCategoryCatalog _catalog = const ReelCategoryCatalog([]);
   bool _isLoading = false;
   String? _error;
   DateTime? _lastFetchedAt;
 
   List<ReelCategoryGroup> get groups => List.unmodifiable(_groups);
-  List<String> get categories =>
-      _groups.map((group) => group.category).toList(growable: false);
+  List<String> get categories => _catalog.categories;
+  ReelCategoryCatalog get catalog => _catalog;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get hasGroups => _groups.isNotEmpty;
 
   List<String> subcategoriesFor(String? category) {
-    return ReelCategoryCatalog.subcategoriesFor(category);
+    return _catalog.subcategoriesFor(category);
+  }
+
+  void reset() {
+    _groups = const [];
+    _catalog = const ReelCategoryCatalog([]);
+    _isLoading = false;
+    _error = null;
+    _lastFetchedAt = null;
+    notifyListeners();
   }
 
   Future<void> loadCategoryFilters({bool forceRefresh = false}) async {
@@ -44,12 +52,12 @@ class CategoryFiltersViewModel extends ChangeNotifier {
     try {
       final response = await _repository.getCategoryFilters();
       _groups = response.categories;
-      ReelCategoryCatalog.replaceAll(_groups);
+      _catalog = ReelCategoryCatalog(_groups);
       _lastFetchedAt = now;
     } catch (e) {
       _error = e.toString();
       if (_groups.isEmpty) {
-        ReelCategoryCatalog.replaceAll(const []);
+        _catalog = const ReelCategoryCatalog([]);
       }
     } finally {
       _isLoading = false;

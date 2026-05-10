@@ -8,10 +8,13 @@ import '../repositories/reel_repository.dart';
 class HomeViewModel extends ChangeNotifier {
   final ReelRepository _repository;
 
-  HomeViewModel(this._repository);
+  HomeViewModel(this._repository) {
+    _repository.addListener(_syncFromRepository);
+  }
 
   List<Reel> _reels = [];
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   String? _error;
   String? _selectedCategory;
   String? _selectedSubcategory;
@@ -25,6 +28,8 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMoreReels => _repository.hasMoreReels;
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
   String? get selectedSubcategory => _selectedSubcategory;
@@ -66,21 +71,46 @@ class HomeViewModel extends ChangeNotifier {
     _reels = reels;
   }
 
+  void _syncFromRepository() {
+    _sortAndStore(List<Reel>.from(_repository.cachedReels));
+    notifyListeners();
+  }
+
   /// Load all reels from the backend.
   Future<void> loadReels({bool forceRefresh = false}) async {
+    if (_isLoading) return;
+
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final fetchedReels = List<Reel>.from(
-        await _repository.getReels(forceRefresh: forceRefresh),
-      );
-      _sortAndStore(fetchedReels);
+      await _repository.loadInitialReels(forceRefresh: forceRefresh);
+      _sortAndStore(List<Reel>.from(_repository.cachedReels));
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMoreReels() async {
+    if (_isLoading || _isLoadingMore || !hasMoreReels) {
+      return;
+    }
+
+    _isLoadingMore = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _repository.loadMoreReels();
+      _sortAndStore(List<Reel>.from(_repository.cachedReels));
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -101,6 +131,16 @@ class HomeViewModel extends ChangeNotifier {
   void clearFilters() {
     _selectedCategory = null;
     _selectedSubcategory = null;
+    notifyListeners();
+  }
+
+  void reset() {
+    _selectedCategory = null;
+    _selectedSubcategory = null;
+    _error = null;
+    _isLoading = false;
+    _isLoadingMore = false;
+    _sortAndStore(List<Reel>.from(_repository.cachedReels));
     notifyListeners();
   }
 
@@ -162,5 +202,11 @@ class HomeViewModel extends ChangeNotifier {
     final next = [reel, ..._reels.where((existing) => existing.id != reel.id)];
     _sortAndStore(next);
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _repository.removeListener(_syncFromRepository);
+    super.dispose();
   }
 }
