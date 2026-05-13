@@ -63,6 +63,9 @@ class MapViewModel extends ChangeNotifier {
 
     try {
       await _repository.loadInitialReels(forceRefresh: forceRefresh);
+      while (_repository.hasMoreReels) {
+        await _repository.loadMoreReels();
+      }
       _reelsWithLocations = _repository.cachedReels
           .where((reel) => reel.hasMapLocations)
           .toList(growable: false);

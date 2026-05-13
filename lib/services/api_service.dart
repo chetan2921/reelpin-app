@@ -432,6 +432,10 @@ class ApiService {
     });
 
     if (res.statusCode != 200) {
+      if (res.statusCode == 404) {
+        return UserEntitlement.unrestricted(userId: userId);
+      }
+
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not load account entitlements right now.',

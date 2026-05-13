@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/user_entitlement.dart';
 import '../providers/app_providers.dart';
 import '../services/notification_service.dart';
 import '../services/share_handoff_service.dart';
 import '../theme/app_theme.dart';
-import 'paywall_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -18,8 +16,6 @@ class ProfileScreen extends ConsumerWidget {
     final sessionVm = ref.watch(sessionViewModelProvider);
     final themeVm = ref.watch(themeViewModelProvider);
     final homeVm = ref.watch(homeViewModelProvider);
-    final entitlementVm = ref.watch(entitlementsViewModelProvider);
-    final entitlements = entitlementVm.entitlement;
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -164,97 +160,6 @@ class ProfileScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                SizedBox(height: layout.gap(18)),
-                _sectionTitle(context, 'PLAN'),
-                SizedBox(height: layout.gap(10)),
-                _buildPlanSummaryCard(context, entitlements: entitlements),
-                SizedBox(height: layout.gap(14)),
-                _actionCard(
-                  context,
-                  color: AppTheme.bg(context),
-                  title: 'REELPIN PRO',
-                  subtitle: entitlements?.isPro == true
-                      ? 'YOU HAVE THE FULL HISTORY, CONVERSATIONAL SEARCH, AND PRIORITY PROCESSING UNLOCKED.'
-                      : 'FREE INCLUDES 30 REELS A MONTH. PRO ADDS UNLIMITED REELS, FULL HISTORY, SHARING, WEEKLY DIGEST, AND PRIORITY PROCESSING.',
-                  trailing: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GestureDetector(
-                        onTap: () => openPaywall(context),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: layout.inset(12),
-                            vertical: layout.gap(10),
-                          ),
-                          decoration: AppTheme.brutalBox(
-                            context,
-                            color: entitlements?.isPro == true
-                                ? AppTheme.neonGreen
-                                : AppTheme.yellow,
-                            shadow: false,
-                          ),
-                          child: Text(
-                            entitlements?.isPro == true
-                                ? 'VIEW PLAN'
-                                : 'SEE PRO',
-                            style: GoogleFonts.spaceMono(
-                              color: AppTheme.black,
-                              fontSize: layout.font(11),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: layout.gap(8)),
-                      GestureDetector(
-                        onTap: entitlementVm.isLoading
-                            ? null
-                            : () => ref
-                                  .read(entitlementsViewModelProvider)
-                                  .refresh(reloadContent: true),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: layout.inset(12),
-                            vertical: layout.gap(10),
-                          ),
-                          decoration: AppTheme.brutalBox(
-                            context,
-                            color: AppTheme.hotPink,
-                            shadow: false,
-                          ),
-                          child: entitlementVm.isLoading
-                              ? SizedBox(
-                                  width: layout.inset(14),
-                                  height: layout.inset(14),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppTheme.white,
-                                  ),
-                                )
-                              : Text(
-                                  'REFRESH',
-                                  style: GoogleFonts.spaceMono(
-                                    color: AppTheme.white,
-                                    fontSize: layout.font(11),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (entitlementVm.error != null) ...[
-                  SizedBox(height: layout.gap(8)),
-                  Text(
-                    entitlementVm.error!,
-                    style: GoogleFonts.spaceMono(
-                      color: AppTheme.destructive,
-                      fontSize: layout.font(11),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
                 SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'PREFERENCES'),
                 SizedBox(height: layout.gap(10)),
@@ -447,103 +352,6 @@ class ProfileScreen extends ConsumerWidget {
             ),
             SizedBox(width: layout.inset(12)),
             trailing,
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlanSummaryCard(
-    BuildContext context, {
-    required UserEntitlement? entitlements,
-  }) {
-    final layout = AppLayout.of(context);
-    if (entitlements == null) {
-      return Container(
-        decoration: AppTheme.brutalCard(context),
-        child: Padding(
-          padding: EdgeInsets.all(layout.inset(16)),
-          child: Text(
-            'LOADING YOUR PLAN...',
-            style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
-              fontSize: layout.font(12),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final accent = entitlements.isPro ? AppTheme.neonGreen : AppTheme.yellow;
-    final usageLabel = entitlements.limits.reelsPerMonth == null
-        ? 'UNLIMITED SAVES'
-        : '${entitlements.usage.reelsSavedThisMonth}/${entitlements.limits.reelsPerMonth} SAVES THIS MONTH';
-
-    return Container(
-      decoration: AppTheme.brutalCard(context),
-      child: Padding(
-        padding: EdgeInsets.all(layout.inset(16)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: layout.inset(10),
-                    vertical: layout.gap(6),
-                  ),
-                  decoration: BoxDecoration(
-                    color: accent,
-                    border: Border.all(
-                      color: AppTheme.fg(context),
-                      width: AppTheme.borderWidth,
-                    ),
-                  ),
-                  child: Text(
-                    entitlements.planLabel,
-                    style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
-                      fontSize: layout.font(10),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                SizedBox(width: layout.inset(10)),
-                Expanded(
-                  child: Text(
-                    '${entitlements.searchModeLabel} SEARCH',
-                    style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
-                      fontSize: layout.font(12),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: layout.gap(10)),
-            Text(
-              usageLabel,
-              style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
-                fontSize: layout.font(11),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            SizedBox(height: layout.gap(6)),
-            Text(
-              entitlements.isPro
-                  ? '${entitlements.monthlyPriceLabel.toUpperCase()} OR ${entitlements.yearlyPriceLabel.toUpperCase()}'
-                  : 'FREE USERS SEE THE LAST ${entitlements.limits.accessibleHistoryDays ?? 30} DAYS AND UP TO ${entitlements.limits.mapPins ?? 30} MAP PINS.',
-              style: GoogleFonts.spaceMono(
-                color: AppTheme.textSec(context),
-                fontSize: layout.font(11),
-                fontWeight: FontWeight.w500,
-                height: 1.45,
-              ),
-            ),
           ],
         ),
       ),

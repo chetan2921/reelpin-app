@@ -39,8 +39,7 @@ class _AppShellState extends ConsumerState<AppShell>
   DateTime? _lastHandledSharedAt;
   bool _isCheckingInitialPermissions = false;
   DateTime? _lastResumeRefreshAt;
-
-  final _screens = const [HomeScreen(), MapScreen(), SearchScreen()];
+  int _searchFocusRequestId = 0;
 
   static const _navItems = [
     _NavItem(
@@ -333,12 +332,26 @@ class _AppShellState extends ConsumerState<AppShell>
     }
   }
 
+  void _openSearchFromHome() {
+    setState(() {
+      _currentIndex = 2;
+      _searchFocusRequestId += 1;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         color: AppTheme.bg(context),
-        child: IndexedStack(index: _currentIndex, children: _screens),
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [
+            HomeScreen(onSearchTap: _openSearchFromHome),
+            const MapScreen(),
+            SearchScreen(focusRequestId: _searchFocusRequestId),
+          ],
+        ),
       ),
       bottomNavigationBar: _buildNavBar(),
     );

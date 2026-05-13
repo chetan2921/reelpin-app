@@ -310,6 +310,7 @@ class ReelRepository extends ChangeNotifier {
     _activeSearchClient = searchClient;
 
     try {
+      List<SearchResult>? remoteResults;
       try {
         final remote = await _apiService.searchReels(
           normalizedQuery,
@@ -322,12 +323,15 @@ class ReelRepository extends ChangeNotifier {
           throw const SearchCancelledException();
         }
         _lastSearchMode = remote.searchMode;
-        _storeSearchCache(cacheKey, remote.results);
-        return remote.results;
+        remoteResults = remote.results;
       } on SearchCancelledException {
         rethrow;
       } catch (_) {
         // Fall back to a local semantic-ish search when backend search fails.
+      }
+
+      if (!_isActiveSearchClient(searchClient)) {
+        throw const SearchCancelledException();
       }
 
       final local = await _searchLocally(
@@ -338,9 +342,15 @@ class ReelRepository extends ChangeNotifier {
       if (!_isActiveSearchClient(searchClient)) {
         throw const SearchCancelledException();
       }
-      _lastSearchMode = null;
-      _storeSearchCache(cacheKey, local);
-      return local;
+      if (remoteResults == null) {
+        _lastSearchMode = null;
+        _storeSearchCache(cacheKey, local);
+        return local;
+      }
+
+      final combined = _mergeSearchResults(remoteResults, local);
+      _storeSearchCache(cacheKey, combined);
+      return combined;
     } finally {
       if (_isActiveSearchClient(searchClient)) {
         _activeSearchClient = null;
@@ -430,6 +440,26 @@ class ReelRepository extends ChangeNotifier {
 
     matches.sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
     return matches.take(12).toList();
+  }
+
+  List<SearchResult> _mergeSearchResults(
+    List<SearchResult> remote,
+    List<SearchResult> local,
+  ) {
+    final byReelId = <String, SearchResult>{};
+    for (final result in remote) {
+      byReelId[result.reel.id] = result;
+    }
+    for (final result in local) {
+      final existing = byReelId[result.reel.id];
+      if (existing == null || result.relevanceScore > existing.relevanceScore) {
+        byReelId[result.reel.id] = result;
+      }
+    }
+
+    final merged = byReelId.values.toList(growable: false);
+    merged.sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
+    return merged.take(12).toList(growable: false);
   }
 
   double _scoreReel(Reel reel, String query, List<String> tokens) {

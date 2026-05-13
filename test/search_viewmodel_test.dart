@@ -14,11 +14,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 void main() {
   test('short queries stay local and do not hit repository search', () async {
     final repository = _FakeReelRepository(
-      onSearch: ({
-        required String query,
-        String? category,
-        String? subcategory,
-      }) async => [_resultFor(query)],
+      onSearch:
+          ({
+            required String query,
+            String? category,
+            String? subcategory,
+          }) async => [_resultFor(query)],
     );
     final viewModel = SearchViewModel(repository);
 
@@ -37,14 +38,11 @@ void main() {
     var callCount = 0;
 
     final repository = _FakeReelRepository(
-      onSearch: ({
-        required String query,
-        String? category,
-        String? subcategory,
-      }) {
-        callCount += 1;
-        return callCount == 1 ? first.future : second.future;
-      },
+      onSearch:
+          ({required String query, String? category, String? subcategory}) {
+            callCount += 1;
+            return callCount == 1 ? first.future : second.future;
+          },
     );
     final viewModel = SearchViewModel(repository);
 
@@ -60,6 +58,26 @@ void main() {
 
     expect(viewModel.results.single.reel.title, 'coffee');
     expect(viewModel.lastQuery, 'coffee');
+    expect(viewModel.error, isNull);
+  });
+
+  test('clear resets fixed-length search results', () async {
+    final repository = _FakeReelRepository(
+      onSearch:
+          ({
+            required String query,
+            String? category,
+            String? subcategory,
+          }) async => [_resultFor(query)],
+    );
+    final viewModel = SearchViewModel(repository);
+
+    await viewModel.search('gym');
+    viewModel.clear();
+
+    expect(viewModel.results, isEmpty);
+    expect(viewModel.lastQuery, isEmpty);
+    expect(viewModel.isSearching, isFalse);
     expect(viewModel.error, isNull);
   });
 }
@@ -89,11 +107,7 @@ class _FakeReelRepository extends ReelRepository {
     String? subcategory,
   }) {
     searchCalls += 1;
-    return onSearch(
-      query: query,
-      category: category,
-      subcategory: subcategory,
-    );
+    return onSearch(query: query, category: category, subcategory: subcategory);
   }
 
   @override

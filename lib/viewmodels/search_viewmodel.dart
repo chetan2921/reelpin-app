@@ -104,7 +104,7 @@ class SearchViewModel extends ChangeNotifier {
   void clear() {
     _repository.cancelActiveSearch();
     _searchRequestId += 1;
-    _results.clear();
+    _results = [];
     _lastQuery = '';
     _backendSearchMode = null;
     _error = null;

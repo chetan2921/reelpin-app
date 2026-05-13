@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/user_entitlement.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/category_filters_viewmodel.dart';
@@ -16,7 +15,9 @@ import 'profile_screen.dart';
 import 'reel_detail_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.focusRequestId = 0});
+
+  final int focusRequestId;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -29,13 +30,49 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _focusNode = FocusNode();
   DateTime? _selectedSavedDate;
   Timer? _searchDebounce;
+  int _handledFocusRequestId = 0;
+  bool _hasSearchText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_handleControllerTextChanged);
+    _scheduleFocusIfRequested();
+  }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _controller.removeListener(_handleControllerTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant SearchScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleFocusIfRequested();
+  }
+
+  void _handleControllerTextChanged() {
+    final hasSearchText = _controller.text.trim().isNotEmpty;
+    if (_hasSearchText == hasSearchText) return;
+
+    setState(() {
+      _hasSearchText = hasSearchText;
+    });
+  }
+
+  void _scheduleFocusIfRequested() {
+    final requestId = widget.focusRequestId;
+    if (requestId == 0 || _handledFocusRequestId == requestId) return;
+
+    _handledFocusRequestId = requestId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusNode.requestFocus();
+    });
   }
 
   @override
@@ -45,9 +82,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final homeVm = ref.watch(homeViewModelProvider);
     final sessionVm = ref.watch(sessionViewModelProvider);
     final categoryVm = ref.watch(categoryFiltersViewModelProvider);
-    final entitlements = ref.watch(entitlementsViewModelProvider).entitlement;
-    final activeSearchMode =
-        vm.backendSearchMode ?? entitlements?.searchMode ?? SearchMode.keyword;
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -133,36 +167,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                     ),
                   ),
-
-                  if (vm.lastQuery.isNotEmpty) ...[
-                    SizedBox(width: layout.inset(12)),
-                    GestureDetector(
-                      onTap: () {
-                        _searchDebounce?.cancel();
-                        vm.clear();
-                        _controller.clear();
-                      },
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: layout.inset(12),
-                          vertical: layout.gap(8),
-                        ),
-                        decoration: AppTheme.brutalBox(
-                          context,
-                          color: AppTheme.bg(context),
-                          shadow: true,
-                        ),
-                        child: Text(
-                          'CLEAR',
-                          style: GoogleFonts.spaceMono(
-                            color: AppTheme.fg(context),
-                            fontSize: layout.font(11),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -175,31 +179,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: layout.inset(10),
-                      vertical: layout.gap(6),
-                    ),
-                    decoration: AppTheme.brutalBox(
-                      context,
-                      color: activeSearchMode == SearchMode.rag
-                          ? AppTheme.neonGreen
-                          : AppTheme.yellow,
-                      shadow: true,
-                    ),
-                    child: Text(
-                      activeSearchMode == SearchMode.rag
-                          ? 'PRO CONVERSATIONAL SEARCH'
-                          : 'FREE KEYWORD SEARCH',
-                      style: GoogleFonts.spaceMono(
-                        color: AppTheme.black,
-                        fontSize: layout.font(10),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: layout.gap(10)),
-                  Container(
                     decoration: AppTheme.brutalBox(context, shadow: true),
                     child: TextField(
                       controller: _controller,
@@ -211,33 +190,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                       cursorColor: AppTheme.fg(context),
                       decoration: InputDecoration(
-                        hintText: activeSearchMode == SearchMode.rag
-                            ? 'ASK A FULL QUESTION ABOUT YOUR SAVED REELS...'
-                            : 'SEARCH BY KEYWORD, PLACE, OR CATEGORY...',
+                        hintText:
+                            'SEARCH BY KEYWORD, PLACE, CATEGORY, OR NATURAL LANGUAGE...',
                         hintStyle: GoogleFonts.spaceMono(
                           color: AppTheme.textSec(context),
                           fontSize: layout.font(12),
                         ),
                         prefixIcon: Icon(
-                          activeSearchMode == SearchMode.rag
-                              ? Icons.auto_awesome
-                              : Icons.search,
+                          Icons.search,
                           color: AppTheme.fg(context),
                           size: layout.inset(22),
                         ),
-                        suffixIcon: vm.isSearching
-                            ? Padding(
-                                padding: EdgeInsets.all(layout.inset(14)),
-                                child: SizedBox(
-                                  width: layout.inset(16),
-                                  height: layout.inset(16),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: AppTheme.fg(context),
-                                  ),
-                                ),
-                              )
-                            : null,
+                        suffixIcon: _buildSearchFieldAction(context, vm),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -253,9 +217,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                   SizedBox(height: layout.gap(8)),
                   Text(
-                    activeSearchMode == SearchMode.rag
-                        ? 'TRY: "SHOW ME THE GOA BEACH CLUBS WITH SUNSET VIEWS"'
-                        : 'TRY: "GOA", "COFFEE", "WEEKEND TRIP", OR A CATEGORY NAME.',
+                    'TRY: "GOA", "COFFEE", "WEEKEND TRIP", OR "SHOW ME THE GOA BEACH CLUBS WITH SUNSET VIEWS".',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.textSec(context),
                       fontSize: layout.font(10),
@@ -292,7 +254,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _searchDebounce?.cancel();
 
     if (query.trim().isEmpty) {
-      vm.clear();
+      _clearSearch(vm, keepFocus: true);
       return;
     }
 
@@ -305,11 +267,68 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _doSearch(SearchViewModel vm, String query) {
     _searchDebounce?.cancel();
     if (query.trim().isEmpty) {
-      vm.clear();
+      _clearSearch(vm, keepFocus: true);
       return;
     }
     _focusNode.unfocus();
     vm.search(query);
+  }
+
+  Widget? _buildSearchFieldAction(BuildContext context, SearchViewModel vm) {
+    final layout = AppLayout.of(context);
+    if (_hasSearchText || vm.lastQuery.isNotEmpty) {
+      return IconButton(
+        tooltip: 'Clear search',
+        onPressed: () => _clearSearch(vm),
+        icon: Icon(
+          Icons.close,
+          color: AppTheme.fg(context),
+          size: layout.inset(20),
+        ),
+      );
+    }
+
+    if (!vm.isSearching) {
+      return null;
+    }
+
+    return Padding(
+      padding: EdgeInsets.all(layout.inset(14)),
+      child: SizedBox(
+        width: layout.inset(16),
+        height: layout.inset(16),
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          color: AppTheme.fg(context),
+        ),
+      ),
+    );
+  }
+
+  void _clearSearch(SearchViewModel vm, {bool keepFocus = false}) {
+    _searchDebounce?.cancel();
+    if (_controller.text.isNotEmpty) {
+      _controller.clear();
+    }
+    if (!keepFocus) {
+      _focusNode.unfocus();
+    }
+    if (_selectedSavedDate != null || _hasSearchText) {
+      setState(() {
+        _hasSearchText = false;
+        _selectedSavedDate = null;
+      });
+    }
+    vm.clear();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _clearDateFilter() {
+    setState(() {
+      _selectedSavedDate = null;
+    });
   }
 
   Future<void> _pickSavedDate(
@@ -567,11 +586,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedSavedDate = null;
-                      });
-                    },
+                    onTap: _clearDateFilter,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -1050,7 +1065,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'SEARCHING YOUR REELS...',
+            'SEARCHING YOUR SAVED REELS...',
             style: GoogleFonts.spaceMono(
               color: AppTheme.fg(context),
               fontSize: 13,

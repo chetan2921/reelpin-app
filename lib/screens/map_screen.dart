@@ -8,7 +8,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/reel.dart';
-import '../models/user_entitlement.dart';
 import '../providers/app_providers.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
@@ -288,7 +287,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final vm = ref.watch(mapViewModelProvider);
     final themeVm = ref.watch(themeViewModelProvider);
     final categoryVm = ref.watch(categoryFiltersViewModelProvider);
-    final entitlements = ref.watch(entitlementsViewModelProvider).entitlement;
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -296,14 +294,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         bottom: false,
         child: Builder(
           builder: (context) {
-            final markers = _buildMarkers(vm, entitlements);
+            final markers = _buildMarkers(vm);
             final totalPins = vm.totalPinnedLocations;
             final visiblePins = markers.length;
-            final mapPinLimit = entitlements?.limits.mapPins;
-            final isPinLimited =
-                entitlements?.isFree == true &&
-                mapPinLimit != null &&
-                totalPins > mapPinLimit;
 
             if ((markers.length != _lastMarkersCount ||
                     vm.selectedCategory != _lastCategoryFilter) &&
@@ -378,9 +371,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             SizedBox(width: layout.inset(8)),
                             Expanded(
                               child: Text(
-                                isPinLimited
-                                    ? '$visiblePins OF $totalPins PINS SHOWN ON FREE'
-                                    : '$visiblePins PLACES PINNED',
+                                '$visiblePins OF $totalPins PLACES PINNED',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.spaceMono(
@@ -393,29 +384,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           ],
                         ),
                       ),
-                      if (isPinLimited) ...[
-                        SizedBox(height: layout.gap(8)),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: layout.inset(12),
-                            vertical: layout.gap(10),
-                          ),
-                          decoration: AppTheme.brutalBox(
-                            context,
-                            color: const Color(0xFFFFF2B6),
-                            shadow: true,
-                          ),
-                          child: Text(
-                            'FREE SHOWS THE FIRST $mapPinLimit MAP PINS. PRO REMOVES THE CAP.',
-                            style: GoogleFonts.spaceMono(
-                              color: AppTheme.black,
-                              fontSize: layout.font(10),
-                              fontWeight: FontWeight.w700,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
                       SizedBox(height: layout.gap(8)),
 
                       // Category chips
@@ -438,43 +406,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           },
                         ),
                       ),
-                      if (vm.isLoadingMore || vm.hasMoreReels) ...[
-                        SizedBox(height: layout.gap(8)),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: GestureDetector(
-                            onTap: vm.isLoadingMore ? null : vm.loadMoreReels,
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: layout.inset(12),
-                                vertical: layout.gap(8),
-                              ),
-                              decoration: AppTheme.brutalBox(
-                                context,
-                                color: AppTheme.bg(context),
-                                shadow: true,
-                              ),
-                              child: vm.isLoadingMore
-                                  ? SizedBox(
-                                      width: layout.inset(14),
-                                      height: layout.inset(14),
-                                      child: CircularProgressIndicator(
-                                        color: AppTheme.fg(context),
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      'LOAD MORE PINS',
-                                      style: GoogleFonts.spaceMono(
-                                        color: AppTheme.fg(context),
-                                        fontSize: layout.font(10),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -692,19 +623,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  Set<Marker> _buildMarkers(MapViewModel vm, UserEntitlement? entitlements) {
+  Set<Marker> _buildMarkers(MapViewModel vm) {
     final markers = <Marker>{};
-    final maxPins = entitlements?.isFree == true
-        ? entitlements?.limits.mapPins
-        : null;
-    var pinsAdded = 0;
 
     for (final reel in vm.reelsWithLocations) {
       final locations = reel.mappableLocations;
       for (var index = 0; index < locations.length; index++) {
-        if (maxPins != null && pinsAdded >= maxPins) {
-          return markers;
-        }
         final loc = locations[index];
         markers.add(
           Marker(
@@ -720,7 +644,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             onTap: () => vm.selectReel(reel, location: loc),
           ),
         );
-        pinsAdded += 1;
       }
     }
     return markers;

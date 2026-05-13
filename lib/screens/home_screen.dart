@@ -17,7 +17,9 @@ import 'paywall_screen.dart';
 import 'reel_detail_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onSearchTap});
+
+  final VoidCallback? onSearchTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -78,6 +80,8 @@ class HomeScreen extends ConsumerWidget {
                               ),
                             ),
                             const Spacer(),
+                            _buildSearchButton(context),
+                            SizedBox(width: layout.inset(10)),
                             _buildFilterButton(context, vm, categoryVm),
                           ],
                         ),
@@ -214,6 +218,23 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchButton(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return GestureDetector(
+      onTap: onSearchTap,
+      child: Container(
+        width: layout.inset(40),
+        height: layout.inset(40),
+        decoration: AppTheme.brutalBox(context, shadow: true),
+        child: Icon(
+          Icons.search,
+          color: AppTheme.fg(context),
+          size: layout.inset(20),
         ),
       ),
     );

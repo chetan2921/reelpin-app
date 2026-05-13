@@ -194,6 +194,28 @@ class UserEntitlement {
     );
   }
 
+  factory UserEntitlement.unrestricted({required String userId}) {
+    return UserEntitlement(
+      userId: userId,
+      plan: SubscriptionPlan.pro,
+      billingInterval: null,
+      status: SubscriptionStatus.active,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      searchMode: SearchMode.rag,
+      features: const EntitlementFeatures(
+        conversationalRagSearch: true,
+        shareableCollectionLinks: true,
+        weeklyAiDigest: true,
+        priorityProcessing: true,
+      ),
+      limits: const EntitlementLimits(),
+      usage: const EntitlementUsage(),
+      pricingInrMonthly: 149,
+      pricingInrYearly: 999,
+    );
+  }
+
   bool get isPro => plan == SubscriptionPlan.pro;
   bool get isFree => !isPro;
 
