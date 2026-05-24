@@ -214,7 +214,10 @@ class SessionViewModel extends ChangeNotifier {
       return;
     }
 
-    await ShareHandoffService.instance.syncAuthenticatedUser(userId);
+    await ShareHandoffService.instance.syncAuthenticatedUser(
+      userId,
+      _session?.accessToken ?? _authService.currentSession?.accessToken,
+    );
   }
 
   String? _readString(Map<String, dynamic>? source, List<String> keys) {

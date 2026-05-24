@@ -8,11 +8,12 @@ class ShareHandoffService {
   static final ShareHandoffService instance = ShareHandoffService._();
 
   static const _userIdKey = 'share_handoff_user_id';
+  static const _accessTokenKey = 'share_handoff_access_token';
   static const _baseUrlKey = 'share_handoff_base_url';
   static const _pushTokenKey = 'share_handoff_push_token';
   static const _pushPlatformKey = 'share_handoff_push_platform';
 
-  Future<void> syncAuthenticatedUser(String userId) async {
+  Future<void> syncAuthenticatedUser(String userId, String? accessToken) async {
     if (userId.trim().isEmpty) {
       await clear();
       return;
@@ -20,6 +21,12 @@ class ShareHandoffService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userIdKey, userId.trim());
+    final cleanedAccessToken = accessToken?.trim();
+    if (cleanedAccessToken == null || cleanedAccessToken.isEmpty) {
+      await prefs.remove(_accessTokenKey);
+    } else {
+      await prefs.setString(_accessTokenKey, cleanedAccessToken);
+    }
     await prefs.setString(_baseUrlKey, ApiConfig.baseUrl.trim());
   }
 
@@ -48,6 +55,7 @@ class ShareHandoffService {
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userIdKey);
+    await prefs.remove(_accessTokenKey);
     await prefs.remove(_baseUrlKey);
     await prefs.remove(_pushTokenKey);
     await prefs.remove(_pushPlatformKey);

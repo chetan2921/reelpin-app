@@ -19,11 +19,12 @@ class ShareEnqueueService : JobIntentService() {
 
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val userId = prefs.getString(PREF_USER_ID, null)?.trim()
+        val accessToken = prefs.getString(PREF_ACCESS_TOKEN, null)?.trim()
         val baseUrl = prefs.getString(PREF_BASE_URL, null)?.trim()?.trimEnd('/')
         val pushToken = prefs.getString(PREF_PUSH_TOKEN, null)?.trim()
         val pushPlatform = prefs.getString(PREF_PUSH_PLATFORM, null)?.trim()?.lowercase()
 
-        if (userId.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
+        if (userId.isNullOrEmpty() || accessToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
             showToast("Open ReelPin and sign in before sharing.")
             return
         }
@@ -31,14 +32,14 @@ class ShareEnqueueService : JobIntentService() {
         runCatching {
             registerStoredPushToken(
                 baseUrl = baseUrl,
-                userId = userId,
+                accessToken = accessToken,
                 token = pushToken,
                 platform = pushPlatform
             )
         }
 
         val enqueueResult = runCatching {
-            enqueueJob(baseUrl, userId, sharedUrl)
+            enqueueJob(baseUrl, accessToken, sharedUrl)
         }.getOrNull()
 
         if (enqueueResult == null) {
@@ -51,7 +52,7 @@ class ShareEnqueueService : JobIntentService() {
         }
     }
 
-    private fun enqueueJob(baseUrl: String, userId: String, sharedUrl: String): EnqueueResult {
+    private fun enqueueJob(baseUrl: String, accessToken: String, sharedUrl: String): EnqueueResult {
         val endpoint = URL("$baseUrl/processing-jobs/reels")
         val connection = (endpoint.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -59,12 +60,12 @@ class ShareEnqueueService : JobIntentService() {
             readTimeout = 15000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            setRequestProperty("Authorization", "Bearer $accessToken")
         }
 
         try {
             val payload = JSONObject()
                 .put("url", sharedUrl)
-                .put("user_id", userId)
                 .toString()
 
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
@@ -91,7 +92,7 @@ class ShareEnqueueService : JobIntentService() {
 
     private fun registerStoredPushToken(
         baseUrl: String,
-        userId: String,
+        accessToken: String,
         token: String?,
         platform: String?,
     ) {
@@ -105,11 +106,11 @@ class ShareEnqueueService : JobIntentService() {
             readTimeout = 15000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            setRequestProperty("Authorization", "Bearer $accessToken")
         }
 
         try {
             val payload = JSONObject()
-                .put("user_id", userId)
                 .put("token", token)
                 .put("platform", normalizedPlatform)
                 .toString()
@@ -138,6 +139,7 @@ class ShareEnqueueService : JobIntentService() {
         private const val EXTRA_SHARED_URL = "extra_shared_url"
         private const val PREFS_NAME = "FlutterSharedPreferences"
         private const val PREF_USER_ID = "flutter.share_handoff_user_id"
+        private const val PREF_ACCESS_TOKEN = "flutter.share_handoff_access_token"
         private const val PREF_BASE_URL = "flutter.share_handoff_base_url"
         private const val PREF_PUSH_TOKEN = "flutter.share_handoff_push_token"
         private const val PREF_PUSH_PLATFORM = "flutter.share_handoff_push_platform"

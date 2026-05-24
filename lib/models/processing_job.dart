@@ -37,7 +37,7 @@ class ProcessingJob {
 
     final reelPayload = json['reel'];
     return ProcessingJob(
-      id: json['id']?.toString() ?? '',
+      id: (json['id'] ?? json['job_id'])?.toString() ?? '',
       status: json['status']?.toString().toLowerCase() ?? 'queued',
       currentStep: json['current_step']?.toString(),
       failureCode: json['failure_code']?.toString(),
