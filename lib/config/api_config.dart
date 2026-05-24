@@ -3,7 +3,7 @@ import 'supabase_config.dart';
 class ApiConfig {
   ApiConfig._();
 
-  static const String _productionBaseUrl = 'http://127.0.0.1:8000';
+  static const String _productionBaseUrl = 'http://192.168.1.5:8000';
   static const String _defaultLanBaseUrl = 'http://192.168.1.4:8000/api/v1';
   static const String _legacyLanBaseUrl = 'http://192.168.1.2:8000/api/v1';
   static const String _olderLanBaseUrl = 'http://192.168.1.3:8000/api/v1';
@@ -11,7 +11,7 @@ class ApiConfig {
 
   /// Production API URL, overridable for local development.
   static String get baseUrl {
-    // Override with: flutter run --dart-define=API_BASE_URL=http://<ip>:8000/api/v1
+    // Override with: flutter run --dart-define=API_BASE_URL=http://<ip>:8000
     const fromEnv = String.fromEnvironment('API_BASE_URL');
     final local = SupabaseConfig.localValue('API_BASE_URL');
     return _firstNonEmpty(fromEnv, local, fallback: _productionBaseUrl);
