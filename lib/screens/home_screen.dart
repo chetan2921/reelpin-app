@@ -4,7 +4,6 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../models/reel.dart';
 import '../models/reel_category_filters.dart';
 import '../models/user_entitlement.dart';
 import '../providers/app_providers.dart';
@@ -26,7 +25,9 @@ class HomeScreen extends ConsumerWidget {
     final layout = AppLayout.of(context);
     final vm = ref.watch(homeViewModelProvider);
     final categoryVm = ref.watch(categoryFiltersViewModelProvider);
-    final entitlements = ref.watch(entitlementsViewModelProvider).entitlement;
+    final entitlementsVm = ref.watch(entitlementsViewModelProvider);
+    final entitlements = entitlementsVm.entitlement;
+    final entitlementResponse = entitlementsVm.response;
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -133,7 +134,10 @@ class HomeScreen extends ConsumerWidget {
                         layout.inset(20),
                         layout.gap(10),
                       ),
-                      child: _buildFreePlanBanner(context, entitlements!),
+                      child: _buildFreePlanBanner(
+                        context,
+                        entitlementResponse!,
+                      ),
                     ),
                   ),
 
@@ -262,19 +266,17 @@ class HomeScreen extends ConsumerWidget {
   }
 
   bool _showFreeHistoryBanner(UserEntitlement? entitlements) {
-    return entitlements != null &&
-        entitlements.isFree &&
-        entitlements.limits.accessibleHistoryDays != null;
+    return entitlements != null && entitlements.isFree;
   }
 
   Widget _buildFreePlanBanner(
     BuildContext context,
-    UserEntitlement entitlements,
+    EntitlementsResponse entitlements,
   ) {
     final layout = AppLayout.of(context);
     final savedThisMonth = entitlements.usage.reelsSavedThisMonth;
-    final monthlyLimit = entitlements.limits.reelsPerMonth ?? 30;
-    final historyDays = entitlements.limits.accessibleHistoryDays ?? 30;
+    final monthlyLimit = entitlements.limits.reelsPerMonth;
+    final historyDays = entitlements.limits.accessibleHistoryDays;
 
     return GestureDetector(
       onTap: () => openPaywall(context),
@@ -305,7 +307,9 @@ class HomeScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'SHOWING LAST $historyDays DAYS ON FREE',
+                      historyDays == null
+                          ? 'FREE ACCOUNT ACCESS'
+                          : 'SHOWING LAST $historyDays DAYS ON FREE',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.black,
                         fontSize: layout.font(11),
@@ -314,7 +318,9 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     SizedBox(height: layout.gap(6)),
                     Text(
-                      '$savedThisMonth / $monthlyLimit SAVES USED THIS MONTH. TAP TO SEE PRO.',
+                      monthlyLimit == null
+                          ? '$savedThisMonth SAVES USED THIS MONTH. TAP TO SEE PLANS.'
+                          : '$savedThisMonth / $monthlyLimit SAVES USED THIS MONTH. TAP TO SEE PLANS.',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.black,
                         fontSize: layout.font(10),
@@ -661,15 +667,19 @@ class HomeScreen extends ConsumerWidget {
 
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final categoryItems = _buildCategoryFilterItems(
-              vm.allReels,
-              categoryVm.groups,
-            );
-            final topCategory = categoryItems.isNotEmpty
+            final categoryItems = categoryVm.groups;
+            ReelCategoryGroup? topCategory;
+            for (final item in categoryItems) {
+              if (item.category == categoryVm.topCategory) {
+                topCategory = item;
+                break;
+              }
+            }
+            topCategory ??= categoryItems.isNotEmpty
                 ? categoryItems.first
                 : null;
 
-            _CategoryFilterItem? selectedItem;
+            ReelCategoryGroup? selectedItem;
             for (final item in categoryItems) {
               if (item.category == selectedCategory) {
                 selectedItem = item;
@@ -685,16 +695,10 @@ class HomeScreen extends ConsumerWidget {
               selectedSubcategory = null;
             }
 
-            final previewCount = _countFilteredReels(
-              vm.allReels,
-              category: selectedCategory,
-              subcategory: selectedSubcategory,
-            );
+            final previewCount = categoryVm.selectedPreviewCount;
             final activeFilterLabel = selectedSubcategory != null
                 ? '$selectedCategory / $selectedSubcategory'
                 : selectedCategory ?? 'ALL REELS';
-            final usingFallbackFilters =
-                categoryVm.groups.isEmpty && categoryItems.isNotEmpty;
             final topCategoryAccentColor = topCategory != null
                 ? AppTheme.getCategoryColor(topCategory.category)
                 : AppTheme.yellow;
@@ -887,30 +891,19 @@ class HomeScreen extends ConsumerWidget {
                                           ? 'Pick a category to unlock subcategory filters.'
                                           : subcategories.isEmpty
                                           ? 'No saved subcategories in this category yet.'
-                                          : '${subcategories.length} subcategor${subcategories.length == 1 ? 'y' : 'ies'} available in ${selectedCategory!.toLowerCase()}.',
+                                          : 'Choose a saved subcategory for ${selectedCategory!.toLowerCase()}.',
                                       style: GoogleFonts.spaceMono(
                                         color: AppTheme.textSec(context),
                                         fontSize: 10,
                                         height: 1.5,
                                       ),
                                     ),
-                                    if (usingFallbackFilters) ...[
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        'Using your saved reels to build filters right now.',
-                                        style: GoogleFonts.spaceMono(
-                                          color: AppTheme.textSec(context),
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
                                     const Spacer(),
                                     _buildCompactFilterSummary(
                                       context,
                                       activeFilterLabel: activeFilterLabel,
                                       previewCount: previewCount,
-                                      totalCount: vm.allReels.length,
+                                      totalCount: categoryVm.totalCount,
                                       currentAccentColor: currentAccentColor,
                                       topCategory: topCategory,
                                       topAccentColor: topCategoryAccentColor,
@@ -1118,7 +1111,7 @@ class HomeScreen extends ConsumerWidget {
     required int previewCount,
     required int totalCount,
     required Color currentAccentColor,
-    required _CategoryFilterItem? topCategory,
+    required ReelCategoryGroup? topCategory,
     required Color topAccentColor,
   }) {
     final layout = AppLayout.of(context);
@@ -1359,130 +1352,6 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
-
-  List<_CategoryFilterItem> _buildCategoryFilterItems(
-    List<Reel> reels,
-    List<ReelCategoryGroup> groups,
-  ) {
-    final sourceGroups = groups.isNotEmpty
-        ? groups
-        : _deriveCategoryGroups(reels);
-
-    final items =
-        sourceGroups.map((group) {
-          final categoryCount = reels
-              .where((reel) => _matchesLabel(reel.category, group.category))
-              .length;
-          final subcategories =
-              group.subcategories.map((subcategory) {
-                final count = reels
-                    .where(
-                      (reel) =>
-                          _matchesLabel(reel.category, group.category) &&
-                          _matchesLabel(reel.subCategory, subcategory),
-                    )
-                    .length;
-                return _SubcategoryFilterItem(name: subcategory, count: count);
-              }).toList()..sort((left, right) {
-                final countCompare = right.count.compareTo(left.count);
-                if (countCompare != 0) return countCompare;
-                return left.name.toLowerCase().compareTo(
-                  right.name.toLowerCase(),
-                );
-              });
-
-          return _CategoryFilterItem(
-            category: group.category,
-            count: categoryCount,
-            subcategories: subcategories,
-          );
-        }).toList()..sort((left, right) {
-          final countCompare = right.count.compareTo(left.count);
-          if (countCompare != 0) return countCompare;
-          return left.category.toLowerCase().compareTo(
-            right.category.toLowerCase(),
-          );
-        });
-
-    return items;
-  }
-
-  List<ReelCategoryGroup> _deriveCategoryGroups(List<Reel> reels) {
-    final grouped = <String, Set<String>>{};
-    final categoryLabels = <String, String>{};
-
-    for (final reel in reels) {
-      final category = reel.category.trim();
-      if (category.isEmpty) continue;
-
-      final categoryKey = category.toLowerCase();
-      categoryLabels.putIfAbsent(categoryKey, () => category);
-      final subcategories = grouped.putIfAbsent(categoryKey, () => <String>{});
-
-      final subcategory = reel.subCategory.trim();
-      if (subcategory.isNotEmpty && !_matchesLabel(category, subcategory)) {
-        subcategories.add(subcategory);
-      }
-    }
-
-    final groups =
-        grouped.entries.map((entry) {
-          final subcategories = entry.value.toList()
-            ..sort(
-              (left, right) =>
-                  left.toLowerCase().compareTo(right.toLowerCase()),
-            );
-          return ReelCategoryGroup(
-            category: categoryLabels[entry.key] ?? entry.key,
-            subcategories: subcategories,
-          );
-        }).toList()..sort(
-          (left, right) => left.category.toLowerCase().compareTo(
-            right.category.toLowerCase(),
-          ),
-        );
-
-    return groups;
-  }
-
-  int _countFilteredReels(
-    List<Reel> reels, {
-    String? category,
-    String? subcategory,
-  }) {
-    return reels.where((reel) {
-      if (category != null && !_matchesLabel(reel.category, category)) {
-        return false;
-      }
-      if (subcategory != null &&
-          !_matchesLabel(reel.subCategory, subcategory)) {
-        return false;
-      }
-      return true;
-    }).length;
-  }
-
-  bool _matchesLabel(String left, String right) =>
-      left.trim().toLowerCase() == right.trim().toLowerCase();
-}
-
-class _CategoryFilterItem {
-  final String category;
-  final int count;
-  final List<_SubcategoryFilterItem> subcategories;
-
-  const _CategoryFilterItem({
-    required this.category,
-    required this.count,
-    required this.subcategories,
-  });
-}
-
-class _SubcategoryFilterItem {
-  final String name;
-  final int count;
-
-  const _SubcategoryFilterItem({required this.name, required this.count});
 }
 
 class _FilterOption {

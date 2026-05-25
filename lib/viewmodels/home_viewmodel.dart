@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/processing_job.dart';
 import '../models/reel.dart';
 import '../repositories/reel_repository.dart';
+import '../services/api_service.dart';
 
-/// ViewModel for the Home screen reel list.
 class HomeViewModel extends ChangeNotifier {
   final ReelRepository _repository;
 
@@ -19,64 +21,22 @@ class HomeViewModel extends ChangeNotifier {
   String? _selectedCategory;
   String? _selectedSubcategory;
 
-  List<Reel> get reels {
-    if (_selectedCategory == null && _selectedSubcategory == null) {
-      return List.unmodifiable(_reels);
-    }
-
-    return List.unmodifiable(_reels.where(_matchesFilters));
-  }
-
+  List<Reel> get reels => List.unmodifiable(_reels);
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
   bool get hasMoreReels => _repository.hasMoreReels;
+  int get totalCount => _repository.totalCount;
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
   String? get selectedSubcategory => _selectedSubcategory;
   List<Reel> get allReels => List.unmodifiable(_reels);
   bool get isEmpty => _reels.isEmpty && !_isLoading;
-  int get totalPinnedLocations =>
-      _reels.fold(0, (sum, reel) => sum + reel.mappableLocations.length);
-
-  bool _matchesFilters(Reel reel) {
-    if (_selectedCategory != null &&
-        _normalize(reel.category) != _normalize(_selectedCategory!)) {
-      return false;
-    }
-
-    if (_selectedSubcategory != null &&
-        _normalize(reel.subCategory) != _normalize(_selectedSubcategory!)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  String _normalize(String value) => value.trim().toLowerCase();
-
-  void _sortAndStore(List<Reel> reels) {
-    reels.sort((a, b) {
-      if (a.createdAt == null && b.createdAt == null) return 0;
-      if (a.createdAt == null) return 1;
-      if (b.createdAt == null) return -1;
-      try {
-        return DateTime.parse(
-          b.createdAt!,
-        ).compareTo(DateTime.parse(a.createdAt!));
-      } catch (_) {
-        return 0;
-      }
-    });
-
-    _reels = reels;
-  }
 
   void _syncFromRepository() {
-    _sortAndStore(List<Reel>.from(_repository.cachedReels));
+    _reels = List<Reel>.from(_repository.cachedReels);
     notifyListeners();
   }
 
-  /// Load all reels from the backend.
   Future<void> loadReels({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
@@ -85,10 +45,17 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.loadInitialReels(forceRefresh: forceRefresh);
-      _sortAndStore(List<Reel>.from(_repository.cachedReels));
+      await _repository.loadInitialReels(
+        forceRefresh: forceRefresh,
+        category: _selectedCategory,
+        subcategory: _selectedSubcategory,
+      );
+      _reels = List<Reel>.from(_repository.cachedReels);
     } catch (e) {
-      _error = e.toString();
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not load saved reels right now.',
+      );
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -105,32 +72,38 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.loadMoreReels();
-      _sortAndStore(List<Reel>.from(_repository.cachedReels));
+      await _repository.loadMoreReels(
+        category: _selectedCategory,
+        subcategory: _selectedSubcategory,
+      );
+      _reels = List<Reel>.from(_repository.cachedReels);
     } catch (e) {
-      _error = e.toString();
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not load more reels right now.',
+      );
     } finally {
       _isLoadingMore = false;
       notifyListeners();
     }
   }
 
-  /// Filter by category. Pass null to clear filter.
   void filterByCategory(String? category) {
-    _selectedCategory = _selectedCategory == category ? null : category;
-    _selectedSubcategory = null;
-    notifyListeners();
+    final nextCategory = _selectedCategory == category ? null : category;
+    applyFilters(category: nextCategory);
   }
 
   void applyFilters({String? category, String? subcategory}) {
     _selectedCategory = category;
     _selectedSubcategory = subcategory;
+    unawaited(loadReels(forceRefresh: true));
     notifyListeners();
   }
 
   void clearFilters() {
     _selectedCategory = null;
     _selectedSubcategory = null;
+    unawaited(loadReels(forceRefresh: true));
     notifyListeners();
   }
 
@@ -140,11 +113,10 @@ class HomeViewModel extends ChangeNotifier {
     _error = null;
     _isLoading = false;
     _isLoadingMore = false;
-    _sortAndStore(List<Reel>.from(_repository.cachedReels));
+    _reels = List<Reel>.from(_repository.cachedReels);
     notifyListeners();
   }
 
-  /// Process a new reel (from shared URL) and trigger loading state.
   Future<Reel> processReel(
     String url, {
     void Function(ProcessingJob job)? onJobUpdate,
@@ -155,14 +127,13 @@ class HomeViewModel extends ChangeNotifier {
 
     try {
       final reel = await _repository.processReel(url, onJobUpdate: onJobUpdate);
-      final next = [
-        reel,
-        ..._reels.where((existing) => existing.id != reel.id),
-      ];
-      _sortAndStore(next);
+      _reels = List<Reel>.from(_repository.cachedReels);
       return reel;
     } catch (e) {
-      _error = e.toString();
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not save this reel right now.',
+      );
       rethrow;
     } finally {
       _isLoading = false;
@@ -177,13 +148,15 @@ class HomeViewModel extends ChangeNotifier {
     try {
       return await _repository.enqueueReelProcessing(url);
     } catch (e) {
-      _error = e.toString();
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not start background save.',
+      );
       notifyListeners();
       rethrow;
     }
   }
 
-  /// Delete a reel.
   Future<void> deleteReel(String reelId) async {
     await _repository.deleteReel(reelId);
     _removeReelLocally(reelId);
@@ -199,9 +172,7 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   void upsertProcessedReel(Reel reel) {
-    final next = [reel, ..._reels.where((existing) => existing.id != reel.id)];
-    _sortAndStore(next);
-    notifyListeners();
+    unawaited(loadReels(forceRefresh: true));
   }
 
   @override

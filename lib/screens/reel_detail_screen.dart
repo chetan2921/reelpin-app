@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/reel.dart';
 import '../providers/app_providers.dart';
@@ -75,31 +74,6 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
               ),
             ),
             actions: [
-              // Open original
-              GestureDetector(
-                onTap: () => _openUrl(reel.url),
-                child: Container(
-                  margin: EdgeInsets.only(right: layout.inset(4)),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: layout.inset(12),
-                    vertical: layout.gap(7),
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.yellow,
-                    border: Border.all(color: AppTheme.fg(context), width: 2),
-                    boxShadow: AppTheme.brutalShadowSmall(context),
-                  ),
-                  child: Text(
-                    'OPEN REEL',
-                    style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
-                      fontSize: layout.font(11),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: layout.inset(8)),
               // Delete
               GestureDetector(
                 onTap: () => _confirmDelete(context),
@@ -344,72 +318,49 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                       ...reel.locations.map(
                         (loc) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: GestureDetector(
-                            onTap: loc.hasCoordinates
-                                ? () => _navigateToLocation(loc)
-                                : null,
-                            child: Container(
-                              decoration: AppTheme.brutalCard(context),
-                              child: Row(
-                                children: [
-                                  // Green accent bar
-                                  Container(
-                                    width: 6,
-                                    height: 56,
-                                    color: AppTheme.neonGreen,
-                                  ),
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10,
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
+                          child: Container(
+                            decoration: AppTheme.brutalCard(context),
+                            child: Row(
+                              children: [
+                                // Green accent bar
+                                Container(
+                                  width: 6,
+                                  height: 56,
+                                  color: AppTheme.neonGreen,
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          loc.name.toUpperCase(),
+                                          style: GoogleFonts.spaceMono(
+                                            color: AppTheme.fg(context),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        if (loc.address != null) ...[
+                                          const SizedBox(height: 2),
                                           Text(
-                                            loc.name.toUpperCase(),
+                                            loc.address!,
                                             style: GoogleFonts.spaceMono(
-                                              color: AppTheme.fg(context),
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
+                                              color: _detailTextColor,
+                                              fontSize: 11,
                                             ),
                                           ),
-                                          if (loc.address != null) ...[
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              loc.address!,
-                                              style: GoogleFonts.spaceMono(
-                                                color: _detailTextColor,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ],
                                         ],
-                                      ),
+                                      ],
                                     ),
                                   ),
-                                  if (loc.hasCoordinates)
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      margin: const EdgeInsets.only(right: 10),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.red,
-                                        border: Border.all(
-                                          color: AppTheme.fg(context),
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.navigation,
-                                        size: 16,
-                                        color: AppTheme.white,
-                                      ),
-                                    ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -799,24 +750,6 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
     }
   }
 
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  Future<void> _navigateToLocation(Location loc) async {
-    final queryParam = loc.name.isNotEmpty
-        ? Uri.encodeComponent(loc.name)
-        : '${loc.latitude},${loc.longitude}';
-    final url = 'https://www.google.com/maps/search/?api=1&query=$queryParam';
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   Future<void> _refreshReel() async {
     setState(() {
       _isRefreshingReel = true;
@@ -842,7 +775,10 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         if (error.isHistoryUpgradeRequired) {
           _reelAccessError = error;
         } else {
-          _reelLoadError = error.message;
+          _reelLoadError = userFacingErrorMessage(
+            error,
+            fallbackMessage: 'Could not load this reel right now.',
+          );
         }
       });
     } catch (error) {
@@ -850,7 +786,10 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         return;
       }
       setState(() {
-        _reelLoadError = error.toString();
+        _reelLoadError = userFacingErrorMessage(
+          error,
+          fallbackMessage: 'Could not load this reel right now.',
+        );
       });
     } finally {
       if (mounted) {

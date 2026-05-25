@@ -26,8 +26,10 @@ class PaywallScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = AppLayout.of(context);
     final entitlementVm = ref.watch(entitlementsViewModelProvider);
+    final entitlementResponse = entitlementVm.response;
     final entitlements = entitlementVm.entitlement;
     final isRefreshing = entitlementVm.isLoading;
+    final message = entitlementResponse?.messageFor(entryPoint.name);
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -75,7 +77,7 @@ class PaywallScreen extends ConsumerWidget {
                       ),
                     ),
                     child: Text(
-                      _titleForEntryPoint(entryPoint),
+                      (message?.title ?? entryPoint.name).toUpperCase(),
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.black,
                         fontSize: layout.font(10),
@@ -86,7 +88,7 @@ class PaywallScreen extends ConsumerWidget {
                   ),
                   SizedBox(height: layout.gap(14)),
                   Text(
-                    _headlineForEntryPoint(entryPoint),
+                    (message?.headline ?? '').toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.white,
                       fontSize: layout.font(20),
@@ -95,15 +97,16 @@ class PaywallScreen extends ConsumerWidget {
                     ),
                   ),
                   SizedBox(height: layout.gap(10)),
-                  Text(
-                    _supportingText(entitlements, entryPoint),
-                    style: GoogleFonts.spaceMono(
-                      color: const Color(0xFFD6F3EF),
-                      fontSize: layout.font(11),
-                      fontWeight: FontWeight.w500,
-                      height: 1.5,
+                  if (message?.body.isNotEmpty == true)
+                    Text(
+                      message!.body,
+                      style: GoogleFonts.spaceMono(
+                        color: const Color(0xFFD6F3EF),
+                        fontSize: layout.font(11),
+                        fontWeight: FontWeight.w500,
+                        height: 1.5,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -111,56 +114,13 @@ class PaywallScreen extends ConsumerWidget {
           SizedBox(height: layout.gap(18)),
           _sectionTitle(context, 'CURRENT PLAN'),
           SizedBox(height: layout.gap(10)),
-          _statusCard(context, entitlements),
+          _statusCard(context, entitlementResponse),
           SizedBox(height: layout.gap(18)),
           _sectionTitle(context, 'PLAN COMPARISON'),
           SizedBox(height: layout.gap(10)),
-          _planCard(
+          ..._buildBackendPlanCards(
             context,
-            title: 'FREE',
-            accent: AppTheme.yellow,
-            price: '₹0',
-            bullets: const [
-              '30 reels each month',
-              'Keyword search',
-              'Private only',
-              'Last 30 days of saved history',
-              '30 map pins',
-            ],
-          ),
-          SizedBox(height: layout.gap(12)),
-          _planCard(
-            context,
-            title: 'PRO',
-            accent: AppTheme.neonGreen,
-            price:
-                '${entitlements?.monthlyPriceLabel ?? '₹149/month'} or ${entitlements?.yearlyPriceLabel ?? '₹999/year'}',
-            bullets: const [
-              'Unlimited reels',
-              'Conversational search',
-              'Sharing',
-              'Weekly digest',
-              'Full history',
-              'Priority processing',
-            ],
-          ),
-          SizedBox(height: layout.gap(18)),
-          _sectionTitle(context, 'LAUNCH NOTE'),
-          SizedBox(height: layout.gap(10)),
-          Container(
-            decoration: AppTheme.brutalCard(context),
-            child: Padding(
-              padding: EdgeInsets.all(layout.inset(16)),
-              child: Text(
-                'BILLING IS NOT LIVE IN THE APP YET. PRO ACCESS IS ASSIGNED OUTSIDE THE APP FOR LAUNCH TESTING. AFTER YOUR PLAN CHANGES, COME BACK HERE AND REFRESH.',
-                style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSec(context),
-                  fontSize: layout.font(11),
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                ),
-              ),
-            ),
+            entitlementResponse?.planCards ?? const [],
           ),
           SizedBox(height: layout.gap(18)),
           GestureDetector(
@@ -227,8 +187,9 @@ class PaywallScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statusCard(BuildContext context, UserEntitlement? entitlements) {
+  Widget _statusCard(BuildContext context, EntitlementsResponse? response) {
     final layout = AppLayout.of(context);
+    final entitlements = response?.currentEntitlement;
     if (entitlements == null) {
       return Container(
         decoration: AppTheme.brutalCard(context),
@@ -246,9 +207,9 @@ class PaywallScreen extends ConsumerWidget {
       );
     }
 
-    final usageText = entitlements.limits.reelsPerMonth == null
-        ? 'Unlimited saves'
-        : '${entitlements.usage.reelsSavedThisMonth}/${entitlements.limits.reelsPerMonth} reels used this month';
+    final usageText = response!.limits.reelsPerMonth == null
+        ? '${response.usage.reelsSavedThisMonth} reels used this month'
+        : '${response.usage.reelsSavedThisMonth}/${response.limits.reelsPerMonth} reels used this month';
 
     return Container(
       decoration: AppTheme.brutalCard(
@@ -309,10 +270,10 @@ class PaywallScreen extends ConsumerWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            if (entitlements.limits.accessibleHistoryDays != null) ...[
+            if (response.limits.accessibleHistoryDays != null) ...[
               SizedBox(height: layout.gap(6)),
               Text(
-                'History window: last ${entitlements.limits.accessibleHistoryDays} days',
+                'History window: last ${response.limits.accessibleHistoryDays} days',
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.textSec(context),
                   fontSize: layout.font(11),
@@ -326,12 +287,44 @@ class PaywallScreen extends ConsumerWidget {
     );
   }
 
+  List<Widget> _buildBackendPlanCards(
+    BuildContext context,
+    List<PlanCard> planCards,
+  ) {
+    final layout = AppLayout.of(context);
+    if (planCards.isEmpty) {
+      return [
+        Container(
+          decoration: AppTheme.brutalCard(context),
+          padding: EdgeInsets.all(layout.inset(16)),
+          child: Text(
+            'PLAN DETAILS ARE NOT AVAILABLE RIGHT NOW.',
+            style: GoogleFonts.spaceMono(
+              color: AppTheme.fg(context),
+              fontSize: layout.font(12),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      for (var index = 0; index < planCards.length; index++) ...[
+        if (index > 0) SizedBox(height: layout.gap(12)),
+        _planCard(
+          context,
+          card: planCards[index],
+          accent: index == 0 ? AppTheme.yellow : AppTheme.neonGreen,
+        ),
+      ],
+    ];
+  }
+
   Widget _planCard(
     BuildContext context, {
-    required String title,
+    required PlanCard card,
     required Color accent,
-    required String price,
-    required List<String> bullets,
   }) {
     final layout = AppLayout.of(context);
     return Container(
@@ -356,7 +349,7 @@ class PaywallScreen extends ConsumerWidget {
                     ),
                   ),
                   child: Text(
-                    title,
+                    card.title.toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: accent.computeLuminance() > 0.5
                           ? AppTheme.black
@@ -369,7 +362,7 @@ class PaywallScreen extends ConsumerWidget {
                 SizedBox(width: layout.inset(10)),
                 Expanded(
                   child: Text(
-                    price.toUpperCase(),
+                    card.priceLabel.toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.fg(context),
                       fontSize: layout.font(13),
@@ -380,7 +373,7 @@ class PaywallScreen extends ConsumerWidget {
               ],
             ),
             SizedBox(height: layout.gap(12)),
-            ...bullets.map(
+            ...card.features.map(
               (bullet) => Padding(
                 padding: EdgeInsets.only(bottom: layout.gap(8)),
                 child: Row(
@@ -412,44 +405,5 @@ class PaywallScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  String _titleForEntryPoint(PaywallEntryPoint entryPoint) {
-    switch (entryPoint) {
-      case PaywallEntryPoint.saveLimit:
-        return 'SAVE LIMIT';
-      case PaywallEntryPoint.history:
-        return 'FULL HISTORY';
-      case PaywallEntryPoint.account:
-        return 'ACCOUNT';
-    }
-  }
-
-  String _headlineForEntryPoint(PaywallEntryPoint entryPoint) {
-    switch (entryPoint) {
-      case PaywallEntryPoint.saveLimit:
-        return 'You hit the Free save limit for this month.';
-      case PaywallEntryPoint.history:
-        return 'Older saved reels live behind Pro.';
-      case PaywallEntryPoint.account:
-        return 'Choose how much of ReelPin you want unlocked.';
-    }
-  }
-
-  String _supportingText(
-    UserEntitlement? entitlements,
-    PaywallEntryPoint entryPoint,
-  ) {
-    final monthlyLimit = entitlements?.limits.reelsPerMonth ?? 30;
-    final historyDays = entitlements?.limits.accessibleHistoryDays ?? 30;
-
-    switch (entryPoint) {
-      case PaywallEntryPoint.saveLimit:
-        return 'Free includes $monthlyLimit saves each month. Pro removes the cap and keeps priority processing turned on.';
-      case PaywallEntryPoint.history:
-        return 'Free only shows the last $historyDays days of saved history. Pro keeps your full library available.';
-      case PaywallEntryPoint.account:
-        return 'Free keeps the basics. Pro unlocks unlimited saves, conversational search, sharing, weekly digest, full history, and priority processing.';
-    }
   }
 }

@@ -30,15 +30,12 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _permissionsPromptedKey =
       'app_shell_initial_permissions_prompted_v5';
   static const _shareConfirmationDuration = Duration(milliseconds: 1400);
-  static const _resumeRefreshInterval = Duration(minutes: 5);
 
   int _currentIndex = 0;
   StreamSubscription? _mediaIntentSub;
   bool _isQueueingSharedReel = false;
-  String? _lastHandledSharedUrl;
-  DateTime? _lastHandledSharedAt;
+  String? _lastHandledSharedPayload;
   bool _isCheckingInitialPermissions = false;
-  DateTime? _lastResumeRefreshAt;
   int _searchFocusRequestId = 0;
 
   static const _navItems = [
@@ -92,32 +89,38 @@ class _AppShellState extends ConsumerState<AppShell>
     if (files.isEmpty) return;
 
     final payload = files.first.path;
-    _handleSharedPayload(payload);
+    unawaited(_handleSharedPayload(payload));
     unawaited(ReceiveSharingIntent.instance.reset());
   }
 
-  void _handleSharedPayload(String payload) {
-    final urlRegex = RegExp(
-      r'https?:\/\/(www\.)?(instagram\.com\/(reel|p|tv)\/[A-Za-z0-9_-]+|((vt|vm)\.)?tiktok\.com\/[A-Za-z0-9@._\/-]+|youtube\.com\/shorts\/[A-Za-z0-9_-]+|youtu\.be\/[A-Za-z0-9_-]+)(\/?\S*)?',
-    );
-    final match = urlRegex.firstMatch(payload);
+  Future<void> _handleSharedPayload(String payload) async {
+    final normalizedPayload = payload.trim();
+    if (normalizedPayload.isEmpty) return;
 
-    if (match != null) {
-      final String extractedUrl = match.group(0)!;
-      final analytics = ref.read(shareFlowAnalyticsServiceProvider);
-      unawaited(analytics.recordShareDetected(extractedUrl));
-      if (_lastHandledSharedUrl == extractedUrl &&
-          _lastHandledSharedAt != null &&
-          DateTime.now().difference(_lastHandledSharedAt!).inSeconds < 8) {
-        unawaited(analytics.recordDuplicateShareSkipped(extractedUrl));
+    final analytics = ref.read(shareFlowAnalyticsServiceProvider);
+    unawaited(analytics.recordShareDetected(normalizedPayload));
+    if (_lastHandledSharedPayload == normalizedPayload) {
+      unawaited(analytics.recordDuplicateShareSkipped(normalizedPayload));
+      return;
+    }
+    _lastHandledSharedPayload = normalizedPayload;
+
+    try {
+      final resolved = await ref
+          .read(apiServiceProvider)
+          .resolveSharePayload(
+            rawPayloadText: normalizedPayload,
+            platform: Theme.of(context).platform.name,
+          );
+      if (!mounted || !resolved.supported) return;
+
+      final resolvedUrl = resolved.normalizedUrl ?? resolved.extractedUrl;
+      if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
         return;
       }
-      _lastHandledSharedUrl = extractedUrl;
-      _lastHandledSharedAt = DateTime.now();
-
-      if (mounted) {
-        _enqueueSharedReel(extractedUrl);
-      }
+      await _enqueueSharedReel(resolvedUrl);
+    } catch (error) {
+      unawaited(analytics.recordEnqueueFailed(normalizedPayload, error));
     }
   }
 
@@ -205,7 +208,10 @@ class _AppShellState extends ConsumerState<AppShell>
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            'COULD NOT START BACKGROUND SAVE: $error',
+            userFacingErrorMessage(
+              error,
+              fallbackMessage: 'Could not start background save.',
+            ),
             style: GoogleFonts.spaceMono(
               color: AppTheme.white,
               fontWeight: FontWeight.w700,
@@ -233,13 +239,6 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed || !mounted) return;
-
-    final now = DateTime.now();
-    if (_lastResumeRefreshAt != null &&
-        now.difference(_lastResumeRefreshAt!) < _resumeRefreshInterval) {
-      return;
-    }
-    _lastResumeRefreshAt = now;
 
     unawaited(
       ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),

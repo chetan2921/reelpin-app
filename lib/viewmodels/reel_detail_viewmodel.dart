@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/reel.dart';
 import '../repositories/reel_repository.dart';
+import '../services/api_service.dart';
 
 /// ViewModel for the Reel Detail screen.
 class ReelDetailViewModel extends ChangeNotifier {
@@ -28,7 +29,10 @@ class ReelDetailViewModel extends ChangeNotifier {
     try {
       _reel = await _repository.getReel(reelId);
     } catch (e) {
-      _error = e.toString();
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not load this reel right now.',
+      );
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -54,7 +58,10 @@ class ReelDetailViewModel extends ChangeNotifier {
       await _repository.deleteReel(_reel!.id);
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not delete this reel right now.',
+      );
       notifyListeners();
       return false;
     }

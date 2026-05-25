@@ -2,13 +2,14 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/models/reel.dart';
+import 'package:reelpin/models/search_response.dart';
 import 'package:reelpin/models/search_result.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/services/api_service.dart';
 import 'package:reelpin/services/auth_service.dart';
 import 'package:reelpin/services/profile_service.dart';
-import 'package:reelpin/services/reel_store.dart';
 import 'package:reelpin/viewmodels/search_viewmodel.dart';
+import 'package:reelpin/models/user_entitlement.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
@@ -19,7 +20,7 @@ void main() {
             required String query,
             String? category,
             String? subcategory,
-          }) async => [_resultFor(query)],
+          }) async => _searchResponse(query, [_resultFor(query)]),
     );
     final viewModel = SearchViewModel(repository);
 
@@ -33,8 +34,8 @@ void main() {
   });
 
   test('latest search result wins when earlier requests finish late', () async {
-    final first = Completer<List<SearchResult>>();
-    final second = Completer<List<SearchResult>>();
+    final first = Completer<SearchResponse>();
+    final second = Completer<SearchResponse>();
     var callCount = 0;
 
     final repository = _FakeReelRepository(
@@ -51,9 +52,9 @@ void main() {
     unawaited(viewModel.search('coffee'));
     await Future<void>.delayed(Duration.zero);
 
-    second.complete([_resultFor('coffee')]);
+    second.complete(_searchResponse('coffee', [_resultFor('coffee')]));
     await Future<void>.delayed(Duration.zero);
-    first.complete([_resultFor('travel')]);
+    first.complete(_searchResponse('travel', [_resultFor('travel')]));
     await Future<void>.delayed(Duration.zero);
 
     expect(viewModel.results.single.reel.title, 'coffee');
@@ -68,7 +69,7 @@ void main() {
             required String query,
             String? category,
             String? subcategory,
-          }) async => [_resultFor(query)],
+          }) async => _searchResponse(query, [_resultFor(query)]),
     );
     final viewModel = SearchViewModel(repository);
 
@@ -84,13 +85,9 @@ void main() {
 
 class _FakeReelRepository extends ReelRepository {
   _FakeReelRepository({required this.onSearch})
-    : super(
-        ApiService(baseUrl: 'https://example.com'),
-        ReelStore(),
-        _FakeAuthService(),
-      );
+    : super(ApiService(baseUrl: 'https://example.com'), _FakeAuthService());
 
-  final Future<List<SearchResult>> Function({
+  final Future<SearchResponse> Function({
     required String query,
     String? category,
     String? subcategory,
@@ -101,7 +98,7 @@ class _FakeReelRepository extends ReelRepository {
   var cancelCalls = 0;
 
   @override
-  Future<List<SearchResult>> search(
+  Future<SearchResponse> search(
     String query, {
     String? category,
     String? subcategory,
@@ -151,5 +148,14 @@ SearchResult _resultFor(String title) {
       createdAt: '2026-04-20T00:00:00Z',
     ),
     relevanceScore: 0.9,
+  );
+}
+
+SearchResponse _searchResponse(String query, List<SearchResult> results) {
+  return SearchResponse(
+    query: query,
+    results: results,
+    total: results.length,
+    searchMode: SearchMode.rag,
   );
 }

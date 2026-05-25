@@ -19,9 +19,12 @@ class SearchResponse {
     return SearchResponse(
       query: json['query']?.toString() ?? '',
       results: rawResults
-          .map((row) => SearchResult.fromJson(row as Map<String, dynamic>))
+          .map(
+            (row) =>
+                SearchResult.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
           .toList(growable: false),
-      total: (json['total'] as num?)?.toInt() ?? rawResults.length,
+      total: (json['total'] as num?)?.toInt() ?? 0,
       searchMode: SearchMode.fromValue(json['search_mode']?.toString()),
     );
   }

@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../models/reel.dart';
+import '../models/map_response.dart';
 import '../providers/app_providers.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
@@ -136,10 +136,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     _isSyncingMarkers = true;
     final requiredColors = <String, String>{};
-    for (final reel in mapVm.reelsWithLocations) {
-      requiredColors[reel.category] = reel.category;
-      if (reel.subCategory.trim().isNotEmpty) {
-        requiredColors[reel.subCategory] = reel.category;
+    for (final item in mapVm.mapItems) {
+      requiredColors[item.category] = item.category;
+      if (item.subCategory.trim().isNotEmpty) {
+        requiredColors[item.subCategory] = item.category;
       }
     }
     if (requiredColors.length > _markerCacheLimit) {
@@ -296,7 +296,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           builder: (context) {
             final markers = _buildMarkers(vm);
             final totalPins = vm.totalPinnedLocations;
-            final visiblePins = markers.length;
+            final visiblePins = vm.visiblePinnedLocations;
 
             if ((markers.length != _lastMarkersCount ||
                     vm.selectedCategory != _lastCategoryFilter) &&
@@ -562,22 +562,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
 
                 // ── Selected reel sheet ──
-                if (vm.selectedReel != null)
+                if (vm.selectedMapItem != null)
                   Positioned(
                     bottom: 24,
                     left: 16,
                     right: 16,
-                    child: _buildPinSheet(
-                      context,
-                      vm.selectedReel!,
-                      vm.selectedLocation,
-                    ),
+                    child: _buildPinSheet(context, vm.selectedMapItem!),
                   ),
 
                 // ── Map buttons ──
                 Positioned(
                   right: layout.inset(16),
-                  bottom: vm.selectedReel != null
+                  bottom: vm.selectedMapItem != null
                       ? layout.gap(280)
                       : layout.gap(24),
                   child: Column(
@@ -626,42 +622,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Set<Marker> _buildMarkers(MapViewModel vm) {
     final markers = <Marker>{};
 
-    for (final reel in vm.reelsWithLocations) {
-      final locations = reel.mappableLocations;
-      for (var index = 0; index < locations.length; index++) {
-        final loc = locations[index];
-        markers.add(
-          Marker(
-            markerId: MarkerId(
-              '${reel.id}_${index}_${loc.name}_${loc.latitude}_${loc.longitude}',
-            ),
-            position: LatLng(loc.latitude!, loc.longitude!),
-            infoWindow: InfoWindow(title: reel.title, snippet: loc.name),
-            icon:
-                _categoryMarkers[reel.subCategory] ??
-                _categoryMarkers[reel.category] ??
-                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose),
-            onTap: () => vm.selectReel(reel, location: loc),
+    for (final item in vm.mapItems) {
+      markers.add(
+        Marker(
+          markerId: MarkerId(item.markerId),
+          position: LatLng(item.latitude, item.longitude),
+          infoWindow: InfoWindow(
+            title: item.title,
+            snippet: item.locationDisplayLabel,
           ),
-        );
-      }
+          icon:
+              _categoryMarkers[item.subCategory] ??
+              _categoryMarkers[item.category] ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose),
+          onTap: () => vm.selectMapItem(item),
+        ),
+      );
     }
     return markers;
   }
 
-  Widget _buildPinSheet(
-    BuildContext context,
-    Reel reel,
-    Location? selectedLocation,
-  ) {
-    final catColor = AppTheme.getCategoryColor(reel.category);
+  Widget _buildPinSheet(BuildContext context, MapItem item) {
+    final catColor = AppTheme.getCategoryColor(item.category);
     final supportingTextColor = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFFD0D0D0)
         : AppTheme.textSecondary;
-    final fallbackLocation = reel.mappableLocations.isNotEmpty
-        ? reel.mappableLocations.first
-        : null;
-    final activeLocation = selectedLocation ?? fallbackLocation;
+    final mapsUrl = item.googleMapsUrl?.trim();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -691,7 +677,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       border: Border.all(color: AppTheme.fg(context), width: 2),
                     ),
                     child: Text(
-                      reel.category.toUpperCase(),
+                      item.categoryLabel.toUpperCase(),
                       style: GoogleFonts.spaceMono(
                         color: catColor.computeLuminance() > 0.5
                             ? AppTheme.black
@@ -705,7 +691,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () => ref.read(mapViewModelProvider).selectReel(null),
+                onTap: () => ref.read(mapViewModelProvider).selectMapItem(null),
                 child: Container(
                   width: 28,
                   height: 28,
@@ -725,7 +711,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
           // Title
           Text(
-            reel.title.toUpperCase(),
+            item.title.toUpperCase(),
             style: GoogleFonts.spaceMono(
               color: AppTheme.fg(context),
               fontSize: 14,
@@ -735,10 +721,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             overflow: TextOverflow.ellipsis,
           ),
 
-          if (reel.summary.isNotEmpty) ...[
+          if (item.summary.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              reel.summary,
+              item.summary,
               style: GoogleFonts.spaceMono(
                 color: supportingTextColor,
                 fontSize: 11,
@@ -769,13 +755,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  (activeLocation != null
-                          ? [
-                              activeLocation.name,
-                              activeLocation.address ?? '',
-                            ].where((part) => part.isNotEmpty).join(' • ')
-                          : reel.locations.map((l) => l.name).join(', '))
-                      .toUpperCase(),
+                  item.locationDisplayLabel.toUpperCase(),
                   style: GoogleFonts.spaceMono(
                     color: supportingTextColor,
                     fontSize: 10,
@@ -798,7 +778,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ReelDetailScreen(reel: reel),
+                        builder: (_) => ReelDetailScreen(reel: item.toReel()),
                       ),
                     );
                   },
@@ -824,16 +804,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
-                  onTap: activeLocation == null
+                  onTap: mapsUrl == null || mapsUrl.isEmpty
                       ? null
                       : () async {
-                          final loc = activeLocation;
-                          final queryParam = loc.name.isNotEmpty
-                              ? Uri.encodeComponent(loc.name)
-                              : '${loc.latitude},${loc.longitude}';
-                          final url =
-                              'https://www.google.com/maps/search/?api=1&query=$queryParam';
-                          final uri = Uri.parse(url);
+                          final uri = Uri.parse(mapsUrl);
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(
                               uri,

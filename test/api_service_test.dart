@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -16,7 +18,7 @@ void main() {
         requests.add(request.url);
         expect(request.headers['Authorization'], 'Bearer token-123');
 
-        if (request.url.path == '/processing-jobs/reels') {
+        if (request.url.path == '/api/v1/processing-jobs/reels') {
           expect(request.headers['Content-Type'], contains('application/json'));
           expect(jsonDecode(request.body), {
             'url': 'https://instagram.com/reel/abc',
@@ -27,7 +29,7 @@ void main() {
           );
         }
 
-        if (request.url.path == '/processing-jobs/job-123') {
+        if (request.url.path == '/api/v1/processing-jobs/job-123') {
           return http.Response(
             jsonEncode({
               'id': 'job-123',
@@ -52,8 +54,8 @@ void main() {
     expect(reel.id, 'reel-123');
     expect(updates.map((job) => job.status), ['completed']);
     expect(requests.map((uri) => uri.path), [
-      '/processing-jobs/reels',
-      '/processing-jobs/job-123',
+      '/api/v1/processing-jobs/reels',
+      '/api/v1/processing-jobs/job-123',
     ]);
   });
 
@@ -66,11 +68,11 @@ void main() {
         requests.add(request.url);
         expect(request.headers['Authorization'], 'Bearer token-123');
 
-        if (request.url.path == '/processing-jobs/reels') {
+        if (request.url.path == '/api/v1/processing-jobs/reels') {
           return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
         }
 
-        if (request.url.path == '/process-reel') {
+        if (request.url.path == '/api/v1/process-reel') {
           expect(request.headers['Content-Type'], contains('application/json'));
           expect(jsonDecode(request.body), {
             'url': 'https://instagram.com/reel/abc',
@@ -81,7 +83,7 @@ void main() {
           );
         }
 
-        if (request.url.path == '/processing-jobs/job-legacy') {
+        if (request.url.path == '/api/v1/processing-jobs/job-legacy') {
           return http.Response(
             jsonEncode({
               'id': 'job-legacy',
@@ -92,7 +94,7 @@ void main() {
           );
         }
 
-        if (request.url.path == '/reels/reel-123') {
+        if (request.url.path == '/api/v1/reels/reel-123') {
           return http.Response(jsonEncode(_reelJson), 200);
         }
 
@@ -107,29 +109,29 @@ void main() {
 
     expect(reel.id, 'reel-123');
     expect(requests.map((uri) => uri.path), [
-      '/processing-jobs/reels',
-      '/process-reel',
-      '/processing-jobs/job-legacy',
-      '/reels/reel-123',
+      '/api/v1/processing-jobs/reels',
+      '/api/v1/process-reel',
+      '/api/v1/processing-jobs/job-legacy',
+      '/api/v1/reels/reel-123',
     ]);
   });
 
   test(
-    'enqueueReelProcessing accepts job_id from process-reel fallback',
+    'enqueueReelProcessing accepts job_id from process-reel compatibility path',
     () async {
       final service = ApiService(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
           expect(request.headers['Authorization'], 'Bearer token-123');
-          if (request.url.path == '/processing-jobs/reels') {
+          if (request.url.path == '/api/v1/processing-jobs/reels') {
             expect(jsonDecode(request.body), {
               'url': 'https://instagram.com/reel/abc',
             });
             return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
           }
 
-          if (request.url.path == '/process-reel') {
+          if (request.url.path == '/api/v1/process-reel') {
             return http.Response(
               jsonEncode({'job_id': 'job-legacy', 'status': 'queued'}),
               202,
@@ -156,8 +158,22 @@ void main() {
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
         expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(request.url.toString(), 'https://example.com/reels?limit=50');
-        return http.Response(jsonEncode([_reelJson]), 200);
+        expect(
+          request.url.toString(),
+          'https://example.com/api/v1/reels?limit=50',
+        );
+        return http.Response(
+          jsonEncode({
+            'reels': [_reelJson],
+            'next_cursor': null,
+            'next_offset': 1,
+            'has_more': false,
+            'total_count': 1,
+            'limit': 50,
+            'offset': 0,
+          }),
+          200,
+        );
       }),
     );
 
@@ -178,6 +194,7 @@ void main() {
           'category': 'Travel',
           'limit': 5,
         });
+        expect(request.url.toString(), 'https://example.com/api/v1/search');
         return http.Response(
           jsonEncode({
             'query': 'coffee',
@@ -234,12 +251,13 @@ void main() {
           expect(request.headers['Authorization'], 'Bearer token-123');
           expect(
             request.url.toString(),
-            'https://example.com/reels/category-filters',
+            'https://example.com/api/v1/reels/category-filters',
           );
           return http.Response(
             jsonEncode({
-              'user_id': 'user-123',
+              'total_count': 0,
               'categories': <Map<String, Object?>>[],
+              'selected_preview_count': 0,
             }),
             200,
           );
@@ -248,7 +266,7 @@ void main() {
 
       final response = await service.getReelCategoryFilters(userId: 'user-123');
 
-      expect(response.userId, 'user-123');
+      expect(response.totalCount, 0);
     },
   );
 
@@ -258,7 +276,10 @@ void main() {
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
         expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(request.url.toString(), 'https://example.com/reels/reel-123');
+        expect(
+          request.url.toString(),
+          'https://example.com/api/v1/reels/reel-123',
+        );
         expect(request.method, 'DELETE');
         return http.Response(jsonEncode({'ok': true}), 200);
       }),
@@ -268,7 +289,7 @@ void main() {
   });
 
   test(
-    'getAccountEntitlements falls back when the endpoint is missing',
+    'getAccountEntitlements reports missing endpoint without assuming Pro',
     () async {
       final service = ApiService(
         baseUrl: 'https://example.com',
@@ -276,21 +297,23 @@ void main() {
         client: MockClient((request) async {
           expect(
             request.url.toString(),
-            'https://example.com/account/entitlements',
+            'https://example.com/api/v1/account/entitlements',
           );
           expect(request.headers['Authorization'], 'Bearer token-123');
           return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
         }),
       );
 
-      final entitlement = await service.getAccountEntitlements(
-        userId: 'user-123',
+      expect(
+        () => service.getAccountEntitlements(userId: 'user-123'),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            404,
+          ),
+        ),
       );
-
-      expect(entitlement.userId, 'user-123');
-      expect(entitlement.isPro, isTrue);
-      expect(entitlement.features.conversationalRagSearch, isTrue);
-      expect(entitlement.limits.reelsPerMonth, isNull);
     },
   );
 
@@ -311,6 +334,44 @@ void main() {
           500,
         ),
       ),
+    );
+  });
+
+  test('userFacingErrorMessage hides network exception details', () {
+    expect(
+      userFacingErrorMessage(
+        http.ClientException(
+          'Connection closed before full header was received',
+          Uri.parse('http://192.168.1.5:8000/reels/reel-123'),
+        ),
+        fallbackMessage: 'Could not load this reel right now.',
+      ),
+      'Could not connect. Please try again.',
+    );
+    expect(
+      userFacingErrorMessage(
+        TimeoutException('http://192.168.1.5:8000/reels/reel-123'),
+        fallbackMessage: 'Could not load this reel right now.',
+      ),
+      'Could not connect. Please try again.',
+    );
+    expect(
+      userFacingErrorMessage(
+        const SocketException('Connection refused'),
+        fallbackMessage: 'Could not load this reel right now.',
+      ),
+      'Could not connect. Please try again.',
+    );
+    expect(
+      userFacingErrorMessage(
+        const ApiException(
+          'ClientException: Connection closed before full header was received, '
+          'uri=http://192.168.1.5:8000/reels/reel-123',
+          503,
+        ),
+        fallbackMessage: 'Could not load this reel right now.',
+      ),
+      'Could not connect. Please try again.',
     );
   });
 }

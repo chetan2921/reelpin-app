@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/share_handoff_service.dart';
 
@@ -235,10 +236,25 @@ class SessionViewModel extends ChangeNotifier {
 
   String _normalizeError(Object error) {
     final message = error.toString().trim();
+    if (_looksTechnicalError(message)) {
+      return userFacingErrorMessage(error);
+    }
     if (message.startsWith('Exception: ')) {
       return message.replaceFirst('Exception: ', '');
     }
     return message;
+  }
+
+  bool _looksTechnicalError(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('exception') ||
+        normalized.contains('socket') ||
+        normalized.contains('connection closed') ||
+        normalized.contains('connection refused') ||
+        normalized.contains('failed host lookup') ||
+        normalized.contains('http://') ||
+        normalized.contains('https://') ||
+        normalized.contains('uri=');
   }
 
   @override

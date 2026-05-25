@@ -191,7 +191,7 @@ class _ReelCardState extends State<ReelCard>
                                 Expanded(
                                   child: Text(
                                     reel.hasMapLocations
-                                        ? reel.mappableLocations.first.name
+                                        ? reel.primaryLocationLabel
                                               .toUpperCase()
                                         : reel.relativeDate.toUpperCase(),
                                     style: GoogleFonts.spaceMono(

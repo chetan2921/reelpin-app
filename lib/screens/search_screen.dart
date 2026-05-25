@@ -5,10 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/discover_response.dart';
+import '../models/reel.dart';
 import '../providers/app_providers.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import '../viewmodels/category_filters_viewmodel.dart';
-import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/search_viewmodel.dart';
 import '../widgets/search_result_tile.dart';
 import 'profile_screen.dart';
@@ -28,7 +29,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  DateTime? _selectedSavedDate;
+  String? _selectedSavedDate;
+  String? _selectedSavedDateLabel;
+  DiscoverResponse? _discover;
+  bool _isLoadingDiscover = false;
+  String? _discoverError;
   Timer? _searchDebounce;
   int _handledFocusRequestId = 0;
   bool _hasSearchText = false;
@@ -38,6 +43,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.initState();
     _controller.addListener(_handleControllerTextChanged);
     _scheduleFocusIfRequested();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_loadDiscover(reset: true));
+      }
+    });
   }
 
   @override
@@ -79,9 +89,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final vm = ref.watch(searchViewModelProvider);
-    final homeVm = ref.watch(homeViewModelProvider);
     final sessionVm = ref.watch(sessionViewModelProvider);
-    final categoryVm = ref.watch(categoryFiltersViewModelProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -114,7 +122,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () => _pickSavedDate(context, homeVm),
+                    onTap: () => _pickSavedDate(context),
                     child: Container(
                       width: layout.inset(44),
                       height: layout.inset(44),
@@ -242,7 +250,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ? _buildMinimumQueryState(context, vm.lastQuery)
                   : vm.lastQuery.isNotEmpty
                   ? _buildNoResults(context, vm.lastQuery)
-                  : _buildDiscoverContent(context, homeVm, categoryVm),
+                  : _buildDiscoverContent(context),
             ),
           ],
         ),
@@ -328,20 +336,67 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _clearDateFilter() {
     setState(() {
       _selectedSavedDate = null;
+      _selectedSavedDateLabel = null;
     });
+    unawaited(_loadDiscover(reset: true));
   }
 
-  Future<void> _pickSavedDate(
-    BuildContext context,
-    HomeViewModel homeVm,
-  ) async {
-    final datedReels = homeVm.reels
-        .where((reel) => reel.createdAt != null)
-        .toList();
-    final now = DateTime.now();
-    final initialDate = _selectedSavedDate ?? now;
+  Future<void> _loadDiscover({bool reset = false}) async {
+    final currentPagination = _discover?.pagination;
+    setState(() {
+      _isLoadingDiscover = true;
+      _discoverError = null;
+    });
 
-    if (datedReels.isEmpty) {
+    try {
+      final response = await ref
+          .read(apiServiceProvider)
+          .getDiscover(
+            savedDate: _selectedSavedDate,
+            offset: reset ? null : currentPagination?.nextOffset,
+            cursor: reset ? null : currentPagination?.nextCursor,
+          );
+      if (!mounted) return;
+      setState(() {
+        _discover = response;
+        _selectedSavedDate = response.selectedDate ?? _selectedSavedDate;
+        _selectedSavedDateLabel = _labelForSavedDate(
+          response,
+          _selectedSavedDate,
+        );
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _discoverError = userFacingErrorMessage(
+          error,
+          fallbackMessage: 'Could not load discover data right now.',
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingDiscover = false;
+        });
+      }
+    }
+  }
+
+  String? _labelForSavedDate(DiscoverResponse response, String? savedDate) {
+    if (savedDate == null || savedDate.isEmpty) {
+      return null;
+    }
+    for (final option in response.savedDates) {
+      if (option.value == savedDate) {
+        return option.label;
+      }
+    }
+    return savedDate;
+  }
+
+  Future<void> _pickSavedDate(BuildContext context) async {
+    final discover = _discover;
+    if (discover == null || discover.savedDates.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -361,82 +416,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
 
-    final parsedDates = datedReels
-        .map((reel) => DateTime.tryParse(reel.createdAt!)?.toLocal())
-        .whereType<DateTime>()
-        .toList();
-    if (parsedDates.isEmpty) return;
-
-    parsedDates.sort();
-    final picked = await showDatePicker(
+    final selected = await showModalBottomSheet<SavedDateOption>(
       context: context,
-      initialDate: _clampDate(initialDate, parsedDates.first, now),
-      firstDate: parsedDates.first,
-      lastDate: now,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppTheme.yellow,
-              onPrimary: AppTheme.black,
-              surface: AppTheme.bg(context),
-              onSurface: AppTheme.fg(context),
-            ),
-            dialogTheme: DialogThemeData(
-              backgroundColor: AppTheme.bg(context),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
-                side: BorderSide(
-                  color: AppTheme.fg(context),
-                  width: AppTheme.borderWidth,
+      backgroundColor: AppTheme.bg(context),
+      builder: (context) => SafeArea(
+        child: ListView.separated(
+          shrinkWrap: true,
+          padding: const EdgeInsets.all(20),
+          itemBuilder: (context, index) {
+            final option = discover.savedDates[index];
+            return GestureDetector(
+              onTap: () => Navigator.pop(context, option),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: AppTheme.brutalBox(context, shadow: true),
+                child: Text(
+                  option.label.toUpperCase(),
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.fg(context),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+            );
+          },
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemCount: discover.savedDates.length,
+        ),
+      ),
     );
 
-    if (picked == null || !mounted) return;
+    if (selected == null || !mounted) return;
     setState(() {
-      _selectedSavedDate = DateUtils.dateOnly(picked);
+      _selectedSavedDate = selected.value;
+      _selectedSavedDateLabel = selected.label;
     });
-  }
-
-  DateTime _clampDate(DateTime value, DateTime min, DateTime max) {
-    if (value.isBefore(min)) return min;
-    if (value.isAfter(max)) return max;
-    return value;
-  }
-
-  List _reelsForDate(List reels, DateTime selectedDate) {
-    final target = DateUtils.dateOnly(selectedDate);
-    return reels.where((reel) {
-      final createdAt = reel.createdAt;
-      if (createdAt == null) return false;
-      final parsed = DateTime.tryParse(createdAt)?.toLocal();
-      if (parsed == null) return false;
-      return DateUtils.isSameDay(DateUtils.dateOnly(parsed), target);
-    }).toList();
-  }
-
-  String _formatSelectedDate(DateTime value) {
-    const months = [
-      'JAN',
-      'FEB',
-      'MAR',
-      'APR',
-      'MAY',
-      'JUN',
-      'JUL',
-      'AUG',
-      'SEP',
-      'OCT',
-      'NOV',
-      'DEC',
-    ];
-    return '${months[value.month - 1]} ${value.day}, ${value.year}';
+    unawaited(_loadDiscover(reset: true));
   }
 
   Widget _buildNoResults(BuildContext context, String query) {
@@ -548,24 +567,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   // ── Discover (no search active) ──
-  Widget _buildDiscoverContent(
-    BuildContext context,
-    HomeViewModel homeVm,
-    CategoryFiltersViewModel categoryVm,
-  ) {
-    final reels = homeVm.reels;
-    final dateReels = _selectedSavedDate == null
-        ? const []
-        : _reelsForDate(reels, _selectedSavedDate!);
+  Widget _buildDiscoverContent(BuildContext context) {
+    final discover = _discover;
+    if (_isLoadingDiscover && discover == null) {
+      return _buildSearchingState(context);
+    }
+
+    if (_discoverError != null && discover == null) {
+      return _buildDiscoverError(context);
+    }
+
+    if (discover == null) {
+      return const SizedBox.shrink();
+    }
+
+    final recentSavesCount = discover.recentSavesCount;
 
     return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification.metrics.pixels >=
-            notification.metrics.maxScrollExtent - 320) {
-          homeVm.loadMoreReels();
-        }
-        return false;
-      },
+      onNotification: (_) => false,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
         children: [
@@ -576,7 +595,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'SAVED ON ${_formatSelectedDate(_selectedSavedDate!)}',
+                      'SAVED ON ${(_selectedSavedDateLabel ?? _selectedSavedDate!).toUpperCase()}',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.fg(context),
                         fontSize: 14,
@@ -610,11 +629,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ],
               ),
             ),
-            if (dateReels.isNotEmpty) ...[
-              _buildRecentSaves(context, dateReels),
+            if (discover.reelsForSelectedDate.isNotEmpty) ...[
+              _buildRecentSaves(context, discover.reelsForSelectedDate),
               const SizedBox(height: 24),
             ] else ...[
-              _buildDateEmptyState(context, _selectedSavedDate!),
+              _buildDateEmptyState(
+                context,
+                _selectedSavedDateLabel ?? _selectedSavedDate!,
+              ),
               const SizedBox(height: 24),
             ],
           ],
@@ -633,11 +655,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          _buildQuickSearches(context),
+          _buildQuickSearches(context, discover.quickSearchPrompts),
           const SizedBox(height: 24),
 
           // Recent saves
-          if (_selectedSavedDate == null && reels.isNotEmpty) ...[
+          if (_selectedSavedDate == null &&
+              discover.recentSaves.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Row(
@@ -662,7 +685,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       border: Border.all(color: AppTheme.fg(context), width: 2),
                     ),
                     child: Text(
-                      '${reels.length}',
+                      '$recentSavesCount',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.black,
                         fontSize: 11,
@@ -673,7 +696,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ],
               ),
             ),
-            _buildRecentSaves(context, reels),
+            _buildRecentSaves(context, discover.recentSaves),
             const SizedBox(height: 24),
           ],
 
@@ -690,22 +713,60 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
           ),
-          _buildCategoryGrid(context, homeVm, categoryVm),
+          _buildCategoryGrid(context, discover.categoryGrid),
 
-          if (reels.isNotEmpty) ...[
+          if (discover.pagination.hasMore) ...[
             const SizedBox(height: 24),
-            _buildDiscoverPaginationState(context, homeVm),
+            _buildDiscoverPaginationState(context, discover.pagination),
           ],
         ],
       ),
     );
   }
 
+  Widget _buildDiscoverError(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Container(
+          width: double.infinity,
+          decoration: AppTheme.brutalCard(context),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'COULD NOT LOAD DISCOVER',
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.fg(context),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _discoverError ?? '',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.textSec(context),
+                    fontSize: 11,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDiscoverPaginationState(
     BuildContext context,
-    HomeViewModel homeVm,
+    DiscoverPagination pagination,
   ) {
-    if (homeVm.isLoadingMore) {
+    if (_isLoadingDiscover) {
       return Center(
         child: SizedBox(
           width: 24,
@@ -718,14 +779,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
     }
 
-    if (!homeVm.hasMoreReels) {
+    if (!pagination.hasMore) {
       return const SizedBox.shrink();
     }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
-        onTap: homeVm.loadMoreReels,
+        onTap: _loadDiscover,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: AppTheme.brutalBox(
@@ -747,7 +808,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildDateEmptyState(BuildContext context, DateTime selectedDate) {
+  Widget _buildDateEmptyState(BuildContext context, String selectedDateLabel) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -774,7 +835,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
               const SizedBox(height: 14),
               Text(
-                'NO REELS SAVED ON ${_formatSelectedDate(selectedDate)}',
+                'NO REELS SAVED ON ${selectedDateLabel.toUpperCase()}',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.fg(context),
@@ -790,14 +851,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildQuickSearches(BuildContext context) {
-    final prompts = [
-      'Food spots nearby',
-      'Travel destinations',
-      'Workout routines',
-      'Study tips',
-      'Finance advice',
-    ];
+  Widget _buildQuickSearches(BuildContext context, List<String> prompts) {
+    if (prompts.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return SizedBox(
       height: 40,
@@ -833,7 +890,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildRecentSaves(BuildContext context, List reels) {
+  Widget _buildRecentSaves(BuildContext context, List<Reel> reels) {
     return SizedBox(
       height: 150,
       child: ListView.separated(
@@ -940,11 +997,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildCategoryGrid(
     BuildContext context,
-    HomeViewModel homeVm,
-    CategoryFiltersViewModel categoryVm,
+    List<DiscoverCategory> categories,
   ) {
-    final categories = categoryVm.categories;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: AnimationLimiter(
@@ -959,9 +1013,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           itemCount: categories.length,
           itemBuilder: (_, i) {
-            final cat = categories[i];
-            final count = homeVm.reels.where((r) => r.category == cat).length;
-            final color = AppTheme.getCategoryColor(cat);
+            final item = categories[i];
+            final color = AppTheme.getCategoryColor(item.category);
 
             return AnimationConfiguration.staggeredGrid(
               position: i,
@@ -972,9 +1025,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 child: FadeInAnimation(
                   child: GestureDetector(
                     onTap: () {
-                      _controller.text = cat;
+                      _controller.text = item.category;
                       final vm = ref.read(searchViewModelProvider);
-                      _doSearch(vm, cat);
+                      _doSearch(vm, item.category);
                     },
                     child: Container(
                       decoration: AppTheme.brutalCard(context),
@@ -990,7 +1043,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    cat.split(' & ').first.toUpperCase(),
+                                    item.label.toUpperCase(),
                                     style: GoogleFonts.spaceMono(
                                       color: AppTheme.fg(context),
                                       fontSize: 11,
@@ -1013,7 +1066,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       ),
                                     ),
                                     child: Text(
-                                      '$count REEL${count == 1 ? '' : 'S'}',
+                                      '${item.count} REEL${item.count == 1 ? '' : 'S'}',
                                       style: GoogleFonts.spaceMono(
                                         color: AppTheme.fg(context),
                                         fontSize: 9,
@@ -1100,7 +1153,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       border: Border.all(color: AppTheme.fg(context), width: 2),
                     ),
                     child: Text(
-                      '${vm.results.length}',
+                      '${vm.total}',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.fg(context),
                         fontSize: 12,
@@ -1110,7 +1163,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'RESULT${vm.results.length == 1 ? '' : 'S'} FOR "${vm.lastQuery.toUpperCase()}"',
+                    'RESULT${vm.total == 1 ? '' : 'S'} FOR "${vm.lastQuery.toUpperCase()}"',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.textSec(context),
                       fontSize: 11,

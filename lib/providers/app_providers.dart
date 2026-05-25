@@ -5,7 +5,6 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/profile_service.dart';
-import '../services/reel_store.dart';
 import '../services/share_flow_analytics_service.dart';
 import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/entitlements_viewmodel.dart';
@@ -47,14 +46,9 @@ final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService();
 });
 
-final reelStoreProvider = Provider<ReelStore>((ref) {
-  return ReelStore();
-});
-
 final reelRepositoryProvider = ChangeNotifierProvider<ReelRepository>((ref) {
   return ReelRepository(
     ref.read(apiServiceProvider),
-    ref.read(reelStoreProvider),
     ref.read(authServiceProvider),
   );
 });

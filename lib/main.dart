@@ -21,7 +21,6 @@ import 'services/app_update_service.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
-import 'services/reel_store.dart';
 import 'services/share_handoff_service.dart';
 import 'theme/app_theme.dart';
 import 'viewmodels/category_filters_viewmodel.dart';
@@ -32,7 +31,6 @@ import 'viewmodels/search_viewmodel.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ReelStore.configureDatabaseFactory();
   GoogleFonts.config.allowRuntimeFetching = false;
   await SupabaseConfig.loadLocalConfig();
   if (!kIsWeb &&

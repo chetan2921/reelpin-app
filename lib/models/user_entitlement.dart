@@ -61,10 +61,10 @@ enum SearchMode {
 
 class EntitlementFeatures {
   const EntitlementFeatures({
-    this.basicAiCategorization = true,
-    this.keywordSearch = true,
+    this.basicAiCategorization = false,
+    this.keywordSearch = false,
     this.conversationalRagSearch = false,
-    this.mapPins = true,
+    this.mapPins = false,
     this.shareableCollectionLinks = false,
     this.weeklyAiDigest = false,
     this.priorityProcessing = false,
@@ -142,6 +142,30 @@ class EntitlementUsage {
   }
 }
 
+class EntitlementPricing {
+  const EntitlementPricing({this.monthlyLabel = '', this.yearlyLabel = ''});
+
+  final String monthlyLabel;
+  final String yearlyLabel;
+
+  factory EntitlementPricing.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const EntitlementPricing();
+    }
+
+    return EntitlementPricing(
+      monthlyLabel:
+          json['monthly_label']?.toString() ??
+          json['pricing_inr_monthly_label']?.toString() ??
+          '',
+      yearlyLabel:
+          json['yearly_label']?.toString() ??
+          json['pricing_inr_yearly_label']?.toString() ??
+          '',
+    );
+  }
+}
+
 class UserEntitlement {
   const UserEntitlement({
     required this.userId,
@@ -151,11 +175,9 @@ class UserEntitlement {
     required this.currentPeriodStart,
     required this.currentPeriodEnd,
     required this.searchMode,
-    required this.features,
-    required this.limits,
-    required this.usage,
-    required this.pricingInrMonthly,
-    required this.pricingInrYearly,
+    required this.restricted,
+    required this.planLabel,
+    required this.searchModeLabel,
   });
 
   final String userId;
@@ -165,78 +187,173 @@ class UserEntitlement {
   final String? currentPeriodStart;
   final String? currentPeriodEnd;
   final SearchMode searchMode;
-  final EntitlementFeatures features;
-  final EntitlementLimits limits;
-  final EntitlementUsage usage;
-  final int pricingInrMonthly;
-  final int pricingInrYearly;
+  final bool restricted;
+  final String planLabel;
+  final String searchModeLabel;
 
   factory UserEntitlement.fromJson(Map<String, dynamic> json) {
+    final plan = SubscriptionPlan.fromValue(json['plan']?.toString());
+    final searchMode = SearchMode.fromValue(json['search_mode']?.toString());
     return UserEntitlement(
       userId: json['user_id']?.toString() ?? '',
-      plan: SubscriptionPlan.fromValue(json['plan']?.toString()),
+      plan: plan,
       billingInterval: BillingInterval.fromValue(
         json['billing_interval']?.toString(),
       ),
       status: SubscriptionStatus.fromValue(json['status']?.toString()),
       currentPeriodStart: json['current_period_start']?.toString(),
       currentPeriodEnd: json['current_period_end']?.toString(),
-      searchMode: SearchMode.fromValue(json['search_mode']?.toString()),
-      features: EntitlementFeatures.fromJson(
-        json['features'] as Map<String, dynamic>?,
+      searchMode: searchMode,
+      restricted: json['restricted'] == true,
+      planLabel: json['plan_label']?.toString() ?? plan.name.toUpperCase(),
+      searchModeLabel:
+          json['search_mode_label']?.toString() ??
+          searchMode.name.toUpperCase(),
+    );
+  }
+
+  bool get isPro => plan == SubscriptionPlan.pro && !restricted;
+  bool get isFree => !isPro;
+}
+
+class PlanCard {
+  const PlanCard({
+    required this.id,
+    required this.title,
+    required this.priceLabel,
+    required this.features,
+    this.badgeLabel,
+    this.ctaLabel,
+  });
+
+  final String id;
+  final String title;
+  final String priceLabel;
+  final List<String> features;
+  final String? badgeLabel;
+  final String? ctaLabel;
+
+  factory PlanCard.fromJson(Map<String, dynamic> json) {
+    return PlanCard(
+      id: json['id']?.toString() ?? json['plan']?.toString() ?? '',
+      title: json['title']?.toString() ?? json['label']?.toString() ?? '',
+      priceLabel:
+          json['price_label']?.toString() ?? json['price']?.toString() ?? '',
+      features: (json['features'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .where((item) => item.trim().isNotEmpty)
+          .toList(growable: false),
+      badgeLabel: json['badge_label']?.toString(),
+      ctaLabel: json['cta_label']?.toString(),
+    );
+  }
+}
+
+class PaywallMessage {
+  const PaywallMessage({
+    required this.entryPoint,
+    required this.title,
+    required this.headline,
+    required this.body,
+  });
+
+  final String entryPoint;
+  final String title;
+  final String headline;
+  final String body;
+
+  factory PaywallMessage.fromJson(Map<String, dynamic> json) {
+    return PaywallMessage(
+      entryPoint: json['entry_point']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      headline: json['headline']?.toString() ?? '',
+      body:
+          json['body']?.toString() ??
+          json['supporting_text']?.toString() ??
+          json['message']?.toString() ??
+          '',
+    );
+  }
+}
+
+class EntitlementsResponse {
+  const EntitlementsResponse({
+    required this.currentEntitlement,
+    required this.usage,
+    required this.limits,
+    required this.features,
+    required this.pricing,
+    required this.planCards,
+    required this.paywallMessages,
+  });
+
+  final UserEntitlement currentEntitlement;
+  final EntitlementUsage usage;
+  final EntitlementLimits limits;
+  final EntitlementFeatures features;
+  final EntitlementPricing pricing;
+  final List<PlanCard> planCards;
+  final List<PaywallMessage> paywallMessages;
+
+  factory EntitlementsResponse.fromJson(Map<String, dynamic> json) {
+    final current = json['current_entitlement'] is Map
+        ? Map<String, dynamic>.from(json['current_entitlement'] as Map)
+        : json;
+
+    return EntitlementsResponse(
+      currentEntitlement: UserEntitlement.fromJson(current),
+      usage: EntitlementUsage.fromJson(
+        Map<String, dynamic>.from(json['usage'] as Map? ?? const {}),
       ),
       limits: EntitlementLimits.fromJson(
-        json['limits'] as Map<String, dynamic>?,
+        Map<String, dynamic>.from(json['limits'] as Map? ?? const {}),
       ),
-      usage: EntitlementUsage.fromJson(json['usage'] as Map<String, dynamic>?),
-      pricingInrMonthly: (json['pricing_inr_monthly'] as num?)?.toInt() ?? 149,
-      pricingInrYearly: (json['pricing_inr_yearly'] as num?)?.toInt() ?? 999,
+      features: EntitlementFeatures.fromJson(
+        Map<String, dynamic>.from(json['features'] as Map? ?? const {}),
+      ),
+      pricing: EntitlementPricing.fromJson(
+        Map<String, dynamic>.from(json['pricing'] as Map? ?? const {}),
+      ),
+      planCards: (json['plan_cards'] as List<dynamic>? ?? const [])
+          .map(
+            (row) => PlanCard.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
+          .toList(growable: false),
+      paywallMessages: (json['paywall_messages'] as List<dynamic>? ?? const [])
+          .map(
+            (row) =>
+                PaywallMessage.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
+          .toList(growable: false),
     );
   }
 
-  factory UserEntitlement.unrestricted({required String userId}) {
-    return UserEntitlement(
-      userId: userId,
-      plan: SubscriptionPlan.pro,
-      billingInterval: null,
-      status: SubscriptionStatus.active,
-      currentPeriodStart: null,
-      currentPeriodEnd: null,
-      searchMode: SearchMode.rag,
-      features: const EntitlementFeatures(
-        conversationalRagSearch: true,
-        shareableCollectionLinks: true,
-        weeklyAiDigest: true,
-        priorityProcessing: true,
-      ),
-      limits: const EntitlementLimits(),
-      usage: const EntitlementUsage(),
-      pricingInrMonthly: 149,
-      pricingInrYearly: 999,
-    );
+  String contentAccessSignature() {
+    return [
+      currentEntitlement.userId,
+      currentEntitlement.plan.name,
+      currentEntitlement.status.name,
+      currentEntitlement.searchMode.name,
+      currentEntitlement.restricted.toString(),
+      usage.reelsSavedThisMonth.toString(),
+      usage.reelsRemainingThisMonth?.toString() ?? '',
+      limits.reelsPerMonth?.toString() ?? '',
+      limits.accessibleHistoryDays?.toString() ?? '',
+      limits.mapPins?.toString() ?? '',
+      features.conversationalRagSearch.toString(),
+      features.priorityProcessing.toString(),
+      features.shareableCollectionLinks.toString(),
+      features.weeklyAiDigest.toString(),
+    ].join('|');
   }
 
-  bool get isPro => plan == SubscriptionPlan.pro;
-  bool get isFree => !isPro;
-
-  String get planLabel => isPro ? 'PRO' : 'FREE';
-
-  String get searchModeLabel =>
-      searchMode == SearchMode.rag ? 'CONVERSATIONAL' : 'KEYWORD';
-
-  String get monthlyPriceLabel => '₹$pricingInrMonthly/month';
-
-  String get yearlyPriceLabel => '₹$pricingInrYearly/year';
-
-  String get contentAccessSignature => [
-    plan.name,
-    status.name,
-    searchMode.name,
-    limits.reelsPerMonth?.toString() ?? 'none',
-    limits.accessibleHistoryDays?.toString() ?? 'none',
-    limits.mapPins?.toString() ?? 'none',
-    features.priorityProcessing.toString(),
-    features.shareableCollectionLinks.toString(),
-    features.weeklyAiDigest.toString(),
-  ].join('|');
+  PaywallMessage? messageFor(String entryPoint) {
+    for (final message in paywallMessages) {
+      if (message.entryPoint.trim().toLowerCase() ==
+          entryPoint.trim().toLowerCase()) {
+        return message;
+      }
+    }
+    return paywallMessages.isNotEmpty ? paywallMessages.first : null;
+  }
 }

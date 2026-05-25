@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/reel_category_filters.dart';
 import '../repositories/reel_repository.dart';
+import '../services/api_service.dart';
 
 class CategoryFiltersViewModel extends ChangeNotifier {
   CategoryFiltersViewModel(this._repository);
@@ -9,56 +10,50 @@ class CategoryFiltersViewModel extends ChangeNotifier {
   final ReelRepository _repository;
 
   List<ReelCategoryGroup> _groups = const [];
-  ReelCategoryCatalog _catalog = const ReelCategoryCatalog([]);
+  ReelCategoryFiltersResponse? _response;
   bool _isLoading = false;
   String? _error;
-  DateTime? _lastFetchedAt;
 
   List<ReelCategoryGroup> get groups => List.unmodifiable(_groups);
-  List<String> get categories => _catalog.categories;
-  ReelCategoryCatalog get catalog => _catalog;
+  List<String> get categories =>
+      _groups.map((group) => group.category).toList(growable: false);
+  ReelCategoryFiltersResponse? get response => _response;
+  int get totalCount => _response?.totalCount ?? 0;
+  int get selectedPreviewCount => _response?.selectedPreviewCount ?? 0;
+  String? get topCategory => _response?.topCategory;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get hasGroups => _groups.isNotEmpty;
 
-  List<String> subcategoriesFor(String? category) {
-    return _catalog.subcategoriesFor(category);
-  }
-
   void reset() {
     _groups = const [];
-    _catalog = const ReelCategoryCatalog([]);
+    _response = null;
     _isLoading = false;
     _error = null;
-    _lastFetchedAt = null;
     notifyListeners();
   }
 
-  Future<void> loadCategoryFilters({bool forceRefresh = false}) async {
-    final now = DateTime.now();
-    final cacheIsFresh =
-        _lastFetchedAt != null &&
-        now.difference(_lastFetchedAt!).inSeconds < 30 &&
-        !forceRefresh;
-
-    if (cacheIsFresh) {
-      return;
-    }
-
+  Future<void> loadCategoryFilters({
+    bool forceRefresh = false,
+    String? category,
+    String? subcategory,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final response = await _repository.getCategoryFilters();
+      final response = await _repository.getCategoryFilters(
+        category: category,
+        subcategory: subcategory,
+      );
+      _response = response;
       _groups = response.categories;
-      _catalog = ReelCategoryCatalog(_groups);
-      _lastFetchedAt = now;
     } catch (e) {
-      _error = e.toString();
-      if (_groups.isEmpty) {
-        _catalog = const ReelCategoryCatalog([]);
-      }
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not load category filters right now.',
+      );
     } finally {
       _isLoading = false;
       notifyListeners();

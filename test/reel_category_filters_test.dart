@@ -2,30 +2,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/models/reel_category_filters.dart';
 
 void main() {
-  test('parses dynamic category filters and maps subcategories to parents', () {
+  test('parses backend category filter response', () {
     final response = ReelCategoryFiltersResponse.fromJson({
-      'user_id': 'user-123',
+      'total_count': 12,
+      'top_category': 'Movies',
+      'selected_preview_count': 6,
       'categories': [
         {
           'category': 'Movies',
-          'subcategories': ['Trailers', 'Reviews'],
+          'label': 'Movies',
+          'count': 6,
+          'subcategories': [
+            {'name': 'Trailers', 'label': 'Trailers', 'count': 4},
+            {'name': 'Reviews', 'label': 'Reviews', 'count': 2},
+          ],
         },
         {
           'category': 'Travel',
-          'subcategories': ['Food Guides'],
+          'label': 'Travel',
+          'count': 6,
+          'subcategories': [
+            {'name': 'Food Guides', 'label': 'Food Guides', 'count': 6},
+          ],
         },
       ],
-      'total_categories': 2,
     });
 
-    expect(response.userId, 'user-123');
-    expect(response.totalCategories, 2);
+    expect(response.totalCount, 12);
+    expect(response.topCategory, 'Movies');
+    expect(response.selectedPreviewCount, 6);
     expect(response.categories.first.category, 'Movies');
+    expect(response.categories.first.count, 6);
 
-    final catalog = ReelCategoryCatalog(response.categories);
-
-    expect(catalog.categories, ['Movies', 'Travel']);
-    expect(catalog.parentCategoryFor('Trailers'), 'Movies');
-    expect(catalog.subcategoriesFor('Travel'), ['Food Guides']);
+    expect(response.categories.map((group) => group.category), [
+      'Movies',
+      'Travel',
+    ]);
+    expect(response.categories.last.subcategories.first.name, 'Food Guides');
   });
 }

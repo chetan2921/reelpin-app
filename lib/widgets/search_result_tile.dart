@@ -14,16 +14,16 @@ class SearchResultTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final reel = result.reel;
     final catColor = AppTheme.getCategoryColor(reel.category);
-    final score = result.relevanceScore;
+    final scoreLabel = result.displayScoreLabel.isNotEmpty
+        ? result.displayScoreLabel
+        : result.relevancePercent;
     final layout = AppLayout.of(context);
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => ReelDetailScreen(reel: reel),
-          ),
+          MaterialPageRoute(builder: (_) => ReelDetailScreen(reel: reel)),
         );
       },
       child: Container(
@@ -95,21 +95,27 @@ class SearchResultTile extends StatelessWidget {
               ),
             ],
 
-            // Relevance bar (thick, flat, no rounded ends)
-            SizedBox(height: layout.gap(12)),
-            Container(
-              height: layout.gap(4),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceElevatedColor(context),
-                border: Border.all(color: AppTheme.fg(context), width: 1),
+            if (scoreLabel.isNotEmpty) ...[
+              SizedBox(height: layout.gap(12)),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: layout.inset(8),
+                  vertical: layout.gap(4),
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceElevatedColor(context),
+                  border: Border.all(color: AppTheme.fg(context), width: 1),
+                ),
+                child: Text(
+                  scoreLabel.toUpperCase(),
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.textSec(context),
+                    fontSize: layout.font(9),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: score.clamp(0.0, 1.0),
-                child: Container(color: _scoreColor(score)),
-              ),
-            ),
+            ],
           ],
         ),
       ),
@@ -118,11 +124,5 @@ class SearchResultTile extends StatelessWidget {
 
   Color _contrastText(Color bg) {
     return bg.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
-  }
-
-  Color _scoreColor(double score) {
-    if (score >= 0.8) return AppTheme.neonGreen;
-    if (score >= 0.5) return AppTheme.yellow;
-    return AppTheme.orange;
   }
 }

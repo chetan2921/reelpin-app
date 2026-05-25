@@ -1,20 +1,63 @@
+class ReelSubcategoryFilter {
+  final String name;
+  final String label;
+  final int count;
+
+  const ReelSubcategoryFilter({
+    required this.name,
+    required this.label,
+    required this.count,
+  });
+
+  factory ReelSubcategoryFilter.fromJson(Map<String, dynamic> json) {
+    final name =
+        json['name']?.toString().trim() ??
+        json['subcategory']?.toString().trim() ??
+        '';
+    return ReelSubcategoryFilter(
+      name: name,
+      label: json['label']?.toString().trim() ?? name,
+      count: (json['count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class ReelCategoryGroup {
   final String category;
-  final List<String> subcategories;
+  final String label;
+  final int count;
+  final List<ReelSubcategoryFilter> subcategories;
 
   const ReelCategoryGroup({
     required this.category,
+    required this.label,
+    required this.count,
     required this.subcategories,
   });
 
   factory ReelCategoryGroup.fromJson(Map<String, dynamic> json) {
+    final category = json['category']?.toString().trim() ?? '';
     final rawSubcategories = json['subcategories'];
     return ReelCategoryGroup(
-      category: json['category']?.toString().trim() ?? '',
+      category: category,
+      label: json['label']?.toString().trim() ?? category,
+      count: (json['count'] as num?)?.toInt() ?? 0,
       subcategories: rawSubcategories is List
           ? rawSubcategories
-                .map((item) => item.toString().trim())
-                .where((item) => item.isNotEmpty)
+                .map((item) {
+                  if (item is Map) {
+                    return ReelSubcategoryFilter.fromJson(
+                      Map<String, dynamic>.from(item),
+                    );
+                  }
+                  final name = item.toString().trim();
+                  return ReelSubcategoryFilter(
+                    name: name,
+                    label: name,
+                    count: 0,
+                  );
+                })
+                .where((item) => item.name.isNotEmpty)
                 .toList(growable: false)
           : const [],
     );
@@ -22,77 +65,35 @@ class ReelCategoryGroup {
 }
 
 class ReelCategoryFiltersResponse {
-  final String userId;
+  final int totalCount;
+  final String? topCategory;
   final List<ReelCategoryGroup> categories;
-  final int totalCategories;
+  final int selectedPreviewCount;
 
   const ReelCategoryFiltersResponse({
-    required this.userId,
+    required this.totalCount,
+    required this.topCategory,
     required this.categories,
-    required this.totalCategories,
+    required this.selectedPreviewCount,
   });
 
   factory ReelCategoryFiltersResponse.fromJson(Map<String, dynamic> json) {
     final rawCategories = json['categories'];
-    final categories = rawCategories is List
-        ? rawCategories
-              .map(
-                (item) => ReelCategoryGroup.fromJson(
-                  Map<String, dynamic>.from(item as Map),
-                ),
-              )
-              .where((item) => item.category.isNotEmpty)
-              .toList(growable: false)
-        : const <ReelCategoryGroup>[];
-
     return ReelCategoryFiltersResponse(
-      userId: json['user_id']?.toString().trim() ?? '',
-      categories: categories,
-      totalCategories:
-          (json['total_categories'] as num?)?.toInt() ?? categories.length,
+      totalCount: (json['total_count'] as num?)?.toInt() ?? 0,
+      topCategory: json['top_category']?.toString(),
+      categories: rawCategories is List
+          ? rawCategories
+                .map(
+                  (item) => ReelCategoryGroup.fromJson(
+                    Map<String, dynamic>.from(item as Map),
+                  ),
+                )
+                .where((item) => item.category.isNotEmpty)
+                .toList(growable: false)
+          : const [],
+      selectedPreviewCount:
+          (json['selected_preview_count'] as num?)?.toInt() ?? 0,
     );
   }
-}
-
-class ReelCategoryCatalog {
-  const ReelCategoryCatalog(this.groups);
-
-  final List<ReelCategoryGroup> groups;
-
-  List<String> get categories =>
-      groups.map((group) => group.category).toList(growable: false);
-
-  String? parentCategoryFor(String? value) {
-    final label = value?.trim();
-    if (label == null || label.isEmpty) return null;
-
-    for (final group in groups) {
-      if (_matches(group.category, label)) {
-        return group.category;
-      }
-      for (final subcategory in group.subcategories) {
-        if (_matches(subcategory, label)) {
-          return group.category;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  List<String> subcategoriesFor(String? category) {
-    final label = category?.trim();
-    if (label == null || label.isEmpty) return const [];
-
-    for (final group in groups) {
-      if (_matches(group.category, label)) {
-        return List<String>.unmodifiable(group.subcategories);
-      }
-    }
-
-    return const [];
-  }
-
-  static bool _matches(String left, String right) =>
-      left.trim().toLowerCase() == right.trim().toLowerCase();
 }

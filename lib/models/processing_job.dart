@@ -6,6 +6,7 @@ class ProcessingJob {
   final String? currentStep;
   final String? failureCode;
   final String? errorMessage;
+  final String? statusLabel;
   final String? statusMessage;
   final DateTime? nextRetryAt;
   final int? recommendedPollAfterSeconds;
@@ -19,6 +20,7 @@ class ProcessingJob {
     this.currentStep,
     this.failureCode,
     this.errorMessage,
+    this.statusLabel,
     this.statusMessage,
     this.nextRetryAt,
     this.recommendedPollAfterSeconds,
@@ -42,6 +44,7 @@ class ProcessingJob {
       currentStep: json['current_step']?.toString(),
       failureCode: json['failure_code']?.toString(),
       errorMessage: json['error_message']?.toString(),
+      statusLabel: json['status_label']?.toString(),
       statusMessage: json['status_message']?.toString(),
       nextRetryAt: parseDate(json['next_retry_at']),
       recommendedPollAfterSeconds: json['recommended_poll_after_seconds'] is num

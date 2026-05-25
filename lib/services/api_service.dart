@@ -6,10 +6,15 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/api_config.dart';
+import '../models/discover_response.dart';
+import '../models/library_stats.dart';
+import '../models/map_response.dart';
 import '../models/processing_job.dart';
 import '../models/reel_category_filters.dart';
 import '../models/reel.dart';
+import '../models/reel_page.dart';
 import '../models/search_response.dart';
+import '../models/share_resolve_response.dart';
 import '../models/user_entitlement.dart';
 
 /// Stateless HTTP API wrapper for the ReelPin backend.
@@ -36,7 +41,7 @@ class ApiService {
     try {
       final res = await _requestWithFailover(
         (baseUrl) => _client
-            .get(Uri.parse('$baseUrl/health'), headers: _headers())
+            .get(_apiUri(baseUrl, '/health'), headers: _headers())
             .timeout(const Duration(seconds: 5)),
       );
       return res.statusCode == 200;
@@ -85,7 +90,7 @@ class ApiService {
     final res = await _requestWithFailover(
       (baseUrl) => _client
           .post(
-            Uri.parse('$baseUrl/process-reel'),
+            _apiUri(baseUrl, '/api/v1/process-reel'),
             headers: _headers(json: true),
             body: jsonEncode({'url': url}),
           )
@@ -108,7 +113,7 @@ class ApiService {
     final res = await _requestWithFailover(
       (baseUrl) => _client
           .post(
-            Uri.parse('$baseUrl/processing-jobs/reels'),
+            _apiUri(baseUrl, '/api/v1/processing-jobs/reels'),
             headers: _headers(json: true),
             body: jsonEncode({'url': url}),
           )
@@ -129,7 +134,7 @@ class ApiService {
     final res = await _requestWithFailover(
       (baseUrl) => _client
           .get(
-            Uri.parse('$baseUrl/processing-jobs/$jobId'),
+            _apiUri(baseUrl, '/api/v1/processing-jobs/$jobId'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
@@ -175,7 +180,7 @@ class ApiService {
         }
 
         throw const ApiException(
-          'Processing finished but the reel result is missing.',
+          'Could not finish saving this reel. Please try again.',
           500,
         );
       }
@@ -235,26 +240,7 @@ class ApiService {
       return message;
     }
 
-    switch (job.failureCode) {
-      case 'auth_failure':
-        return 'The source platform blocked access. Try again after updating backend cookies.';
-      case 'rate_limit':
-        return 'The source platform rate limited processing. Try again later.';
-      case 'no_audio':
-        return 'This video does not include an audio track.';
-      case 'transcript_unavailable':
-        return 'A transcript was not available for this media.';
-      case 'unsupported_post_type':
-        return 'This shared post type is not supported yet.';
-      case 'ocr_failure':
-        return 'Image text extraction failed for this post.';
-      case 'provider_timeout':
-        return 'An upstream provider timed out while processing this reel.';
-      case 'request_too_large':
-        return 'The media payload was too large to process.';
-      default:
-        return 'Reel processing failed.';
-    }
+    return 'Reel processing failed.';
   }
 
   // ─── Process Video File ───
@@ -267,7 +253,7 @@ class ApiService {
     final res = await _requestWithFailover((baseUrl) async {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl/process-video'),
+        _apiUri(baseUrl, '/api/v1/process-video'),
       );
       request.headers.addAll(_headers());
       request.fields['url'] = url;
@@ -290,19 +276,35 @@ class ApiService {
 
   // ─── List Saved Reels ───
 
-  Future<List<Reel>> getReels({
+  Future<ReelPage> getReelsPage({
     String? userId,
     String? category,
+    String? subcategory,
+    String? savedDate,
+    int? offset,
+    String? cursor,
     int limit = 50,
+    String? sort,
   }) async {
     final res = await _requestWithFailover((baseUrl) {
       final params = <String, String>{
         'limit': limit.toString(),
         if (category != null && category.trim().isNotEmpty)
           'category': category,
+        if (subcategory != null && subcategory.trim().isNotEmpty)
+          'subcategory': subcategory,
+        if (savedDate != null && savedDate.trim().isNotEmpty)
+          'saved_date': savedDate,
+        if (offset != null) 'offset': offset.toString(),
+        if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
+        if (sort != null && sort.trim().isNotEmpty) 'sort': sort,
       };
-      final uri = Uri.parse('$baseUrl/reels').replace(queryParameters: params);
-      return _client.get(uri, headers: _headers()).timeout(_requestTimeout);
+      return _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/reels', queryParameters: params),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
     });
 
     if (res.statusCode != 200) {
@@ -311,8 +313,24 @@ class ApiService {
         fallbackMessage: 'Could not load saved reels right now.',
       );
     }
-    final List<dynamic> data = jsonDecode(res.body) as List<dynamic>;
-    return data.map((r) => Reel.fromJson(r as Map<String, dynamic>)).toList();
+    return ReelPage.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<List<Reel>> getReels({
+    String? userId,
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    int limit = 50,
+  }) async {
+    final page = await getReelsPage(
+      userId: userId,
+      category: category,
+      subcategory: subcategory,
+      savedDate: savedDate,
+      limit: limit,
+    );
+    return page.reels;
   }
 
   // ─── Get Single Reel ───
@@ -320,7 +338,7 @@ class ApiService {
   Future<Reel> getReel(String reelId) async {
     final res = await _requestWithFailover(
       (baseUrl) => _client
-          .get(Uri.parse('$baseUrl/reels/$reelId'), headers: _headers())
+          .get(_apiUri(baseUrl, '/api/v1/reels/$reelId'), headers: _headers())
           .timeout(_requestTimeout),
     );
 
@@ -340,7 +358,10 @@ class ApiService {
   Future<void> deleteReel(String reelId) async {
     final res = await _requestWithFailover(
       (baseUrl) => _client
-          .delete(Uri.parse('$baseUrl/reels/$reelId'), headers: _headers())
+          .delete(
+            _apiUri(baseUrl, '/api/v1/reels/$reelId'),
+            headers: _headers(),
+          )
           .timeout(_requestTimeout),
     );
     if (res.statusCode != 200) {
@@ -354,11 +375,27 @@ class ApiService {
   // ─── RAG Search ───
 
   Future<ReelCategoryFiltersResponse> getReelCategoryFilters({
-    required String userId,
+    String? userId,
+    String? category,
+    String? subcategory,
   }) async {
     final res = await _requestWithFailover((baseUrl) {
-      final uri = Uri.parse('$baseUrl/reels/category-filters');
-      return _client.get(uri, headers: _headers()).timeout(_requestTimeout);
+      final params = <String, String>{
+        if (category != null && category.trim().isNotEmpty)
+          'category': category,
+        if (subcategory != null && subcategory.trim().isNotEmpty)
+          'subcategory': subcategory,
+      };
+      return _client
+          .get(
+            _apiUri(
+              baseUrl,
+              '/api/v1/reels/category-filters',
+              queryParameters: params,
+            ),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
     });
 
     if (res.statusCode != 200) {
@@ -385,7 +422,7 @@ class ApiService {
         ? await _requestWithFailover(
             (baseUrl) => _client
                 .post(
-                  Uri.parse('$baseUrl/search'),
+                  _apiUri(baseUrl, '/api/v1/search'),
                   headers: _headers(json: true),
                   body: jsonEncode({
                     'query': query,
@@ -402,7 +439,7 @@ class ApiService {
             client,
             (baseUrl, activeClient) => activeClient
                 .post(
-                  Uri.parse('$baseUrl/search'),
+                  _apiUri(baseUrl, '/api/v1/search'),
                   headers: _headers(json: true),
                   body: jsonEncode({
                     'query': query,
@@ -427,26 +464,135 @@ class ApiService {
     );
   }
 
-  Future<UserEntitlement> getAccountEntitlements({
+  Future<EntitlementsResponse> getAccountEntitlements({
     required String userId,
   }) async {
     final res = await _requestWithFailover((baseUrl) {
-      final uri = Uri.parse('$baseUrl/account/entitlements');
-      return _client.get(uri, headers: _headers()).timeout(_requestTimeout);
+      return _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/account/entitlements'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
     });
 
     if (res.statusCode != 200) {
-      if (res.statusCode == 404) {
-        return UserEntitlement.unrestricted(userId: userId);
-      }
-
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not load account entitlements right now.',
       );
     }
 
-    return UserEntitlement.fromJson(
+    return EntitlementsResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<MapResponse> getMapData({String? category}) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final params = <String, String>{
+        if (category != null && category.trim().isNotEmpty)
+          'category': category,
+      };
+      return _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/map', queryParameters: params),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
+    });
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load map data right now.',
+      );
+    }
+
+    return MapResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<DiscoverResponse> getDiscover({
+    String? savedDate,
+    int? offset,
+    String? cursor,
+    int limit = 25,
+  }) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final params = <String, String>{
+        'limit': limit.toString(),
+        if (savedDate != null && savedDate.trim().isNotEmpty)
+          'saved_date': savedDate,
+        if (offset != null) 'offset': offset.toString(),
+        if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
+      };
+      return _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/discover', queryParameters: params),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
+    });
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load discover data right now.',
+      );
+    }
+
+    return DiscoverResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<LibraryStats> getLibraryStats() async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/account/library-stats'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load library stats right now.',
+      );
+    }
+
+    return LibraryStats.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<ShareResolveResponse> resolveSharePayload({
+    required String rawPayloadText,
+    required String platform,
+    Map<String, dynamic> metadata = const {},
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/share/resolve'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'raw_payload_text': rawPayloadText,
+              'platform': platform,
+              'metadata': metadata,
+            }),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not read this shared reel.',
+      );
+    }
+
+    return ShareResolveResponse.fromJson(
       jsonDecode(res.body) as Map<String, dynamic>,
     );
   }
@@ -461,7 +607,7 @@ class ApiService {
     final res = await _requestWithFailover(
       (baseUrl) => _client
           .post(
-            Uri.parse('$baseUrl/device-push-tokens'),
+            _apiUri(baseUrl, '/api/v1/device-push-tokens'),
             headers: _headers(json: true),
             body: jsonEncode({'token': token, 'platform': platform}),
           )
@@ -494,19 +640,33 @@ class ApiService {
         lastNetworkError = e;
       } on SocketException catch (e) {
         lastNetworkError = e;
+      } on http.ClientException catch (e) {
+        lastNetworkError = e;
       }
     }
 
     if (lastNetworkError is TimeoutException) {
-      throw ApiException(
-        'Request timed out. Please check server/network.',
-        408,
-      );
+      throw ApiException('Could not connect. Please try again.', 408);
     }
 
-    throw ApiException(
-      'Cannot connect to server. Tried: ${candidates.join(', ')}',
-      503,
+    throw ApiException('Could not connect. Please try again.', 503);
+  }
+
+  Uri _apiUri(
+    String baseUrl,
+    String path, {
+    Map<String, String>? queryParameters,
+  }) {
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/$'), '');
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    final effectivePath =
+        base.endsWith('/api/v1') && normalizedPath.startsWith('/api/v1/')
+        ? normalizedPath.substring('/api/v1'.length)
+        : normalizedPath;
+    return Uri.parse('$base$effectivePath').replace(
+      queryParameters: queryParameters == null || queryParameters.isEmpty
+          ? null
+          : queryParameters,
     );
   }
 
@@ -535,20 +695,10 @@ class ApiService {
     }
 
     if (lastNetworkError is TimeoutException) {
-      throw ApiException(
-        'Request timed out. Please check server/network.',
-        408,
-      );
+      throw ApiException('Could not connect. Please try again.', 408);
     }
 
-    if (lastNetworkError is http.ClientException) {
-      throw lastNetworkError;
-    }
-
-    throw ApiException(
-      'Cannot connect to server. Tried: ${candidates.join(', ')}',
-      503,
-    );
+    throw ApiException('Could not connect. Please try again.', 503);
   }
 
   Map<String, String> _headers({bool json = false}) {
@@ -595,6 +745,41 @@ class ApiService {
       return _ApiErrorPayload(message: 'Request failed (${res.statusCode})');
     }
   }
+}
+
+String userFacingErrorMessage(
+  Object error, {
+  String fallbackMessage = 'Something went wrong. Please try again.',
+}) {
+  if (error is ApiException) {
+    final message = error.message.trim();
+    if (message.isEmpty) {
+      return fallbackMessage;
+    }
+    return _looksTechnicalError(message)
+        ? 'Could not connect. Please try again.'
+        : message;
+  }
+
+  if (error is TimeoutException ||
+      error is SocketException ||
+      error is http.ClientException) {
+    return 'Could not connect. Please try again.';
+  }
+
+  return fallbackMessage;
+}
+
+bool _looksTechnicalError(String message) {
+  final normalized = message.toLowerCase();
+  return normalized.contains('exception') ||
+      normalized.contains('socket') ||
+      normalized.contains('connection closed') ||
+      normalized.contains('connection refused') ||
+      normalized.contains('failed host lookup') ||
+      normalized.contains('http://') ||
+      normalized.contains('https://') ||
+      normalized.contains('uri=');
 }
 
 /// Custom exception for API errors with status code.

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/search_result.dart';
 import '../models/user_entitlement.dart';
 import '../repositories/reel_repository.dart';
+import '../services/api_service.dart';
 
 /// ViewModel for the RAG Search screen.
 class SearchViewModel extends ChangeNotifier {
@@ -20,8 +21,10 @@ class SearchViewModel extends ChangeNotifier {
   String _lastQuery = '';
   int _searchRequestId = 0;
   SearchMode? _backendSearchMode;
+  int _total = 0;
 
   List<SearchResult> get results => List.unmodifiable(_results);
+  int get total => _total;
   bool get isSearching => _isSearching;
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
@@ -45,6 +48,7 @@ class SearchViewModel extends ChangeNotifier {
       _repository.cancelActiveSearch();
       _searchRequestId += 1;
       _results = [];
+      _total = 0;
       _error = null;
       _isSearching = false;
       notifyListeners();
@@ -57,21 +61,25 @@ class SearchViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final fetched = await _repository.search(
+      final response = await _repository.search(
         normalizedQuery,
         category: _selectedCategory,
         subcategory: _selectedSubcategory,
       );
       if (requestId != _searchRequestId) return;
 
-      _results = fetched;
-      _backendSearchMode = _repository.lastSearchMode;
+      _results = response.results;
+      _total = response.total;
+      _backendSearchMode = response.searchMode;
       _error = null;
     } on SearchCancelledException {
       return;
     } catch (e) {
       if (requestId != _searchRequestId) return;
-      _error = e.toString();
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Search is not available right now.',
+      );
     } finally {
       if (requestId == _searchRequestId) {
         _isSearching = false;
@@ -105,6 +113,7 @@ class SearchViewModel extends ChangeNotifier {
     _repository.cancelActiveSearch();
     _searchRequestId += 1;
     _results = [];
+    _total = 0;
     _lastQuery = '';
     _backendSearchMode = null;
     _error = null;

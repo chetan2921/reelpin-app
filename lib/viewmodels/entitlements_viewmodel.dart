@@ -30,15 +30,16 @@ class EntitlementsViewModel extends ChangeNotifier {
   final CategoryFiltersViewModel _categoryFiltersViewModel;
   final SearchViewModel _searchViewModel;
 
-  UserEntitlement? _entitlement;
+  EntitlementsResponse? _response;
   bool _isLoading = false;
   String? _error;
   Future<void>? _refreshFuture;
 
-  UserEntitlement? get entitlement => _entitlement;
+  EntitlementsResponse? get response => _response;
+  UserEntitlement? get entitlement => _response?.currentEntitlement;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get hasEntitlement => _entitlement != null;
+  bool get hasEntitlement => _response != null;
 
   Future<void> refresh({bool reloadContent = false}) {
     final activeRefresh = _refreshFuture;
@@ -62,7 +63,7 @@ class EntitlementsViewModel extends ChangeNotifier {
       return;
     }
 
-    final previous = _entitlement;
+    final previous = _response;
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -71,10 +72,11 @@ class EntitlementsViewModel extends ChangeNotifier {
       final next = await _apiService.getAccountEntitlements(userId: userId);
       final shouldResetVisibleData =
           previous != null &&
-          previous.userId == next.userId &&
-          previous.contentAccessSignature != next.contentAccessSignature;
+          previous.currentEntitlement.userId ==
+              next.currentEntitlement.userId &&
+          previous.contentAccessSignature() != next.contentAccessSignature();
 
-      _entitlement = next;
+      _response = next;
       notifyListeners();
 
       if (shouldResetVisibleData) {
@@ -86,21 +88,19 @@ class EntitlementsViewModel extends ChangeNotifier {
       }
 
       if (reloadContent || previous == null || shouldResetVisibleData) {
-        await Future.wait([
-          _homeViewModel.loadReels(forceRefresh: true),
-          _mapViewModel.loadMapReels(forceRefresh: true),
-          _categoryFiltersViewModel.loadCategoryFilters(forceRefresh: true),
-        ]);
+        if (!next.currentEntitlement.restricted) {
+          await Future.wait([
+            _homeViewModel.loadReels(forceRefresh: true),
+            _mapViewModel.loadMapReels(forceRefresh: true),
+            _categoryFiltersViewModel.loadCategoryFilters(forceRefresh: true),
+          ]);
+        }
       }
     } catch (e) {
-      _error = e.toString();
-      if (reloadContent) {
-        await Future.wait([
-          _homeViewModel.loadReels(forceRefresh: true),
-          _mapViewModel.loadMapReels(forceRefresh: true),
-          _categoryFiltersViewModel.loadCategoryFilters(forceRefresh: true),
-        ]);
-      }
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not load account access right now.',
+      );
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -108,7 +108,7 @@ class EntitlementsViewModel extends ChangeNotifier {
   }
 
   void reset() {
-    _entitlement = null;
+    _response = null;
     _isLoading = false;
     _error = null;
     notifyListeners();

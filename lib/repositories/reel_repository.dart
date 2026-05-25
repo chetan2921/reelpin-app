@@ -3,50 +3,40 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import '../models/reel.dart';
+import '../models/discover_response.dart';
+import '../models/library_stats.dart';
+import '../models/map_response.dart';
 import '../models/processing_job.dart';
+import '../models/reel.dart';
 import '../models/reel_category_filters.dart';
-import '../models/search_result.dart';
+import '../models/search_response.dart';
 import '../models/user_entitlement.dart';
-import '../services/auth_service.dart';
 import '../services/api_service.dart';
-import '../services/reel_store.dart';
+import '../services/auth_service.dart';
 
-/// Single Source of Truth (SSOT) for reel data.
-/// Handles caching and data transformation.
 class SearchCancelledException implements Exception {
   const SearchCancelledException();
 }
 
-class _CachedSearchResults {
-  const _CachedSearchResults({required this.results, required this.cachedAt});
-
-  final List<SearchResult> results;
-  final DateTime cachedAt;
-}
-
 class ReelRepository extends ChangeNotifier {
-  static const _cacheTtl = Duration(seconds: 30);
   static const _pageSize = 25;
-  static const _searchCacheTtl = Duration(minutes: 2);
 
   final ApiService _apiService;
-  final ReelStore _reelStore;
   final AuthService _authService;
 
-  // In-memory cache
   List<Reel> _cachedReels = [];
-  DateTime? _lastFetched;
   int _nextOffset = 0;
+  String? _nextCursor;
   bool _hasMoreReels = true;
   bool _hasHydratedCache = false;
+  int _totalCount = 0;
   Future<void>? _initialLoadFuture;
   Future<void>? _loadMoreFuture;
-  final Map<String, _CachedSearchResults> _searchCache = {};
   http.Client? _activeSearchClient;
   SearchMode? _lastSearchMode;
+  int _lastSearchTotal = 0;
 
-  ReelRepository(this._apiService, this._reelStore, this._authService);
+  ReelRepository(this._apiService, this._authService);
 
   String get _currentUserId {
     final userId = _authService.currentUser?.id;
@@ -59,37 +49,32 @@ class ReelRepository extends ChangeNotifier {
   List<Reel> get cachedReels => List.unmodifiable(_cachedReels);
   bool get hasMoreReels => _hasMoreReels;
   bool get hasHydratedCache => _hasHydratedCache;
+  int get totalCount => _totalCount;
   SearchMode? get lastSearchMode => _lastSearchMode;
-
-  bool get _cacheIsFresh {
-    if (_lastFetched == null) return false;
-    return DateTime.now().difference(_lastFetched!) < _cacheTtl;
-  }
+  int get lastSearchTotal => _lastSearchTotal;
 
   Future<void> hydrateCache() async {
-    if (_hasHydratedCache) {
-      return;
-    }
-
-    final snapshot = await _reelStore.loadCachedReels(userId: _currentUserId);
     _hasHydratedCache = true;
-    if (snapshot == null) {
-      return;
-    }
-
-    _cachedReels = List<Reel>.from(snapshot.reels);
-    _nextOffset = snapshot.nextOffset;
-    _hasMoreReels = snapshot.hasMore;
-    _lastFetched = snapshot.lastFetchedAt?.toLocal();
-    notifyListeners();
   }
 
-  Future<void> loadInitialReels({bool forceRefresh = false}) {
+  Future<void> loadInitialReels({
+    bool forceRefresh = false,
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    String? sort,
+  }) {
     if (_initialLoadFuture != null) {
       return _initialLoadFuture!;
     }
 
-    final future = _loadInitialReels(forceRefresh: forceRefresh);
+    final future = _loadInitialReels(
+      forceRefresh: forceRefresh,
+      category: category,
+      subcategory: subcategory,
+      savedDate: savedDate,
+      sort: sort,
+    );
     _initialLoadFuture = future;
     return future.whenComplete(() {
       if (identical(_initialLoadFuture, future)) {
@@ -98,19 +83,30 @@ class ReelRepository extends ChangeNotifier {
     });
   }
 
-  Future<void> _loadInitialReels({bool forceRefresh = false}) async {
+  Future<void> _loadInitialReels({
+    required bool forceRefresh,
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    String? sort,
+  }) async {
     await hydrateCache();
 
-    final shouldRefresh =
-        forceRefresh || _cachedReels.isEmpty || !_cacheIsFresh;
-    if (!shouldRefresh) {
-      return;
-    }
-
-    await _fetchAndStorePage(reset: true);
+    await _fetchAndStorePage(
+      reset: true,
+      category: category,
+      subcategory: subcategory,
+      savedDate: savedDate,
+      sort: sort,
+    );
   }
 
-  Future<void> loadMoreReels() {
+  Future<void> loadMoreReels({
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    String? sort,
+  }) {
     if (_loadMoreFuture != null) {
       return _loadMoreFuture!;
     }
@@ -118,7 +114,12 @@ class ReelRepository extends ChangeNotifier {
       return Future<void>.value();
     }
 
-    final future = _loadMoreReelsInternal();
+    final future = _loadMoreReelsInternal(
+      category: category,
+      subcategory: subcategory,
+      savedDate: savedDate,
+      sort: sort,
+    );
     _loadMoreFuture = future;
     return future.whenComplete(() {
       if (identical(_loadMoreFuture, future)) {
@@ -127,119 +128,71 @@ class ReelRepository extends ChangeNotifier {
     });
   }
 
-  Future<void> _loadMoreReelsInternal() async {
+  Future<void> _loadMoreReelsInternal({
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    String? sort,
+  }) async {
     await hydrateCache();
     if (!_hasMoreReels) {
       return;
     }
 
-    await _fetchAndStorePage(reset: false);
+    await _fetchAndStorePage(
+      reset: false,
+      category: category,
+      subcategory: subcategory,
+      savedDate: savedDate,
+      sort: sort,
+    );
   }
 
-  Future<void> _fetchAndStorePage({required bool reset}) async {
-    final requestLimit = reset ? _pageSize : _nextOffset + _pageSize;
-    final reels = await _apiService.getReels(
+  Future<void> _fetchAndStorePage({
+    required bool reset,
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    String? sort,
+  }) async {
+    final page = await _apiService.getReelsPage(
       userId: _currentUserId,
-      limit: requestLimit,
+      category: category,
+      subcategory: subcategory,
+      savedDate: savedDate,
+      offset: reset ? 0 : _nextOffset,
+      cursor: reset ? null : _nextCursor,
+      limit: _pageSize,
+      sort: sort,
     );
-    final fetchedAt = DateTime.now();
-    _lastFetched = fetchedAt;
-    _nextOffset = reels.length;
-    _hasMoreReels = reels.length >= requestLimit;
-    if (!reset && reels.length <= _cachedReels.length) {
-      _hasMoreReels = false;
-    }
-    _cachedReels = _mergeReels(
-      reels,
-      existing: reset ? _cachedReels : _cachedReels,
-      append: !reset,
-    );
-    _searchCache.clear();
-    await _persistCache();
+    _nextOffset = page.nextOffset ?? page.offset;
+    _nextCursor = page.nextCursor;
+    _hasMoreReels = page.hasMore;
+    _totalCount = page.totalCount;
+    _cachedReels = reset ? page.reels : [..._cachedReels, ...page.reels];
     notifyListeners();
   }
 
-  List<Reel> _mergeReels(
-    List<Reel> incoming, {
-    required List<Reel> existing,
-    required bool append,
-  }) {
-    final mergedById = <String, Reel>{};
-
-    if (!append) {
-      for (final reel in incoming) {
-        mergedById[reel.id] = reel;
-      }
-    } else {
-      for (final reel in existing) {
-        mergedById[reel.id] = reel;
-      }
-      for (final reel in incoming) {
-        mergedById[reel.id] = reel;
-      }
-    }
-
-    final merged = mergedById.values.toList();
-    merged.sort((a, b) {
-      final aDate = DateTime.tryParse(a.createdAt ?? '');
-      final bDate = DateTime.tryParse(b.createdAt ?? '');
-      if (aDate == null && bDate == null) return 0;
-      if (aDate == null) return 1;
-      if (bDate == null) return -1;
-      return bDate.compareTo(aDate);
-    });
-    return merged;
-  }
-
-  Future<void> _persistCache() {
-    return _reelStore.saveCachedReels(
-      userId: _currentUserId,
-      reels: _cachedReels,
-      nextOffset: _nextOffset,
-      hasMore: _hasMoreReels,
-      lastFetchedAt: _lastFetched ?? DateTime.now(),
+  Future<List<Reel>> getReels({
+    bool forceRefresh = false,
+    String? category,
+    String? subcategory,
+    String? savedDate,
+  }) async {
+    await loadInitialReels(
+      forceRefresh: forceRefresh,
+      category: category,
+      subcategory: subcategory,
+      savedDate: savedDate,
     );
-  }
-
-  /// Fetch all reels, using cache if fresh.
-  Future<List<Reel>> getReels({bool forceRefresh = false}) async {
-    await loadInitialReels(forceRefresh: forceRefresh);
     return cachedReels;
   }
 
-  /// Get reels filtered by category.
-  Future<List<Reel>> getReelsByCategory(String category) async {
-    final all = await getReels();
-    return all.where((r) => r.category == category).toList();
-  }
-
-  /// Get only reels that have map-pinnable locations.
-  Future<List<Reel>> getReelsWithLocations({bool forceRefresh = false}) async {
-    final all = await getReels(forceRefresh: forceRefresh);
-    return all.where((r) => r.hasMapLocations).toList();
-  }
-
-  /// Get a single reel by ID.
   Future<Reel> getReel(String reelId, {bool forceRefresh = false}) async {
-    // Check cache first
-    if (!forceRefresh) {
-      final cached = _cachedReels.where((r) => r.id == reelId);
-      if (cached.isNotEmpty) {
-        return cached.first;
-      }
-    }
-
     final reel = await _apiService.getReel(reelId);
-    _cachedReels = [
-      reel,
-      ..._cachedReels.where((existing) => existing.id != reel.id),
-    ];
-    await _reelStore.cacheReel(userId: _currentUserId, reel: reel);
-    notifyListeners();
     return reel;
   }
 
-  /// Process a reel from URL and add to cache.
   Future<Reel> processReel(
     String url, {
     void Function(ProcessingJob job)? onJobUpdate,
@@ -249,17 +202,7 @@ class ReelRepository extends ChangeNotifier {
       userId: _currentUserId,
       onJobUpdate: onJobUpdate,
     );
-    _cachedReels = [
-      reel,
-      ..._cachedReels.where((existing) => existing.id != reel.id),
-    ];
-    _lastFetched = DateTime.now();
-    _nextOffset = _cachedReels.length > _nextOffset
-        ? _cachedReels.length
-        : _nextOffset;
-    _searchCache.clear();
-    await _reelStore.cacheReel(userId: _currentUserId, reel: reel);
-    notifyListeners();
+    await loadInitialReels(forceRefresh: true);
     return reel;
   }
 
@@ -267,42 +210,57 @@ class ReelRepository extends ChangeNotifier {
     return _apiService.enqueueReelProcessing(url, userId: _currentUserId);
   }
 
-  Future<ReelCategoryFiltersResponse> getCategoryFilters() {
-    return _apiService.getReelCategoryFilters(userId: _currentUserId);
+  Future<ReelCategoryFiltersResponse> getCategoryFilters({
+    String? category,
+    String? subcategory,
+  }) {
+    return _apiService.getReelCategoryFilters(
+      userId: _currentUserId,
+      category: category,
+      subcategory: subcategory,
+    );
   }
 
-  /// Delete a reel and remove from cache.
+  Future<MapResponse> getMapData({String? category}) {
+    return _apiService.getMapData(category: category);
+  }
+
+  Future<DiscoverResponse> getDiscover({
+    String? savedDate,
+    int? offset,
+    String? cursor,
+    int limit = _pageSize,
+  }) {
+    return _apiService.getDiscover(
+      savedDate: savedDate,
+      offset: offset,
+      cursor: cursor,
+      limit: limit,
+    );
+  }
+
+  Future<LibraryStats> getLibraryStats() {
+    return _apiService.getLibraryStats();
+  }
+
   Future<void> deleteReel(String reelId) async {
     await _apiService.deleteReel(reelId);
-    _cachedReels = _cachedReels.where((reel) => reel.id != reelId).toList();
-    if (_nextOffset > 0) {
-      _nextOffset -= 1;
-    }
-    _searchCache.clear();
-    await _reelStore.removeCachedReel(userId: _currentUserId, reelId: reelId);
-    notifyListeners();
+    await loadInitialReels(forceRefresh: true);
   }
 
-  /// RAG search.
-  Future<List<SearchResult>> search(
+  Future<SearchResponse> search(
     String query, {
     String? category,
     String? subcategory,
   }) async {
     final normalizedQuery = query.trim();
     if (normalizedQuery.isEmpty) {
-      return const [];
-    }
-
-    final cacheKey = _searchCacheKey(
-      normalizedQuery,
-      category: category,
-      subcategory: subcategory,
-    );
-    final cachedResults = _searchCache[cacheKey];
-    if (cachedResults != null &&
-        DateTime.now().difference(cachedResults.cachedAt) < _searchCacheTtl) {
-      return cachedResults.results;
+      return const SearchResponse(
+        query: '',
+        results: [],
+        total: 0,
+        searchMode: SearchMode.keyword,
+      );
     }
 
     cancelActiveSearch();
@@ -310,47 +268,20 @@ class ReelRepository extends ChangeNotifier {
     _activeSearchClient = searchClient;
 
     try {
-      List<SearchResult>? remoteResults;
-      try {
-        final remote = await _apiService.searchReels(
-          normalizedQuery,
-          userId: _currentUserId,
-          category: category,
-          subcategory: subcategory,
-          client: searchClient,
-        );
-        if (!_isActiveSearchClient(searchClient)) {
-          throw const SearchCancelledException();
-        }
-        _lastSearchMode = remote.searchMode;
-        remoteResults = remote.results;
-      } on SearchCancelledException {
-        rethrow;
-      } catch (_) {
-        // Fall back to a local semantic-ish search when backend search fails.
-      }
-
-      if (!_isActiveSearchClient(searchClient)) {
-        throw const SearchCancelledException();
-      }
-
-      final local = await _searchLocally(
+      final remote = await _apiService.searchReels(
         normalizedQuery,
+        userId: _currentUserId,
         category: category,
         subcategory: subcategory,
+        client: searchClient,
       );
       if (!_isActiveSearchClient(searchClient)) {
         throw const SearchCancelledException();
       }
-      if (remoteResults == null) {
-        _lastSearchMode = null;
-        _storeSearchCache(cacheKey, local);
-        return local;
-      }
-
-      final combined = _mergeSearchResults(remoteResults, local);
-      _storeSearchCache(cacheKey, combined);
-      return combined;
+      _lastSearchMode = remote.searchMode;
+      _lastSearchTotal = remote.total;
+      notifyListeners();
+      return remote;
     } finally {
       if (_isActiveSearchClient(searchClient)) {
         _activeSearchClient = null;
@@ -359,26 +290,21 @@ class ReelRepository extends ChangeNotifier {
     }
   }
 
-  /// Invalidate cache.
   void clearCache() {
     cancelActiveSearch();
     _cachedReels.clear();
-    _lastFetched = null;
     _nextOffset = 0;
+    _nextCursor = null;
     _hasMoreReels = true;
     _hasHydratedCache = false;
-    _searchCache.clear();
+    _totalCount = 0;
     _lastSearchMode = null;
+    _lastSearchTotal = 0;
     notifyListeners();
   }
 
   Future<void> clearUserCache() async {
-    final userId = _authService.currentUser?.id;
     clearCache();
-    if (userId == null || userId.trim().isEmpty) {
-      return;
-    }
-    await _reelStore.clearCachedReels(userId: userId);
   }
 
   void cancelActiveSearch() {
@@ -387,143 +313,8 @@ class ReelRepository extends ChangeNotifier {
     activeClient?.close();
   }
 
-  Future<List<SearchResult>> _searchLocally(
-    String query, {
-    String? category,
-    String? subcategory,
-  }) async {
-    await hydrateCache();
-    if (_cachedReels.isEmpty) {
-      await loadInitialReels();
-    }
-
-    final normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery.isEmpty) return const [];
-
-    final tokens = normalizedQuery
-        .split(RegExp(r'\s+'))
-        .where((token) => token.isNotEmpty)
-        .toList();
-    final sqliteCandidates = await _reelStore.searchCachedReels(
-      userId: _currentUserId,
-      query: normalizedQuery,
-      category: category,
-      subcategory: subcategory,
-    );
-
-    final candidateSource = sqliteCandidates.isNotEmpty
-        ? sqliteCandidates
-        : cachedReels
-              .where((reel) {
-                if (category != null &&
-                    reel.category.toLowerCase() != category.toLowerCase()) {
-                  return false;
-                }
-                if (subcategory != null &&
-                    reel.subCategory.toLowerCase() !=
-                        subcategory.toLowerCase()) {
-                  return false;
-                }
-                return true;
-              })
-              .toList(growable: false);
-
-    final matches = <SearchResult>[];
-    for (final reel in candidateSource) {
-      final score = _scoreReel(reel, normalizedQuery, tokens);
-      if (score > 0) {
-        matches.add(
-          SearchResult(reel: reel, relevanceScore: score.clamp(0.0, 0.99)),
-        );
-      }
-    }
-
-    matches.sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
-    return matches.take(12).toList();
-  }
-
-  List<SearchResult> _mergeSearchResults(
-    List<SearchResult> remote,
-    List<SearchResult> local,
-  ) {
-    final byReelId = <String, SearchResult>{};
-    for (final result in remote) {
-      byReelId[result.reel.id] = result;
-    }
-    for (final result in local) {
-      final existing = byReelId[result.reel.id];
-      if (existing == null || result.relevanceScore > existing.relevanceScore) {
-        byReelId[result.reel.id] = result;
-      }
-    }
-
-    final merged = byReelId.values.toList(growable: false);
-    merged.sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
-    return merged.take(12).toList(growable: false);
-  }
-
-  double _scoreReel(Reel reel, String query, List<String> tokens) {
-    double score = 0;
-
-    final title = reel.title.toLowerCase();
-    final summary = reel.summary.toLowerCase();
-    final transcript = reel.transcript.toLowerCase();
-    final category = reel.category.toLowerCase();
-    final subCategory = reel.subCategory.toLowerCase();
-    final facts = reel.keyFacts.join(' ').toLowerCase();
-    final people = reel.peopleMentioned.join(' ').toLowerCase();
-    final actions = reel.actionableItems.join(' ').toLowerCase();
-    final locations = reel.locations
-        .expand((location) => [location.name, location.address ?? ''])
-        .join(' ')
-        .toLowerCase();
-
-    if (title.contains(query)) score += 0.45;
-    if (summary.contains(query)) score += 0.25;
-    if (facts.contains(query)) score += 0.2;
-    if (locations.contains(query)) score += 0.35;
-    if (people.contains(query)) score += 0.18;
-    if (actions.contains(query)) score += 0.15;
-    if (category.contains(query) || subCategory.contains(query)) score += 0.22;
-
-    for (final token in tokens) {
-      if (token.length < 2) continue;
-      if (title.contains(token)) score += 0.12;
-      if (summary.contains(token)) score += 0.06;
-      if (transcript.contains(token)) score += 0.03;
-      if (facts.contains(token)) score += 0.05;
-      if (locations.contains(token)) score += 0.08;
-      if (people.contains(token)) score += 0.04;
-      if (actions.contains(token)) score += 0.03;
-      if (category.contains(token) || subCategory.contains(token)) {
-        score += 0.05;
-      }
-    }
-
-    return score;
-  }
-
   bool _isActiveSearchClient(http.Client client) =>
       identical(_activeSearchClient, client);
-
-  String _searchCacheKey(
-    String query, {
-    String? category,
-    String? subcategory,
-  }) {
-    return [
-      query.trim().toLowerCase(),
-      category?.trim().toLowerCase() ?? '',
-      subcategory?.trim().toLowerCase() ?? '',
-    ].join('|');
-  }
-
-  void _storeSearchCache(String cacheKey, List<SearchResult> results) {
-    _searchCache[cacheKey] = _CachedSearchResults(
-      results: List<SearchResult>.unmodifiable(results),
-      cachedAt: DateTime.now(),
-    );
-  }
 
   @override
   void dispose() {

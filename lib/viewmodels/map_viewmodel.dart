@@ -1,59 +1,46 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../models/map_response.dart';
 import '../models/reel.dart';
 import '../repositories/reel_repository.dart';
+import '../services/api_service.dart';
 
-/// ViewModel for the Map screen.
 class MapViewModel extends ChangeNotifier {
   final ReelRepository _repository;
 
-  MapViewModel(this._repository) {
-    _repository.addListener(_syncFromRepository);
-  }
+  MapViewModel(this._repository);
 
-  List<Reel> _reelsWithLocations = [];
+  List<MapItem> _mapItems = [];
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _error;
   String? _selectedCategory;
-  Reel? _selectedReel;
-  Location? _selectedLocation;
+  MapItem? _selectedMapItem;
+  int _totalPinnedLocations = 0;
+  int _visiblePinnedLocations = 0;
 
-  List<Reel> get reelsWithLocations {
-    if (_selectedCategory == null) {
-      return List.unmodifiable(_reelsWithLocations);
-    }
-
-    return List.unmodifiable(_reelsWithLocations.where(_matchesFilter));
-  }
-
+  List<MapItem> get mapItems => List.unmodifiable(_mapItems);
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
-  bool get hasMoreReels => _repository.hasMoreReels;
+  bool get hasMoreReels => false;
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
-  Reel? get selectedReel => _selectedReel;
-  Location? get selectedLocation => _selectedLocation;
-  int get totalPinnedLocations => _reelsWithLocations.fold(
-    0,
-    (sum, reel) => sum + reel.mappableLocations.length,
-  );
+  MapItem? get selectedMapItem => _selectedMapItem;
+  int get totalPinnedLocations => _totalPinnedLocations;
+  int get visiblePinnedLocations => _visiblePinnedLocations;
 
-  void _syncFromRepository() {
-    _reelsWithLocations = _repository.cachedReels
-        .where((reel) => reel.hasMapLocations)
-        .toList(growable: false);
+  @Deprecated('Use mapItems instead.')
+  List<Reel> get reelsWithLocations =>
+      _mapItems.map((item) => item.toReel()).toList(growable: false);
 
-    if (_selectedReel != null &&
-        _reelsWithLocations.every((reel) => reel.id != _selectedReel!.id)) {
-      _selectedReel = null;
-      _selectedLocation = null;
-    }
+  @Deprecated('Use selectedMapItem instead.')
+  Reel? get selectedReel => _selectedMapItem?.toReel();
 
-    notifyListeners();
-  }
+  @Deprecated('Map selection now comes from backend map_items.')
+  Location? get selectedLocation => null;
 
-  /// Load reels that have map-pinnable locations.
   Future<void> loadMapReels({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
@@ -62,97 +49,74 @@ class MapViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _repository.loadInitialReels(forceRefresh: forceRefresh);
-      while (_repository.hasMoreReels) {
-        await _repository.loadMoreReels();
+      final response = await _repository.getMapData(
+        category: _selectedCategory,
+      );
+      _mapItems = response.mapItems;
+      _totalPinnedLocations = response.totalPinnedLocations;
+      _visiblePinnedLocations = response.visiblePinnedLocations;
+      _selectedCategory = response.selectedCategory ?? _selectedCategory;
+      if (_selectedMapItem != null &&
+          _mapItems.every(
+            (item) => item.markerId != _selectedMapItem!.markerId,
+          )) {
+        _selectedMapItem = null;
       }
-      _reelsWithLocations = _repository.cachedReels
-          .where((reel) => reel.hasMapLocations)
-          .toList(growable: false);
     } catch (e) {
-      _error = e.toString();
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Could not load map data right now.',
+      );
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> loadMoreReels() async {
-    if (_isLoading || _isLoadingMore || !hasMoreReels) {
-      return;
-    }
+  Future<void> loadMoreReels() async {}
 
-    _isLoadingMore = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      await _repository.loadMoreReels();
-      _reelsWithLocations = _repository.cachedReels
-          .where((reel) => reel.hasMapLocations)
-          .toList(growable: false);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoadingMore = false;
-      notifyListeners();
-    }
-  }
-
-  /// Filter map pins by category.
   void filterByCategory(String? category) {
     _selectedCategory = _selectedCategory == category ? null : category;
+    _selectedMapItem = null;
+    unawaited(loadMapReels(forceRefresh: true));
     notifyListeners();
   }
 
-  /// Select a reel (when tapping a map pin).
-  void selectReel(Reel? reel, {Location? location}) {
-    _selectedReel = reel;
-    _selectedLocation = location;
+  void selectMapItem(MapItem? item) {
+    _selectedMapItem = item;
     notifyListeners();
+  }
+
+  void selectReel(Reel? reel, {Location? location}) {
+    if (reel == null) {
+      selectMapItem(null);
+    }
   }
 
   void reset() {
-    _reelsWithLocations = const [];
+    _mapItems = const [];
     _isLoading = false;
     _isLoadingMore = false;
     _error = null;
     _selectedCategory = null;
-    _selectedReel = null;
-    _selectedLocation = null;
+    _selectedMapItem = null;
+    _totalPinnedLocations = 0;
+    _visiblePinnedLocations = 0;
     notifyListeners();
   }
 
   void upsertProcessedReel(Reel reel) {
-    if (!reel.hasMapLocations) return;
-
-    _reelsWithLocations = [
-      reel,
-      ..._reelsWithLocations.where((existing) => existing.id != reel.id),
-    ];
-    notifyListeners();
+    unawaited(loadMapReels(forceRefresh: true));
   }
 
   void removeReel(String reelId) {
-    final hadSelection = _selectedReel?.id == reelId;
-    _reelsWithLocations = _reelsWithLocations
-        .where((reel) => reel.id != reelId)
+    final hadSelection = _selectedMapItem?.reelId == reelId;
+    _mapItems = _mapItems
+        .where((item) => item.reelId != reelId)
         .toList(growable: false);
     if (hadSelection) {
-      _selectedReel = null;
-      _selectedLocation = null;
+      _selectedMapItem = null;
     }
     notifyListeners();
-  }
-
-  bool _matchesFilter(Reel reel) =>
-      _normalize(reel.category) == _normalize(_selectedCategory!);
-
-  String _normalize(String value) => value.trim().toLowerCase();
-
-  @override
-  void dispose() {
-    _repository.removeListener(_syncFromRepository);
-    super.dispose();
   }
 }

@@ -2,20 +2,67 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/library_stats.dart';
 import '../providers/app_providers.dart';
+import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import '../services/share_handoff_service.dart';
 import '../theme/app_theme.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  LibraryStats? _stats;
+  String? _statsError;
+  bool _isLoadingStats = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStats();
+    });
+  }
+
+  Future<void> _loadStats() async {
+    setState(() {
+      _isLoadingStats = true;
+      _statsError = null;
+    });
+
+    try {
+      final stats = await ref.read(apiServiceProvider).getLibraryStats();
+      if (!mounted) return;
+      setState(() {
+        _stats = stats;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _statsError = userFacingErrorMessage(
+          error,
+          fallbackMessage: 'Could not load library stats right now.',
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingStats = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final sessionVm = ref.watch(sessionViewModelProvider);
     final themeVm = ref.watch(themeViewModelProvider);
-    final homeVm = ref.watch(homeViewModelProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -40,11 +87,7 @@ class ProfileScreen extends ConsumerWidget {
         top: false,
         child: Builder(
           builder: (context) {
-            final pinned = homeVm.totalPinnedLocations;
-            final categories = {
-              ...homeVm.reels.map((reel) => reel.category),
-              ...homeVm.reels.map((reel) => reel.subCategory),
-            }.length;
+            final stats = _stats;
             const heroTextColor = AppTheme.white;
             const heroSupportColor = Color(0xFFD6F3EF);
 
@@ -133,33 +176,18 @@ class ProfileScreen extends ConsumerWidget {
                 SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'COLLECTION STATS'),
                 SizedBox(height: layout.gap(10)),
-                Container(
-                  decoration: AppTheme.brutalCard(context),
-                  child: Row(
-                    children: [
-                      _statTile(
-                        context,
-                        value: '${homeVm.reels.length}',
-                        label: 'REELS',
-                        color: AppTheme.yellow,
-                      ),
-                      _divider(context),
-                      _statTile(
-                        context,
-                        value: '$pinned',
-                        label: 'PINNED',
-                        color: AppTheme.neonGreen,
-                      ),
-                      _divider(context),
-                      _statTile(
-                        context,
-                        value: '$categories',
-                        label: 'TAGS',
-                        color: AppTheme.hotPink,
-                      ),
-                    ],
+                _buildStatsCard(context, stats),
+                if (_statsError != null) ...[
+                  SizedBox(height: layout.gap(10)),
+                  Text(
+                    _statsError!,
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.destructive,
+                      fontSize: layout.font(11),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
+                ],
                 SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'PREFERENCES'),
                 SizedBox(height: layout.gap(10)),
@@ -306,6 +334,54 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatsCard(BuildContext context, LibraryStats? stats) {
+    final layout = AppLayout.of(context);
+    if (_isLoadingStats && stats == null) {
+      return Container(
+        decoration: AppTheme.brutalCard(context),
+        padding: EdgeInsets.all(layout.inset(18)),
+        child: Center(
+          child: SizedBox(
+            width: layout.inset(22),
+            height: layout.inset(22),
+            child: CircularProgressIndicator(
+              color: AppTheme.fg(context),
+              strokeWidth: 2.5,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: AppTheme.brutalCard(context),
+      child: Row(
+        children: [
+          _statTile(
+            context,
+            value: '${stats?.totalReels ?? 0}',
+            label: 'REELS',
+            color: AppTheme.yellow,
+          ),
+          _divider(context),
+          _statTile(
+            context,
+            value: '${stats?.totalPinnedLocations ?? 0}',
+            label: 'PINNED',
+            color: AppTheme.neonGreen,
+          ),
+          _divider(context),
+          _statTile(
+            context,
+            value: '${stats?.totalTags ?? 0}',
+            label: 'TAGS',
+            color: AppTheme.hotPink,
+          ),
+        ],
       ),
     );
   }
