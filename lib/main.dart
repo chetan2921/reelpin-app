@@ -179,9 +179,11 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   late final EntitlementsViewModel _entitlementsViewModel;
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<ReelReadyNotification>? _reelReadySubscription;
+  StreamSubscription<AuthState>? _authStateSubscription;
   String? _lastRegisteredPushUserId;
   String? _lastRegisteredPushToken;
   DateTime? _lastRegisteredPushAt;
+  String? _activeUserId;
 
   @override
   void initState() {
@@ -195,6 +197,16 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _categoryFiltersViewModel = ref.read(categoryFiltersViewModelProvider);
     _searchViewModel = ref.read(searchViewModelProvider);
     _entitlementsViewModel = ref.read(entitlementsViewModelProvider);
+    _activeUserId = _authService.currentUser?.id;
+    _authStateSubscription = _authService.authStateChanges.listen((state) {
+      final nextUserId = state.session?.user.id;
+      if (nextUserId == _activeUserId) return;
+      _activeUserId = nextUserId;
+      _clearUserScopedState();
+      if (nextUserId != null && nextUserId.trim().isNotEmpty) {
+        unawaited(_entitlementsViewModel.refresh(reloadContent: true));
+      }
+    });
     _initializeBackgroundMessaging();
     unawaited(_entitlementsViewModel.refresh(reloadContent: true));
   }
@@ -288,19 +300,24 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     }
   }
 
-  @override
-  void dispose() {
+  void _clearUserScopedState() {
     _searchViewModel.clear();
     _categoryFiltersViewModel.reset();
     _mapViewModel.reset();
     _homeViewModel.reset();
     _repository.clearCache();
     _entitlementsViewModel.reset();
-    _tokenRefreshSubscription?.cancel();
-    _reelReadySubscription?.cancel();
     _lastRegisteredPushUserId = null;
     _lastRegisteredPushToken = null;
     _lastRegisteredPushAt = null;
+  }
+
+  @override
+  void dispose() {
+    _clearUserScopedState();
+    _tokenRefreshSubscription?.cancel();
+    _reelReadySubscription?.cancel();
+    _authStateSubscription?.cancel();
     super.dispose();
   }
 }

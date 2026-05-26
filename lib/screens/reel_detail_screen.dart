@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/reel.dart';
 import '../providers/app_providers.dart';
@@ -42,6 +43,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   Widget build(BuildContext context) {
     final catColor = AppTheme.getCategoryColor(reel.category);
     final layout = AppLayout.of(context);
+    final hasOpenableReel = _openReelUrl != null;
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -74,6 +76,35 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
               ),
             ),
             actions: [
+              // Open source reel
+              GestureDetector(
+                onTap: hasOpenableReel ? _openReel : null,
+                child: Container(
+                  margin: EdgeInsets.only(right: layout.inset(12)),
+                  padding: EdgeInsets.symmetric(horizontal: layout.inset(14)),
+                  height: layout.inset(36),
+                  decoration: BoxDecoration(
+                    color: hasOpenableReel
+                        ? AppTheme.yellow
+                        : AppTheme.surfaceElevatedColor(context),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
+                    boxShadow: AppTheme.brutalShadowSmall(context),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'OPEN REEL',
+                    style: GoogleFonts.spaceMono(
+                      color: hasOpenableReel
+                          ? AppTheme.black
+                          : AppTheme.textSec(context),
+                      fontSize: layout.font(10),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ),
+
               // Delete
               GestureDetector(
                 onTap: () => _confirmDelete(context),
@@ -748,6 +779,63 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<void> _openReel() async {
+    final uri = _openReelUrl;
+    if (uri == null) {
+      if (!mounted) return;
+      _showOpenReelError();
+      return;
+    }
+
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      _showOpenReelError();
+    }
+  }
+
+  Uri? get _openReelUrl {
+    for (final candidate in [
+      reel.sourceUrl,
+      reel.originalUrl,
+      reel.normalizedUrl,
+      reel.url,
+    ]) {
+      final uri = _externalUri(candidate);
+      if (uri != null) {
+        return uri;
+      }
+    }
+    return null;
+  }
+
+  Uri? _externalUri(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return null;
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return null;
+    if (!uri.hasScheme) return null;
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') return null;
+    if ((uri.host).trim().isEmpty) return null;
+    return uri;
+  }
+
+  void _showOpenReelError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'COULD NOT OPEN REEL',
+          style: GoogleFonts.spaceMono(
+            color: AppTheme.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        backgroundColor: AppTheme.destructive,
+      ),
+    );
   }
 
   Future<void> _refreshReel() async {

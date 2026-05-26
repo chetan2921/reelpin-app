@@ -70,11 +70,22 @@ class EntitlementsViewModel extends ChangeNotifier {
 
     try {
       final next = await _apiService.getAccountEntitlements(userId: userId);
+      final isDifferentUser =
+          previous != null &&
+          previous.currentEntitlement.userId != next.currentEntitlement.userId;
       final shouldResetVisibleData =
           previous != null &&
           previous.currentEntitlement.userId ==
               next.currentEntitlement.userId &&
           previous.contentAccessSignature() != next.contentAccessSignature();
+
+      if (isDifferentUser) {
+        await _repository.clearUserCache();
+        _homeViewModel.reset();
+        _mapViewModel.reset();
+        _categoryFiltersViewModel.reset();
+        _searchViewModel.clear();
+      }
 
       _response = next;
       notifyListeners();
@@ -87,7 +98,10 @@ class EntitlementsViewModel extends ChangeNotifier {
         _searchViewModel.clear();
       }
 
-      if (reloadContent || previous == null || shouldResetVisibleData) {
+      if (reloadContent ||
+          previous == null ||
+          isDifferentUser ||
+          shouldResetVisibleData) {
         if (!next.currentEntitlement.restricted) {
           await Future.wait([
             _homeViewModel.loadReels(forceRefresh: true),

@@ -25,6 +25,7 @@ class ReelRepository extends ChangeNotifier {
   final AuthService _authService;
 
   List<Reel> _cachedReels = [];
+  String? _cacheUserId;
   int _nextOffset = 0;
   String? _nextCursor;
   bool _hasMoreReels = true;
@@ -47,6 +48,7 @@ class ReelRepository extends ChangeNotifier {
   }
 
   List<Reel> get cachedReels => List.unmodifiable(_cachedReels);
+  String? get cacheUserId => _cacheUserId;
   bool get hasMoreReels => _hasMoreReels;
   bool get hasHydratedCache => _hasHydratedCache;
   int get totalCount => _totalCount;
@@ -155,8 +157,9 @@ class ReelRepository extends ChangeNotifier {
     String? savedDate,
     String? sort,
   }) async {
+    final requestUserId = _currentUserId;
     final page = await _apiService.getReelsPage(
-      userId: _currentUserId,
+      userId: requestUserId,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -165,10 +168,14 @@ class ReelRepository extends ChangeNotifier {
       limit: _pageSize,
       sort: sort,
     );
+    if (_currentUserId != requestUserId) {
+      return;
+    }
     _nextOffset = page.nextOffset ?? page.offset;
     _nextCursor = page.nextCursor;
     _hasMoreReels = page.hasMore;
     _totalCount = page.totalCount;
+    _cacheUserId = requestUserId;
     _cachedReels = reset ? page.reels : [..._cachedReels, ...page.reels];
     notifyListeners();
   }
@@ -293,6 +300,7 @@ class ReelRepository extends ChangeNotifier {
   void clearCache() {
     cancelActiveSearch();
     _cachedReels.clear();
+    _cacheUserId = null;
     _nextOffset = 0;
     _nextCursor = null;
     _hasMoreReels = true;

@@ -14,9 +14,7 @@ class SearchResultTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final reel = result.reel;
     final catColor = AppTheme.getCategoryColor(reel.category);
-    final scoreLabel = result.displayScoreLabel.isNotEmpty
-        ? result.displayScoreLabel
-        : result.relevancePercent;
+    final score = result.relevanceScore.clamp(0.0, 1.0);
     final layout = AppLayout.of(context);
 
     return GestureDetector(
@@ -95,27 +93,16 @@ class SearchResultTile extends StatelessWidget {
               ),
             ],
 
-            if (scoreLabel.isNotEmpty) ...[
-              SizedBox(height: layout.gap(12)),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: layout.inset(8),
-                  vertical: layout.gap(4),
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceElevatedColor(context),
-                  border: Border.all(color: AppTheme.fg(context), width: 1),
-                ),
-                child: Text(
-                  scoreLabel.toUpperCase(),
-                  style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSec(context),
-                    fontSize: layout.font(9),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+            SizedBox(height: layout.gap(12)),
+            ClipRRect(
+              borderRadius: BorderRadius.zero,
+              child: LinearProgressIndicator(
+                value: score,
+                minHeight: 6,
+                backgroundColor: AppTheme.surfaceElevatedColor(context),
+                valueColor: AlwaysStoppedAnimation<Color>(_scoreColor(score)),
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -124,5 +111,11 @@ class SearchResultTile extends StatelessWidget {
 
   Color _contrastText(Color bg) {
     return bg.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
+  }
+
+  Color _scoreColor(double score) {
+    if (score >= 0.8) return AppTheme.neonGreen;
+    if (score >= 0.5) return AppTheme.yellow;
+    return AppTheme.orange;
   }
 }

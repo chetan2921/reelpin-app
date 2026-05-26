@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:reelpin/models/reel_page.dart';
 import 'package:reelpin/models/search_response.dart';
 import 'package:reelpin/models/reel.dart';
@@ -31,6 +34,24 @@ void main() {
     expect(response.results, isEmpty);
     expect(response.total, 0);
   });
+
+  test(
+    'ignores stale reel response after authenticated user changes',
+    () async {
+      final auth = _MutableAuthService('user-a');
+      final api = _DelayedApiService();
+      final repository = ReelRepository(api, auth);
+
+      final load = repository.loadInitialReels(forceRefresh: true);
+      await Future<void>.delayed(Duration.zero);
+      auth.userId = 'user-b';
+      api.complete();
+      await load;
+
+      expect(repository.cachedReels, isEmpty);
+      expect(repository.cacheUserId, isNull);
+    },
+  );
 }
 
 class _FakeApiService extends ApiService {
@@ -106,6 +127,66 @@ class _FakeAuthService extends AuthService {
 
   @override
   Future<void> ensureProfile() async {}
+}
+
+class _MutableAuthService extends AuthService {
+  _MutableAuthService(this.userId) : super(ProfileService());
+
+  String userId;
+
+  @override
+  Session? get currentSession => null;
+
+  @override
+  User? get currentUser => User.fromJson({
+    'id': userId,
+    'app_metadata': <String, dynamic>{},
+    'user_metadata': <String, dynamic>{},
+    'aud': 'authenticated',
+    'created_at': '2026-04-20T00:00:00Z',
+  });
+
+  @override
+  Stream<AuthState> get authStateChanges => const Stream<AuthState>.empty();
+
+  @override
+  Future<void> ensureProfile() async {}
+}
+
+class _DelayedApiService extends ApiService {
+  _DelayedApiService()
+    : super(
+        baseUrl: 'https://example.com',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+  final _completer = Completer<ReelPage>();
+
+  @override
+  Future<ReelPage> getReelsPage({
+    String? userId,
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    int? offset,
+    String? cursor,
+    int limit = 50,
+    String? sort,
+  }) {
+    return _completer.future;
+  }
+
+  void complete() {
+    _completer.complete(
+      const ReelPage(
+        reels: [_reelA],
+        hasMore: false,
+        totalCount: 1,
+        limit: 25,
+        offset: 0,
+      ),
+    );
+  }
 }
 
 const _reelA = Reel(

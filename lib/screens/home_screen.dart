@@ -15,13 +15,37 @@ import '../widgets/reel_card.dart';
 import 'paywall_screen.dart';
 import 'reel_detail_screen.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, this.onSearchTap});
 
   final VoidCallback? onSearchTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _didRequestInitialLoad = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _didRequestInitialLoad) return;
+      _didRequestInitialLoad = true;
+      final vm = ref.read(homeViewModelProvider);
+      final categoryVm = ref.read(categoryFiltersViewModelProvider);
+      if (vm.reels.isEmpty && !vm.isLoading) {
+        vm.loadReels(forceRefresh: true);
+      }
+      if (!categoryVm.isLoading && !categoryVm.hasGroups) {
+        categoryVm.loadCategoryFilters(forceRefresh: true);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final vm = ref.watch(homeViewModelProvider);
     final categoryVm = ref.watch(categoryFiltersViewModelProvider);
@@ -230,7 +254,7 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildSearchButton(BuildContext context) {
     final layout = AppLayout.of(context);
     return GestureDetector(
-      onTap: onSearchTap,
+      onTap: widget.onSearchTap,
       child: Container(
         width: layout.inset(40),
         height: layout.inset(40),

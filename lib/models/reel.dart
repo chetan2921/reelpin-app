@@ -103,6 +103,9 @@ class Reel {
   final String id;
   final String userId;
   final String url;
+  final String sourceUrl;
+  final String originalUrl;
+  final String normalizedUrl;
   final String title;
   final String summary;
   final String caption;
@@ -138,6 +141,9 @@ class Reel {
     required this.locations,
     required this.peopleMentioned,
     required this.actionableItems,
+    this.sourceUrl = '',
+    this.originalUrl = '',
+    this.normalizedUrl = '',
     this.categoryLabel = '',
     this.subCategoryLabel = '',
     this.mappableLocations = const [],
@@ -163,7 +169,27 @@ class Reel {
     return Reel(
       id: json['id']?.toString() ?? json['reel_id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
-      url: json['url']?.toString() ?? '',
+      url:
+          json['url']?.toString() ??
+          json['reel_url']?.toString() ??
+          json['permalink']?.toString() ??
+          '',
+      sourceUrl:
+          json['source_url']?.toString() ??
+          json['input_url']?.toString() ??
+          json['submitted_url']?.toString() ??
+          json['shared_url']?.toString() ??
+          json['original_share_url']?.toString() ??
+          '',
+      originalUrl:
+          json['original_url']?.toString() ??
+          json['original_reel_url']?.toString() ??
+          '',
+      normalizedUrl:
+          json['normalized_url']?.toString() ??
+          json['canonical_url']?.toString() ??
+          json['provider_url']?.toString() ??
+          '',
       title: json['title']?.toString() ?? '',
       summary: json['summary']?.toString() ?? '',
       caption:
@@ -198,6 +224,9 @@ class Reel {
     'id': id,
     'user_id': userId,
     'url': url,
+    'source_url': sourceUrl,
+    'original_url': originalUrl,
+    'normalized_url': normalizedUrl,
     'title': title,
     'summary': summary,
     'caption': caption,

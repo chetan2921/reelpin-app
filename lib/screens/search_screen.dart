@@ -7,10 +7,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/discover_response.dart';
 import '../models/reel.dart';
+import '../models/reel_page.dart';
 import '../providers/app_providers.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/search_viewmodel.dart';
+import '../widgets/reel_card.dart';
 import '../widgets/search_result_tile.dart';
 import 'profile_screen.dart';
 import 'reel_detail_screen.dart';
@@ -31,9 +33,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _focusNode = FocusNode();
   String? _selectedSavedDate;
   String? _selectedSavedDateLabel;
+  String? _selectedCategory;
+  String? _selectedCategoryLabel;
+  int? _selectedCategoryExpectedCount;
+  ReelPage? _categoryReelsPage;
   DiscoverResponse? _discover;
   bool _isLoadingDiscover = false;
+  bool _isLoadingCategoryReels = false;
   String? _discoverError;
+  String? _categoryReelsError;
   Timer? _searchDebounce;
   int _handledFocusRequestId = 0;
   bool _hasSearchText = false;
@@ -260,6 +268,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _handleSearchChanged(SearchViewModel vm, String query) {
     _searchDebounce?.cancel();
+    _clearCategorySelection();
 
     if (query.trim().isEmpty) {
       _clearSearch(vm, keepFocus: true);
@@ -274,6 +283,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _doSearch(SearchViewModel vm, String query) {
     _searchDebounce?.cancel();
+    _clearCategorySelection();
     if (query.trim().isEmpty) {
       _clearSearch(vm, keepFocus: true);
       return;
@@ -325,8 +335,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       setState(() {
         _hasSearchText = false;
         _selectedSavedDate = null;
+        _selectedSavedDateLabel = null;
       });
     }
+    _clearCategorySelection();
     vm.clear();
     if (mounted) {
       setState(() {});
@@ -337,12 +349,75 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     setState(() {
       _selectedSavedDate = null;
       _selectedSavedDateLabel = null;
+      _clearCategorySelectionInState();
     });
     unawaited(_loadDiscover(reset: true));
   }
 
+  void _clearCategorySelection() {
+    if (_selectedCategory == null &&
+        _categoryReelsPage == null &&
+        _categoryReelsError == null) {
+      return;
+    }
+    setState(_clearCategorySelectionInState);
+  }
+
+  void _clearCategorySelectionInState() {
+    _selectedCategory = null;
+    _selectedCategoryLabel = null;
+    _selectedCategoryExpectedCount = null;
+    _categoryReelsPage = null;
+    _categoryReelsError = null;
+    _isLoadingCategoryReels = false;
+  }
+
+  Future<void> _openCategory(DiscoverCategory category) async {
+    _searchDebounce?.cancel();
+    final vm = ref.read(searchViewModelProvider);
+    vm.clear();
+    if (_controller.text.isNotEmpty) {
+      _controller.clear();
+    }
+    _focusNode.unfocus();
+    setState(() {
+      _hasSearchText = false;
+      _selectedSavedDate = null;
+      _selectedSavedDateLabel = null;
+      _selectedCategory = category.category;
+      _selectedCategoryLabel = category.label;
+      _selectedCategoryExpectedCount = category.count;
+      _categoryReelsPage = null;
+      _categoryReelsError = null;
+      _isLoadingCategoryReels = true;
+    });
+
+    try {
+      final page = await ref
+          .read(apiServiceProvider)
+          .getReelsPage(category: category.category, limit: category.count);
+      if (!mounted || _selectedCategory != category.category) return;
+      setState(() {
+        _categoryReelsPage = page;
+      });
+    } catch (error) {
+      if (!mounted || _selectedCategory != category.category) return;
+      setState(() {
+        _categoryReelsError = userFacingErrorMessage(
+          error,
+          fallbackMessage: 'Could not load this category right now.',
+        );
+      });
+    } finally {
+      if (mounted && _selectedCategory == category.category) {
+        setState(() {
+          _isLoadingCategoryReels = false;
+        });
+      }
+    }
+  }
+
   Future<void> _loadDiscover({bool reset = false}) async {
-    final currentPagination = _discover?.pagination;
     setState(() {
       _isLoadingDiscover = true;
       _discoverError = null;
@@ -351,11 +426,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     try {
       final response = await ref
           .read(apiServiceProvider)
-          .getDiscover(
-            savedDate: _selectedSavedDate,
-            offset: reset ? null : currentPagination?.nextOffset,
-            cursor: reset ? null : currentPagination?.nextCursor,
-          );
+          .getDiscover(savedDate: _selectedSavedDate);
       if (!mounted) return;
       setState(() {
         _discover = response;
@@ -581,6 +652,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return const SizedBox.shrink();
     }
 
+    if (_selectedCategory != null) {
+      return _buildCategoryReelsContent(context);
+    }
+
     final recentSavesCount = discover.recentSavesCount;
 
     return NotificationListener<ScrollNotification>(
@@ -714,11 +789,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
           _buildCategoryGrid(context, discover.categoryGrid),
-
-          if (discover.pagination.hasMore) ...[
-            const SizedBox(height: 24),
-            _buildDiscoverPaginationState(context, discover.pagination),
-          ],
         ],
       ),
     );
@@ -762,47 +832,203 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildDiscoverPaginationState(
-    BuildContext context,
-    DiscoverPagination pagination,
-  ) {
-    if (_isLoadingDiscover) {
-      return Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            color: AppTheme.fg(context),
-            strokeWidth: 2.5,
-          ),
-        ),
-      );
-    }
+  Widget _buildCategoryReelsContent(BuildContext context) {
+    final page = _categoryReelsPage;
+    final categoryLabel =
+        _selectedCategoryLabel ?? _selectedCategory ?? 'CATEGORY';
+    final expectedCount =
+        _selectedCategoryExpectedCount ?? page?.totalCount ?? 0;
+    final totalCount = page?.totalCount ?? expectedCount;
+    final reels = page?.reels ?? const <Reel>[];
 
-    if (!pagination.hasMore) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GestureDetector(
-        onTap: _loadDiscover,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: AppTheme.brutalBox(
-            context,
-            color: AppTheme.bg(context),
-            shadow: true,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            'LOAD MORE SAVED REELS',
-            style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        categoryLabel.toUpperCase(),
+                        style: GoogleFonts.spaceMono(
+                          color: AppTheme.fg(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$totalCount REEL${totalCount == 1 ? '' : 'S'}',
+                        style: GoogleFonts.spaceMono(
+                          color: AppTheme.textSec(context),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _clearCategorySelection,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: AppTheme.brutalBox(
+                      context,
+                      color: AppTheme.bg(context),
+                      shadow: true,
+                    ),
+                    child: Text(
+                      'ALL CATEGORIES',
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.fg(context),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
+        if (_isLoadingCategoryReels)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _buildSearchingState(context),
+          )
+        else if (_categoryReelsError != null)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _buildCategoryReelsError(context),
+          )
+        else if (reels.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _buildCategoryReelsEmpty(context, categoryLabel),
+          )
+        else
+          _buildCategoryReelGrid(context, reels),
+        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+      ],
+    );
+  }
+
+  Widget _buildCategoryReelsError(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.all(24),
+        decoration: AppTheme.brutalBox(
+          context,
+          color: AppTheme.bg(context),
+          shadow: true,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'CATEGORY LOAD FAILED',
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.fg(context),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _categoryReelsError ?? '',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.textSec(context),
+                fontSize: 11,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryReelsEmpty(BuildContext context, String categoryLabel) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Container(
+          width: double.infinity,
+          decoration: AppTheme.brutalCard(context),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Text(
+              'NO REELS FOUND IN ${categoryLabel.toUpperCase()}',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.fg(context),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryReelGrid(BuildContext context, List<Reel> reels) {
+    final layout = AppLayout.of(context);
+    final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
+    final spacing = layout.inset(14);
+    final aspect = layout.gridAspect(
+      compact: 0.74,
+      regular: 0.80,
+      wide: 0.88,
+      tablet: 0.92,
+    );
+
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: layout.inset(20)),
+      sliver: AnimationLimiter(
+        child: SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            childAspectRatio: aspect,
+          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final reel = reels[index];
+            return AnimationConfiguration.staggeredGrid(
+              position: index,
+              columnCount: columns,
+              duration: const Duration(milliseconds: 300),
+              child: ScaleAnimation(
+                scale: 0.96,
+                child: FadeInAnimation(
+                  child: ReelCard(
+                    reel: reel,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReelDetailScreen(reel: reel),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          }, childCount: reels.length),
         ),
       ),
     );
@@ -891,12 +1117,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildRecentSaves(BuildContext context, List<Reel> reels) {
+    final visibleCount = reels.length > 10 ? 10 : reels.length;
     return SizedBox(
       height: 150,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: reels.length > 8 ? 8 : reels.length,
+        itemCount: visibleCount,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
           final reel = reels[i];
@@ -1024,11 +1251,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 verticalOffset: 20,
                 child: FadeInAnimation(
                   child: GestureDetector(
-                    onTap: () {
-                      _controller.text = item.category;
-                      final vm = ref.read(searchViewModelProvider);
-                      _doSearch(vm, item.category);
-                    },
+                    onTap: () => _openCategory(item),
                     child: Container(
                       decoration: AppTheme.brutalCard(context),
                       child: Row(
