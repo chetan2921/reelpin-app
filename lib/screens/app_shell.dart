@@ -30,6 +30,7 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _permissionsPromptedKey =
       'app_shell_initial_permissions_prompted_v5';
   static const _shareConfirmationDuration = Duration(milliseconds: 1400);
+  static const _resumeRefreshInterval = Duration(minutes: 5);
 
   int _currentIndex = 0;
   StreamSubscription? _mediaIntentSub;
@@ -37,6 +38,7 @@ class _AppShellState extends ConsumerState<AppShell>
   String? _lastHandledSharedPayload;
   bool _isCheckingInitialPermissions = false;
   int _searchFocusRequestId = 0;
+  DateTime? _lastResumeRefreshAt;
 
   static const _navItems = [
     _NavItem(
@@ -239,6 +241,13 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed || !mounted) return;
+
+    final now = DateTime.now();
+    if (_lastResumeRefreshAt != null &&
+        now.difference(_lastResumeRefreshAt!) < _resumeRefreshInterval) {
+      return;
+    }
+    _lastResumeRefreshAt = now;
 
     unawaited(
       ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
