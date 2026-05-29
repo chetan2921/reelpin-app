@@ -346,56 +346,71 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                     if (reel.locations.isNotEmpty) ...[
                       _sectionTitle('LOCATIONS'),
                       const SizedBox(height: 10),
-                      ...reel.locations.map(
-                        (loc) => Padding(
+                      ...reel.locations.map((loc) {
+                        final mapsUri = _locationMapsUri(loc);
+                        return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: Container(
-                            decoration: AppTheme.brutalCard(context),
-                            child: Row(
-                              children: [
-                                // Green accent bar
-                                Container(
-                                  width: 6,
-                                  height: 56,
-                                  color: AppTheme.neonGreen,
-                                ),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          loc.name.toUpperCase(),
-                                          style: GoogleFonts.spaceMono(
-                                            color: AppTheme.fg(context),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        if (loc.address != null) ...[
-                                          const SizedBox(height: 2),
+                          child: GestureDetector(
+                            onTap: mapsUri == null
+                                ? null
+                                : () => _openLocation(mapsUri),
+                            child: Container(
+                              decoration: AppTheme.brutalCard(context),
+                              child: Row(
+                                children: [
+                                  // Green accent bar
+                                  Container(
+                                    width: 6,
+                                    height: 56,
+                                    color: AppTheme.neonGreen,
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
                                           Text(
-                                            loc.address!,
+                                            loc.name.toUpperCase(),
                                             style: GoogleFonts.spaceMono(
-                                              color: _detailTextColor,
-                                              fontSize: 11,
+                                              color: AppTheme.fg(context),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
                                             ),
                                           ),
+                                          if (loc.address != null) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              loc.address!,
+                                              style: GoogleFonts.spaceMono(
+                                                color: _detailTextColor,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
                                         ],
-                                      ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                  if (mapsUri != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 12),
+                                      child: Icon(
+                                        Icons.directions,
+                                        size: 20,
+                                        color: AppTheme.neonGreen,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                       const SizedBox(height: 16),
                     ],
 
@@ -778,6 +793,34 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
       return ref.read(provider);
     } catch (_) {
       return null;
+    }
+  }
+
+  Uri? _locationMapsUri(Location loc) {
+    final backendUrl = loc.googleMapsUrl?.trim();
+    if (backendUrl != null && backendUrl.isNotEmpty) {
+      final uri = _externalUri(backendUrl);
+      if (uri != null) return uri;
+    }
+    final name = loc.name.trim();
+    if (name.isNotEmpty) {
+      return Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(name)}',
+      );
+    }
+    final lat = loc.latitude;
+    final lng = loc.longitude;
+    if (lat != null && lng != null) {
+      return Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+      );
+    }
+    return null;
+  }
+
+  Future<void> _openLocation(Uri uri) async {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
