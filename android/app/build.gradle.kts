@@ -72,7 +72,7 @@ if (hasGoogleServicesConfig) {
 
 android {
     namespace = "com.chetanjain.reelpin"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -84,7 +84,7 @@ android {
     defaultConfig {
         applicationId = "com.chetanjain.reelpin"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 

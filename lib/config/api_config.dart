@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'supabase_config.dart';
 
 class ApiConfig {
@@ -20,6 +22,11 @@ class ApiConfig {
 
   /// Additional URLs to auto-try when the primary host is unreachable.
   static List<String> get fallbackBaseUrls {
+    // Release builds never fall back to LAN/HTTP dev hosts.
+    if (kReleaseMode) {
+      return const [];
+    }
+
     final primary = baseUrl;
     if (!_isLocalDevUrl(primary)) {
       return const [];
