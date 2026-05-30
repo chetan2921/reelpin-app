@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_providers.dart';
 import '../services/notification_service.dart';
 import '../services/api_service.dart';
+import '../services/location_service.dart';
 import '../services/share_handoff_service.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
@@ -276,6 +277,14 @@ class _AppShellState extends ConsumerState<AppShell>
     final notificationService = ref.read(notificationServiceProvider);
     final apiService = ref.read(apiServiceProvider);
     final authService = ref.read(authServiceProvider);
+    var attemptedPermissionPrompt = false;
+
+    try {
+      await LocationService.instance.requestPermission();
+      attemptedPermissionPrompt = true;
+    } catch (e) {
+      debugPrint('Location permission setup skipped: $e');
+    }
 
     try {
       await notificationService.initialize(requestPermissions: false);
@@ -283,9 +292,9 @@ class _AppShellState extends ConsumerState<AppShell>
       if (initialState == NotificationPermissionState.disabled) {
         await notificationService.requestUserPermission();
       }
+      attemptedPermissionPrompt = true;
     } catch (e) {
       debugPrint('Notification permission setup skipped: $e');
-      return false;
     }
 
     final currentState = await notificationService.getPermissionState();
@@ -311,7 +320,7 @@ class _AppShellState extends ConsumerState<AppShell>
       }
     }
 
-    return true;
+    return attemptedPermissionPrompt;
   }
 
   Future<void> _syncPushTokenRegistrationIfPossible() async {

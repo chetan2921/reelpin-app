@@ -1,5 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 
+enum LocationPermissionState { enabled, disabled, serviceDisabled }
+
 class LocationService {
   LocationService._();
 
@@ -16,6 +18,21 @@ class LocationService {
 
     return permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always;
+  }
+
+  Future<LocationPermissionState> getPermissionState() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return LocationPermissionState.serviceDisabled;
+    }
+
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      return LocationPermissionState.enabled;
+    }
+
+    return LocationPermissionState.disabled;
   }
 
   Future<Position?> getCurrentOrLastKnownLocation({

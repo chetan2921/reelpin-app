@@ -719,7 +719,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               selectedSubcategory = null;
             }
 
-            final previewCount = categoryVm.selectedPreviewCount;
+            final previewCount = _previewCountForFilter(
+              categoryVm: categoryVm,
+              selectedCategory: selectedCategory,
+              selectedSubcategory: selectedSubcategory,
+              selectedItem: selectedItem,
+            );
             final activeFilterLabel = selectedSubcategory != null
                 ? '$selectedCategory / $selectedSubcategory'
                 : selectedCategory ?? 'ALL REELS';
@@ -1055,6 +1060,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+  }
+
+  int _previewCountForFilter({
+    required CategoryFiltersViewModel categoryVm,
+    required String? selectedCategory,
+    required String? selectedSubcategory,
+    required ReelCategoryGroup? selectedItem,
+  }) {
+    if (selectedCategory == null) {
+      return categoryVm.totalCount;
+    }
+
+    if (selectedSubcategory != null && selectedItem != null) {
+      for (final subcategory in selectedItem.subcategories) {
+        if (subcategory.name == selectedSubcategory) {
+          return subcategory.count;
+        }
+      }
+    }
+
+    return selectedItem?.count ?? categoryVm.selectedPreviewCount;
   }
 
   Widget _buildFilterSheetError(

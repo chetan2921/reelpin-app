@@ -647,7 +647,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final supportingTextColor = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFFD0D0D0)
         : AppTheme.textSecondary;
-    final mapsUrl = item.googleMapsUrl?.trim();
+    final mapsUri = locationMapsSearchUri(
+      name: item.locationName,
+      displayLabel: item.locationDisplayLabel,
+      address: item.locationAddress,
+      backendUrl: item.googleMapsUrl,
+      latitude: item.latitude,
+      longitude: item.longitude,
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -804,13 +811,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(
-                  onTap: mapsUrl == null || mapsUrl.isEmpty
+                  onTap: mapsUri == null
                       ? null
                       : () async {
-                          final uri = Uri.parse(mapsUrl);
-                          if (await canLaunchUrl(uri)) {
+                          if (await canLaunchUrl(mapsUri)) {
                             await launchUrl(
-                              uri,
+                              mapsUri,
                               mode: LaunchMode.externalApplication,
                             );
                           }

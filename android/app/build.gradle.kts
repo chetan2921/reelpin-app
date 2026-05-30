@@ -72,7 +72,7 @@ if (hasGoogleServicesConfig) {
 
 android {
     namespace = "com.chetanjain.reelpin"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
