@@ -107,6 +107,11 @@ class SessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Revoke the device share token while the session is still valid so it
+      // can't be used after sign-out.
+      try {
+        await ApiService().revokeShareToken();
+      } catch (_) {}
       await _authService.signOut();
       _session = null;
       await ShareHandoffService.instance.clear();
@@ -219,6 +224,22 @@ class SessionViewModel extends ChangeNotifier {
       userId,
       _session?.accessToken ?? _authService.currentSession?.accessToken,
     );
+    // Ensure a long-lived device share token exists so the native background
+    // share path can enqueue without the user's short-lived session.
+    unawaited(_ensureShareToken());
+  }
+
+  Future<void> _ensureShareToken() async {
+    try {
+      final existing = await ShareHandoffService.instance.getShareToken();
+      if (existing != null && existing.isNotEmpty) return;
+      final token = await ApiService().mintShareToken();
+      if (token.isNotEmpty) {
+        await ShareHandoffService.instance.setShareToken(token);
+      }
+    } catch (e) {
+      debugPrint('Share token mint skipped: $e');
+    }
   }
 
   String? _readString(Map<String, dynamic>? source, List<String> keys) {
