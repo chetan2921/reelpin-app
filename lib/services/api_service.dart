@@ -622,6 +622,42 @@ class ApiService {
     }
   }
 
+  /// Mint a long-lived device share token (used by the native background share
+  /// path so it doesn't depend on the short-lived Supabase session). Uses the
+  /// live session for auth.
+  Future<String> mintShareToken() async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/share-tokens'),
+            headers: _headers(json: true),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not set up background sharing right now.',
+      );
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return (body['share_token'] ?? '').toString();
+  }
+
+  Future<void> revokeShareToken() async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(_apiUri(baseUrl, '/api/v1/share-tokens'), headers: _headers())
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not revoke share access right now.',
+      );
+    }
+  }
+
   Future<http.Response> _requestWithFailover(
     Future<http.Response> Function(String baseUrl) request,
   ) async {

@@ -12,6 +12,23 @@ class ShareHandoffService {
   static const _baseUrlKey = 'share_handoff_base_url';
   static const _pushTokenKey = 'share_handoff_push_token';
   static const _pushPlatformKey = 'share_handoff_push_platform';
+  static const _shareTokenKey = 'share_handoff_share_token';
+
+  Future<String?> getShareToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_shareTokenKey)?.trim();
+    return (token == null || token.isEmpty) ? null : token;
+  }
+
+  Future<void> setShareToken(String? token) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cleaned = token?.trim();
+    if (cleaned == null || cleaned.isEmpty) {
+      await prefs.remove(_shareTokenKey);
+    } else {
+      await prefs.setString(_shareTokenKey, cleaned);
+    }
+  }
 
   Future<void> syncAuthenticatedUser(String userId, String? accessToken) async {
     if (userId.trim().isEmpty) {
@@ -59,5 +76,6 @@ class ShareHandoffService {
     await prefs.remove(_baseUrlKey);
     await prefs.remove(_pushTokenKey);
     await prefs.remove(_pushPlatformKey);
+    await prefs.remove(_shareTokenKey);
   }
 }
