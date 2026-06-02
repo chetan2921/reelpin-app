@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -66,11 +67,15 @@ class _AppShellState extends ConsumerState<AppShell>
     _initSharingIntent();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_maybePromptInitialPermissions());
+      unawaited(_drainPendingAndroidShares());
     });
   }
 
   void _initSharingIntent() {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      // Android shares are captured natively into a pending list (see
+      // ShareReceiverActivity) and enqueued here with the live session via
+      // _drainPendingAndroidShares, so we don't use the intent stream.
       return;
     }
 
@@ -243,6 +248,10 @@ class _AppShellState extends ConsumerState<AppShell>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed || !mounted) return;
 
+    // Always drain shares captured while the app was backgrounded, regardless
+    // of the content-refresh throttle below.
+    unawaited(_drainPendingAndroidShares());
+
     final now = DateTime.now();
     if (_lastResumeRefreshAt != null &&
         now.difference(_lastResumeRefreshAt!) < _resumeRefreshInterval) {
@@ -253,6 +262,34 @@ class _AppShellState extends ConsumerState<AppShell>
     unawaited(
       ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
     );
+  }
+
+  // Android captures shared URLs natively (ShareReceiverActivity writes them to
+  // the `share_pending_urls` pref) instead of enqueuing in the background with a
+  // possibly-expired token. We enqueue them here using the app's live, auto-
+  // refreshed Supabase session.
+  static const _pendingSharesKey = 'share_pending_urls';
+
+  Future<void> _drainPendingAndroidShares() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_pendingSharesKey);
+      if (raw == null || raw.trim().isEmpty) return;
+      await prefs.remove(_pendingSharesKey);
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      for (final entry in decoded) {
+        final url = entry?.toString().trim() ?? '';
+        if (url.isEmpty) continue;
+        // Reset the per-payload dedupe so each pending URL is processed.
+        _lastHandledSharedPayload = null;
+        await _handleSharedPayload(url);
+      }
+    } catch (e) {
+      debugPrint('Pending share drain skipped: $e');
+    }
   }
 
   Future<void> _maybePromptInitialPermissions() async {
