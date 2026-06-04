@@ -264,19 +264,15 @@ class _AppShellState extends ConsumerState<AppShell>
     );
   }
 
-  // Android captures shared URLs natively (ShareReceiverActivity writes them to
-  // the `share_pending_urls` pref) instead of enqueuing in the background with a
-  // possibly-expired token. We enqueue them here using the app's live, auto-
-  // refreshed Supabase session.
-  static const _pendingSharesKey = 'share_pending_urls';
-
+  // Android captures shared URLs natively (ShareReceiverActivity stashes them
+  // in a native store) instead of enqueuing in the background with a
+  // possibly-expired token. We drain them here via the native bridge and
+  // enqueue using the app's live, auto-refreshed Supabase session.
   Future<void> _drainPendingAndroidShares() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_pendingSharesKey);
+      final raw = await ShareHandoffService.instance.drainPendingShares();
       if (raw == null || raw.trim().isEmpty) return;
-      await prefs.remove(_pendingSharesKey);
 
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
