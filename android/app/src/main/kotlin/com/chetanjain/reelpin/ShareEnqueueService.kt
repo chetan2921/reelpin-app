@@ -19,10 +19,10 @@ class ShareEnqueueService : JobIntentService() {
         if (sharedUrl.isNullOrEmpty()) return
 
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val shareToken = prefs.getString(PREF_SHARE_TOKEN, null)?.trim()
-        val baseUrl = prefs.getString(PREF_BASE_URL, null)?.trim()?.trimEnd('/')
-        val pushToken = prefs.getString(PREF_PUSH_TOKEN, null)?.trim()
-        val pushPlatform = prefs.getString(PREF_PUSH_PLATFORM, null)?.trim()?.lowercase()
+        val shareToken = prefs.getString(KEY_SHARE_TOKEN, null)?.trim()
+        val baseUrl = prefs.getString(KEY_BASE_URL, null)?.trim()?.trimEnd('/')
+        val pushToken = prefs.getString(KEY_PUSH_TOKEN, null)?.trim()
+        val pushPlatform = prefs.getString(KEY_PUSH_PLATFORM, null)?.trim()?.lowercase()
 
         // No background credential yet (first run before the app minted one, or
         // signed out): capture the URL for the app to enqueue on next open.
@@ -91,14 +91,16 @@ class ShareEnqueueService : JobIntentService() {
     }
 
     private fun savePendingShare(prefs: SharedPreferences, url: String) {
-        val existing = prefs.getString(PREF_PENDING_URLS, "[]") ?: "[]"
+        val existing = prefs.getString(KEY_PENDING_URLS, "[]") ?: "[]"
         val array = try {
             JSONArray(existing)
         } catch (e: Exception) {
             JSONArray()
         }
         array.put(url)
-        prefs.edit().putString(PREF_PENDING_URLS, array.toString()).apply()
+        // commit() (not apply()) so the value is on disk before the Flutter app
+        // reads it back to drain pending shares.
+        prefs.edit().putString(KEY_PENDING_URLS, array.toString()).commit()
     }
 
     private fun showToast(message: String) {
@@ -110,12 +112,16 @@ class ShareEnqueueService : JobIntentService() {
     companion object {
         private const val JOB_ID = 47231
         private const val EXTRA_SHARED_URL = "extra_shared_url"
-        private const val PREFS_NAME = "FlutterSharedPreferences"
-        private const val PREF_SHARE_TOKEN = "flutter.share_handoff_share_token"
-        private const val PREF_BASE_URL = "flutter.share_handoff_base_url"
-        private const val PREF_PUSH_TOKEN = "flutter.share_handoff_push_token"
-        private const val PREF_PUSH_PLATFORM = "flutter.share_handoff_push_platform"
-        private const val PREF_PENDING_URLS = "flutter.share_pending_urls"
+        // Native-owned SharedPreferences file. The Flutter shared_preferences
+        // plugin now stores values in a DataStore that native code cannot read,
+        // so the app pushes these values here via a MethodChannel (see
+        // MainActivity) and reads pending shares back the same way.
+        const val PREFS_NAME = "reelpin_share_handoff"
+        const val KEY_SHARE_TOKEN = "share_token"
+        const val KEY_BASE_URL = "base_url"
+        const val KEY_PUSH_TOKEN = "push_token"
+        const val KEY_PUSH_PLATFORM = "push_platform"
+        const val KEY_PENDING_URLS = "pending_urls"
 
         fun enqueue(context: Context, sharedUrl: String) {
             val intent = Intent(context, ShareEnqueueService::class.java).apply {
