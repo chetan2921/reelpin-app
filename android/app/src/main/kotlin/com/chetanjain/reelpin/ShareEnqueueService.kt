@@ -28,37 +28,46 @@ class ShareEnqueueService : JobIntentService() {
         // signed out): capture the URL for the app to enqueue on next open.
         if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
             savePendingShare(prefs, sharedUrl)
-            showToast("Saved to ReelPin. Open the app to finish.")
+            showToast(
+                "ReelPin DEBUG: no creds (token=${!shareToken.isNullOrEmpty()}, " +
+                    "url=${!baseUrl.isNullOrEmpty()}). Open the app."
+            )
             return
         }
 
         runCatching { registerStoredPushToken(baseUrl, shareToken, pushToken, pushPlatform) }
 
-        val enqueued = runCatching { enqueueJob(baseUrl, shareToken, sharedUrl) }
-            .getOrDefault(false)
-        if (enqueued) {
+        val result = enqueueJob(baseUrl, shareToken, sharedUrl)
+        if (result == "ok") {
             showToast("Saved to ReelPin. Processing in background.")
         } else {
             // Token rejected/expired or network failure: don't drop the share.
             savePendingShare(prefs, sharedUrl)
-            showToast("Saved to ReelPin. Open the app to finish.")
+            showToast("ReelPin DEBUG: enqueue failed [$result] @ $baseUrl")
         }
     }
 
-    private fun enqueueJob(baseUrl: String, shareToken: String, sharedUrl: String): Boolean {
-        val connection = (URL("$baseUrl/processing-jobs/reels").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 15000
-            readTimeout = 15000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            setRequestProperty("X-Share-Token", shareToken)
+    private fun enqueueJob(baseUrl: String, shareToken: String, sharedUrl: String): String {
+        val connection = try {
+            (URL("$baseUrl/processing-jobs/reels").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 15000
+                readTimeout = 15000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                setRequestProperty("X-Share-Token", shareToken)
+            }
+        } catch (e: Exception) {
+            return "open: ${e.message}"
         }
-        try {
+        return try {
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
                 it.write(JSONObject().put("url", sharedUrl).toString())
             }
-            return connection.responseCode in 200..299
+            val code = connection.responseCode
+            if (code in 200..299) "ok" else "HTTP $code"
+        } catch (e: Exception) {
+            "net: ${e.message}"
         } finally {
             connection.disconnect()
         }
