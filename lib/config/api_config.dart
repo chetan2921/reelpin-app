@@ -5,8 +5,8 @@ import 'supabase_config.dart';
 class ApiConfig {
   ApiConfig._();
 
-  static const String _productionBaseUrl =
-      'https://api-64-227-168-119.nip.io';
+  static const String _productionBaseUrl = 'https://api-64-227-168-119.nip.io';
+  static const String _currentLanBaseUrl = 'http://192.168.1.12:8000/api/v1';
   static const String _defaultLanBaseUrl = 'http://192.168.1.4:8000/api/v1';
   static const String _legacyLanBaseUrl = 'http://192.168.1.2:8000/api/v1';
   static const String _olderLanBaseUrl = 'http://192.168.1.3:8000/api/v1';
@@ -14,6 +14,10 @@ class ApiConfig {
 
   /// Production API URL, overridable for local development.
   static String get baseUrl {
+    if (kReleaseMode) {
+      return _productionBaseUrl;
+    }
+
     // Override with: flutter run --dart-define=API_BASE_URL=http://<ip>:8000
     const fromEnv = String.fromEnvironment('API_BASE_URL');
     final local = SupabaseConfig.localValue('API_BASE_URL');
@@ -31,12 +35,14 @@ class ApiConfig {
     if (!_isLocalDevUrl(primary)) {
       return const [];
     }
+    final primaryHost = Uri.tryParse(primary)?.host.trim().toLowerCase() ?? '';
 
     final candidates = <String>[
+      _currentLanBaseUrl,
       _defaultLanBaseUrl,
       _legacyLanBaseUrl,
       _olderLanBaseUrl,
-      _androidEmulatorBaseUrl,
+      if (_isAndroidEmulatorUrl(primaryHost)) _androidEmulatorBaseUrl,
     ];
 
     final fallbacks = <String>[];
@@ -73,5 +79,9 @@ class ApiConfig {
         host.startsWith('192.168.') ||
         host.startsWith('10.') ||
         host.startsWith('172.');
+  }
+
+  static bool _isAndroidEmulatorUrl(String host) {
+    return host == 'localhost' || host == '127.0.0.1' || host == '10.0.2.2';
   }
 }

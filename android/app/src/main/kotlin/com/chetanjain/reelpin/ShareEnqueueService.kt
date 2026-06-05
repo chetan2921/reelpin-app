@@ -28,46 +28,36 @@ class ShareEnqueueService : JobIntentService() {
         // signed out): capture the URL for the app to enqueue on next open.
         if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
             savePendingShare(prefs, sharedUrl)
-            showToast(
-                "ReelPin DEBUG: no creds (token=${!shareToken.isNullOrEmpty()}, " +
-                    "url=${!baseUrl.isNullOrEmpty()}). Open the app."
-            )
+            showToast("Saved to ReelPin. Open the app to finish.")
             return
         }
 
-        runCatching { registerStoredPushToken(baseUrl, shareToken, pushToken, pushPlatform) }
-
-        val result = enqueueJob(baseUrl, shareToken, sharedUrl)
-        if (result == "ok") {
+        val enqueued = runCatching { enqueueJob(baseUrl, shareToken, sharedUrl) }
+            .getOrDefault(false)
+        if (enqueued) {
             showToast("Saved to ReelPin. Processing in background.")
+            runCatching { registerStoredPushToken(baseUrl, shareToken, pushToken, pushPlatform) }
         } else {
             // Token rejected/expired or network failure: don't drop the share.
             savePendingShare(prefs, sharedUrl)
-            showToast("ReelPin DEBUG: enqueue failed [$result] @ $baseUrl")
+            showToast("Saved to ReelPin. Open the app to finish.")
         }
     }
 
-    private fun enqueueJob(baseUrl: String, shareToken: String, sharedUrl: String): String {
-        val connection = try {
-            (URL("$baseUrl/processing-jobs/reels").openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 15000
-                readTimeout = 15000
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                setRequestProperty("X-Share-Token", shareToken)
-            }
-        } catch (e: Exception) {
-            return "open: ${e.message}"
+    private fun enqueueJob(baseUrl: String, shareToken: String, sharedUrl: String): Boolean {
+        val connection = (URL(apiUrl(baseUrl, "processing-jobs/reels")).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 15000
+            readTimeout = 15000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            setRequestProperty("X-Share-Token", shareToken)
         }
-        return try {
+        try {
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
                 it.write(JSONObject().put("url", sharedUrl).toString())
             }
-            val code = connection.responseCode
-            if (code in 200..299) "ok" else "HTTP $code"
-        } catch (e: Exception) {
-            "net: ${e.message}"
+            return connection.responseCode in 200..299
         } finally {
             connection.disconnect()
         }
@@ -81,7 +71,7 @@ class ShareEnqueueService : JobIntentService() {
     ) {
         if (token.isNullOrEmpty()) return
         val normalizedPlatform = if (platform.isNullOrEmpty()) "android" else platform
-        val connection = (URL("$baseUrl/device-push-tokens").openConnection() as HttpURLConnection).apply {
+        val connection = (URL(apiUrl(baseUrl, "device-push-tokens")).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15000
             readTimeout = 15000
@@ -116,6 +106,13 @@ class ShareEnqueueService : JobIntentService() {
         Handler(Looper.getMainLooper()).post {
             Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun apiUrl(baseUrl: String, path: String): String {
+        val cleanBase = baseUrl.trim().trimEnd('/')
+        val cleanPath = path.trim().trimStart('/')
+        val prefix = if (cleanBase.endsWith("/api/v1")) "" else "/api/v1"
+        return "$cleanBase$prefix/$cleanPath"
     }
 
     companion object {

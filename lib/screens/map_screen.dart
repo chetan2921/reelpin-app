@@ -116,6 +116,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
+  Future<void> _refreshMapPins() async {
+    await ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true);
+  }
+
   void _handleMapViewModelChanged() {
     _scheduleVisibleMarkerSync();
   }
@@ -296,7 +300,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           builder: (context) {
             final markers = _buildMarkers(vm);
             final totalPins = vm.totalPinnedLocations;
-            final visiblePins = vm.visiblePinnedLocations;
 
             if ((markers.length != _lastMarkersCount ||
                     vm.selectedCategory != _lastCategoryFilter) &&
@@ -371,7 +374,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             SizedBox(width: layout.inset(8)),
                             Expanded(
                               child: Text(
-                                '$visiblePins OF $totalPins PLACES PINNED',
+                                '$totalPins ${totalPins == 1 ? 'PLACE' : 'PLACES'} PINNED',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.spaceMono(
@@ -579,6 +582,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      _mapButton(
+                        icon: Icons.refresh,
+                        onTap: () {
+                          unawaited(_refreshMapPins());
+                        },
+                      ),
+                      if (markers.isNotEmpty) SizedBox(height: layout.gap(8)),
                       if (markers.isNotEmpty)
                         _mapButton(
                           icon: Icons.fit_screen,
