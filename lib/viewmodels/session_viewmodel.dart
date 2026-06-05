@@ -226,7 +226,7 @@ class SessionViewModel extends ChangeNotifier {
     );
     // Ensure a long-lived device share token exists so the native background
     // share path can enqueue without the user's short-lived session.
-    unawaited(_ensureShareToken());
+    await _ensureShareToken();
   }
 
   Future<void> _ensureShareToken() async {

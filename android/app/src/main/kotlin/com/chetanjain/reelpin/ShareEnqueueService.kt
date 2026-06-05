@@ -3,9 +3,6 @@ package com.chetanjain.reelpin
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.os.Handler
-import android.os.Looper
-import android.widget.Toast
 import androidx.core.app.JobIntentService
 import org.json.JSONArray
 import org.json.JSONObject
@@ -28,19 +25,16 @@ class ShareEnqueueService : JobIntentService() {
         // signed out): capture the URL for the app to enqueue on next open.
         if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
             savePendingShare(prefs, sharedUrl)
-            showToast("Saved to ReelPin. Open the app to finish.")
             return
         }
 
         val enqueued = runCatching { enqueueJob(baseUrl, shareToken, sharedUrl) }
             .getOrDefault(false)
         if (enqueued) {
-            showToast("Saved to ReelPin. Processing in background.")
             runCatching { registerStoredPushToken(baseUrl, shareToken, pushToken, pushPlatform) }
         } else {
             // Token rejected/expired or network failure: don't drop the share.
             savePendingShare(prefs, sharedUrl)
-            showToast("Saved to ReelPin. Open the app to finish.")
         }
     }
 
@@ -100,12 +94,6 @@ class ShareEnqueueService : JobIntentService() {
         // commit() (not apply()) so the value is on disk before the Flutter app
         // reads it back to drain pending shares.
         prefs.edit().putString(KEY_PENDING_URLS, array.toString()).commit()
-    }
-
-    private fun showToast(message: String) {
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
-        }
     }
 
     private fun apiUrl(baseUrl: String, path: String): String {

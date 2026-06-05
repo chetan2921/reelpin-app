@@ -588,12 +588,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           unawaited(_refreshMapPins());
                         },
                       ),
-                      if (markers.isNotEmpty) SizedBox(height: layout.gap(8)),
-                      if (markers.isNotEmpty)
-                        _mapButton(
-                          icon: Icons.fit_screen,
-                          onTap: () => _fitMarkers(markers),
-                        ),
                       if (_userLatLng != null) ...[
                         SizedBox(height: layout.gap(8)),
                         _mapButton(

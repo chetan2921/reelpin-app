@@ -51,6 +51,8 @@ class ShareHandoffService {
     }
 
     final prefs = await SharedPreferences.getInstance();
+    final nextBaseUrl = ApiConfig.baseUrl.trim();
+    final currentBaseUrl = prefs.getString(_baseUrlKey)?.trim();
     await prefs.setString(_userIdKey, userId.trim());
     final cleanedAccessToken = accessToken?.trim();
     if (cleanedAccessToken == null || cleanedAccessToken.isEmpty) {
@@ -58,7 +60,12 @@ class ShareHandoffService {
     } else {
       await prefs.setString(_accessTokenKey, cleanedAccessToken);
     }
-    await prefs.setString(_baseUrlKey, ApiConfig.baseUrl.trim());
+    if (currentBaseUrl != null &&
+        currentBaseUrl.isNotEmpty &&
+        currentBaseUrl != nextBaseUrl) {
+      await prefs.remove(_shareTokenKey);
+    }
+    await prefs.setString(_baseUrlKey, nextBaseUrl);
     await _syncNative();
   }
 
