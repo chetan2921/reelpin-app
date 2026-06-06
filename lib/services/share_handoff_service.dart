@@ -22,8 +22,10 @@ class ShareHandoffService {
   static const _pushPlatformKey = 'share_handoff_push_platform';
   static const _shareTokenKey = 'share_handoff_share_token';
 
-  bool get _isAndroid =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get _supportsNativeHandoff =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<String?> getShareToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -49,6 +51,8 @@ class ShareHandoffService {
     }
 
     final prefs = await SharedPreferences.getInstance();
+    final nextBaseUrl = ApiConfig.baseUrl.trim();
+    final currentBaseUrl = prefs.getString(_baseUrlKey)?.trim();
     await prefs.setString(_userIdKey, userId.trim());
     final cleanedAccessToken = accessToken?.trim();
     if (cleanedAccessToken == null || cleanedAccessToken.isEmpty) {
@@ -56,7 +60,12 @@ class ShareHandoffService {
     } else {
       await prefs.setString(_accessTokenKey, cleanedAccessToken);
     }
-    await prefs.setString(_baseUrlKey, ApiConfig.baseUrl.trim());
+    if (currentBaseUrl != null &&
+        currentBaseUrl.isNotEmpty &&
+        currentBaseUrl != nextBaseUrl) {
+      await prefs.remove(_shareTokenKey);
+    }
+    await prefs.setString(_baseUrlKey, nextBaseUrl);
     await _syncNative();
   }
 
@@ -92,7 +101,7 @@ class ShareHandoffService {
     await prefs.remove(_pushTokenKey);
     await prefs.remove(_pushPlatformKey);
     await prefs.remove(_shareTokenKey);
-    if (!_isAndroid) return;
+    if (!_supportsNativeHandoff) return;
     try {
       await _channel.invokeMethod<void>('clear');
     } catch (e) {
@@ -101,9 +110,9 @@ class ShareHandoffService {
   }
 
   /// Returns the JSON-encoded list of pending shared URLs captured natively by
-  /// the share receiver, clearing them on the native side. Android only.
+  /// the share receiver, clearing them on the native side.
   Future<String?> drainPendingShares() async {
-    if (!_isAndroid) return null;
+    if (!_supportsNativeHandoff) return null;
     try {
       return await _channel.invokeMethod<String>('drainPending');
     } catch (e) {
@@ -113,7 +122,7 @@ class ShareHandoffService {
   }
 
   Future<void> _syncNative() async {
-    if (!_isAndroid) return;
+    if (!_supportsNativeHandoff) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       await _channel.invokeMethod<void>('sync', <String, String>{

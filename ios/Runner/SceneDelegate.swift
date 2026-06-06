@@ -18,6 +18,12 @@ class SceneDelegate: FlutterSceneDelegate {
       }
     }
     super.scene(scene, willConnectTo: session, options: connectionOptions)
+    if let controller = window?.rootViewController as? FlutterViewController,
+       let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+      appDelegate.configureShareHandoffChannel(
+        binaryMessenger: controller.binaryMessenger
+      )
+    }
   }
 
   override func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {

@@ -11,6 +11,12 @@ class AppUpdateService {
 
     try {
       final updateInfo = await InAppUpdate.checkForUpdate();
+      if (updateInfo.updateAvailability ==
+          UpdateAvailability.developerTriggeredUpdateInProgress) {
+        await InAppUpdate.performImmediateUpdate();
+        return;
+      }
+
       final canUpdate =
           updateInfo.updateAvailability == UpdateAvailability.updateAvailable &&
           updateInfo.immediateUpdateAllowed;

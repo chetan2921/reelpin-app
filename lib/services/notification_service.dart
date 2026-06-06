@@ -47,8 +47,7 @@ class NotificationService {
 
   static const updatesChannelId = 'reelpin_updates';
   static const updatesChannelName = 'Reel Updates';
-  static const _permissionStateStorageKey =
-      'notification_permission_state_v1';
+  static const _permissionStateStorageKey = 'notification_permission_state_v1';
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
@@ -134,7 +133,8 @@ class NotificationService {
       }
 
       final notification = message.notification;
-      if (notification == null || !_shouldShowLocalForegroundNotification(message)) {
+      if (notification == null ||
+          !_shouldShowLocalForegroundNotification(message)) {
         return;
       }
       unawaited(
@@ -253,7 +253,20 @@ class NotificationService {
     if (!SupabaseConfig.isConfigured) return null;
     if (!_firebaseConfigured) return null;
     try {
-      return FirebaseMessaging.instance.getToken();
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        final apnsToken = await _waitForApnsToken();
+        if (apnsToken == null || apnsToken.trim().isEmpty) {
+          debugPrint('FCM token unavailable: APNs token is not available yet.');
+          return null;
+        }
+      }
+      final token = await FirebaseMessaging.instance.getToken();
+      debugPrint(
+        token == null || token.trim().isEmpty
+            ? 'FCM token unavailable: Firebase returned no token.'
+            : 'FCM token available for $currentPlatform.',
+      );
+      return token;
     } catch (e) {
       debugPrint('FCM token unavailable: $e');
       return null;
@@ -369,8 +382,20 @@ class NotificationService {
     });
   }
 
+  Future<String?> _waitForApnsToken() async {
+    for (var attempt = 0; attempt < 5; attempt += 1) {
+      final token = await FirebaseMessaging.instance.getAPNSToken();
+      if (token != null && token.trim().isNotEmpty) {
+        return token;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
+    return null;
+  }
+
   int _notificationIdFor(ReelReadyNotification notification) {
-    final source = notification.reelId ?? notification.jobId ?? notification.body;
+    final source =
+        notification.reelId ?? notification.jobId ?? notification.body;
     var hash = 0;
     for (final codeUnit in source.codeUnits) {
       hash = ((hash * 31) + codeUnit) & 0x7fffffff;

@@ -373,6 +373,13 @@ void main() {
       ),
       'Could not connect. Please try again.',
     );
+    expect(
+      userFacingErrorMessage(
+        const ApiException('Request failed (500)', 500),
+        fallbackMessage: 'Could not load this reel right now.',
+      ),
+      'Could not load this reel right now.',
+    );
   });
 }
 

@@ -60,6 +60,10 @@ class LocationService {
     await getCurrentOrLastKnownLocation(requestPermissionIfNeeded: true);
   }
 
+  Future<bool> openAppSettings() {
+    return Geolocator.openAppSettings();
+  }
+
   Future<bool> _hasLocationPermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) return false;
     final permission = await Geolocator.checkPermission();

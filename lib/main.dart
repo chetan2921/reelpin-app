@@ -275,12 +275,12 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
         return;
       }
 
-      await _apiService.registerPushToken(
-        userId: userId,
+      await ShareHandoffService.instance.syncPushToken(
         token: normalizedToken,
         platform: _notificationService.currentPlatform,
       );
-      await ShareHandoffService.instance.syncPushToken(
+      await _apiService.registerPushToken(
+        userId: userId,
         token: normalizedToken,
         platform: _notificationService.currentPlatform,
       );

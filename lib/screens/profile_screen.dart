@@ -522,6 +522,25 @@ class _NotificationPreferenceCardState
     }
   }
 
+  Future<void> _openNotificationSettings() async {
+    if (_isUpdating) return;
+
+    setState(() {
+      _isUpdating = true;
+    });
+
+    try {
+      await LocationService.instance.openAppSettings();
+      await _loadPermissionState();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
@@ -541,13 +560,17 @@ class _NotificationPreferenceCardState
       title: 'NOTIFICATIONS',
       subtitle: isUnavailable
           ? 'NOTIFICATION SERVICES ARE NOT AVAILABLE IN THIS BUILD.'
-          : 'ENABLE ALERTS HERE SO REELPIN CAN TELL YOU WHEN A REEL IS SAVED AND READY.',
+          : 'YOU CAN CHANGE THIS PERMISSION IN PHONE SETTINGS.',
       trailing: GestureDetector(
-        onTap: isUnavailable ? null : _enableNotifications,
+        onTap: isUnavailable
+            ? null
+            : isEnabled
+            ? _openNotificationSettings
+            : _enableNotifications,
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: layout.inset(12),
-            vertical: layout.gap(10),
+            horizontal: layout.inset(10),
+            vertical: layout.gap(8),
           ),
           decoration: AppTheme.brutalBox(
             context,
@@ -570,7 +593,7 @@ class _NotificationPreferenceCardState
               ] else ...[
                 Icon(
                   isEnabled ? Icons.notifications_active : Icons.notifications,
-                  size: 16,
+                  size: 15,
                   color: buttonTextColor,
                 ),
                 const SizedBox(width: 6),
@@ -582,7 +605,7 @@ class _NotificationPreferenceCardState
                     ? 'ENABLED'
                     : isUnavailable
                     ? 'UNAVAILABLE'
-                    : 'ENABLE',
+                    : 'DISABLED',
                 style: GoogleFonts.spaceMono(
                   color: buttonTextColor,
                   fontSize: layout.font(11),
@@ -649,6 +672,25 @@ class _LocationPreferenceCardState
     }
   }
 
+  Future<void> _openLocationSettings() async {
+    if (_isUpdating) return;
+
+    setState(() {
+      _isUpdating = true;
+    });
+
+    try {
+      await LocationService.instance.openAppSettings();
+      await _loadPermissionState();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdating = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
@@ -668,13 +710,13 @@ class _LocationPreferenceCardState
       title: 'LOCATION',
       subtitle: isServiceDisabled
           ? 'TURN ON DEVICE LOCATION SERVICES SO REELPIN CAN CENTER THE MAP AROUND YOU.'
-          : 'ENABLE LOCATION SO REELPIN CAN CENTER THE MAP AROUND YOUR AREA.',
+          : 'YOU CAN CHANGE THIS PERMISSION IN PHONE SETTINGS.',
       trailing: GestureDetector(
-        onTap: _enableLocation,
+        onTap: isEnabled ? _openLocationSettings : _enableLocation,
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: layout.inset(12),
-            vertical: layout.gap(10),
+            horizontal: layout.inset(10),
+            vertical: layout.gap(8),
           ),
           decoration: AppTheme.brutalBox(
             context,
@@ -697,7 +739,7 @@ class _LocationPreferenceCardState
               ] else ...[
                 Icon(
                   isEnabled ? Icons.location_on : Icons.location_searching,
-                  size: 16,
+                  size: 15,
                   color: buttonTextColor,
                 ),
                 const SizedBox(width: 6),
@@ -709,7 +751,7 @@ class _LocationPreferenceCardState
                     ? 'ENABLED'
                     : isServiceDisabled
                     ? 'TURN ON'
-                    : 'ENABLE',
+                    : 'DISABLED',
                 style: GoogleFonts.spaceMono(
                   color: buttonTextColor,
                   fontSize: layout.font(11),

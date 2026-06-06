@@ -1718,6 +1718,9 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
     while (cells.length % 7 != 0) {
       cells.add(null);
     }
+    while (cells.length < 42) {
+      cells.add(null);
+    }
     return cells;
   }
 

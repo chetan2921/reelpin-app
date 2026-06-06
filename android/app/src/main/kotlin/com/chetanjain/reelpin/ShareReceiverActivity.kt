@@ -1,6 +1,7 @@
 package com.chetanjain.reelpin
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -35,9 +36,22 @@ class ShareReceiverActivity : Activity() {
             return
         }
 
+        val prefs = applicationContext.getSharedPreferences(
+            ShareEnqueueService.PREFS_NAME,
+            Context.MODE_PRIVATE
+        )
+        val shareToken = prefs.getString(ShareEnqueueService.KEY_SHARE_TOKEN, null)?.trim()
+        val baseUrl = prefs.getString(ShareEnqueueService.KEY_BASE_URL, null)?.trim()
+        val message =
+            if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
+                "Saved to ReelPin. Open the app to finish."
+            } else {
+                "Saved to ReelPin. Processing in background."
+            }
+        Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+
         // ShareEnqueueService enqueues in the background with the device share
-        // token (falling back to a pending list if it can't), and shows the
-        // result toast itself.
+        // token, falling back to a pending list if it cannot enqueue.
         ShareEnqueueService.enqueue(applicationContext, sharedUrl)
         finishQuietly()
     }

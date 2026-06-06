@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -24,6 +25,7 @@ class ApiService {
   final http.Client _client;
   final String? Function() _accessTokenProvider;
   static const Duration _requestTimeout = Duration(seconds: 15);
+  static const Duration _backgroundRequestTimeout = Duration(seconds: 5);
   static const Duration _jobPollingTimeout = Duration(minutes: 8);
 
   ApiService({
@@ -604,15 +606,13 @@ class ApiService {
     required String token,
     required String platform,
   }) async {
-    final res = await _requestWithFailover(
-      (baseUrl) => _client
-          .post(
-            _apiUri(baseUrl, '/api/v1/device-push-tokens'),
-            headers: _headers(json: true),
-            body: jsonEncode({'token': token, 'platform': platform}),
-          )
-          .timeout(_requestTimeout),
-    );
+    final res = await _client
+        .post(
+          _apiUri(_baseUrl, '/api/v1/device-push-tokens'),
+          headers: _headers(json: true),
+          body: jsonEncode({'token': token, 'platform': platform}),
+        )
+        .timeout(_backgroundRequestTimeout);
 
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
@@ -674,18 +674,21 @@ class ApiService {
         return response;
       } on TimeoutException catch (e) {
         lastNetworkError = e;
+        _logNetworkError(candidate, e);
       } on SocketException catch (e) {
         lastNetworkError = e;
+        _logNetworkError(candidate, e);
       } on http.ClientException catch (e) {
         lastNetworkError = e;
+        _logNetworkError(candidate, e);
       }
     }
 
     if (lastNetworkError is TimeoutException) {
-      throw ApiException('Could not connect. Please try again.', 408);
+      throw ApiException(_networkErrorMessage(lastNetworkError), 408);
     }
 
-    throw ApiException('Could not connect. Please try again.', 503);
+    throw ApiException(_networkErrorMessage(lastNetworkError), 503);
   }
 
   Uri _apiUri(
@@ -723,18 +726,31 @@ class ApiService {
         return response;
       } on TimeoutException catch (e) {
         lastNetworkError = e;
+        _logNetworkError(candidate, e);
       } on SocketException catch (e) {
         lastNetworkError = e;
+        _logNetworkError(candidate, e);
       } on http.ClientException catch (e) {
         lastNetworkError = e;
+        _logNetworkError(candidate, e);
       }
     }
 
     if (lastNetworkError is TimeoutException) {
-      throw ApiException('Could not connect. Please try again.', 408);
+      throw ApiException(_networkErrorMessage(lastNetworkError), 408);
     }
 
-    throw ApiException('Could not connect. Please try again.', 503);
+    throw ApiException(_networkErrorMessage(lastNetworkError), 503);
+  }
+
+  String _networkErrorMessage(Object? error) {
+    return 'Could not connect. Please try again.';
+  }
+
+  void _logNetworkError(String baseUrl, Object error) {
+    if (kDebugMode) {
+      debugPrint('API network error for $baseUrl: $error');
+    }
   }
 
   Map<String, String> _headers({bool json = false}) {
@@ -793,7 +809,7 @@ String userFacingErrorMessage(
       return fallbackMessage;
     }
     return _looksTechnicalError(message)
-        ? 'Could not connect. Please try again.'
+        ? _technicalErrorFallback(error, fallbackMessage)
         : message;
   }
 
@@ -813,9 +829,19 @@ bool _looksTechnicalError(String message) {
       normalized.contains('connection closed') ||
       normalized.contains('connection refused') ||
       normalized.contains('failed host lookup') ||
+      normalized.contains('request failed') ||
+      normalized.contains('status code') ||
+      normalized.contains('internal server error') ||
       normalized.contains('http://') ||
       normalized.contains('https://') ||
       normalized.contains('uri=');
+}
+
+String _technicalErrorFallback(ApiException error, String fallbackMessage) {
+  if (error.statusCode == 408 || error.statusCode == 503) {
+    return 'Could not connect. Please try again.';
+  }
+  return fallbackMessage;
 }
 
 /// Custom exception for API errors with status code.

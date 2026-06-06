@@ -105,6 +105,7 @@ class EntitlementsViewModel extends ChangeNotifier {
         if (!next.currentEntitlement.restricted) {
           await Future.wait([
             _homeViewModel.loadReels(forceRefresh: true),
+            _mapViewModel.loadMapReels(forceRefresh: true),
             _categoryFiltersViewModel.loadCategoryFilters(forceRefresh: true),
           ]);
         }

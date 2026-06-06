@@ -67,15 +67,17 @@ class _AppShellState extends ConsumerState<AppShell>
     _initSharingIntent();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_maybePromptInitialPermissions());
-      unawaited(_drainPendingAndroidShares());
+      unawaited(_drainPendingNativeShares());
     });
   }
 
   void _initSharingIntent() {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      // Android shares are captured natively into a pending list (see
-      // ShareReceiverActivity) and enqueued here with the live session via
-      // _drainPendingAndroidShares, so we don't use the intent stream.
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
+      // Mobile shares are captured natively into a pending list and enqueued
+      // via background share tokens, so we don't use the redirecting intent
+      // stream on Android or iOS.
       return;
     }
 
@@ -126,13 +128,16 @@ class _AppShellState extends ConsumerState<AppShell>
       if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
         return;
       }
-      await _enqueueSharedReel(resolvedUrl);
+      await _enqueueSharedReel(resolvedUrl, showConfirmation: true);
     } catch (error) {
       unawaited(analytics.recordEnqueueFailed(normalizedPayload, error));
     }
   }
 
-  Future<void> _enqueueSharedReel(String url) async {
+  Future<void> _enqueueSharedReel(
+    String url, {
+    required bool showConfirmation,
+  }) async {
     if (_isQueueingSharedReel) return;
 
     final homeVm = ref.read(homeViewModelProvider);
@@ -147,7 +152,9 @@ class _AppShellState extends ConsumerState<AppShell>
       await _syncPushTokenRegistrationIfPossible();
       unawaited(analytics.recordEnqueueStarted(url));
       await homeVm.enqueueReelProcessing(url);
-      unawaited(ref.read(entitlementsViewModelProvider).refresh());
+      unawaited(
+        ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
+      );
 
       if (!mounted) return;
       setState(() {
@@ -155,43 +162,50 @@ class _AppShellState extends ConsumerState<AppShell>
       });
       unawaited(analytics.recordEnqueueSucceeded(url));
 
-      messenger.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Container(
-                width: 18,
-                height: 18,
-                color: AppTheme.neonGreen,
-                child: Icon(Icons.check, size: 14, color: AppTheme.fg(context)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'SAVED TO REELPIN. PROCESSING IN BACKGROUND.',
-                  style: GoogleFonts.spaceMono(
+      if (showConfirmation) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  color: AppTheme.neonGreen,
+                  child: Icon(
+                    Icons.check,
+                    size: 14,
                     color: AppTheme.fg(context),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
                   ),
                 ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'SAVED TO REELPIN. PROCESSING IN BACKGROUND.',
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.fg(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppTheme.bg(context),
+            behavior: SnackBarBehavior.floating,
+            duration: _shareConfirmationDuration,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                color: AppTheme.fg(context),
+                width: AppTheme.borderWidth,
               ),
-            ],
-          ),
-          backgroundColor: AppTheme.bg(context),
-          behavior: SnackBarBehavior.floating,
-          duration: _shareConfirmationDuration,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(
-              color: AppTheme.fg(context),
-              width: AppTheme.borderWidth,
             ),
           ),
-        ),
-      );
+        );
+      }
 
       if (!mounted) return;
-      if (Theme.of(context).platform == TargetPlatform.android) {
+      if (showConfirmation &&
+          Theme.of(context).platform == TargetPlatform.android) {
         await Future<void>.delayed(_shareConfirmationDuration);
         if (!mounted) return;
         await SystemNavigator.pop();
@@ -199,12 +213,14 @@ class _AppShellState extends ConsumerState<AppShell>
     } catch (error) {
       if (error is ApiException && error.isMonthlyReelLimitReached) {
         unawaited(analytics.recordEnqueueFailed(url, error));
-        await ref.read(entitlementsViewModelProvider).refresh();
+        unawaited(ref.read(entitlementsViewModelProvider).refresh());
         if (!mounted) return;
         setState(() {
           _isQueueingSharedReel = false;
         });
-        await openPaywall(context, entryPoint: PaywallEntryPoint.saveLimit);
+        if (showConfirmation) {
+          await openPaywall(context, entryPoint: PaywallEntryPoint.saveLimit);
+        }
         return;
       }
 
@@ -213,27 +229,29 @@ class _AppShellState extends ConsumerState<AppShell>
         _isQueueingSharedReel = false;
       });
       unawaited(analytics.recordEnqueueFailed(url, error));
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            userFacingErrorMessage(
-              error,
-              fallbackMessage: 'Could not start background save.',
+      if (showConfirmation) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              userFacingErrorMessage(
+                error,
+                fallbackMessage: 'Could not start background save.',
+              ),
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.white,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            style: GoogleFonts.spaceMono(
-              color: AppTheme.white,
-              fontWeight: FontWeight.w700,
+            backgroundColor: AppTheme.destructive,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                color: AppTheme.fg(context),
+                width: AppTheme.borderWidth,
+              ),
             ),
           ),
-          backgroundColor: AppTheme.destructive,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(
-              color: AppTheme.fg(context),
-              width: AppTheme.borderWidth,
-            ),
-          ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -250,7 +268,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
     // Always drain shares captured while the app was backgrounded, regardless
     // of the content-refresh throttle below.
-    unawaited(_drainPendingAndroidShares());
+    unawaited(_drainPendingNativeShares());
 
     final now = DateTime.now();
     if (_lastResumeRefreshAt != null &&
@@ -264,12 +282,15 @@ class _AppShellState extends ConsumerState<AppShell>
     );
   }
 
-  // Android captures shared URLs natively (ShareReceiverActivity stashes them
-  // in a native store) instead of enqueuing in the background with a
-  // possibly-expired token. We drain them here via the native bridge and
-  // enqueue using the app's live, auto-refreshed Supabase session.
-  Future<void> _drainPendingAndroidShares() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  // Native share receivers stash URLs when they cannot enqueue in the
+  // background. We drain them here via the native bridge and enqueue using the
+  // app's live, auto-refreshed Supabase session.
+  Future<void> _drainPendingNativeShares() async {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS)) {
+      return;
+    }
     try {
       final raw = await ShareHandoffService.instance.drainPendingShares();
       if (raw == null || raw.trim().isEmpty) return;
@@ -281,7 +302,7 @@ class _AppShellState extends ConsumerState<AppShell>
         if (url.isEmpty) continue;
         // Reset the per-payload dedupe so each pending URL is processed.
         _lastHandledSharedPayload = null;
-        await _handleSharedPayload(url);
+        await _enqueueSharedReel(url, showConfirmation: false);
       }
     } catch (e) {
       debugPrint('Pending share drain skipped: $e');
@@ -338,12 +359,12 @@ class _AppShellState extends ConsumerState<AppShell>
       try {
         final token = await notificationService.getFcmToken();
         if (token != null && token.trim().isNotEmpty) {
-          await apiService.registerPushToken(
-            userId: userId,
+          await ShareHandoffService.instance.syncPushToken(
             token: token,
             platform: notificationService.currentPlatform,
           );
-          await ShareHandoffService.instance.syncPushToken(
+          await apiService.registerPushToken(
+            userId: userId,
             token: token,
             platform: notificationService.currentPlatform,
           );
@@ -368,12 +389,12 @@ class _AppShellState extends ConsumerState<AppShell>
       final token = await notificationService.getFcmToken();
       if (token == null || token.trim().isEmpty) return;
 
-      await apiService.registerPushToken(
-        userId: userId,
+      await ShareHandoffService.instance.syncPushToken(
         token: token.trim(),
         platform: notificationService.currentPlatform,
       );
-      await ShareHandoffService.instance.syncPushToken(
+      await apiService.registerPushToken(
+        userId: userId,
         token: token.trim(),
         platform: notificationService.currentPlatform,
       );
