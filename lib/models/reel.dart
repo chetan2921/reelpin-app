@@ -106,6 +106,7 @@ class Reel {
   final String sourceUrl;
   final String originalUrl;
   final String normalizedUrl;
+  final String thumbnailUrl;
   final String title;
   final String summary;
   final String caption;
@@ -144,6 +145,7 @@ class Reel {
     this.sourceUrl = '',
     this.originalUrl = '',
     this.normalizedUrl = '',
+    this.thumbnailUrl = '',
     this.categoryLabel = '',
     this.subCategoryLabel = '',
     this.mappableLocations = const [],
@@ -190,6 +192,12 @@ class Reel {
           json['canonical_url']?.toString() ??
           json['provider_url']?.toString() ??
           '',
+      thumbnailUrl:
+          json['thumbnail_url']?.toString() ??
+          json['thumbnailUrl']?.toString() ??
+          json['cover_url']?.toString() ??
+          json['poster_url']?.toString() ??
+          '',
       title: json['title']?.toString() ?? '',
       summary: json['summary']?.toString() ?? '',
       caption:
@@ -227,6 +235,7 @@ class Reel {
     'source_url': sourceUrl,
     'original_url': originalUrl,
     'normalized_url': normalizedUrl,
+    'thumbnail_url': thumbnailUrl,
     'title': title,
     'summary': summary,
     'caption': caption,

@@ -366,7 +366,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildReelGrid(BuildContext context, HomeViewModel vm) {
     final layout = AppLayout.of(context);
     final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
-    final spacing = layout.inset(14);
+    final spacing = layout.inset(12);
+    final horizontalPadding = layout.inset(14);
     final aspect = layout.gridAspect(
       compact: 0.74,
       regular: 0.80,
@@ -376,9 +377,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return SliverPadding(
       padding: EdgeInsets.fromLTRB(
-        layout.inset(20),
+        horizontalPadding,
         layout.gap(12),
-        layout.inset(20),
+        horizontalPadding,
         0,
       ),
       sliver: AnimationLimiter(
@@ -440,7 +441,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildShimmerGrid(BuildContext context) {
     final layout = AppLayout.of(context);
     final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
-    final spacing = layout.inset(14);
+    final spacing = layout.inset(12);
+    final horizontalPadding = layout.inset(14);
     final aspect = layout.gridAspect(
       compact: 0.74,
       regular: 0.80,
@@ -450,9 +452,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return SliverPadding(
       padding: EdgeInsets.fromLTRB(
-        layout.inset(20),
+        horizontalPadding,
         layout.gap(12),
-        layout.inset(20),
+        horizontalPadding,
         0,
       ),
       sliver: SliverGrid(

@@ -50,6 +50,7 @@ class _ReelCardState extends State<ReelCard>
     final reel = widget.reel;
     final catColor = AppTheme.getCategoryColor(reel.category);
     final layout = AppLayout.of(context);
+    final hasThumbnail = reel.thumbnailUrl.trim().isNotEmpty;
 
     return GestureDetector(
       onTapDown: (_) {
@@ -86,142 +87,9 @@ class _ReelCardState extends State<ReelCard>
                 boxShadow: _isPressed ? null : AppTheme.brutalShadow(context),
               ),
               clipBehavior: Clip.antiAlias,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Top accent bar (solid, no gradient) ──
-                  Container(height: layout.gap(6), color: catColor),
-
-                  // ── Content ──
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        layout.inset(10),
-                        layout.gap(10),
-                        layout.inset(10),
-                        layout.gap(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Category tag
-                          Padding(
-                            padding: const EdgeInsets.only(right: 32),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: catColor,
-                                border: Border.all(
-                                  color: AppTheme.fg(context),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Text(
-                                reel.subCategory.toUpperCase(),
-                                style: GoogleFonts.spaceMono(
-                                  color: _contrastText(catColor),
-                                  fontSize: layout.font(8, minFactor: 0.9),
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: layout.gap(8)),
-
-                          // Title
-                          Text(
-                            reel.title.isNotEmpty
-                                ? reel.title
-                                : 'UNTITLED REEL',
-                            style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
-                              fontSize: layout.font(12),
-                              fontWeight: FontWeight.w700,
-                              height: 1.3,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: layout.gap(4)),
-
-                          // Summary
-                          if (reel.summary.isNotEmpty)
-                            Expanded(
-                              child: Text(
-                                reel.summary,
-                                style: GoogleFonts.spaceMono(
-                                  color: AppTheme.textSec(context),
-                                  fontSize: layout.font(10),
-                                  height: 1.4,
-                                ),
-                                maxLines: 5,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            )
-                          else
-                            const Spacer(),
-
-                          // ── Bottom info row ──
-                          Container(
-                            padding: EdgeInsets.only(top: layout.gap(6)),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: AppTheme.fg(context),
-                                  width: 1.0,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                if (reel.hasMapLocations) ...[
-                                  Icon(
-                                    Icons.location_on,
-                                    size: layout.inset(12),
-                                    color: AppTheme.fg(context),
-                                  ),
-                                  SizedBox(width: layout.inset(2)),
-                                ],
-                                Expanded(
-                                  child: Text(
-                                    reel.hasMapLocations
-                                        ? reel.primaryLocationLabel
-                                              .toUpperCase()
-                                        : reel.relativeDate.toUpperCase(),
-                                    style: GoogleFonts.spaceMono(
-                                      color: AppTheme.fg(context),
-                                      fontSize: layout.font(9),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (reel.hasMapLocations &&
-                                    reel.relativeDate.isNotEmpty)
-                                  Text(
-                                    reel.relativeDate.toUpperCase(),
-                                    style: GoogleFonts.spaceMono(
-                                      color: AppTheme.textSec(context),
-                                      fontSize: layout.font(9),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              child: hasThumbnail
+                  ? _buildThumbnailCard(context, reel, catColor)
+                  : _buildTextCard(context, reel, catColor),
             ),
             // The tiny hole indicating pierced paper
             Positioned(
@@ -254,6 +122,237 @@ class _ReelCardState extends State<ReelCard>
 
   Color _contrastText(Color bg) {
     return bg.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
+  }
+
+  Widget _buildThumbnailCard(BuildContext context, Reel reel, Color catColor) {
+    final layout = AppLayout.of(context);
+    final textShadow = [
+      Shadow(
+        color: AppTheme.black.withAlpha(190),
+        offset: const Offset(1, 1),
+        blurRadius: 2,
+      ),
+    ];
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(color: AppTheme.black),
+        Opacity(
+          opacity: 0.32,
+          child: Image.network(
+            reel.thumbnailUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(color: catColor),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(color: catColor.withAlpha(90));
+            },
+          ),
+        ),
+        Image.network(
+          reel.thumbnailUrl,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          errorBuilder: (_, _, _) => Container(color: catColor),
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(color: catColor.withAlpha(90));
+          },
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppTheme.black.withAlpha(70),
+                AppTheme.black.withAlpha(115),
+                AppTheme.black.withAlpha(225),
+              ],
+              stops: const [0.0, 0.42, 1.0],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            layout.inset(10),
+            layout.gap(10),
+            layout.inset(10),
+            layout.gap(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 32),
+                child: _buildCategoryTag(context, reel.subCategory, catColor),
+              ),
+              const Spacer(),
+              Text(
+                reel.title.isNotEmpty ? reel.title : 'UNTITLED REEL',
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.white,
+                  fontSize: layout.font(11),
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                  shadows: textShadow,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: layout.gap(8)),
+              _buildBottomInfoRow(
+                context,
+                reel,
+                textColor: AppTheme.white,
+                secondaryColor: AppTheme.white.withAlpha(210),
+                borderColor: AppTheme.white,
+                shadows: textShadow,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextCard(BuildContext context, Reel reel, Color catColor) {
+    final layout = AppLayout.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              layout.inset(10),
+              layout.gap(10),
+              layout.inset(10),
+              layout.gap(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 32),
+                  child: _buildCategoryTag(context, reel.subCategory, catColor),
+                ),
+                SizedBox(height: layout.gap(8)),
+                Text(
+                  reel.title.isNotEmpty ? reel.title : 'UNTITLED REEL',
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.fg(context),
+                    fontSize: layout.font(10.5),
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: layout.gap(4)),
+                if (reel.summary.isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      reel.summary,
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.textSec(context),
+                        fontSize: layout.font(10),
+                        height: 1.4,
+                      ),
+                      maxLines: 5,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  )
+                else
+                  const Spacer(),
+                _buildBottomInfoRow(
+                  context,
+                  reel,
+                  textColor: AppTheme.fg(context),
+                  secondaryColor: AppTheme.textSec(context),
+                  borderColor: AppTheme.fg(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomInfoRow(
+    BuildContext context,
+    Reel reel, {
+    required Color textColor,
+    required Color secondaryColor,
+    required Color borderColor,
+    List<Shadow>? shadows,
+  }) {
+    final layout = AppLayout.of(context);
+    return Container(
+      padding: EdgeInsets.only(top: layout.gap(6)),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: borderColor, width: 1.0)),
+      ),
+      child: Row(
+        children: [
+          if (reel.hasMapLocations) ...[
+            Icon(Icons.location_on, size: layout.inset(12), color: textColor),
+            SizedBox(width: layout.inset(2)),
+          ],
+          Expanded(
+            child: Text(
+              reel.hasMapLocations
+                  ? reel.primaryLocationLabel.toUpperCase()
+                  : reel.relativeDate.toUpperCase(),
+              style: GoogleFonts.spaceMono(
+                color: textColor,
+                fontSize: layout.font(9),
+                fontWeight: FontWeight.w700,
+                shadows: shadows,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (reel.hasMapLocations && reel.relativeDate.isNotEmpty)
+            Text(
+              reel.relativeDate.toUpperCase(),
+              style: GoogleFonts.spaceMono(
+                color: secondaryColor,
+                fontSize: layout.font(9),
+                fontWeight: FontWeight.w700,
+                shadows: shadows,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryTag(BuildContext context, String label, Color catColor) {
+    final layout = AppLayout.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: catColor,
+          border: Border.all(color: AppTheme.fg(context), width: 1.5),
+        ),
+        child: Text(
+          label.toUpperCase(),
+          style: GoogleFonts.spaceMono(
+            color: _contrastText(catColor),
+            fontSize: layout.font(8, minFactor: 0.9),
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
   }
 
   void _showDeleteSheet(BuildContext context) {

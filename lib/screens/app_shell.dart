@@ -30,7 +30,7 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   static const _permissionsPromptedKey =
-      'app_shell_initial_permissions_prompted_v5';
+      'app_shell_initial_permissions_prompted_v6';
   static const _shareConfirmationDuration = Duration(milliseconds: 1400);
   static const _resumeRefreshInterval = Duration(minutes: 5);
 
@@ -341,11 +341,7 @@ class _AppShellState extends ConsumerState<AppShell>
     }
 
     try {
-      await notificationService.initialize(requestPermissions: false);
-      final initialState = await notificationService.getPermissionState();
-      if (initialState == NotificationPermissionState.disabled) {
-        await notificationService.requestUserPermission();
-      }
+      await notificationService.initialize(requestPermissions: true);
       attemptedPermissionPrompt = true;
     } catch (e) {
       debugPrint('Notification permission setup skipped: $e');

@@ -52,6 +52,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   bool _hasCenteredOnCountry = false;
   bool _isSyncingMarkers = false;
   bool _shouldResyncMarkers = false;
+  bool _canShowUserLocation = false;
   MapViewModel? _trackedMapViewModel;
 
   int _lastMarkersCount = -1;
@@ -85,9 +86,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final position = await LocationService.instance
         .getCurrentOrLastKnownLocation(requestPermissionIfNeeded: true);
 
-    if (!mounted || position == null) return;
+    if (!mounted) return;
 
-    _userLatLng = LatLng(position.latitude, position.longitude);
+    if (position == null) {
+      final state = await LocationService.instance.getPermissionState();
+      if (!mounted) return;
+      setState(() {
+        _canShowUserLocation = state == LocationPermissionState.enabled;
+      });
+      return;
+    }
+
+    setState(() {
+      _userLatLng = LatLng(position.latitude, position.longitude);
+      _canShowUserLocation = true;
+    });
     _centerMapOnUserCountry();
   }
 
@@ -329,7 +342,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       _fitMarkers(markers);
                     }
                   },
-                  myLocationEnabled: true,
+                  myLocationEnabled: _canShowUserLocation,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
