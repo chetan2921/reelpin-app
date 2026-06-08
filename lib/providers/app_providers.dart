@@ -7,6 +7,7 @@ import '../services/notification_service.dart';
 import '../services/profile_service.dart';
 import '../services/share_flow_analytics_service.dart';
 import '../viewmodels/category_filters_viewmodel.dart';
+import '../viewmodels/discover_viewmodel.dart';
 import '../viewmodels/entitlements_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
@@ -54,7 +55,14 @@ final reelRepositoryProvider = ChangeNotifierProvider<ReelRepository>((ref) {
 });
 
 final homeViewModelProvider = ChangeNotifierProvider<HomeViewModel>((ref) {
-  return HomeViewModel(ref.read(reelRepositoryProvider));
+  return HomeViewModel(
+    ref.read(reelRepositoryProvider),
+    onReelDeleted: (reelId) {
+      ref.read(mapViewModelProvider).removeReel(reelId);
+      ref.read(discoverViewModelProvider).removeReel(reelId);
+      ref.read(searchViewModelProvider).removeReel(reelId);
+    },
+  );
 });
 
 final mapViewModelProvider = ChangeNotifierProvider<MapViewModel>((ref) {
@@ -65,6 +73,12 @@ final categoryFiltersViewModelProvider =
     ChangeNotifierProvider<CategoryFiltersViewModel>((ref) {
       return CategoryFiltersViewModel(ref.read(reelRepositoryProvider));
     });
+
+final discoverViewModelProvider = ChangeNotifierProvider<DiscoverViewModel>((
+  ref,
+) {
+  return DiscoverViewModel(ref.read(reelRepositoryProvider));
+});
 
 final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>((ref) {
   return SearchViewModel(ref.read(reelRepositoryProvider));
@@ -79,6 +93,7 @@ final entitlementsViewModelProvider =
         ref.read(homeViewModelProvider),
         ref.read(mapViewModelProvider),
         ref.read(categoryFiltersViewModelProvider),
+        ref.read(discoverViewModelProvider),
         ref.read(searchViewModelProvider),
       );
     });

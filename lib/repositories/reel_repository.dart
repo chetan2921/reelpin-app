@@ -9,6 +9,7 @@ import '../models/map_response.dart';
 import '../models/processing_job.dart';
 import '../models/reel.dart';
 import '../models/reel_category_filters.dart';
+import '../models/reel_page.dart';
 import '../models/search_response.dart';
 import '../models/user_entitlement.dart';
 import '../services/api_service.dart';
@@ -193,6 +194,27 @@ class ReelRepository extends ChangeNotifier {
       savedDate: savedDate,
     );
     return cachedReels;
+  }
+
+  Future<ReelPage> getReelsPage({
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    int? offset,
+    String? cursor,
+    int limit = _pageSize,
+    String? sort,
+  }) {
+    return _apiService.getReelsPage(
+      userId: _currentUserId,
+      category: category,
+      subcategory: subcategory,
+      savedDate: savedDate,
+      offset: offset,
+      cursor: cursor,
+      limit: limit,
+      sort: sort,
+    );
   }
 
   Future<Reel> getReel(String reelId, {bool forceRefresh = false}) async {

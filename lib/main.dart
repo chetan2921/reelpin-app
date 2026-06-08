@@ -24,6 +24,7 @@ import 'services/notification_service.dart';
 import 'services/share_handoff_service.dart';
 import 'theme/app_theme.dart';
 import 'viewmodels/category_filters_viewmodel.dart';
+import 'viewmodels/discover_viewmodel.dart';
 import 'viewmodels/entitlements_viewmodel.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/map_viewmodel.dart';
@@ -167,6 +168,8 @@ class AuthenticatedShell extends ConsumerStatefulWidget {
 
 class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   static const _pushRegistrationInterval = Duration(hours: 12);
+  static const _pushRegistrationRetryInterval = Duration(seconds: 8);
+  static const _pushRegistrationMaxAttempts = 4;
 
   late final AuthService _authService;
   late final ApiService _apiService;
@@ -175,6 +178,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   late final HomeViewModel _homeViewModel;
   late final MapViewModel _mapViewModel;
   late final CategoryFiltersViewModel _categoryFiltersViewModel;
+  late final DiscoverViewModel _discoverViewModel;
   late final SearchViewModel _searchViewModel;
   late final EntitlementsViewModel _entitlementsViewModel;
   StreamSubscription<String>? _tokenRefreshSubscription;
@@ -184,6 +188,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   String? _lastRegisteredPushToken;
   DateTime? _lastRegisteredPushAt;
   String? _activeUserId;
+  Timer? _pushRegistrationRetryTimer;
 
   @override
   void initState() {
@@ -195,6 +200,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _homeViewModel = ref.read(homeViewModelProvider);
     _mapViewModel = ref.read(mapViewModelProvider);
     _categoryFiltersViewModel = ref.read(categoryFiltersViewModelProvider);
+    _discoverViewModel = ref.read(discoverViewModelProvider);
     _searchViewModel = ref.read(searchViewModelProvider);
     _entitlementsViewModel = ref.read(entitlementsViewModelProvider);
     _activeUserId = _authService.currentUser?.id;
@@ -227,8 +233,6 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     final userId = _authService.currentUser?.id;
     if (userId == null || userId.trim().isEmpty) return;
 
-    await _syncPushTokenRegistration();
-
     if (_notificationService.isFirebaseConfigured) {
       _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((
         token,
@@ -241,6 +245,8 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       });
     }
 
+    await _syncPushTokenRegistration();
+
     _reelReadySubscription = _notificationService.onReelReady.listen((event) {
       unawaited(_refreshSavedReels());
     });
@@ -252,15 +258,25 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     }
   }
 
-  Future<void> _syncPushTokenRegistration({String? candidateToken}) async {
+  Future<void> _syncPushTokenRegistration({
+    String? candidateToken,
+    int retryAttempt = 1,
+  }) async {
+    if (!mounted) return;
+
     final userId = _authService.currentUser?.id;
     if (userId == null || userId.trim().isEmpty) return;
 
     try {
       final token = candidateToken?.trim().isNotEmpty == true
           ? candidateToken!.trim()
-          : await _notificationService.getFcmToken();
-      if (token == null || token.trim().isEmpty) return;
+          : await _notificationService.getFcmToken(
+              apnsTimeout: const Duration(seconds: 12),
+            );
+      if (token == null || token.trim().isEmpty) {
+        _schedulePushTokenRegistrationRetry(attempt: retryAttempt);
+        return;
+      }
 
       final normalizedToken = token.trim();
       final recentlyRegistered =
@@ -287,9 +303,23 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       _lastRegisteredPushUserId = userId;
       _lastRegisteredPushToken = normalizedToken;
       _lastRegisteredPushAt = DateTime.now();
+      _pushRegistrationRetryTimer?.cancel();
+      _pushRegistrationRetryTimer = null;
     } catch (e) {
       debugPrint('Push token registration skipped: $e');
+      _schedulePushTokenRegistrationRetry(attempt: retryAttempt);
     }
+  }
+
+  void _schedulePushTokenRegistrationRetry({int attempt = 1}) {
+    if (attempt > _pushRegistrationMaxAttempts) return;
+    if (_pushRegistrationRetryTimer?.isActive == true) return;
+
+    _pushRegistrationRetryTimer = Timer(_pushRegistrationRetryInterval, () {
+      _pushRegistrationRetryTimer = null;
+      if (!mounted) return;
+      unawaited(_syncPushTokenRegistration(retryAttempt: attempt + 1));
+    });
   }
 
   Future<void> _refreshSavedReels() async {
@@ -305,6 +335,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _categoryFiltersViewModel.reset();
     _mapViewModel.reset();
     _homeViewModel.reset();
+    _discoverViewModel.reset();
     _repository.clearCache();
     _entitlementsViewModel.reset();
     _lastRegisteredPushUserId = null;
@@ -318,6 +349,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _tokenRefreshSubscription?.cancel();
     _reelReadySubscription?.cancel();
     _authStateSubscription?.cancel();
+    _pushRegistrationRetryTimer?.cancel();
     super.dispose();
   }
 }

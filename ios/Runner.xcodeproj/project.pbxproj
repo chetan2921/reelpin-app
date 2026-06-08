@@ -316,6 +316,7 @@
 					5A1000062EE0000100000006 = {
 						CreatedOnToolsVersion = 15.0;
 						DevelopmentTeam = QUPZH9T9R3;
+						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
 								enabled = 1;
@@ -326,6 +327,7 @@
 						CreatedOnToolsVersion = 7.3.1;
 						DevelopmentTeam = QUPZH9T9R3;
 						LastSwiftMigration = 1100;
+						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
 								enabled = 1;

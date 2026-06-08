@@ -14,12 +14,12 @@ class ApiConfig {
 
   /// Production API URL, overridable for local development.
   static String get baseUrl {
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
     if (kReleaseMode) {
-      return _productionBaseUrl;
+      return _firstNonEmpty(fromEnv, null, fallback: _productionBaseUrl);
     }
 
     // Override with: flutter run --dart-define=API_BASE_URL=http://<ip>:8000
-    const fromEnv = String.fromEnvironment('API_BASE_URL');
     final local = SupabaseConfig.localValue('API_BASE_URL');
     return _firstNonEmpty(fromEnv, local, fallback: _productionBaseUrl);
   }

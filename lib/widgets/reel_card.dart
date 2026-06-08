@@ -120,10 +120,6 @@ class _ReelCardState extends State<ReelCard>
     );
   }
 
-  Color _contrastText(Color bg) {
-    return bg.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
-  }
-
   Widget _buildThumbnailCard(BuildContext context, Reel reel, Color catColor) {
     final layout = AppLayout.of(context);
     final textShadow = [
@@ -152,7 +148,7 @@ class _ReelCardState extends State<ReelCard>
         ),
         Image.network(
           reel.thumbnailUrl,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
           alignment: Alignment.center,
           errorBuilder: (_, _, _) => Container(color: catColor),
           loadingBuilder: (context, child, loadingProgress) {
@@ -332,26 +328,47 @@ class _ReelCardState extends State<ReelCard>
 
   Widget _buildCategoryTag(BuildContext context, String label, Color catColor) {
     final layout = AppLayout.of(context);
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: catColor,
-          border: Border.all(color: AppTheme.fg(context), width: 1.5),
-        ),
-        child: Text(
-          label.toUpperCase(),
-          style: GoogleFonts.spaceMono(
-            color: _contrastText(catColor),
-            fontSize: layout.font(8, minFactor: 0.9),
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+            child: Container(
+              color: AppTheme.black.withAlpha(130),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: layout.inset(4),
+                    height: layout.gap(18),
+                    color: catColor,
+                  ),
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        label.toUpperCase(),
+                        style: GoogleFonts.spaceMono(
+                          color: AppTheme.white,
+                          fontSize: layout.font(8, minFactor: 0.9),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
+        );
+      },
     );
   }
 

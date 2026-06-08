@@ -253,12 +253,14 @@ class NotificationService {
     return state;
   }
 
-  Future<String?> getFcmToken() async {
+  Future<String?> getFcmToken({
+    Duration apnsTimeout = const Duration(seconds: 5),
+  }) async {
     if (!SupabaseConfig.isConfigured) return null;
     if (!_firebaseConfigured) return null;
     try {
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-        final apnsToken = await _waitForApnsToken();
+        final apnsToken = await _waitForApnsToken(timeout: apnsTimeout);
         if (apnsToken == null || apnsToken.trim().isEmpty) {
           debugPrint('FCM token unavailable: APNs token is not available yet.');
           return null;
@@ -386,13 +388,21 @@ class NotificationService {
     });
   }
 
-  Future<String?> _waitForApnsToken() async {
-    for (var attempt = 0; attempt < 5; attempt += 1) {
+  Future<String?> _waitForApnsToken({required Duration timeout}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
       final token = await FirebaseMessaging.instance.getAPNSToken();
       if (token != null && token.trim().isNotEmpty) {
         return token;
       }
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+
+      final remaining = deadline.difference(DateTime.now());
+      if (remaining <= Duration.zero) break;
+      await Future<void>.delayed(
+        remaining < const Duration(milliseconds: 500)
+            ? remaining
+            : const Duration(milliseconds: 500),
+      );
     }
     return null;
   }

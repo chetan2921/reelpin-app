@@ -808,6 +808,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                 if (context.mounted) {
                   _maybeRead(homeViewModelProvider)?.removeReel(reel.id);
                   _maybeRead(mapViewModelProvider)?.removeReel(reel.id);
+                  _maybeRead(discoverViewModelProvider)?.removeReel(reel.id);
                   _maybeRead(searchViewModelProvider)?.removeReel(reel.id);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(

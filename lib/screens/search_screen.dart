@@ -7,10 +7,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/discover_response.dart';
 import '../models/reel.dart';
-import '../models/reel_page.dart';
 import '../providers/app_providers.dart';
-import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../viewmodels/discover_viewmodel.dart';
 import '../viewmodels/search_viewmodel.dart';
 import '../widgets/reel_card.dart';
 import '../widgets/search_result_tile.dart';
@@ -31,17 +30,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  String? _selectedSavedDate;
-  String? _selectedSavedDateLabel;
-  String? _selectedCategory;
-  String? _selectedCategoryLabel;
-  int? _selectedCategoryExpectedCount;
-  ReelPage? _categoryReelsPage;
-  DiscoverResponse? _discover;
-  bool _isLoadingDiscover = false;
-  bool _isLoadingCategoryReels = false;
-  String? _discoverError;
-  String? _categoryReelsError;
   Timer? _searchDebounce;
   int _handledFocusRequestId = 0;
   bool _hasSearchText = false;
@@ -53,7 +41,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _scheduleFocusIfRequested();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(_loadDiscover(reset: true));
+        unawaited(ref.read(discoverViewModelProvider).loadDiscover());
       }
     });
   }
@@ -97,6 +85,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final vm = ref.watch(searchViewModelProvider);
+    final discoverVm = ref.watch(discoverViewModelProvider);
     final sessionVm = ref.watch(sessionViewModelProvider);
 
     return Scaffold(
@@ -136,17 +125,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       height: layout.inset(44),
                       decoration: AppTheme.brutalBox(
                         context,
-                        color: _selectedSavedDate != null
+                        color: discoverVm.selectedSavedDate != null
                             ? AppTheme.yellow
                             : AppTheme.bg(context),
                         shadow: true,
                       ),
                       alignment: Alignment.center,
                       child: Icon(
-                        _selectedSavedDate != null
+                        discoverVm.selectedSavedDate != null
                             ? Icons.event_available
                             : Icons.calendar_month,
-                        color: _selectedSavedDate != null
+                        color: discoverVm.selectedSavedDate != null
                             ? AppTheme.black
                             : AppTheme.fg(context),
                         size: layout.inset(20),
@@ -258,7 +247,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ? _buildMinimumQueryState(context, vm.lastQuery)
                   : vm.lastQuery.isNotEmpty
                   ? _buildNoResults(context, vm.lastQuery)
-                  : _buildDiscoverContent(context),
+                  : _buildDiscoverContent(context, discoverVm),
             ),
           ],
         ),
@@ -268,7 +257,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _handleSearchChanged(SearchViewModel vm, String query) {
     _searchDebounce?.cancel();
-    _clearCategorySelection();
+    ref.read(discoverViewModelProvider).clearCategorySelection();
 
     if (query.trim().isEmpty) {
       _clearSearch(vm, keepFocus: true);
@@ -283,7 +272,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _doSearch(SearchViewModel vm, String query) {
     _searchDebounce?.cancel();
-    _clearCategorySelection();
+    ref.read(discoverViewModelProvider).clearCategorySelection();
     if (query.trim().isEmpty) {
       _clearSearch(vm, keepFocus: true);
       return;
@@ -331,14 +320,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (!keepFocus) {
       _focusNode.unfocus();
     }
-    if (_selectedSavedDate != null || _hasSearchText) {
+    final discoverVm = ref.read(discoverViewModelProvider);
+    if (discoverVm.selectedSavedDate != null || _hasSearchText) {
       setState(() {
         _hasSearchText = false;
-        _selectedSavedDate = null;
-        _selectedSavedDateLabel = null;
       });
     }
-    _clearCategorySelection();
+    discoverVm.clearTransientSelection();
     vm.clear();
     if (mounted) {
       setState(() {});
@@ -346,30 +334,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _clearDateFilter() {
-    setState(() {
-      _selectedSavedDate = null;
-      _selectedSavedDateLabel = null;
-      _clearCategorySelectionInState();
-    });
-    unawaited(_loadDiscover(reset: true));
-  }
-
-  void _clearCategorySelection() {
-    if (_selectedCategory == null &&
-        _categoryReelsPage == null &&
-        _categoryReelsError == null) {
-      return;
-    }
-    setState(_clearCategorySelectionInState);
-  }
-
-  void _clearCategorySelectionInState() {
-    _selectedCategory = null;
-    _selectedCategoryLabel = null;
-    _selectedCategoryExpectedCount = null;
-    _categoryReelsPage = null;
-    _categoryReelsError = null;
-    _isLoadingCategoryReels = false;
+    unawaited(ref.read(discoverViewModelProvider).clearDateFilter());
   }
 
   Future<void> _openCategory(DiscoverCategory category) async {
@@ -382,91 +347,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _focusNode.unfocus();
     setState(() {
       _hasSearchText = false;
-      _selectedSavedDate = null;
-      _selectedSavedDateLabel = null;
-      _selectedCategory = category.category;
-      _selectedCategoryLabel = category.label;
-      _selectedCategoryExpectedCount = category.count;
-      _categoryReelsPage = null;
-      _categoryReelsError = null;
-      _isLoadingCategoryReels = true;
     });
-
-    try {
-      final page = await ref
-          .read(apiServiceProvider)
-          .getReelsPage(category: category.category, limit: category.count);
-      if (!mounted || _selectedCategory != category.category) return;
-      setState(() {
-        _categoryReelsPage = page;
-      });
-    } catch (error) {
-      if (!mounted || _selectedCategory != category.category) return;
-      setState(() {
-        _categoryReelsError = userFacingErrorMessage(
-          error,
-          fallbackMessage: 'Could not load this category right now.',
-        );
-      });
-    } finally {
-      if (mounted && _selectedCategory == category.category) {
-        setState(() {
-          _isLoadingCategoryReels = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadDiscover({bool reset = false}) async {
-    setState(() {
-      _isLoadingDiscover = true;
-      _discoverError = null;
-    });
-
-    try {
-      final response = await ref
-          .read(apiServiceProvider)
-          .getDiscover(savedDate: _selectedSavedDate);
-      if (!mounted) return;
-      setState(() {
-        _discover = response;
-        _selectedSavedDate = response.selectedDate ?? _selectedSavedDate;
-        _selectedSavedDateLabel = _labelForSavedDate(
-          response,
-          _selectedSavedDate,
-        );
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _discoverError = userFacingErrorMessage(
-          error,
-          fallbackMessage: 'Could not load discover data right now.',
-        );
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingDiscover = false;
-        });
-      }
-    }
-  }
-
-  String? _labelForSavedDate(DiscoverResponse response, String? savedDate) {
-    if (savedDate == null || savedDate.isEmpty) {
-      return null;
-    }
-    for (final option in response.savedDates) {
-      if (option.value == savedDate) {
-        return option.label;
-      }
-    }
-    return savedDate;
+    await ref.read(discoverViewModelProvider).openCategory(category);
   }
 
   Future<void> _pickSavedDate(BuildContext context) async {
-    final discover = _discover;
+    final discoverVm = ref.read(discoverViewModelProvider);
+    final discover = discoverVm.discover;
     if (discover == null || discover.savedDates.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -493,16 +380,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       backgroundColor: AppTheme.bg(context),
       builder: (context) => _SavedDateCalendarSheet(
         savedDates: discover.savedDates,
-        selectedSavedDate: _selectedSavedDate,
+        selectedSavedDate: discoverVm.selectedSavedDate,
       ),
     );
 
     if (selected == null || !mounted) return;
-    setState(() {
-      _selectedSavedDate = selected.value;
-      _selectedSavedDateLabel = selected.label;
-    });
-    unawaited(_loadDiscover(reset: true));
+    unawaited(ref.read(discoverViewModelProvider).selectSavedDate(selected));
   }
 
   Widget _buildNoResults(BuildContext context, String query) {
@@ -614,22 +497,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   // ── Discover (no search active) ──
-  Widget _buildDiscoverContent(BuildContext context) {
-    final discover = _discover;
-    if (_isLoadingDiscover && discover == null) {
+  Widget _buildDiscoverContent(
+    BuildContext context,
+    DiscoverViewModel discoverVm,
+  ) {
+    final discover = discoverVm.discover;
+    if (discoverVm.isLoadingDiscover && discover == null) {
       return _buildSearchingState(context);
     }
 
-    if (_discoverError != null && discover == null) {
-      return _buildDiscoverError(context);
+    if (discoverVm.discoverError != null && discover == null) {
+      return _buildDiscoverError(context, discoverVm);
     }
 
     if (discover == null) {
       return const SizedBox.shrink();
     }
 
-    if (_selectedCategory != null) {
-      return _buildCategoryReelsContent(context);
+    if (discoverVm.selectedCategory != null) {
+      return _buildCategoryReelsContent(context, discoverVm);
     }
 
     final recentSavesCount = discover.recentSavesCount;
@@ -639,14 +525,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
         children: [
-          if (_selectedSavedDate != null) ...[
+          if (discoverVm.selectedSavedDate != null) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
-                      'SAVED ON ${(_selectedSavedDateLabel ?? _selectedSavedDate!).toUpperCase()}',
+                      'SAVED ON ${(discoverVm.selectedSavedDateLabel ?? discoverVm.selectedSavedDate!).toUpperCase()}',
                       style: GoogleFonts.spaceMono(
                         color: AppTheme.fg(context),
                         fontSize: 14,
@@ -686,7 +572,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ] else ...[
               _buildDateEmptyState(
                 context,
-                _selectedSavedDateLabel ?? _selectedSavedDate!,
+                discoverVm.selectedSavedDateLabel ??
+                    discoverVm.selectedSavedDate!,
               ),
               const SizedBox(height: 24),
             ],
@@ -710,7 +597,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           const SizedBox(height: 24),
 
           // Recent saves
-          if (_selectedSavedDate == null &&
+          if (discoverVm.selectedSavedDate == null &&
               discover.recentSaves.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -770,7 +657,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildDiscoverError(BuildContext context) {
+  Widget _buildDiscoverError(
+    BuildContext context,
+    DiscoverViewModel discoverVm,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -792,7 +682,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _discoverError ?? '',
+                  discoverVm.discoverError ?? '',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
                     color: AppTheme.textSec(context),
@@ -808,12 +698,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildCategoryReelsContent(BuildContext context) {
-    final page = _categoryReelsPage;
+  Widget _buildCategoryReelsContent(
+    BuildContext context,
+    DiscoverViewModel discoverVm,
+  ) {
+    final page = discoverVm.categoryReelsPage;
     final categoryLabel =
-        _selectedCategoryLabel ?? _selectedCategory ?? 'CATEGORY';
+        discoverVm.selectedCategoryLabel ??
+        discoverVm.selectedCategory ??
+        'CATEGORY';
     final expectedCount =
-        _selectedCategoryExpectedCount ?? page?.totalCount ?? 0;
+        discoverVm.selectedCategoryExpectedCount ?? page?.totalCount ?? 0;
     final totalCount = page?.totalCount ?? expectedCount;
     final reels = page?.reels ?? const <Reel>[];
 
@@ -851,7 +746,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: _clearCategorySelection,
+                  onTap: () {
+                    ref
+                        .read(discoverViewModelProvider)
+                        .clearCategorySelection();
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -876,15 +775,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
         ),
-        if (_isLoadingCategoryReels)
+        if (discoverVm.isLoadingCategoryReels)
           SliverFillRemaining(
             hasScrollBody: false,
             child: _buildSearchingState(context),
           )
-        else if (_categoryReelsError != null)
+        else if (discoverVm.categoryReelsError != null)
           SliverFillRemaining(
             hasScrollBody: false,
-            child: _buildCategoryReelsError(context),
+            child: _buildCategoryReelsError(context, discoverVm),
           )
         else if (reels.isEmpty)
           SliverFillRemaining(
@@ -898,7 +797,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildCategoryReelsError(BuildContext context) {
+  Widget _buildCategoryReelsError(
+    BuildContext context,
+    DiscoverViewModel discoverVm,
+  ) {
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 32),
@@ -921,7 +823,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _categoryReelsError ?? '',
+              discoverVm.categoryReelsError ?? '',
               textAlign: TextAlign.center,
               style: GoogleFonts.spaceMono(
                 color: AppTheme.textSec(context),

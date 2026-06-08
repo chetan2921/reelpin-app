@@ -7,6 +7,7 @@ import '../repositories/reel_repository.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import 'category_filters_viewmodel.dart';
+import 'discover_viewmodel.dart';
 import 'home_viewmodel.dart';
 import 'map_viewmodel.dart';
 import 'search_viewmodel.dart';
@@ -19,6 +20,7 @@ class EntitlementsViewModel extends ChangeNotifier {
     this._homeViewModel,
     this._mapViewModel,
     this._categoryFiltersViewModel,
+    this._discoverViewModel,
     this._searchViewModel,
   );
 
@@ -28,12 +30,14 @@ class EntitlementsViewModel extends ChangeNotifier {
   final HomeViewModel _homeViewModel;
   final MapViewModel _mapViewModel;
   final CategoryFiltersViewModel _categoryFiltersViewModel;
+  final DiscoverViewModel _discoverViewModel;
   final SearchViewModel _searchViewModel;
 
   EntitlementsResponse? _response;
   bool _isLoading = false;
   String? _error;
   Future<void>? _refreshFuture;
+  bool _pendingReloadContent = false;
 
   EntitlementsResponse? get response => _response;
   UserEntitlement? get entitlement => _response?.currentEntitlement;
@@ -44,14 +48,21 @@ class EntitlementsViewModel extends ChangeNotifier {
   Future<void> refresh({bool reloadContent = false}) {
     final activeRefresh = _refreshFuture;
     if (activeRefresh != null) {
+      _pendingReloadContent = _pendingReloadContent || reloadContent;
       return activeRefresh;
     }
 
-    final future = _refresh(reloadContent: reloadContent);
+    final shouldReloadContent = reloadContent || _pendingReloadContent;
+    _pendingReloadContent = false;
+    final future = _refresh(reloadContent: shouldReloadContent);
     _refreshFuture = future;
     return future.whenComplete(() {
       if (identical(_refreshFuture, future)) {
         _refreshFuture = null;
+        if (_pendingReloadContent) {
+          _pendingReloadContent = false;
+          unawaited(refresh(reloadContent: true));
+        }
       }
     });
   }
@@ -84,6 +95,7 @@ class EntitlementsViewModel extends ChangeNotifier {
         _homeViewModel.reset();
         _mapViewModel.reset();
         _categoryFiltersViewModel.reset();
+        _discoverViewModel.reset();
         _searchViewModel.clear();
       }
 
@@ -95,6 +107,7 @@ class EntitlementsViewModel extends ChangeNotifier {
         _homeViewModel.reset();
         _mapViewModel.reset();
         _categoryFiltersViewModel.reset();
+        _discoverViewModel.reset();
         _searchViewModel.clear();
       }
 
@@ -107,6 +120,7 @@ class EntitlementsViewModel extends ChangeNotifier {
             _homeViewModel.loadReels(forceRefresh: true),
             _mapViewModel.loadMapReels(forceRefresh: true),
             _categoryFiltersViewModel.loadCategoryFilters(forceRefresh: true),
+            _discoverViewModel.loadDiscover(forceRefresh: true),
           ]);
         }
       }

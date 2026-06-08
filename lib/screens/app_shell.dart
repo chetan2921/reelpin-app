@@ -152,9 +152,7 @@ class _AppShellState extends ConsumerState<AppShell>
       await _syncPushTokenRegistrationIfPossible();
       unawaited(analytics.recordEnqueueStarted(url));
       await homeVm.enqueueReelProcessing(url);
-      unawaited(
-        ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
-      );
+      unawaited(_refreshSavedContent());
 
       if (!mounted) return;
       setState(() {
@@ -277,9 +275,7 @@ class _AppShellState extends ConsumerState<AppShell>
     }
     _lastResumeRefreshAt = now;
 
-    unawaited(
-      ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
-    );
+    unawaited(_refreshSavedContent());
   }
 
   // Native share receivers stash URLs when they cannot enqueue in the
@@ -404,6 +400,31 @@ class _AppShellState extends ConsumerState<AppShell>
       _currentIndex = 2;
       _searchFocusRequestId += 1;
     });
+    _refreshSelectedContent(2);
+  }
+
+  Future<void> _refreshSavedContent() async {
+    await ref.read(entitlementsViewModelProvider).refresh(reloadContent: true);
+  }
+
+  void _selectTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    _refreshSelectedContent(index);
+  }
+
+  void _refreshSelectedContent(int index) {
+    if (index == 1) {
+      unawaited(
+        ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true),
+      );
+    }
+    if (index == 2) {
+      unawaited(
+        ref.read(discoverViewModelProvider).loadDiscover(forceRefresh: true),
+      );
+    }
   }
 
   @override
@@ -454,7 +475,7 @@ class _AppShellState extends ConsumerState<AppShell>
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () => _selectTab(index),
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

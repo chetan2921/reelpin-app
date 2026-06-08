@@ -9,8 +9,10 @@ import '../services/api_service.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final ReelRepository _repository;
+  final void Function(String reelId)? _onReelDeleted;
 
-  HomeViewModel(this._repository) {
+  HomeViewModel(this._repository, {void Function(String reelId)? onReelDeleted})
+    : _onReelDeleted = onReelDeleted {
     _repository.addListener(_syncFromRepository);
   }
 
@@ -160,6 +162,7 @@ class HomeViewModel extends ChangeNotifier {
   Future<void> deleteReel(String reelId) async {
     await _repository.deleteReel(reelId);
     _removeReelLocally(reelId);
+    _onReelDeleted?.call(reelId);
   }
 
   void removeReel(String reelId) {
