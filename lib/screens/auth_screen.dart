@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -359,61 +360,45 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ],
                         ),
                         SizedBox(height: layout.gap(14)),
-                        GestureDetector(
-                          onTap: sessionVm.isBusy
-                              ? null
-                              : () {
-                                  FocusScope.of(context).unfocus();
-                                  sessionVm.signInWithGoogle();
-                                },
-                          child: Opacity(
-                            opacity: sessionVm.isBusy ? 0.7 : 1,
-                            child: Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: AppTheme.white,
-                                border: Border.all(
-                                  color: AppTheme.black,
-                                  width: 3,
-                                ),
-                                boxShadow: AppTheme.inkShadow,
-                              ),
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: layout.inset(16),
-                                  vertical: layout.gap(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Image.asset(
-                                      'assets/images/google_logo.png',
-                                      width: layout.inset(22),
-                                      height: layout.inset(22),
-                                    ),
-                                    SizedBox(width: layout.inset(14)),
-                                    Expanded(
-                                      child: Text(
-                                        _isSignUp
-                                            ? 'SIGN UP WITH GOOGLE'
-                                            : 'SIGN IN WITH GOOGLE',
-                                        style: GoogleFonts.spaceMono(
-                                          color: AppTheme.black,
-                                          fontSize: layout.font(13),
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.7,
-                                        ),
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.arrow_forward,
-                                      color: AppTheme.black,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+                        _providerButton(
+                          context,
+                          label: _isSignUp
+                              ? 'SIGN UP WITH GOOGLE'
+                              : 'SIGN IN WITH GOOGLE',
+                          icon: Image.asset(
+                            'assets/images/google_logo.png',
+                            width: layout.inset(22),
+                            height: layout.inset(22),
                           ),
+                          isBusy: sessionVm.isBusy,
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                            sessionVm.signInWithGoogle();
+                          },
                         ),
+                        if (_showsAppleSignIn) ...[
+                          SizedBox(height: layout.gap(12)),
+                          _providerButton(
+                            context,
+                            label: _isSignUp
+                                ? 'SIGN UP WITH APPLE'
+                                : 'SIGN IN WITH APPLE',
+                            icon: Icon(
+                              Icons.apple,
+                              color: AppTheme.white,
+                              size: layout.inset(24),
+                            ),
+                            isBusy: sessionVm.isBusy,
+                            onTap: () {
+                              FocusScope.of(context).unfocus();
+                              sessionVm.signInWithApple();
+                            },
+                            color: AppTheme.black,
+                            textColor: AppTheme.white,
+                            borderColor: AppTheme.black,
+                            arrowColor: AppTheme.white,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -424,6 +409,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
       ),
     );
+  }
+
+  bool get _showsAppleSignIn {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
   }
 
   Widget _modeButton(
@@ -447,6 +438,62 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               fontSize: layout.font(13),
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _providerButton(
+    BuildContext context, {
+    required String label,
+    required Widget icon,
+    required bool isBusy,
+    required VoidCallback onTap,
+    Color color = AppTheme.white,
+    Color textColor = AppTheme.black,
+    Color borderColor = AppTheme.black,
+    Color arrowColor = AppTheme.black,
+  }) {
+    final layout = AppLayout.of(context);
+    return GestureDetector(
+      onTap: isBusy ? null : onTap,
+      child: Opacity(
+        opacity: isBusy ? 0.7 : 1,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: color,
+            border: Border.all(color: borderColor, width: 3),
+            boxShadow: AppTheme.inkShadow,
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: layout.inset(16),
+              vertical: layout.gap(16),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: layout.inset(24),
+                  height: layout.inset(24),
+                  child: Center(child: icon),
+                ),
+                SizedBox(width: layout.inset(14)),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.spaceMono(
+                      color: textColor,
+                      fontSize: layout.font(13),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                ),
+                Icon(Icons.arrow_forward, color: arrowColor),
+              ],
             ),
           ),
         ),

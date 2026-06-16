@@ -568,6 +568,21 @@ class ApiService {
     return LibraryStats.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  Future<void> deleteAccount() async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(_apiUri(baseUrl, '/api/v1/account'), headers: _headers())
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not delete your account right now.',
+      );
+    }
+  }
+
   Future<ShareResolveResponse> resolveSharePayload({
     required String rawPayloadText,
     required String platform,

@@ -27,6 +27,7 @@ class SessionViewModel extends ChangeNotifier {
   bool _isBootstrapping = true;
   bool _isSigningIn = false;
   bool _isSigningOut = false;
+  bool _isDeletingAccount = false;
   String? _error;
   String? _statusMessage;
 
@@ -36,7 +37,8 @@ class SessionViewModel extends ChangeNotifier {
   bool get isBootstrapping => _isBootstrapping;
   bool get isSigningIn => _isSigningIn;
   bool get isSigningOut => _isSigningOut;
-  bool get isBusy => _isSigningIn || _isSigningOut;
+  bool get isDeletingAccount => _isDeletingAccount;
+  bool get isBusy => _isSigningIn || _isSigningOut || _isDeletingAccount;
   String? get error => _error;
   String? get statusMessage => _statusMessage;
 
@@ -99,6 +101,25 @@ class SessionViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> signInWithApple() async {
+    if (_isSigningIn) return;
+
+    _isSigningIn = true;
+    _error = null;
+    _statusMessage = null;
+    notifyListeners();
+
+    try {
+      await _authService.signInWithApple();
+      await _syncProfileSilently();
+    } catch (e) {
+      _error = _normalizeError(e);
+    } finally {
+      _isSigningIn = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> signOut() async {
     if (_isSigningOut) return;
 
@@ -119,6 +140,28 @@ class SessionViewModel extends ChangeNotifier {
       _error = _normalizeError(e);
     } finally {
       _isSigningOut = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> deleteAccount() async {
+    if (_isDeletingAccount) return false;
+
+    _isDeletingAccount = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await ApiService().deleteAccount();
+      await ShareHandoffService.instance.clear();
+      await _authService.signOut();
+      _session = null;
+      return true;
+    } catch (e) {
+      _error = _normalizeError(e);
+      return false;
+    } finally {
+      _isDeletingAccount = false;
       notifyListeners();
     }
   }

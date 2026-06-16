@@ -244,40 +244,188 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 _sectionTitle(context, 'ACCOUNT'),
                 SizedBox(height: layout.gap(10)),
                 GestureDetector(
-                  onTap: () async {
-                    await sessionVm.signOut();
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    decoration: AppTheme.brutalCard(
-                      context,
-                      color: AppTheme.red,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: layout.gap(16)),
-                      child: Center(
-                        child: Text(
-                          sessionVm.isSigningOut
-                              ? 'SIGNING OUT...'
-                              : 'SIGN OUT',
-                          style: GoogleFonts.spaceMono(
-                            color: AppTheme.white,
-                            fontSize: layout.font(14),
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1,
+                  onTap: sessionVm.isBusy
+                      ? null
+                      : () async {
+                          await sessionVm.signOut();
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                  child: Opacity(
+                    opacity: sessionVm.isBusy ? 0.7 : 1,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: AppTheme.brutalCard(
+                        context,
+                        color: AppTheme.red,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: layout.gap(16)),
+                        child: Center(
+                          child: Text(
+                            sessionVm.isSigningOut
+                                ? 'SIGNING OUT...'
+                                : 'SIGN OUT',
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.white,
+                              fontSize: layout.font(14),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
+                SizedBox(height: layout.gap(14)),
+                GestureDetector(
+                  onTap: sessionVm.isBusy ? null : _confirmDeleteAccount,
+                  child: Opacity(
+                    opacity: sessionVm.isBusy ? 0.7 : 1,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: AppTheme.brutalCard(
+                        context,
+                        color: AppTheme.black,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: layout.gap(16)),
+                        child: Center(
+                          child: Text(
+                            sessionVm.isDeletingAccount
+                                ? 'DELETING ACCOUNT...'
+                                : 'DELETE ACCOUNT',
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.white,
+                              fontSize: layout.font(14),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (sessionVm.error != null) ...[
+                  SizedBox(height: layout.gap(10)),
+                  Text(
+                    sessionVm.error!,
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.destructive,
+                      fontSize: layout.font(11),
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ],
             );
           },
         ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final shouldContinue = await _showDeleteAccountDialog(
+      title: 'DELETE ACCOUNT?',
+      message:
+          'This will permanently delete your ReelPin account and all saved data.',
+      actionLabel: 'CONTINUE',
+    );
+    if (shouldContinue != true || !mounted) return;
+
+    final shouldDelete = await _showDeleteAccountDialog(
+      title: 'FINAL CONFIRMATION',
+      message:
+          'All saved reels, profile data, share tokens, and account data will be deleted. This cannot be undone.',
+      actionLabel: 'DELETE ACCOUNT',
+    );
+    if (shouldDelete != true || !mounted) return;
+
+    final sessionVm = ref.read(sessionViewModelProvider);
+    final success = await sessionVm.deleteAccount();
+    if (!mounted || !success) return;
+
+    ref.read(searchViewModelProvider).clear();
+    ref.read(categoryFiltersViewModelProvider).reset();
+    ref.read(mapViewModelProvider).reset();
+    ref.read(homeViewModelProvider).reset();
+    ref.read(discoverViewModelProvider).reset();
+    ref.read(reelRepositoryProvider).clearCache();
+    ref.read(entitlementsViewModelProvider).reset();
+
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  Future<bool?> _showDeleteAccountDialog({
+    required String title,
+    required String message,
+    required String actionLabel,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.bg(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+          side: BorderSide(
+            color: AppTheme.fg(context),
+            width: AppTheme.borderWidth,
+          ),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.spaceMono(
+            color: AppTheme.fg(context),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.spaceMono(
+            color: AppTheme.textSec(context),
+            fontSize: 12,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'CANCEL',
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.textSec(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => Navigator.pop(context, true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.destructive,
+                border: Border.all(color: AppTheme.fg(context), width: 2),
+                boxShadow: AppTheme.brutalShadowSmall(context),
+              ),
+              child: Text(
+                actionLabel,
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

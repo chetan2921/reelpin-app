@@ -288,6 +288,21 @@ void main() {
     await service.deleteReel('reel-123');
   });
 
+  test('deleteAccount sends auth header', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        expect(request.url.toString(), 'https://example.com/api/v1/account');
+        expect(request.method, 'DELETE');
+        return http.Response(jsonEncode({'deleted': true}), 200);
+      }),
+    );
+
+    await service.deleteAccount();
+  });
+
   test(
     'getAccountEntitlements reports missing endpoint without assuming Pro',
     () async {

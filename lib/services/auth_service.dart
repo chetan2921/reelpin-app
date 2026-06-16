@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/supabase_config.dart';
@@ -47,6 +51,48 @@ class AuthService {
     );
   }
 
+  Future<AuthResponse> signInWithApple() async {
+    final rawNonce = generateNonce();
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: _sha256(rawNonce),
+      );
+
+      final identityToken = credential.identityToken;
+      if (identityToken == null || identityToken.trim().isEmpty) {
+        throw Exception('Apple sign-in did not return an identity token.');
+      }
+
+      final response = await supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: identityToken,
+        nonce: rawNonce,
+      );
+
+      final user = response.user ?? currentUser;
+      if (user != null) {
+        await _profileService.upsertProfile(
+          id: user.id,
+          email: user.email ?? credential.email,
+          fullName: _appleFullName(credential),
+        );
+      }
+
+      return response;
+    } on SignInWithAppleNotSupportedException {
+      throw Exception('Sign in with Apple is not available on this device.');
+    } on SignInWithAppleAuthorizationException catch (error) {
+      if (error.code == AuthorizationErrorCode.canceled) {
+        throw Exception('Apple sign-in was cancelled.');
+      }
+      throw Exception('Apple sign-in could not be completed.');
+    }
+  }
+
   Future<void> signOut() async {
     await supabase.auth.signOut();
   }
@@ -81,5 +127,19 @@ class AuthService {
     }
 
     return null;
+  }
+
+  String? _appleFullName(AuthorizationCredentialAppleID credential) {
+    final parts = [
+      credential.givenName?.trim(),
+      credential.familyName?.trim(),
+    ].where((part) => part != null && part.isNotEmpty).cast<String>().toList();
+
+    if (parts.isEmpty) return null;
+    return parts.join(' ');
+  }
+
+  String _sha256(String input) {
+    return sha256.convert(utf8.encode(input)).toString();
   }
 }
