@@ -6,6 +6,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/discover_response.dart';
+import '../models/folder.dart';
 import '../models/reel.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
@@ -13,13 +14,21 @@ import '../viewmodels/discover_viewmodel.dart';
 import '../viewmodels/search_viewmodel.dart';
 import '../widgets/reel_card.dart';
 import '../widgets/search_result_tile.dart';
+import 'folder_detail_screen.dart';
 import 'profile_screen.dart';
 import 'reel_detail_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key, this.focusRequestId = 0});
+  const SearchScreen({
+    super.key,
+    this.focusRequestId = 0,
+    this.onCreateFolderTap,
+    this.onShowAppGuide,
+  });
 
   final int focusRequestId;
+  final VoidCallback? onCreateFolderTap;
+  final VoidCallback? onShowAppGuide;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -149,7 +158,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ProfileScreen(),
+                          builder: (_) => ProfileScreen(
+                            onShowAppGuide: widget.onShowAppGuide,
+                          ),
                         ),
                       );
                     },
@@ -514,6 +525,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return const SizedBox.shrink();
     }
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(foldersViewModelProvider).syncDiscoverFolders(discover.folders);
+    });
+
     if (discoverVm.selectedCategory != null) {
       return _buildCategoryReelsContent(context, discoverVm);
     }
@@ -594,6 +610,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: 10),
           _buildQuickSearches(context, discover.quickSearchPrompts),
+          const SizedBox(height: 24),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Row(
+              children: [
+                Text(
+                  'YOUR FOLDERS',
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.fg(context),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cyan,
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
+                  ),
+                  child: Text(
+                    '${discover.folders.length}',
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.black,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildFolderStrip(context, discover.folders),
           const SizedBox(height: 24),
 
           // Recent saves
@@ -990,6 +1044,321 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         },
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemCount: prompts.length,
+      ),
+    );
+  }
+
+  Widget _buildFolderStrip(BuildContext context, List<FolderSummary> folders) {
+    if (folders.isEmpty) {
+      return SizedBox(
+        height: 130,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          children: [_buildCreateFolderStarterCard(context)],
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 130,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: folders.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (_, i) => _buildFolderCard(context, folders[i], i),
+      ),
+    );
+  }
+
+  Widget _buildCreateFolderStarterCard(BuildContext context) {
+    const starterFolder = FolderSummary(
+      id: 'starter-folder',
+      name: 'CREATE FOLDER',
+      note: 'SELECT REELS TO GROUP',
+    );
+
+    return GestureDetector(
+      onTap: widget.onCreateFolderTap,
+      child: SizedBox(
+        width: 158,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              top: 14,
+              left: 8,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.black,
+                  border: Border.all(color: AppTheme.fg(context), width: 2),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 5,
+              left: 16,
+              right: 14,
+              height: 34,
+              child: Transform.rotate(
+                angle: -0.025,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.bg(context),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 16,
+              left: 6,
+              right: 6,
+              bottom: 4,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _buildFolderShape(
+                    context,
+                    starterFolder,
+                    const Color(0xFF7DB5FF),
+                    starterFolder.note,
+                  ),
+                ],
+              ),
+            ),
+            Positioned(top: 5, right: 13, child: _buildFolderAddLabel(context)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderAddLabel(BuildContext context) {
+    return Transform.rotate(
+      angle: -0.025,
+      child: Container(
+        width: 34,
+        height: 28,
+        decoration: BoxDecoration(
+          color: AppTheme.bg(context),
+          border: Border.all(color: AppTheme.fg(context), width: 2),
+          boxShadow: AppTheme.brutalShadowSmall(context),
+        ),
+        child: Icon(Icons.add, color: AppTheme.fg(context), size: 20),
+      ),
+    );
+  }
+
+  Widget _buildFolderCard(
+    BuildContext context,
+    FolderSummary folder,
+    int index,
+  ) {
+    final colors = [
+      const Color(0xFF7DB5FF),
+      AppTheme.yellow,
+      const Color(0xFFFF6B6B),
+      AppTheme.cyan,
+      AppTheme.neonGreen,
+    ];
+    final accent = colors[index % colors.length];
+    final note = folder.note?.trim();
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => FolderDetailScreen(folder: folder)),
+        );
+      },
+      child: SizedBox(
+        width: 158,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              top: 14,
+              left: 8,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.black,
+                  border: Border.all(color: AppTheme.fg(context), width: 2),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 5,
+              left: 16,
+              right: 14,
+              height: 34,
+              child: Transform.rotate(
+                angle: -0.025,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.bg(context),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 16,
+              left: 6,
+              right: 6,
+              bottom: 4,
+              child: _buildFolderShape(context, folder, accent, note),
+            ),
+            Positioned(
+              top: 7,
+              right: 23,
+              child: _buildFolderCountLabel(context, folder.reelCount),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderShape(
+    BuildContext context,
+    FolderSummary folder,
+    Color accent,
+    String? note,
+  ) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: 0,
+          top: 0,
+          child: Container(
+            width: 66,
+            height: 20,
+            decoration: BoxDecoration(
+              color: accent,
+              border: Border.all(color: AppTheme.fg(context), width: 2),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          top: 15,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(10, 16, 10, 8),
+            decoration: BoxDecoration(
+              color: accent,
+              border: Border.all(color: AppTheme.fg(context), width: 2),
+              boxShadow: AppTheme.brutalShadowSmall(context),
+            ),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Text(
+                folder.name.toUpperCase(),
+                style: GoogleFonts.spaceMono(
+                  color: AppTheme.black,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ),
+        if (note != null && note.isNotEmpty)
+          Positioned(
+            left: 22,
+            right: 12,
+            bottom: 9,
+            child: _buildPinnedFolderNote(context, note),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPinnedFolderNote(BuildContext context, String note) {
+    return Transform.rotate(
+      angle: -0.025,
+      child: SizedBox(
+        height: 48,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              left: 3,
+              top: 5,
+              bottom: 0,
+              child: ClipPath(
+                clipper: _FolderNoteClipper(),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.black.withAlpha(70),
+                    border: Border.all(color: AppTheme.fg(context), width: 1),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              top: 3,
+              bottom: 2,
+              child: ClipPath(
+                clipper: _FolderNoteClipper(),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(9, 9, 9, 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEA75),
+                    border: Border.all(color: AppTheme.fg(context), width: 1.5),
+                  ),
+                  child: Text(
+                    note.toUpperCase(),
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.black,
+                      fontSize: 6.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 8,
+              bottom: 0,
+              child: Transform.rotate(
+                angle: -0.08,
+                child: Container(
+                  width: 30,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD94A),
+                    border: Border.all(color: AppTheme.fg(context), width: 1.2),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderCountLabel(BuildContext context, int reelCount) {
+    return Transform.rotate(
+      angle: -0.025,
+      child: Text(
+        '$reelCount REEL${reelCount == 1 ? '' : 'S'}',
+        style: GoogleFonts.spaceMono(
+          color: AppTheme.fg(context),
+          fontSize: 7.5,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1689,4 +2058,24 @@ class _WeekdayLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _FolderNoteClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width - 6, size.height - 10)
+      ..quadraticBezierTo(
+        size.width * 0.55,
+        size.height + 5,
+        0,
+        size.height - 5,
+      )
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

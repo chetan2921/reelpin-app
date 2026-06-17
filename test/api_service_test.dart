@@ -217,6 +217,86 @@ void main() {
   });
 
   test(
+    'createFolder posts selected reels and parses folder response',
+    () async {
+      final service = ApiService(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(request.headers['Content-Type'], contains('application/json'));
+          expect(request.url.toString(), 'https://example.com/api/v1/folders');
+          expect(jsonDecode(request.body), {
+            'name': 'Goa trip',
+            'note': 'Places',
+            'reel_ids': ['reel-a', 'reel-b'],
+            'move_existing': false,
+          });
+          return http.Response(
+            jsonEncode({
+              'folder': {
+                'id': 'folder-123',
+                'name': 'Goa trip',
+                'note': 'Places',
+                'reel_count': 2,
+              },
+              'moved_reel_count': 0,
+            }),
+            200,
+          );
+        }),
+      );
+
+      final response = await service.createFolder(
+        name: 'Goa trip',
+        note: 'Places',
+        reelIds: ['reel-a', 'reel-b'],
+      );
+
+      expect(response.folder.id, 'folder-123');
+      expect(response.folder.reelCount, 2);
+      expect(response.movedReelCount, 0);
+    },
+  );
+
+  test(
+    'createFolder throws folder conflict exception on assigned reels',
+    () async {
+      final service = ApiService(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          return http.Response(
+            jsonEncode({
+              'error': 'reels_already_in_folder',
+              'message': 'Some reels already belong to another folder.',
+              'conflicts': [
+                {
+                  'reel_id': 'reel-a',
+                  'current_folder_id': 'folder-old',
+                  'current_folder_name': 'Japan food',
+                },
+              ],
+            }),
+            409,
+          );
+        }),
+      );
+
+      await expectLater(
+        service.createFolder(name: 'Goa trip', reelIds: ['reel-a']),
+        throwsA(
+          isA<FolderConflictException>().having(
+            (error) => error.conflicts.single.currentFolderName,
+            'currentFolderName',
+            'Japan food',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
     'registerPushToken sends auth header without user_id body field',
     () async {
       final service = ApiService(

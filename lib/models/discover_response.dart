@@ -1,3 +1,4 @@
+import 'folder.dart';
 import 'reel.dart';
 
 class DiscoverResponse {
@@ -9,6 +10,7 @@ class DiscoverResponse {
     required this.categoryGrid,
     required this.quickSearchPrompts,
     required this.pagination,
+    this.folders = const [],
     this.selectedDate,
   });
 
@@ -20,6 +22,7 @@ class DiscoverResponse {
   final List<DiscoverCategory> categoryGrid;
   final List<String> quickSearchPrompts;
   final DiscoverPagination pagination;
+  final List<FolderSummary> folders;
 
   factory DiscoverResponse.fromJson(Map<String, dynamic> json) {
     return DiscoverResponse(
@@ -51,6 +54,12 @@ class DiscoverResponse {
       pagination: DiscoverPagination.fromJson(
         Map<String, dynamic>.from(json['pagination'] as Map? ?? const {}),
       ),
+      folders: (json['folders'] as List<dynamic>? ?? const [])
+          .map(
+            (row) =>
+                FolderSummary.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
+          .toList(growable: false),
     );
   }
 

@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/api_config.dart';
 import '../models/discover_response.dart';
+import '../models/folder.dart';
 import '../models/library_stats.dart';
 import '../models/map_response.dart';
 import '../models/processing_job.dart';
@@ -548,6 +549,198 @@ class ApiService {
     );
   }
 
+  Future<List<FolderSummary>> getFolders() async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .get(_apiUri(baseUrl, '/api/v1/folders'), headers: _headers())
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load folders right now.',
+      );
+    }
+
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return (body['folders'] as List<dynamic>? ?? const [])
+        .map((row) => FolderSummary.fromJson(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
+  }
+
+  Future<FolderMutationResponse> createFolder({
+    required String name,
+    String? note,
+    List<String> reelIds = const [],
+    bool moveExisting = false,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/folders'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'name': name,
+              'note': ?note,
+              'reel_ids': reelIds,
+              'move_existing': moveExisting,
+            }),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode == 409) {
+      throw _folderConflictFromResponse(res);
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not create the folder right now.',
+      );
+    }
+
+    return FolderMutationResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<FolderDetailResponse> getFolder(
+    String folderId, {
+    int? offset,
+    String? cursor,
+    int limit = 25,
+  }) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final params = <String, String>{
+        'limit': limit.toString(),
+        if (offset != null) 'offset': offset.toString(),
+        if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
+      };
+      return _client
+          .get(
+            _apiUri(
+              baseUrl,
+              '/api/v1/folders/$folderId',
+              queryParameters: params,
+            ),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
+    });
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load the folder right now.',
+      );
+    }
+
+    return FolderDetailResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<FolderSummary> updateFolder(
+    String folderId, {
+    String? name,
+    String? note,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .patch(
+            _apiUri(baseUrl, '/api/v1/folders/$folderId'),
+            headers: _headers(json: true),
+            body: jsonEncode({'name': ?name, 'note': ?note}),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not update the folder right now.',
+      );
+    }
+
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return FolderSummary.fromJson(
+      Map<String, dynamic>.from(body['folder'] as Map? ?? const {}),
+    );
+  }
+
+  Future<void> deleteFolder(String folderId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/folders/$folderId'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not delete the folder right now.',
+      );
+    }
+  }
+
+  Future<FolderMutationResponse> addReelsToFolder({
+    required String folderId,
+    required List<String> reelIds,
+    bool moveExisting = false,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/folders/$folderId/reels'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'reel_ids': reelIds,
+              'move_existing': moveExisting,
+            }),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode == 409) {
+      throw _folderConflictFromResponse(res);
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not add reels to the folder right now.',
+      );
+    }
+
+    return FolderMutationResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> removeReelFromFolder({
+    required String folderId,
+    required String reelId,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/folders/$folderId/reels/$reelId'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not remove the reel from this folder.',
+      );
+    }
+  }
+
   Future<LibraryStats> getLibraryStats() async {
     final res = await _requestWithFailover(
       (baseUrl) => _client
@@ -799,13 +992,35 @@ class ApiService {
     );
   }
 
+  FolderConflictException _folderConflictFromResponse(http.Response res) {
+    try {
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final conflicts = (body['conflicts'] as List<dynamic>? ?? const [])
+          .map(
+            (row) =>
+                FolderConflict.fromJson(Map<String, dynamic>.from(row as Map)),
+          )
+          .toList(growable: false);
+      return FolderConflictException(
+        body['message']?.toString() ??
+            'Some reels already belong to another folder.',
+        conflicts,
+      );
+    } catch (_) {
+      return const FolderConflictException(
+        'Some reels already belong to another folder.',
+        [],
+      );
+    }
+  }
+
   _ApiErrorPayload _extractErrorPayload(http.Response res) {
     try {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       return _ApiErrorPayload(
         message: body['message']?.toString(),
         detail: body['detail']?.toString(),
-        errorCode: body['error_code']?.toString(),
+        errorCode: body['error_code']?.toString() ?? body['error']?.toString(),
         retryable: body['retryable'] == true,
       );
     } catch (_) {
@@ -879,6 +1094,16 @@ class ApiException implements Exception {
   bool get isMonthlyReelLimitReached =>
       errorCode == 'monthly_reel_limit_reached';
   bool get isHistoryUpgradeRequired => errorCode == 'history_upgrade_required';
+
+  @override
+  String toString() => message;
+}
+
+class FolderConflictException implements Exception {
+  const FolderConflictException(this.message, this.conflicts);
+
+  final String message;
+  final List<FolderConflict> conflicts;
 
   @override
   String toString() => message;

@@ -203,6 +203,7 @@ class DiscoverViewModel extends ChangeNotifier {
           categoryGrid: categoryGrid,
           quickSearchPrompts: discover.quickSearchPrompts,
           pagination: discover.pagination,
+          folders: discover.folders,
           selectedDate: discover.selectedDate,
         );
         changed = true;

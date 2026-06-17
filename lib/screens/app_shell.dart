@@ -31,15 +31,20 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   static const _permissionsPromptedKey =
       'app_shell_initial_permissions_prompted_v6';
+  static const coachCompletedKey = 'app_shell_coach_completed_v1';
   static const _shareConfirmationDuration = Duration(milliseconds: 1400);
   static const _resumeRefreshInterval = Duration(minutes: 5);
 
   int _currentIndex = 0;
+  int _coachStepIndex = 0;
   StreamSubscription? _mediaIntentSub;
   bool _isQueueingSharedReel = false;
   String? _lastHandledSharedPayload;
   bool _isCheckingInitialPermissions = false;
+  bool _isLoadingCoachState = true;
+  bool _showCoach = false;
   int _searchFocusRequestId = 0;
+  int _folderSelectionRequestId = 0;
   DateTime? _lastResumeRefreshAt;
 
   static const _navItems = [
@@ -68,6 +73,7 @@ class _AppShellState extends ConsumerState<AppShell>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_maybePromptInitialPermissions());
       unawaited(_drainPendingNativeShares());
+      unawaited(_loadCoachState());
     });
   }
 
@@ -369,6 +375,53 @@ class _AppShellState extends ConsumerState<AppShell>
     return attemptedPermissionPrompt;
   }
 
+  Future<void> _loadCoachState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final completed = prefs.getBool(coachCompletedKey) ?? false;
+    if (!mounted) return;
+    setState(() {
+      _isLoadingCoachState = false;
+      _showCoach = !completed;
+      _coachStepIndex = 0;
+      if (_showCoach) {
+        _currentIndex = _coachSteps.first.tabIndex;
+      }
+    });
+  }
+
+  Future<void> _completeCoach() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(coachCompletedKey, true);
+    if (!mounted) return;
+    setState(() {
+      _showCoach = false;
+      _coachStepIndex = 0;
+    });
+  }
+
+  void _nextCoachStep() {
+    if (_coachStepIndex >= _coachSteps.length - 1) {
+      unawaited(_completeCoach());
+      return;
+    }
+    final nextIndex = _coachStepIndex + 1;
+    setState(() {
+      _coachStepIndex = nextIndex;
+      _currentIndex = _coachSteps[nextIndex].tabIndex;
+    });
+    _refreshSelectedContent(_coachSteps[nextIndex].tabIndex);
+  }
+
+  void _openCoach() {
+    Navigator.pop(context);
+    setState(() {
+      _showCoach = true;
+      _coachStepIndex = 0;
+      _currentIndex = _coachSteps.first.tabIndex;
+    });
+    _refreshSelectedContent(_coachSteps.first.tabIndex);
+  }
+
   Future<void> _syncPushTokenRegistrationIfPossible() async {
     final notificationService = ref.read(notificationServiceProvider);
     final apiService = ref.read(apiServiceProvider);
@@ -403,6 +456,15 @@ class _AppShellState extends ConsumerState<AppShell>
     _refreshSelectedContent(2);
   }
 
+  void _startFolderSelectionFromDiscover() {
+    setState(() {
+      _currentIndex = 0;
+      _folderSelectionRequestId += 1;
+      _showCoach = false;
+    });
+    _refreshSelectedContent(0);
+  }
+
   Future<void> _refreshSavedContent() async {
     await ref.read(entitlementsViewModelProvider).refresh(reloadContent: true);
   }
@@ -429,19 +491,51 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        color: AppTheme.bg(context),
-        child: IndexedStack(
-          index: _currentIndex,
+    return PopScope(
+      canPop: _currentIndex == 0 && !_showCoach,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_showCoach) {
+          unawaited(_completeCoach());
+          return;
+        }
+        if (_currentIndex == 0) return;
+        _selectTab(0);
+      },
+      child: Scaffold(
+        body: Stack(
           children: [
-            HomeScreen(onSearchTap: _openSearchFromHome),
-            const MapScreen(),
-            SearchScreen(focusRequestId: _searchFocusRequestId),
+            Container(
+              color: AppTheme.bg(context),
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  HomeScreen(
+                    onSearchTap: _openSearchFromHome,
+                    isActive: _currentIndex == 0,
+                    folderSelectionRequestId: _folderSelectionRequestId,
+                  ),
+                  const MapScreen(),
+                  SearchScreen(
+                    focusRequestId: _searchFocusRequestId,
+                    onCreateFolderTap: _startFolderSelectionFromDiscover,
+                    onShowAppGuide: _openCoach,
+                  ),
+                ],
+              ),
+            ),
+            if (_showCoach && !_isLoadingCoachState)
+              _CoachOverlay(
+                step: _coachSteps[_coachStepIndex],
+                stepNumber: _coachStepIndex + 1,
+                totalSteps: _coachSteps.length,
+                onNext: _nextCoachStep,
+                onSkip: () => unawaited(_completeCoach()),
+              ),
           ],
         ),
+        bottomNavigationBar: _buildNavBar(),
       ),
-      bottomNavigationBar: _buildNavBar(),
     );
   }
 
@@ -520,4 +614,215 @@ class _NavItem {
     required this.activeIcon,
     required this.label,
   });
+}
+
+const _coachSteps = [
+  _CoachStep(
+    tabIndex: 0,
+    icon: Icons.home_rounded,
+    title: 'HOME',
+    body:
+        'YOUR SAVED REELS LIVE HERE. TAP A CARD TO OPEN IT, OR LONG PRESS TO SELECT REELS.',
+    accent: AppTheme.yellow,
+  ),
+  _CoachStep(
+    tabIndex: 0,
+    icon: Icons.ios_share,
+    title: 'SAVE REELS',
+    body:
+        'SHARE AN INSTAGRAM REEL TO REELPIN FROM YOUR PHONE. WE SAVE IT AND PROCESS IT IN THE BACKGROUND.',
+    accent: AppTheme.neonGreen,
+  ),
+  _CoachStep(
+    tabIndex: 2,
+    icon: Icons.folder_rounded,
+    title: 'FOLDERS',
+    body:
+        'GROUP IMPORTANT REELS INTO YOUR OWN FOLDERS. START FROM DISCOVER OR LONG PRESS REELS ON HOME.',
+    accent: AppTheme.cyan,
+  ),
+  _CoachStep(
+    tabIndex: 1,
+    icon: Icons.map_rounded,
+    title: 'MAP',
+    body:
+        'REELS WITH PLACES SHOW UP ON THE MAP SO YOU CAN FIND TRIPS, FOOD, AND LOCATIONS AGAIN.',
+    accent: AppTheme.hotPink,
+  ),
+  _CoachStep(
+    tabIndex: 2,
+    icon: Icons.explore_rounded,
+    title: 'DISCOVER',
+    body:
+        'SEARCH YOUR SAVES, FILTER BY DATE, OPEN FOLDERS, AND BROWSE BY CATEGORY FROM HERE.',
+    accent: AppTheme.blue,
+  ),
+];
+
+class _CoachStep {
+  const _CoachStep({
+    required this.tabIndex,
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.accent,
+  });
+
+  final int tabIndex;
+  final IconData icon;
+  final String title;
+  final String body;
+  final Color accent;
+}
+
+class _CoachOverlay extends StatelessWidget {
+  const _CoachOverlay({
+    required this.step,
+    required this.stepNumber,
+    required this.totalSteps,
+    required this.onNext,
+    required this.onSkip,
+  });
+
+  final _CoachStep step;
+  final int stepNumber;
+  final int totalSteps;
+  final VoidCallback onNext;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    final isLastStep = stepNumber == totalSteps;
+
+    return Positioned.fill(
+      child: Material(
+        color: AppTheme.black.withAlpha(150),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              layout.inset(20),
+              layout.gap(16),
+              layout.inset(20),
+              layout.gap(88),
+            ),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                width: double.infinity,
+                decoration: AppTheme.brutalCard(
+                  context,
+                  color: AppTheme.bg(context),
+                ),
+                padding: EdgeInsets.all(layout.inset(16)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: layout.inset(42),
+                          height: layout.inset(42),
+                          decoration: AppTheme.brutalBox(
+                            context,
+                            color: step.accent,
+                            shadow: false,
+                          ),
+                          child: Icon(
+                            step.icon,
+                            color: step.accent.computeLuminance() > 0.5
+                                ? AppTheme.black
+                                : AppTheme.white,
+                            size: layout.inset(22),
+                          ),
+                        ),
+                        SizedBox(width: layout.inset(12)),
+                        Expanded(
+                          child: Text(
+                            step.title,
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.fg(context),
+                              fontSize: layout.font(18),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '$stepNumber/$totalSteps',
+                          style: GoogleFonts.spaceMono(
+                            color: AppTheme.textSec(context),
+                            fontSize: layout.font(11),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: layout.gap(14)),
+                    Text(
+                      step.body,
+                      style: GoogleFonts.spaceMono(
+                        color: AppTheme.fg(context),
+                        fontSize: layout.font(12),
+                        fontWeight: FontWeight.w600,
+                        height: 1.45,
+                      ),
+                    ),
+                    SizedBox(height: layout.gap(16)),
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: onSkip,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: layout.inset(6),
+                              vertical: layout.gap(10),
+                            ),
+                            child: Text(
+                              'SKIP',
+                              style: GoogleFonts.spaceMono(
+                                color: AppTheme.textSec(context),
+                                fontSize: layout.font(12),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: onNext,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: layout.inset(18),
+                              vertical: layout.gap(11),
+                            ),
+                            decoration: AppTheme.brutalBox(
+                              context,
+                              color: step.accent,
+                              shadow: true,
+                            ),
+                            child: Text(
+                              isLastStep ? 'DONE' : 'NEXT',
+                              style: GoogleFonts.spaceMono(
+                                color: step.accent.computeLuminance() > 0.5
+                                    ? AppTheme.black
+                                    : AppTheme.white,
+                                fontSize: layout.font(12),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

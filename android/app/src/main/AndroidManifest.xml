@@ -59,6 +59,11 @@
                 <data android:mimeType="text/*" />
             </intent-filter>
         </activity>
+        <provider
+            android:name=".ReelShareFileProvider"
+            android:authorities="${applicationId}.reelshare"
+            android:exported="false"
+            android:grantUriPermissions="true" />
         <service
             android:name=".ShareEnqueueService"
             android:exported="false"

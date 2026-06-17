@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import 'category_filters_viewmodel.dart';
 import 'discover_viewmodel.dart';
+import 'folders_viewmodel.dart';
 import 'home_viewmodel.dart';
 import 'map_viewmodel.dart';
 import 'search_viewmodel.dart';
@@ -21,6 +22,7 @@ class EntitlementsViewModel extends ChangeNotifier {
     this._mapViewModel,
     this._categoryFiltersViewModel,
     this._discoverViewModel,
+    this._foldersViewModel,
     this._searchViewModel,
   );
 
@@ -31,6 +33,7 @@ class EntitlementsViewModel extends ChangeNotifier {
   final MapViewModel _mapViewModel;
   final CategoryFiltersViewModel _categoryFiltersViewModel;
   final DiscoverViewModel _discoverViewModel;
+  final FoldersViewModel _foldersViewModel;
   final SearchViewModel _searchViewModel;
 
   EntitlementsResponse? _response;
@@ -96,6 +99,7 @@ class EntitlementsViewModel extends ChangeNotifier {
         _mapViewModel.reset();
         _categoryFiltersViewModel.reset();
         _discoverViewModel.reset();
+        _foldersViewModel.reset();
         _searchViewModel.clear();
       }
 
@@ -108,6 +112,7 @@ class EntitlementsViewModel extends ChangeNotifier {
         _mapViewModel.reset();
         _categoryFiltersViewModel.reset();
         _discoverViewModel.reset();
+        _foldersViewModel.reset();
         _searchViewModel.clear();
       }
 

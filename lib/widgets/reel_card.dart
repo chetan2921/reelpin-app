@@ -8,12 +8,18 @@ class ReelCard extends StatefulWidget {
   final Reel reel;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onLongPress;
+  final bool isSelectionMode;
+  final bool isSelected;
 
   const ReelCard({
     super.key,
     required this.reel,
     required this.onTap,
     this.onDelete,
+    this.onLongPress,
+    this.isSelectionMode = false,
+    this.isSelected = false,
   });
 
   @override
@@ -66,9 +72,9 @@ class _ReelCardState extends State<ReelCard>
         _controller.reverse();
         setState(() => _isPressed = false);
       },
-      onLongPress: widget.onDelete != null
-          ? () => _showDeleteSheet(context)
-          : null,
+      onLongPress:
+          widget.onLongPress ??
+          (widget.onDelete != null ? () => _showDeleteSheet(context) : null),
       child: AnimatedBuilder(
         animation: _scaleAnim,
         builder: (context, child) {
@@ -91,6 +97,46 @@ class _ReelCardState extends State<ReelCard>
                   ? _buildThumbnailCard(context, reel, catColor)
                   : _buildTextCard(context, reel, catColor),
             ),
+            if (widget.isSelectionMode)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: widget.isSelected
+                        ? AppTheme.yellow.withAlpha(100)
+                        : AppTheme.black.withAlpha(35),
+                    border: Border.all(
+                      color: widget.isSelected
+                          ? AppTheme.yellow
+                          : AppTheme.fg(context),
+                      width: 3,
+                    ),
+                  ),
+                ),
+              ),
+            if (widget.isSelectionMode)
+              Positioned(
+                left: layout.inset(10),
+                top: layout.gap(10),
+                child: Container(
+                  width: layout.inset(28),
+                  height: layout.inset(28),
+                  decoration: BoxDecoration(
+                    color: widget.isSelected
+                        ? AppTheme.yellow
+                        : AppTheme.bg(context),
+                    border: Border.all(color: AppTheme.fg(context), width: 2),
+                    boxShadow: AppTheme.brutalShadowSmall(context),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    widget.isSelected ? Icons.check : Icons.add,
+                    color: widget.isSelected
+                        ? AppTheme.black
+                        : AppTheme.fg(context),
+                    size: layout.inset(16),
+                  ),
+                ),
+              ),
             // The tiny hole indicating pierced paper
             Positioned(
               right: layout.inset(14),

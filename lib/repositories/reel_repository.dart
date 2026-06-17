@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/discover_response.dart';
+import '../models/folder.dart';
 import '../models/library_stats.dart';
 import '../models/map_response.dart';
 import '../models/processing_job.dart';
@@ -266,6 +267,69 @@ class ReelRepository extends ChangeNotifier {
       cursor: cursor,
       limit: limit,
     );
+  }
+
+  Future<List<FolderSummary>> getFolders() {
+    return _apiService.getFolders();
+  }
+
+  Future<FolderMutationResponse> createFolder({
+    required String name,
+    String? note,
+    List<String> reelIds = const [],
+    bool moveExisting = false,
+  }) {
+    return _apiService.createFolder(
+      name: name,
+      note: note,
+      reelIds: reelIds,
+      moveExisting: moveExisting,
+    );
+  }
+
+  Future<FolderDetailResponse> getFolder(
+    String folderId, {
+    int? offset,
+    String? cursor,
+    int limit = _pageSize,
+  }) {
+    return _apiService.getFolder(
+      folderId,
+      offset: offset,
+      cursor: cursor,
+      limit: limit,
+    );
+  }
+
+  Future<FolderSummary> updateFolder(
+    String folderId, {
+    String? name,
+    String? note,
+  }) {
+    return _apiService.updateFolder(folderId, name: name, note: note);
+  }
+
+  Future<void> deleteFolder(String folderId) {
+    return _apiService.deleteFolder(folderId);
+  }
+
+  Future<FolderMutationResponse> addReelsToFolder({
+    required String folderId,
+    required List<String> reelIds,
+    bool moveExisting = false,
+  }) {
+    return _apiService.addReelsToFolder(
+      folderId: folderId,
+      reelIds: reelIds,
+      moveExisting: moveExisting,
+    );
+  }
+
+  Future<void> removeReelFromFolder({
+    required String folderId,
+    required String reelId,
+  }) {
+    return _apiService.removeReelFromFolder(folderId: folderId, reelId: reelId);
   }
 
   Future<LibraryStats> getLibraryStats() {

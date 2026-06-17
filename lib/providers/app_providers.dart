@@ -9,6 +9,7 @@ import '../services/share_flow_analytics_service.dart';
 import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/discover_viewmodel.dart';
 import '../viewmodels/entitlements_viewmodel.dart';
+import '../viewmodels/folders_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
 import '../viewmodels/search_viewmodel.dart';
@@ -60,6 +61,7 @@ final homeViewModelProvider = ChangeNotifierProvider<HomeViewModel>((ref) {
     onReelDeleted: (reelId) {
       ref.read(mapViewModelProvider).removeReel(reelId);
       ref.read(discoverViewModelProvider).removeReel(reelId);
+      ref.read(foldersViewModelProvider).removeReel(reelId);
       ref.read(searchViewModelProvider).removeReel(reelId);
     },
   );
@@ -80,6 +82,12 @@ final discoverViewModelProvider = ChangeNotifierProvider<DiscoverViewModel>((
   return DiscoverViewModel(ref.read(reelRepositoryProvider));
 });
 
+final foldersViewModelProvider = ChangeNotifierProvider<FoldersViewModel>((
+  ref,
+) {
+  return FoldersViewModel(ref.read(reelRepositoryProvider));
+});
+
 final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>((ref) {
   return SearchViewModel(ref.read(reelRepositoryProvider));
 });
@@ -94,6 +102,7 @@ final entitlementsViewModelProvider =
         ref.read(mapViewModelProvider),
         ref.read(categoryFiltersViewModelProvider),
         ref.read(discoverViewModelProvider),
+        ref.read(foldersViewModelProvider),
         ref.read(searchViewModelProvider),
       );
     });

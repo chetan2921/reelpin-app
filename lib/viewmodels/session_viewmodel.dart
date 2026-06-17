@@ -10,8 +10,10 @@ import '../services/share_handoff_service.dart';
 class SessionViewModel extends ChangeNotifier {
   SessionViewModel(this._authService) {
     _session = _authService.currentSession;
+    _hasSignedOutLocally = _session == null;
     _subscription = _authService.authStateChanges.listen((state) {
       _session = state.session;
+      _hasSignedOutLocally = state.session == null;
       _error = null;
       notifyListeners();
       _syncProfileSilently();
@@ -28,11 +30,13 @@ class SessionViewModel extends ChangeNotifier {
   bool _isSigningIn = false;
   bool _isSigningOut = false;
   bool _isDeletingAccount = false;
+  bool _hasSignedOutLocally = false;
   String? _error;
   String? _statusMessage;
 
   Session? get session => _session;
-  User? get currentUser => _session?.user ?? _authService.currentUser;
+  User? get currentUser =>
+      _hasSignedOutLocally ? null : _session?.user ?? _authService.currentUser;
   bool get isAuthenticated => currentUser != null;
   bool get isBootstrapping => _isBootstrapping;
   bool get isSigningIn => _isSigningIn;
@@ -111,6 +115,7 @@ class SessionViewModel extends ChangeNotifier {
 
     try {
       await _authService.signInWithApple();
+      _hasSignedOutLocally = false;
       await _syncProfileSilently();
     } catch (e) {
       _error = _normalizeError(e);
@@ -133,8 +138,10 @@ class SessionViewModel extends ChangeNotifier {
       try {
         await ApiService().revokeShareToken();
       } catch (_) {}
-      await _authService.signOut();
       _session = null;
+      _hasSignedOutLocally = true;
+      notifyListeners();
+      await _authService.signOut();
       await ShareHandoffService.instance.clear();
     } catch (e) {
       _error = _normalizeError(e);
@@ -153,9 +160,19 @@ class SessionViewModel extends ChangeNotifier {
 
     try {
       await ApiService().deleteAccount();
-      await ShareHandoffService.instance.clear();
-      await _authService.signOut();
       _session = null;
+      _hasSignedOutLocally = true;
+      notifyListeners();
+      try {
+        await ShareHandoffService.instance.clear();
+      } catch (e) {
+        debugPrint('Share handoff clear skipped after account deletion: $e');
+      }
+      try {
+        await _authService.signOut();
+      } catch (e) {
+        debugPrint('Supabase sign-out skipped after account deletion: $e');
+      }
       return true;
     } catch (e) {
       _error = _normalizeError(e);
@@ -179,6 +196,7 @@ class SessionViewModel extends ChangeNotifier {
 
     try {
       await _authService.signInWithEmail(email: email, password: password);
+      _hasSignedOutLocally = false;
       await _syncProfileSilently();
       return true;
     } catch (e) {
@@ -213,6 +231,7 @@ class SessionViewModel extends ChangeNotifier {
         _statusMessage =
             'ACCOUNT CREATED. CHECK YOUR EMAIL, VERIFY IT, THEN SIGN IN.';
       } else {
+        _hasSignedOutLocally = false;
         await _syncProfileSilently();
         _statusMessage = 'ACCOUNT READY. WELCOME TO REELPIN.';
       }

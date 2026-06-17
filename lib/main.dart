@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
+import 'navigation/app_navigator.dart';
 import 'providers/app_providers.dart';
 import 'repositories/reel_repository.dart';
 import 'screens/app_shell.dart';
@@ -26,6 +27,7 @@ import 'theme/app_theme.dart';
 import 'viewmodels/category_filters_viewmodel.dart';
 import 'viewmodels/discover_viewmodel.dart';
 import 'viewmodels/entitlements_viewmodel.dart';
+import 'viewmodels/folders_viewmodel.dart';
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/map_viewmodel.dart';
 import 'viewmodels/search_viewmodel.dart';
@@ -75,6 +77,7 @@ class ReelPinApp extends ConsumerWidget {
     return MaterialApp(
       title: 'ReelPin',
       debugShowCheckedModeBanner: false,
+      navigatorKey: appNavigatorKey,
       theme: AppTheme.brutalTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeVm.themeMode,
@@ -136,6 +139,16 @@ class _AppEntryState extends ConsumerState<AppEntry> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(
+      sessionViewModelProvider.select((sessionVm) => sessionVm.isAuthenticated),
+      (wasAuthenticated, isAuthenticated) {
+        if (wasAuthenticated != true || isAuthenticated) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          resetRootNavigatorToAppEntry();
+        });
+      },
+    );
+
     final sessionVm = ref.watch(sessionViewModelProvider);
 
     if (!_hasCompletedSplash ||
@@ -179,6 +192,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   late final MapViewModel _mapViewModel;
   late final CategoryFiltersViewModel _categoryFiltersViewModel;
   late final DiscoverViewModel _discoverViewModel;
+  late final FoldersViewModel _foldersViewModel;
   late final SearchViewModel _searchViewModel;
   late final EntitlementsViewModel _entitlementsViewModel;
   StreamSubscription<String>? _tokenRefreshSubscription;
@@ -201,6 +215,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _mapViewModel = ref.read(mapViewModelProvider);
     _categoryFiltersViewModel = ref.read(categoryFiltersViewModelProvider);
     _discoverViewModel = ref.read(discoverViewModelProvider);
+    _foldersViewModel = ref.read(foldersViewModelProvider);
     _searchViewModel = ref.read(searchViewModelProvider);
     _entitlementsViewModel = ref.read(entitlementsViewModelProvider);
     _activeUserId = _authService.currentUser?.id;
@@ -214,7 +229,10 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       }
     });
     _initializeBackgroundMessaging();
-    unawaited(_entitlementsViewModel.refresh(reloadContent: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_entitlementsViewModel.refresh(reloadContent: true));
+    });
   }
 
   @override
@@ -336,6 +354,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _mapViewModel.reset();
     _homeViewModel.reset();
     _discoverViewModel.reset();
+    _foldersViewModel.reset();
     _repository.clearCache();
     _entitlementsViewModel.reset();
     _lastRegisteredPushUserId = null;

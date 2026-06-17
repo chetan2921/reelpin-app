@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/library_stats.dart';
+import '../navigation/app_navigator.dart';
 import '../providers/app_providers.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
@@ -11,7 +12,9 @@ import '../services/share_handoff_service.dart';
 import '../theme/app_theme.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.onShowAppGuide});
+
+  final VoidCallback? onShowAppGuide;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -237,6 +240,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
                 SizedBox(height: layout.gap(14)),
+                _actionCard(
+                  context,
+                  color: AppTheme.bg(context),
+                  title: 'APP GUIDE',
+                  subtitle:
+                      'REPLAY THE SHORT GUIDE FOR SAVING, SEARCHING, MAPS, AND FOLDERS.',
+                  trailing: GestureDetector(
+                    onTap: widget.onShowAppGuide,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.inset(12),
+                        vertical: layout.gap(10),
+                      ),
+                      decoration: AppTheme.brutalBox(
+                        context,
+                        color: AppTheme.cyan,
+                        shadow: false,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.lightbulb_outline,
+                            size: 16,
+                            color: AppTheme.black,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'SHOW',
+                            style: GoogleFonts.spaceMono(
+                              color: AppTheme.black,
+                              fontSize: layout.font(11),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: layout.gap(14)),
                 const _NotificationPreferenceCard(),
                 SizedBox(height: layout.gap(14)),
                 const _LocationPreferenceCard(),
@@ -330,26 +374,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _confirmDeleteAccount() async {
-    final shouldContinue = await _showDeleteAccountDialog(
+    final shouldDelete = await _showDeleteAccountDialog(
       title: 'DELETE ACCOUNT?',
       message:
-          'This will permanently delete your ReelPin account and all saved data.',
-      actionLabel: 'CONTINUE',
-    );
-    if (shouldContinue != true || !mounted) return;
-
-    final shouldDelete = await _showDeleteAccountDialog(
-      title: 'FINAL CONFIRMATION',
-      message:
-          'All saved reels, profile data, share tokens, and account data will be deleted. This cannot be undone.',
+          'Your saved data will be removed and your ReelPin account will be deleted. This cannot be undone.',
       actionLabel: 'DELETE ACCOUNT',
     );
     if (shouldDelete != true || !mounted) return;
 
     final sessionVm = ref.read(sessionViewModelProvider);
     final success = await sessionVm.deleteAccount();
-    if (!mounted || !success) return;
+    if (!success) return;
 
+    if (!mounted) return;
     ref.read(searchViewModelProvider).clear();
     ref.read(categoryFiltersViewModelProvider).reset();
     ref.read(mapViewModelProvider).reset();
@@ -357,10 +394,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.read(discoverViewModelProvider).reset();
     ref.read(reelRepositoryProvider).clearCache();
     ref.read(entitlementsViewModelProvider).reset();
-
-    if (context.mounted) {
-      Navigator.pop(context);
-    }
+    resetRootNavigatorToAppEntry();
   }
 
   Future<bool?> _showDeleteAccountDialog({
