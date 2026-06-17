@@ -16,9 +16,10 @@ import 'paywall_screen.dart';
 import 'reel_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key, this.onSearchTap});
+  const HomeScreen({super.key, this.onSearchTap, this.scrollController});
 
   final VoidCallback? onSearchTap;
+  final ScrollController? scrollController;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -73,6 +74,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               return false;
             },
             child: CustomScrollView(
+              controller: widget.scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 // ── Header ──

@@ -41,6 +41,7 @@ class _AppShellState extends ConsumerState<AppShell>
   bool _isCheckingInitialPermissions = false;
   int _searchFocusRequestId = 0;
   DateTime? _lastResumeRefreshAt;
+  final ScrollController _homeScrollController = ScrollController();
 
   static const _navItems = [
     _NavItem(
@@ -256,6 +257,7 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _homeScrollController.dispose();
     _mediaIntentSub?.cancel();
     super.dispose();
   }
@@ -403,6 +405,29 @@ class _AppShellState extends ConsumerState<AppShell>
     _refreshSelectedContent(2);
   }
 
+  Future<void> _scrollHomeToTop() async {
+    if (!_homeScrollController.hasClients) return;
+    await _homeScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _showHomeAtTop() {
+    setState(() {
+      _currentIndex = 0;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_scrollHomeToTop());
+    });
+  }
+
+  bool _isHomeScrolledDown() {
+    if (!_homeScrollController.hasClients) return false;
+    return _homeScrollController.offset > 8;
+  }
+
   Future<void> _refreshSavedContent() async {
     await ref.read(entitlementsViewModelProvider).refresh(reloadContent: true);
   }
@@ -429,19 +454,35 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        color: AppTheme.bg(context),
-        child: IndexedStack(
-          index: _currentIndex,
-          children: [
-            HomeScreen(onSearchTap: _openSearchFromHome),
-            const MapScreen(),
-            SearchScreen(focusRequestId: _searchFocusRequestId),
-          ],
+    return PopScope(
+      canPop: _currentIndex == 0 && !_isHomeScrolledDown(),
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentIndex != 0) {
+          _showHomeAtTop();
+          return;
+        }
+        if (_isHomeScrolledDown()) {
+          unawaited(_scrollHomeToTop());
+        }
+      },
+      child: Scaffold(
+        body: Container(
+          color: AppTheme.bg(context),
+          child: IndexedStack(
+            index: _currentIndex,
+            children: [
+              HomeScreen(
+                onSearchTap: _openSearchFromHome,
+                scrollController: _homeScrollController,
+              ),
+              const MapScreen(),
+              SearchScreen(focusRequestId: _searchFocusRequestId),
+            ],
+          ),
         ),
+        bottomNavigationBar: _buildNavBar(),
       ),
-      bottomNavigationBar: _buildNavBar(),
     );
   }
 

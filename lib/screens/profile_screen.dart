@@ -330,18 +330,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _confirmDeleteAccount() async {
-    final shouldContinue = await _showDeleteAccountDialog(
+    final shouldDelete = await _showDeleteAccountDialog(
       title: 'DELETE ACCOUNT?',
       message:
-          'This will permanently delete your ReelPin account and all saved data.',
-      actionLabel: 'CONTINUE',
-    );
-    if (shouldContinue != true || !mounted) return;
-
-    final shouldDelete = await _showDeleteAccountDialog(
-      title: 'FINAL CONFIRMATION',
-      message:
-          'All saved reels, profile data, share tokens, and account data will be deleted. This cannot be undone.',
+          'This will delete your ReelPin account and all data saved in ReelPin. This cannot be undone.',
       actionLabel: 'DELETE ACCOUNT',
     );
     if (shouldDelete != true || !mounted) return;
@@ -359,7 +351,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.read(entitlementsViewModelProvider).reset();
 
     if (context.mounted) {
-      Navigator.pop(context);
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 

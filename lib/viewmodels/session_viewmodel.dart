@@ -12,6 +12,9 @@ class SessionViewModel extends ChangeNotifier {
     _session = _authService.currentSession;
     _subscription = _authService.authStateChanges.listen((state) {
       _session = state.session;
+      if (state.session != null) {
+        _forceSignedOut = false;
+      }
       _error = null;
       notifyListeners();
       _syncProfileSilently();
@@ -24,6 +27,7 @@ class SessionViewModel extends ChangeNotifier {
   StreamSubscription<AuthState>? _subscription;
 
   Session? _session;
+  bool _forceSignedOut = false;
   bool _isBootstrapping = true;
   bool _isSigningIn = false;
   bool _isSigningOut = false;
@@ -32,7 +36,8 @@ class SessionViewModel extends ChangeNotifier {
   String? _statusMessage;
 
   Session? get session => _session;
-  User? get currentUser => _session?.user ?? _authService.currentUser;
+  User? get currentUser =>
+      _forceSignedOut ? null : _session?.user ?? _authService.currentUser;
   bool get isAuthenticated => currentUser != null;
   bool get isBootstrapping => _isBootstrapping;
   bool get isSigningIn => _isSigningIn;
@@ -93,6 +98,7 @@ class SessionViewModel extends ChangeNotifier {
 
     try {
       await _authService.signInWithGoogle();
+      _forceSignedOut = false;
     } catch (e) {
       _error = _normalizeError(e);
     } finally {
@@ -111,6 +117,7 @@ class SessionViewModel extends ChangeNotifier {
 
     try {
       await _authService.signInWithApple();
+      _forceSignedOut = false;
       await _syncProfileSilently();
     } catch (e) {
       _error = _normalizeError(e);
@@ -135,6 +142,7 @@ class SessionViewModel extends ChangeNotifier {
       } catch (_) {}
       await _authService.signOut();
       _session = null;
+      _forceSignedOut = true;
       await ShareHandoffService.instance.clear();
     } catch (e) {
       _error = _normalizeError(e);
@@ -153,9 +161,14 @@ class SessionViewModel extends ChangeNotifier {
 
     try {
       await ApiService().deleteAccount();
-      await ShareHandoffService.instance.clear();
-      await _authService.signOut();
       _session = null;
+      _forceSignedOut = true;
+      await ShareHandoffService.instance.clear();
+      try {
+        await _authService.signOut();
+      } catch (e) {
+        debugPrint('Sign-out after account deletion skipped: $e');
+      }
       return true;
     } catch (e) {
       _error = _normalizeError(e);
@@ -179,6 +192,7 @@ class SessionViewModel extends ChangeNotifier {
 
     try {
       await _authService.signInWithEmail(email: email, password: password);
+      _forceSignedOut = false;
       await _syncProfileSilently();
       return true;
     } catch (e) {
@@ -213,6 +227,7 @@ class SessionViewModel extends ChangeNotifier {
         _statusMessage =
             'ACCOUNT CREATED. CHECK YOUR EMAIL, VERIFY IT, THEN SIGN IN.';
       } else {
+        _forceSignedOut = false;
         await _syncProfileSilently();
         _statusMessage = 'ACCOUNT READY. WELCOME TO REELPIN.';
       }
