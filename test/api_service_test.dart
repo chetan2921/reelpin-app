@@ -10,6 +10,18 @@ import 'package:reelpin/models/processing_job.dart';
 import 'package:reelpin/services/api_service.dart';
 
 void main() {
+  test('healthCheck uses the backend health endpoint', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      client: MockClient((request) async {
+        expect(request.url.path, '/api/v1/health');
+        return http.Response(jsonEncode({'status': 'ok'}), 200);
+      }),
+    );
+
+    expect(await service.healthCheck(), isTrue);
+  });
+
   test('processReel queues a job and polls until the reel is ready', () async {
     final requests = <Uri>[];
     final service = ApiService(

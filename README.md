@@ -163,7 +163,18 @@ The app uses the backend category-filter tree for its filter UI. It does not rel
 
 ### Supabase Config
 
-Create:
+Pass runtime config with Dart defines:
+
+```bash
+flutter run \
+  --dart-define=SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY \
+  --dart-define=SUPABASE_REDIRECT_SCHEME=com.chetan.reelpin \
+  --dart-define=SUPABASE_REDIRECT_HOST=login-callback \
+  --dart-define=API_BASE_URL=https://YOUR_BACKEND
+```
+
+For local development only, the app also tries to read:
 
 ```text
 assets/config/local.env
@@ -171,13 +182,15 @@ assets/config/local.env
 
 Example:
 
-```env
+```text
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 SUPABASE_REDIRECT_SCHEME=com.chetan.reelpin
 SUPABASE_REDIRECT_HOST=login-callback
-API_BASE_URL=https://YOUR_BACKEND/api/v1
+API_BASE_URL=https://YOUR_BACKEND
 ```
+
+Release builds ignore this file, and it is not packaged as a Flutter asset.
 
 ### Android Maps Config
 

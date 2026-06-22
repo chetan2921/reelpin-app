@@ -19,6 +19,11 @@ class SupabaseConfig {
   );
 
   static Future<void> loadLocalConfig() async {
+    if (kReleaseMode) {
+      _localValues = const {};
+      return;
+    }
+
     try {
       final raw = await rootBundle.loadString('assets/config/local.env');
       _localValues = _parseEnv(raw);
@@ -27,15 +32,11 @@ class SupabaseConfig {
     }
   }
 
-  static String get url => _firstNonEmpty(
-    _urlFromEnv,
-    _localValues['SUPABASE_URL'],
-  );
+  static String get url =>
+      _firstNonEmpty(_urlFromEnv, _localValues['SUPABASE_URL']);
 
-  static String get anonKey => _firstNonEmpty(
-    _anonKeyFromEnv,
-    _localValues['SUPABASE_ANON_KEY'],
-  );
+  static String get anonKey =>
+      _firstNonEmpty(_anonKeyFromEnv, _localValues['SUPABASE_ANON_KEY']);
 
   static String get redirectScheme => _firstNonEmpty(
     _redirectSchemeFromEnv,

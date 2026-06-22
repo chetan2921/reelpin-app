@@ -44,7 +44,7 @@ class ApiService {
     try {
       final res = await _requestWithFailover(
         (baseUrl) => _client
-            .get(_apiUri(baseUrl, '/health'), headers: _headers())
+            .get(_apiUri(baseUrl, '/api/v1/health'), headers: _headers())
             .timeout(const Duration(seconds: 5)),
       );
       return res.statusCode == 200;
