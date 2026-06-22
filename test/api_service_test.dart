@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:reelpin/models/map_response.dart';
 import 'package:reelpin/models/processing_job.dart';
 import 'package:reelpin/services/api_service.dart';
 
@@ -288,6 +289,94 @@ void main() {
     await service.deleteReel('reel-123');
   });
 
+  test('searchMapPlaces sends auth header and search params', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        expect(request.url.path, '/api/v1/map/search');
+        expect(request.url.queryParameters['query'], 'coffee');
+        expect(request.url.queryParameters['category'], 'Food');
+        expect(request.url.queryParameters['session_token'], 'session-1');
+        expect(request.url.queryParameters['limit'], '8');
+        return http.Response(
+          jsonEncode({
+            'query': 'coffee',
+            'search_mode': 'google',
+            'total': 1,
+            'results': [
+              {
+                'result_type': 'google',
+                'google_place_id': 'place-1',
+                'display_title': 'Manual Cafe',
+                'display_address': '12 Market Street',
+                'place_name': 'Manual Cafe',
+                'latitude': 12.91,
+                'longitude': 77.61,
+                'place_types': ['cafe'],
+                'can_pin': true,
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+
+    final response = await service.searchMapPlaces(
+      'coffee',
+      category: 'Food',
+      sessionToken: 'session-1',
+    );
+
+    expect(response.total, 1);
+    expect(response.results.single.googlePlaceId, 'place-1');
+    expect(response.results.single.canPin, isTrue);
+  });
+
+  test('pinMapPlace posts google place id and parses map item', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        expect(request.headers['Content-Type'], contains('application/json'));
+        expect(request.url.path, '/api/v1/map/pins');
+        expect(jsonDecode(request.body), {
+          'googlePlaceId': 'place-1',
+          'sessionToken': 'session-1',
+        });
+        return http.Response(jsonEncode(_manualMapItemJson), 200);
+      }),
+    );
+
+    final item = await service.pinMapPlace(
+      'place-1',
+      sessionToken: 'session-1',
+    );
+
+    expect(item, isA<MapItem>());
+    expect(item.mapItemId, 'manual:pin-1');
+    expect(item.displayName, 'Manual Cafe');
+    expect(item.canOpenDetails, isFalse);
+  });
+
+  test('removeMapItem deletes map item by id', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        expect(request.method, 'DELETE');
+        expect(request.url.path, '/api/v1/map/items/reel:reel-1:0');
+        return http.Response(jsonEncode({'message': 'map item removed'}), 200);
+      }),
+    );
+
+    await service.removeMapItem('reel:reel-1:0');
+  });
+
   test('deleteAccount sends auth header', () async {
     final service = ApiService(
       baseUrl: 'https://example.com',
@@ -413,4 +502,32 @@ const _reelJson = {
   'people_mentioned': <String>[],
   'actionable_items': <String>[],
   'created_at': '2026-05-23T00:00:00Z',
+};
+
+const _manualMapItemJson = {
+  'reel_id': '',
+  'title': 'Manual Cafe',
+  'summary': '12 Market Street',
+  'category': 'Food',
+  'sub_category': 'Cafes',
+  'category_label': 'Food',
+  'sub_category_label': 'Cafes',
+  'locations': <Map<String, Object?>>[],
+  'map_item_id': 'manual:pin-1',
+  'source_type': 'manual',
+  'source_id': 'pin-1',
+  'display_title': 'Manual Cafe',
+  'short_detail': '12 Market Street',
+  'marker_id': 'manual:pin-1',
+  'latitude': 12.91,
+  'longitude': 77.61,
+  'place_name': 'Manual Cafe',
+  'display_address': '12 Market Street',
+  'location_name': 'Manual Cafe',
+  'location_display_label': '12 Market Street',
+  'google_maps_url': 'https://maps.example/manual-cafe',
+  'google_place_id': 'place-1',
+  'place_types': ['cafe'],
+  'can_hide': true,
+  'can_remove': true,
 };

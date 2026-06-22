@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_config.dart';
 import '../models/discover_response.dart';
 import '../models/library_stats.dart';
+import '../models/map_place_search_response.dart';
 import '../models/map_response.dart';
 import '../models/processing_job.dart';
 import '../models/reel_category_filters.dart';
@@ -512,6 +513,87 @@ class ApiService {
     }
 
     return MapResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<MapPlaceSearchResponse> searchMapPlaces(
+    String query, {
+    String? category,
+    String? sessionToken,
+    int limit = 8,
+  }) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final params = <String, String>{
+        'query': query,
+        'limit': limit.toString(),
+        if (category != null && category.trim().isNotEmpty)
+          'category': category,
+        if (sessionToken != null && sessionToken.trim().isNotEmpty)
+          'session_token': sessionToken,
+      };
+      return _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/map/search', queryParameters: params),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
+    });
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not search map places right now.',
+      );
+    }
+
+    return MapPlaceSearchResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<MapItem> pinMapPlace(
+    String googlePlaceId, {
+    String? sessionToken,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/map/pins'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'googlePlaceId': googlePlaceId,
+              if (sessionToken != null && sessionToken.trim().isNotEmpty)
+                'sessionToken': sessionToken,
+            }),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not save this map pin right now.',
+      );
+    }
+
+    return MapItem.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<void> removeMapItem(String mapItemId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/map/items/$mapItemId'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not remove this map pin right now.',
+      );
+    }
   }
 
   Future<DiscoverResponse> getDiscover({

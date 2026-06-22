@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:reelpin/models/map_place_search_response.dart';
 import 'package:reelpin/models/map_response.dart';
 import 'package:reelpin/models/reel.dart';
 import 'package:reelpin/models/search_response.dart';
@@ -73,17 +74,107 @@ void main() {
 
     expect(viewModel.results.map((result) => result.reel.id), ['food-1']);
   });
+
+  test('map place search stores backend results', () async {
+    final repository = _FakeReelRepository.empty(
+      onMapSearch:
+          ({
+            required String query,
+            String? category,
+            String? sessionToken,
+          }) async => const MapPlaceSearchResponse(
+            query: 'brew',
+            searchMode: 'existing',
+            total: 1,
+            results: [
+              MapPlaceSearchResult(
+                resultType: 'existing',
+                sourceType: 'reel',
+                mapItem: _travelMapItem,
+                displayTitle: 'Brew Lab',
+                displayAddress: 'Brew Lab',
+                placeName: 'Brew Lab',
+                placeTypes: [],
+                canPin: false,
+              ),
+            ],
+          ),
+    );
+    final viewModel = MapViewModel(repository);
+
+    await viewModel.searchMapPlaces('brew');
+
+    expect(repository.lastMapSearchQuery, 'brew');
+    expect(repository.lastMapSearchSessionToken, isNotEmpty);
+    expect(viewModel.placeSearchResults.single.isExisting, isTrue);
+    expect(
+      viewModel.placeSearchResults.single.mapItem?.markerId,
+      'travel-1-brew-lab',
+    );
+  });
+
+  test('pinPlace upserts and selects manual map pin', () async {
+    final repository = _FakeReelRepository.empty(pinnedMapItem: _manualMapItem);
+    final viewModel = MapViewModel(repository);
+
+    final item = await viewModel.pinPlace(
+      const MapPlaceSearchResult(
+        resultType: 'google',
+        googlePlaceId: 'place-1',
+        displayTitle: 'Manual Cafe',
+        displayAddress: '12 Market Street',
+        placeName: 'Manual Cafe',
+        placeTypes: ['cafe'],
+        canPin: true,
+      ),
+    );
+
+    expect(item?.mapItemId, 'manual:pin-1');
+    expect(viewModel.mapItems.map((item) => item.mapItemId), ['manual:pin-1']);
+    expect(viewModel.selectedMapItem?.mapItemId, 'manual:pin-1');
+    expect(viewModel.totalPinnedLocations, 1);
+  });
+
+  test('removeMapItem hides selected pin locally', () async {
+    final repository = _FakeReelRepository.empty(
+      mapResponse: const MapResponse(
+        totalPinnedLocations: 2,
+        visiblePinnedLocations: 2,
+        mapItems: [_travelMapItem, _manualMapItem],
+      ),
+    );
+    final viewModel = MapViewModel(repository);
+    await viewModel.loadMapReels(forceRefresh: true);
+    viewModel.selectMapItem(_manualMapItem);
+
+    final success = await viewModel.removeMapItem(_manualMapItem);
+
+    expect(success, isTrue);
+    expect(repository.removedMapItemIds, ['manual:pin-1']);
+    expect(viewModel.mapItems.map((item) => item.mapItemId), [
+      'reel:travel-1:0',
+    ]);
+    expect(viewModel.selectedMapItem, isNull);
+    expect(viewModel.totalPinnedLocations, 1);
+    expect(viewModel.visiblePinnedLocations, 1);
+  });
 }
 
 class _FakeReelRepository extends ReelRepository {
   _FakeReelRepository({required this.onSearch})
     : cachedReels = const [],
       mapResponse = null,
+      onMapSearch = null,
+      pinnedMapItem = null,
       super(ApiService(baseUrl: 'https://example.com'), _FakeAuthService());
 
-  _FakeReelRepository.empty({this.cachedReels = const [], this.mapResponse})
-    : onSearch = _emptySearch,
-      super(ApiService(baseUrl: 'https://example.com'), _FakeAuthService());
+  _FakeReelRepository.empty({
+    this.cachedReels = const [],
+    this.mapResponse,
+    this.onMapSearch,
+    this.pinnedMapItem,
+  }) : onSearch = _emptySearch,
+       super(ApiService(baseUrl: 'https://example.com'), _FakeAuthService());
 
   final Future<SearchResponse> Function({
     required String query,
@@ -92,12 +183,24 @@ class _FakeReelRepository extends ReelRepository {
   })
   onSearch;
 
+  final Future<MapPlaceSearchResponse> Function({
+    required String query,
+    String? category,
+    String? sessionToken,
+  })?
+  onMapSearch;
+
   @override
   final List<Reel> cachedReels;
 
   final MapResponse? mapResponse;
+  final MapItem? pinnedMapItem;
+  final List<String> removedMapItemIds = [];
   String? lastCategory;
   String? lastSubcategory;
+  String? lastMapSearchQuery;
+  String? lastMapSearchCategory;
+  String? lastMapSearchSessionToken;
 
   static Future<SearchResponse> _emptySearch({
     required String query,
@@ -131,6 +234,46 @@ class _FakeReelRepository extends ReelRepository {
           visiblePinnedLocations: 0,
           mapItems: [],
         );
+  }
+
+  @override
+  Future<MapPlaceSearchResponse> searchMapPlaces(
+    String query, {
+    String? category,
+    String? sessionToken,
+  }) {
+    lastMapSearchQuery = query;
+    lastMapSearchCategory = category;
+    lastMapSearchSessionToken = sessionToken;
+    final handler = onMapSearch;
+    if (handler != null) {
+      return handler(
+        query: query,
+        category: category,
+        sessionToken: sessionToken,
+      );
+    }
+    return Future.value(
+      MapPlaceSearchResponse(
+        query: query,
+        searchMode: 'google',
+        total: 0,
+        results: const [],
+      ),
+    );
+  }
+
+  @override
+  Future<MapItem> pinMapPlace(
+    String googlePlaceId, {
+    String? sessionToken,
+  }) async {
+    return pinnedMapItem ?? _manualMapItem;
+  }
+
+  @override
+  Future<void> removeMapItem(String mapItemId) async {
+    removedMapItemIds.add(mapItemId);
   }
 
   @override
@@ -194,9 +337,33 @@ const _travelMapItem = MapItem(
   markerId: 'travel-1-brew-lab',
   latitude: 12.97,
   longitude: 77.59,
+  mapItemId: 'reel:travel-1:0',
   locationName: 'Brew Lab',
   locationDisplayLabel: 'Brew Lab',
   googleMapsUrl: 'https://maps.example/brew-lab',
+);
+
+const _manualMapItem = MapItem(
+  reelId: '',
+  title: 'Manual Cafe',
+  summary: '12 Market Street',
+  category: 'Food',
+  subCategory: 'Cafes',
+  categoryLabel: 'Food',
+  subCategoryLabel: 'Cafes',
+  locations: [],
+  markerId: 'manual:pin-1',
+  latitude: 12.91,
+  longitude: 77.61,
+  mapItemId: 'manual:pin-1',
+  sourceType: 'manual',
+  sourceId: 'pin-1',
+  displayTitle: 'Manual Cafe',
+  shortDetail: '12 Market Street',
+  locationName: 'Manual Cafe',
+  locationDisplayLabel: '12 Market Street',
+  googleMapsUrl: 'https://maps.example/manual-cafe',
+  googlePlaceId: 'place-1',
 );
 
 const _foodReel = Reel(
