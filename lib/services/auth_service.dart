@@ -52,7 +52,7 @@ class AuthService {
   }
 
   Future<AuthResponse> signInWithApple() async {
-    final rawNonce = generateNonce();
+    final rawNonce = supabase.auth.generateRawNonce();
     try {
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: const [
