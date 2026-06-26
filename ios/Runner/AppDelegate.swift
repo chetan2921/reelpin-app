@@ -78,6 +78,15 @@ import receive_sharing_intent
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    // The share-handoff channel must bind to the engine that actually runs Dart.
+    // Under the UIScene lifecycle, AppDelegate.window is nil at launch and the
+    // SceneDelegate's rootViewController is unreliable at willConnect time, so the
+    // earlier registrations can silently no-op (background shares never enqueue).
+    // Register against the implicit engine's messenger here, the same path the
+    // generated plugins use, so the channel is always reachable from Dart.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ShareHandoffChannel") {
+      configureShareHandoffChannel(binaryMessenger: registrar.messenger())
+    }
   }
 
   func configureShareHandoffChannel(binaryMessenger: FlutterBinaryMessenger) {
