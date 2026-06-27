@@ -54,6 +54,28 @@ void main() {
       'https://example.com/c.jpg',
     );
   });
+
+  test('normalizes backend content type values', () {
+    expect(
+      Reel.fromJson(_reelJson({'content_type': 'reel'})).contentType,
+      'reel',
+    );
+    expect(
+      Reel.fromJson(_reelJson({'content_type': 'carousel'})).contentType,
+      'carousel',
+    );
+    expect(
+      Reel.fromJson(_reelJson({'content_type': 'video'})).contentType,
+      'post',
+    );
+    expect(Reel.fromJson(_reelJson({})).contentType, 'post');
+    expect(
+      Reel.fromJson(
+        _reelJson({'content_type': 'carousel'}),
+      ).toJson()['content_type'],
+      'carousel',
+    );
+  });
 }
 
 Map<String, Object?> _reelJson(Map<String, Object?> overrides) {

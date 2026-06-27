@@ -1046,7 +1046,10 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
   final _focusNode = FocusNode();
   Timer? _searchDebounce;
   bool _hasQuery = false;
+  String _lastHandledSearchText = '';
+  String _lastSearchedQuery = '';
   String? _savingResultKey;
+  _PlaceSearchTab _selectedTab = _PlaceSearchTab.all;
 
   @override
   void initState() {
@@ -1069,24 +1072,30 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
   }
 
   void _handleTextChanged() {
-    final hasQuery = _controller.text.trim().isNotEmpty;
+    final query = _controller.text.trim();
+    final hasQuery = query.isNotEmpty;
     if (_hasQuery != hasQuery) {
       setState(() {
         _hasQuery = hasQuery;
       });
     }
 
+    if (query == _lastHandledSearchText) return;
+    _lastHandledSearchText = query;
     _searchDebounce?.cancel();
     _searchDebounce = Timer(_searchDebounceDelay, _runSearch);
   }
 
-  void _runSearch() {
+  void _runSearch({bool force = false}) {
     final query = _controller.text.trim();
     if (query.length < 2) {
+      _lastSearchedQuery = '';
       ref.read(mapViewModelProvider).clearPlaceSearch();
       return;
     }
 
+    if (!force && query == _lastSearchedQuery) return;
+    _lastSearchedQuery = query;
     unawaited(ref.read(mapViewModelProvider).searchMapPlaces(query));
   }
 
@@ -1152,6 +1161,11 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
     final layout = AppLayout.of(context);
     final vm = ref.watch(mapViewModelProvider);
     final query = _controller.text.trim();
+    final showTabs =
+        query.length >= 2 &&
+        !vm.isSearchingPlaces &&
+        vm.placeSearchError == null &&
+        vm.placeSearchResults.isNotEmpty;
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return AnimatedPadding(
@@ -1215,6 +1229,19 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
                     ),
                     SizedBox(height: layout.gap(14)),
                     _buildSearchField(context, vm),
+                    if (showTabs) ...[
+                      SizedBox(height: layout.gap(12)),
+                      _PlaceSearchTabs(
+                        selectedTab: _selectedTab,
+                        allCount: vm.placeSearchResults.length,
+                        savedCount: _savedResults(vm.placeSearchResults).length,
+                        onChanged: (tab) {
+                          setState(() {
+                            _selectedTab = tab;
+                          });
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1236,7 +1263,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
         focusNode: _focusNode,
         cursorColor: AppTheme.fg(context),
         textInputAction: TextInputAction.search,
-        onSubmitted: (_) => _runSearch(),
+        onSubmitted: (_) => _runSearch(force: true),
         style: GoogleFonts.spaceMono(
           color: AppTheme.fg(context),
           fontSize: layout.font(13),
@@ -1302,6 +1329,12 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
 
   Widget _buildResults(BuildContext context, MapViewModel vm, String query) {
     final layout = AppLayout.of(context);
+    final allResults = vm.placeSearchResults;
+    final savedResults = _savedResults(allResults);
+    final visibleResults = switch (_selectedTab) {
+      _PlaceSearchTab.all => allResults,
+      _PlaceSearchTab.saved => savedResults,
+    };
 
     if (vm.isSearchingPlaces) {
       return _PlaceSearchMessage(
@@ -1321,7 +1354,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
       );
     }
 
-    if (query.length >= 2 && vm.placeSearchResults.isEmpty) {
+    if (query.length >= 2 && allResults.isEmpty) {
       return _PlaceSearchMessage(
         icon: Icons.search_off,
         title: 'NO PLACES FOUND',
@@ -1330,7 +1363,18 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
       );
     }
 
-    if (query.length < 2 || vm.placeSearchResults.isEmpty) {
+    if (query.length >= 2 &&
+        _selectedTab == _PlaceSearchTab.saved &&
+        visibleResults.isEmpty) {
+      return _PlaceSearchMessage(
+        icon: Icons.bookmark_border,
+        title: 'NO SAVED PLACES FOUND',
+        body: 'SAVED PLACES THAT MATCH THIS SEARCH WILL SHOW HERE.',
+        accentColor: AppTheme.yellow,
+      );
+    }
+
+    if (query.length < 2 || visibleResults.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -1342,18 +1386,19 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
         layout.inset(20),
         layout.gap(28),
       ),
-      itemCount: vm.placeSearchResults.length + 1,
+      itemCount: visibleResults.length + 1,
       separatorBuilder: (_, index) => SizedBox(height: index == 0 ? 12 : 10),
       itemBuilder: (_, index) {
         if (index == 0) {
           return _PlaceSearchSummary(
-            count: vm.placeSearchResults.length,
+            count: visibleResults.length,
             query: query,
+            tab: _selectedTab,
           );
         }
 
         final resultIndex = index - 1;
-        final result = vm.placeSearchResults[resultIndex];
+        final result = visibleResults[resultIndex];
         final resultKey = _placeResultKey(result, resultIndex);
         return _MapPlaceResultTile(
           result: result,
@@ -1366,6 +1411,12 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
     );
   }
 
+  List<MapPlaceSearchResult> _savedResults(List<MapPlaceSearchResult> results) {
+    return results
+        .where((result) => result.isExisting || result.mapItem != null)
+        .toList(growable: false);
+  }
+
   String _placeResultKey(MapPlaceSearchResult result, int index) {
     return [
       index,
@@ -1373,6 +1424,120 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
       result.displayTitle,
       result.displayAddress,
     ].whereType<Object>().join('|');
+  }
+}
+
+enum _PlaceSearchTab { all, saved }
+
+class _PlaceSearchTabs extends StatelessWidget {
+  const _PlaceSearchTabs({
+    required this.selectedTab,
+    required this.allCount,
+    required this.savedCount,
+    required this.onChanged,
+  });
+
+  final _PlaceSearchTab selectedTab;
+  final int allCount;
+  final int savedCount;
+  final ValueChanged<_PlaceSearchTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
+    return Container(
+      decoration: AppTheme.brutalBox(context, shadow: false),
+      child: Row(
+        children: [
+          Expanded(
+            child: _PlaceSearchTabButton(
+              label: 'ALL',
+              count: allCount,
+              isSelected: selectedTab == _PlaceSearchTab.all,
+              onTap: () => onChanged(_PlaceSearchTab.all),
+            ),
+          ),
+          Container(
+            width: AppTheme.borderWidth,
+            height: layout.inset(42),
+            color: AppTheme.fg(context),
+          ),
+          Expanded(
+            child: _PlaceSearchTabButton(
+              label: 'SAVED',
+              count: savedCount,
+              isSelected: selectedTab == _PlaceSearchTab.saved,
+              onTap: () => onChanged(_PlaceSearchTab.saved),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaceSearchTabButton extends StatelessWidget {
+  const _PlaceSearchTabButton({
+    required this.label,
+    required this.count,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final int count;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: layout.inset(42),
+        color: isSelected ? AppTheme.yellow : AppTheme.bg(context),
+        alignment: Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.spaceMono(
+                  color: isSelected ? AppTheme.black : AppTheme.fg(context),
+                  fontSize: layout.font(11),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(width: layout.inset(6)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.black : AppTheme.yellow,
+                  border: Border.all(
+                    color: isSelected ? AppTheme.black : AppTheme.fg(context),
+                    width: 2,
+                  ),
+                ),
+                child: Text(
+                  '$count',
+                  style: GoogleFonts.spaceMono(
+                    color: isSelected ? AppTheme.white : AppTheme.black,
+                    fontSize: layout.font(9),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1459,14 +1624,20 @@ class _PlaceSearchMessage extends StatelessWidget {
 }
 
 class _PlaceSearchSummary extends StatelessWidget {
-  const _PlaceSearchSummary({required this.count, required this.query});
+  const _PlaceSearchSummary({
+    required this.count,
+    required this.query,
+    required this.tab,
+  });
 
   final int count;
   final String query;
+  final _PlaceSearchTab tab;
 
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
+    final label = tab == _PlaceSearchTab.saved ? 'SAVED PLACE' : 'PLACE RESULT';
 
     return Row(
       children: [
@@ -1488,7 +1659,7 @@ class _PlaceSearchSummary extends StatelessWidget {
         SizedBox(width: layout.inset(8)),
         Expanded(
           child: Text(
-            'PLACE RESULT${count == 1 ? '' : 'S'} FOR "${query.toUpperCase()}"',
+            '$label${count == 1 ? '' : 'S'} FOR "${query.toUpperCase()}"',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(

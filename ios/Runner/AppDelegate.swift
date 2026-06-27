@@ -18,6 +18,8 @@ import receive_sharing_intent
   private let pushPlatformKey = "push_platform"
   private let pendingSharesKey = "pending_urls"
   private var shareHandoffChannel: FlutterMethodChannel?
+  private let reelShareChannelName = "com.chetanjain.reelpin/reel_share"
+  private var reelShareChannel: FlutterMethodChannel?
 
   override init() {
 #if canImport(FirebaseCore)
@@ -37,6 +39,7 @@ import receive_sharing_intent
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
     if let controller = window?.rootViewController as? FlutterViewController {
       configureShareHandoffChannel(binaryMessenger: controller.binaryMessenger)
+      configureReelShareChannel(controller: controller)
     }
     return result
   }
@@ -118,6 +121,68 @@ import receive_sharing_intent
       }
     }
     shareHandoffChannel = channel
+  }
+
+  func configureReelShareChannel(controller: FlutterViewController) {
+    let channel = FlutterMethodChannel(
+      name: reelShareChannelName,
+      binaryMessenger: controller.binaryMessenger
+    )
+    channel.setMethodCallHandler { [weak self, weak controller] call, result in
+      guard let self, let controller else {
+        result(nil)
+        return
+      }
+
+      switch call.method {
+      case "shareReelCard":
+        guard
+          let values = call.arguments as? [String: Any],
+          let pngBytes = values["pngBytes"] as? FlutterStandardTypedData,
+          let image = UIImage(data: pngBytes.data)
+        else {
+          result(FlutterError(code: "bad_args", message: "Missing share image", details: nil))
+          return
+        }
+
+        let text = (values["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let subject = (values["subject"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let items: [Any] = text.isEmpty ? [image] : [image, text]
+        let activity = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        if !subject.isEmpty {
+          activity.setValue(subject, forKey: "subject")
+        }
+        let presenter = self.topViewController(from: controller)
+        if let popover = activity.popoverPresentationController {
+          popover.sourceView = presenter.view
+          popover.sourceRect = CGRect(
+            x: presenter.view.bounds.midX,
+            y: presenter.view.bounds.midY,
+            width: 1,
+            height: 1
+          )
+          popover.permittedArrowDirections = []
+        }
+        presenter.present(activity, animated: true)
+        result(true)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    reelShareChannel = channel
+  }
+
+  private func topViewController(from root: UIViewController) -> UIViewController {
+    if let presented = root.presentedViewController {
+      return topViewController(from: presented)
+    }
+    if let navigation = root as? UINavigationController, let visible = navigation.visibleViewController {
+      return topViewController(from: visible)
+    }
+    if let tab = root as? UITabBarController, let selected = tab.selectedViewController {
+      return topViewController(from: selected)
+    }
+    return root
   }
 
   private func appGroupDefaults() -> UserDefaults? {

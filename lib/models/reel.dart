@@ -115,6 +115,7 @@ class Reel {
   final String subCategory;
   final String categoryLabel;
   final String subCategoryLabel;
+  final String contentType;
   final List<String> keyFacts;
   final List<Location> locations;
   final List<Location> mappableLocations;
@@ -148,6 +149,7 @@ class Reel {
     this.thumbnailUrl = '',
     this.categoryLabel = '',
     this.subCategoryLabel = '',
+    this.contentType = 'post',
     this.mappableLocations = const [],
     this.createdAt,
     this.displayDate = '',
@@ -213,6 +215,7 @@ class Reel {
           json['sub_category_label']?.toString() ??
           json['subcategory_label']?.toString() ??
           subCategory,
+      contentType: _normalizedContentType(json['content_type']),
       keyFacts: _stringList(json['key_facts']),
       locations: locations,
       mappableLocations: mappableLocations,
@@ -244,6 +247,7 @@ class Reel {
     'sub_category': subCategory,
     'category_label': categoryLabel,
     'sub_category_label': subCategoryLabel,
+    'content_type': contentType,
     'key_facts': keyFacts,
     'locations': locations.map((l) => l.toJson()).toList(),
     'mappable_locations': mappableLocations.map((l) => l.toJson()).toList(),
@@ -273,6 +277,15 @@ class Reel {
           .toList(growable: false);
     }
     return const [];
+  }
+
+  static String _normalizedContentType(dynamic raw) {
+    final value = raw?.toString().trim().toLowerCase();
+    return switch (value) {
+      'reel' => 'reel',
+      'carousel' => 'carousel',
+      _ => 'post',
+    };
   }
 
   static List<String> _stringList(dynamic raw) {
