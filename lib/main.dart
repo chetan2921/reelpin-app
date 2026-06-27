@@ -214,7 +214,10 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       }
     });
     _initializeBackgroundMessaging();
-    unawaited(_entitlementsViewModel.refresh(reloadContent: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_entitlementsViewModel.refresh(reloadContent: true));
+    });
   }
 
   @override
