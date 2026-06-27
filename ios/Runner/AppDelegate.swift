@@ -39,7 +39,7 @@ import receive_sharing_intent
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
     if let controller = window?.rootViewController as? FlutterViewController {
       configureShareHandoffChannel(binaryMessenger: controller.binaryMessenger)
-      configureReelShareChannel(controller: controller)
+      configureReelShareChannel(binaryMessenger: controller.binaryMessenger)
     }
     return result
   }
@@ -90,6 +90,9 @@ import receive_sharing_intent
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ShareHandoffChannel") {
       configureShareHandoffChannel(binaryMessenger: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ReelShareChannel") {
+      configureReelShareChannel(binaryMessenger: registrar.messenger())
+    }
   }
 
   func configureShareHandoffChannel(binaryMessenger: FlutterBinaryMessenger) {
@@ -123,13 +126,13 @@ import receive_sharing_intent
     shareHandoffChannel = channel
   }
 
-  func configureReelShareChannel(controller: FlutterViewController) {
+  func configureReelShareChannel(binaryMessenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: reelShareChannelName,
-      binaryMessenger: controller.binaryMessenger
+      binaryMessenger: binaryMessenger
     )
-    channel.setMethodCallHandler { [weak self, weak controller] call, result in
-      guard let self, let controller else {
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self else {
         result(nil)
         return
       }
@@ -152,7 +155,11 @@ import receive_sharing_intent
         if !subject.isEmpty {
           activity.setValue(subject, forKey: "subject")
         }
-        let presenter = self.topViewController(from: controller)
+        guard let rootViewController = self.currentRootViewController() else {
+          result(FlutterError(code: "no_presenter", message: "No view controller available", details: nil))
+          return
+        }
+        let presenter = self.topViewController(from: rootViewController)
         if let popover = activity.popoverPresentationController {
           popover.sourceView = presenter.view
           popover.sourceRect = CGRect(
@@ -170,6 +177,16 @@ import receive_sharing_intent
       }
     }
     reelShareChannel = channel
+  }
+
+  private func currentRootViewController() -> UIViewController? {
+    let foregroundScenes = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .filter { $0.activationState == .foregroundActive }
+    let foregroundWindow = foregroundScenes
+      .flatMap { $0.windows }
+      .first { $0.isKeyWindow }
+    return foregroundWindow?.rootViewController ?? window?.rootViewController
   }
 
   private func topViewController(from root: UIViewController) -> UIViewController {

@@ -23,6 +23,9 @@ class SceneDelegate: FlutterSceneDelegate {
       appDelegate.configureShareHandoffChannel(
         binaryMessenger: controller.binaryMessenger
       )
+      appDelegate.configureReelShareChannel(
+        binaryMessenger: controller.binaryMessenger
+      )
     }
   }
 
