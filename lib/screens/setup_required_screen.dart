@@ -53,7 +53,9 @@ class SetupRequiredScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: SelectableText(
-                    'flutter run',
+                    'flutter run \\\n'
+                    '  --dart-define=SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co \\\n'
+                    '  --dart-define=SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.fg(context),
                       fontSize: 12,
@@ -106,7 +108,10 @@ class SetupRequiredScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: AppTheme.brutalBox(
                   context,
                   color: AppTheme.cyan.withAlpha(40),

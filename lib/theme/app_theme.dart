@@ -62,8 +62,8 @@ class AppTheme {
   static const Color blueWhaleDark = Color(0xFFE0E0E0);
 
   // ── Border specs ──
-  static const double borderWidth = 1.5;
-  static const double thinBorderWidth = 1.5;
+  static const double borderWidth = 1;
+  static const double thinBorderWidth = 1;
 
   // ── Dynamic Color Helpers ──
   static Color bg(BuildContext context) {

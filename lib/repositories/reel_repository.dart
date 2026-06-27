@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/discover_response.dart';
 import '../models/library_stats.dart';
+import '../models/map_place_search_response.dart';
 import '../models/map_response.dart';
 import '../models/processing_job.dart';
 import '../models/reel.dart';
@@ -252,6 +253,26 @@ class ReelRepository extends ChangeNotifier {
 
   Future<MapResponse> getMapData({String? category}) {
     return _apiService.getMapData(category: category);
+  }
+
+  Future<MapPlaceSearchResponse> searchMapPlaces(
+    String query, {
+    String? category,
+    String? sessionToken,
+  }) {
+    return _apiService.searchMapPlaces(
+      query,
+      category: category,
+      sessionToken: sessionToken,
+    );
+  }
+
+  Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken}) {
+    return _apiService.pinMapPlace(googlePlaceId, sessionToken: sessionToken);
+  }
+
+  Future<void> removeMapItem(String mapItemId) {
+    return _apiService.removeMapItem(mapItemId);
   }
 
   Future<DiscoverResponse> getDiscover({

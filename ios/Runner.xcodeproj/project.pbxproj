@@ -287,7 +287,6 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				7D3981827492BFA803D5628F /* [CP] Embed Pods Frameworks */,
 				9605D9EA2081F7CFD9053E7D /* [CP] Copy Pods Resources */,
-				5A1000202EE0000100000020 /* Sign Simulator Entitlements */,
 			);
 			buildRules = (
 			);
@@ -316,7 +315,7 @@
 					5A1000062EE0000100000006 = {
 						CreatedOnToolsVersion = 15.0;
 						DevelopmentTeam = QUPZH9T9R3;
-						ProvisioningStyle = Automatic;
+						ProvisioningStyle = Manual;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
 								enabled = 1;
@@ -327,7 +326,7 @@
 						CreatedOnToolsVersion = 7.3.1;
 						DevelopmentTeam = QUPZH9T9R3;
 						LastSwiftMigration = 1100;
-						ProvisioningStyle = Automatic;
+						ProvisioningStyle = Manual;
 						SystemCapabilities = {
 							com.apple.ApplicationGroups.iOS = {
 								enabled = 1;
@@ -430,23 +429,6 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
-		};
-		5A1000202EE0000100000020 /* Sign Simulator Entitlements */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/Runner/Runner.entitlements",
-				"$(SRCROOT)/Share Extension/Share Extension.entitlements",
-			);
-			name = "Sign Simulator Entitlements";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ \"${PLATFORM_NAME}\" != \"iphonesimulator\" ]; then\n  exit 0\nfi\n\nRUNNER_ENTITLEMENTS=\"${TARGET_TEMP_DIR}/Runner-simulator.entitlements\"\nSHARE_ENTITLEMENTS=\"${TARGET_TEMP_DIR}/ShareExtension-simulator.entitlements\"\n\nsed \"s/\\$(CUSTOM_GROUP_ID)/${CUSTOM_GROUP_ID}/g; /aps-environment/{N;d;}\" \"${SRCROOT}/Runner/Runner.entitlements\" > \"${RUNNER_ENTITLEMENTS}\"\nsed \"s/\\$(CUSTOM_GROUP_ID)/${CUSTOM_GROUP_ID}/g\" \"${SRCROOT}/Share Extension/Share Extension.entitlements\" > \"${SHARE_ENTITLEMENTS}\"\n\nFRAMEWORKS_PATH=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Frameworks\"\nif [ -d \"${FRAMEWORKS_PATH}\" ]; then\n  find \"${FRAMEWORKS_PATH}\" -maxdepth 1 -name \"*.framework\" -type d | while read -r framework; do\n    codesign --force --sign - --preserve-metadata=identifier,entitlements \"${framework}\"\n  done\nfi\n\nfor dylib in \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"/*.dylib; do\n  if [ -f \"${dylib}\" ]; then\n    codesign --force --sign - --preserve-metadata=identifier,entitlements \"${dylib}\"\n  fi\ndone\n\nSHARE_EXTENSION_PATH=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/PlugIns/Share Extension.appex\"\nif [ -d \"${SHARE_EXTENSION_PATH}\" ]; then\n  codesign --force --sign - --entitlements \"${SHARE_ENTITLEMENTS}\" \"${SHARE_EXTENSION_PATH}\"\nfi\n\ncodesign --force --sign - --entitlements \"${RUNNER_ENTITLEMENTS}\" \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\n";
 		};
 		7D3981827492BFA803D5628F /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -672,7 +654,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
-				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				CUSTOM_GROUP_ID = group.com.chetan.reelpin;
@@ -779,7 +760,8 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				CUSTOM_GROUP_ID = group.com.chetan.reelpin;
 				DEVELOPMENT_TEAM = QUPZH9T9R3;
@@ -795,6 +777,7 @@
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.chetan.reelpin.ShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "ReelPin Share Extension App Store 2026";
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -947,7 +930,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
-				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				CUSTOM_GROUP_ID = group.com.chetan.reelpin;
@@ -976,8 +958,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
-				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				CUSTOM_GROUP_ID = group.com.chetan.reelpin;
 				DEVELOPMENT_TEAM = QUPZH9T9R3;
@@ -990,6 +972,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.chetan.reelpin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "ReelPin App Store 2026";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
