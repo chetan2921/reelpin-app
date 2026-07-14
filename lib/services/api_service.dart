@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/api_config.dart';
 import '../models/discover_response.dart';
+import '../models/folder.dart';
 import '../models/library_stats.dart';
 import '../models/map_place_search_response.dart';
 import '../models/map_response.dart';
@@ -371,6 +372,165 @@ class ApiService {
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not delete this reel right now.',
+      );
+    }
+  }
+
+  // ─── Folders ───
+
+  Future<List<FolderSummary>> getFolders() async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .get(_apiUri(baseUrl, '/api/v1/folders'), headers: _headers())
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load folders right now.',
+      );
+    }
+
+    final decoded = jsonDecode(res.body);
+    final folders = decoded is List
+        ? decoded
+        : decoded is Map<String, dynamic>
+        ? decoded['folders']
+        : null;
+    if (folders is! List) return const [];
+    return folders
+        .whereType<Map>()
+        .map((item) => FolderSummary.fromJson(Map<String, dynamic>.from(item)))
+        .toList(growable: false);
+  }
+
+  Future<FolderDetailResponse> getFolderDetail(
+    String folderId, {
+    int limit = 25,
+    int? offset,
+    String? cursor,
+  }) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final params = <String, String>{
+        'limit': limit.toString(),
+        if (offset != null) 'offset': offset.toString(),
+        if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
+      };
+      return _client
+          .get(
+            _apiUri(
+              baseUrl,
+              '/api/v1/folders/$folderId',
+              queryParameters: params,
+            ),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
+    });
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load this folder right now.',
+      );
+    }
+
+    return FolderDetailResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<FolderSummary> updateFolder({
+    required String folderId,
+    required String name,
+    required String note,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .patch(
+            _apiUri(baseUrl, '/api/v1/folders/$folderId'),
+            headers: _headers(json: true),
+            body: jsonEncode({'name': name, 'note': note}),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not update this folder right now.',
+      );
+    }
+
+    final decoded = jsonDecode(res.body);
+    final folder = decoded is Map<String, dynamic> ? decoded['folder'] : null;
+    return FolderSummary.fromJson(
+      folder is Map<String, dynamic> ? folder : decoded as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> deleteFolder(String folderId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/folders/$folderId'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not delete this folder right now.',
+      );
+    }
+  }
+
+  Future<void> addReelsToFolder({
+    required String folderId,
+    required List<String> reelIds,
+    bool moveExisting = false,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/folders/$folderId/reels'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'reel_ids': reelIds,
+              'move_existing': moveExisting,
+            }),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not add reels to this folder right now.',
+      );
+    }
+  }
+
+  Future<void> removeReelFromFolder({
+    required String folderId,
+    required String reelId,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/folders/$folderId/reels/$reelId'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not remove this reel from the folder.',
       );
     }
   }

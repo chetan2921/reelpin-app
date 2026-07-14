@@ -180,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
 
                 // ── Bottom spacing ──
-                SliverToBoxAdapter(child: SizedBox(height: layout.gap(96))),
+                SliverToBoxAdapter(child: SizedBox(height: layout.gap(112))),
               ],
             ),
           ),
@@ -489,113 +489,304 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── Empty ──
   Widget _buildEmptyState(BuildContext context) {
     final layout = AppLayout.of(context);
-    return SliverFillRemaining(
-      hasScrollBody: false,
-      child: Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: layout.inset(32)),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: layout.inset(72),
-                height: layout.inset(72),
-                decoration: AppTheme.brutalBox(context, color: AppTheme.yellow),
-                child: Icon(
-                  Icons.video_library,
-                  size: layout.inset(32),
-                  color: AppTheme.fg(context),
-                ),
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          layout.inset(20),
+          layout.gap(18),
+          layout.inset(20),
+          0,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildEmptyFlow(context),
+            SizedBox(height: layout.gap(18)),
+            Text(
+              'FOUND A REEL YOU WILL NEED LATER?',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.fg(context),
+                fontSize: layout.font(18),
+                fontWeight: FontWeight.w700,
+                height: 1.22,
+                letterSpacing: 0.5,
               ),
-              SizedBox(height: layout.gap(20)),
-              Text(
-                'NO REELS YET',
-                style: GoogleFonts.spaceMono(
-                  color: AppTheme.fg(context),
-                  fontSize: layout.font(20),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                ),
-              ),
-              SizedBox(height: layout.gap(8)),
-              Text(
-                'Share a reel from Instagram or TikTok\nto start building your collection.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSec(context),
-                  fontSize: layout.font(12),
-                  height: 1.6,
-                ),
-              ),
-              SizedBox(height: layout.gap(28)),
-              _buildHowItWorks(context),
-            ],
-          ),
+            ),
+            SizedBox(height: layout.gap(18)),
+            _buildEmptySavePreview(context),
+            SizedBox(height: layout.gap(18)),
+            _buildFirstSaveHint(context),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildHowItWorks(BuildContext context) {
+  Widget _buildEmptyFlow(BuildContext context) {
     final layout = AppLayout.of(context);
-    return Container(
-      padding: EdgeInsets.all(layout.inset(16)),
-      decoration: AppTheme.brutalCard(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: layout.gap(116),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'HOW IT WORKS',
-            style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
-              fontSize: layout.font(13),
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
+          Expanded(
+            child: _emptyFlowTile(
+              context,
+              icon: Icons.play_arrow,
+              title: 'FIND',
+              caption: 'a reel',
+              color: AppTheme.surfaceElevatedColor(context),
+              iconColor: AppTheme.yellow,
             ),
           ),
-          SizedBox(height: layout.gap(14)),
-          _step(context, '01', 'Find a reel on Instagram or TikTok'),
-          SizedBox(height: layout.gap(10)),
-          _step(context, '02', 'Tap share and choose ReelPin'),
-          SizedBox(height: layout.gap(10)),
-          _step(context, '03', 'AI extracts all the info and places'),
+          _flowArrow(context),
+          Expanded(
+            child: _emptyFlowTile(
+              context,
+              icon: Icons.ios_share,
+              title: 'SHARE',
+              caption: 'to ReelPin',
+              color: AppTheme.yellow,
+              iconColor: AppTheme.black,
+              textColor: AppTheme.black,
+            ),
+          ),
+          _flowArrow(context),
+          Expanded(
+            child: _emptyFlowTile(
+              context,
+              icon: Icons.bookmark,
+              title: 'SAVED',
+              caption: 'for later',
+              color: AppTheme.surfaceElevatedColor(context),
+              iconColor: AppTheme.yellow,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _step(BuildContext context, String num, String text) {
+  Widget _emptyFlowTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String caption,
+    required Color color,
+    required Color iconColor,
+    Color? textColor,
+  }) {
     final layout = AppLayout.of(context);
-    return Row(
-      children: [
-        Container(
-          width: layout.inset(28),
-          height: layout.inset(28),
-          decoration: BoxDecoration(
-            color: AppTheme.yellow,
-            border: Border.all(color: AppTheme.fg(context), width: 2),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            num,
+    final resolvedTextColor = textColor ?? AppTheme.fg(context);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.inset(8),
+        vertical: layout.gap(12),
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        border: Border.all(
+          color: AppTheme.fg(context),
+          width: AppTheme.borderWidth,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: iconColor, size: layout.inset(28)),
+          SizedBox(height: layout.gap(10)),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
-              fontSize: layout.font(11),
+              color: resolvedTextColor,
+              fontSize: layout.font(12),
               fontWeight: FontWeight.w700,
             ),
           ),
-        ),
-        SizedBox(width: layout.inset(10)),
-        Expanded(
-          child: Text(
-            text,
+          SizedBox(height: layout.gap(2)),
+          Text(
+            caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.textSec(context),
-              fontSize: layout.font(12),
+              color: resolvedTextColor.withAlpha(190),
+              fontSize: layout.font(9),
+              fontWeight: FontWeight.w700,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _flowArrow(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return SizedBox(
+      width: layout.inset(20),
+      child: Center(
+        child: Icon(
+          Icons.arrow_forward,
+          color: AppTheme.yellow,
+          size: layout.inset(18),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildEmptySavePreview(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return _EmptyReelPreviewCard(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          layout.inset(14),
+          layout.gap(16),
+          layout.inset(14),
+          layout.gap(14),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.inset(8),
+                    vertical: layout.gap(5),
+                  ),
+                  color: AppTheme.yellow,
+                  child: Text(
+                    'REELPIN MAKES',
+                    style: GoogleFonts.spaceMono(
+                      color: AppTheme.black,
+                      fontSize: layout.font(9),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+              ],
+            ),
+            SizedBox(height: layout.gap(12)),
+            _emptyInsight(
+              context,
+              icon: Icons.subject,
+              title: 'SHORT SUMMARY',
+              text: 'Know why you saved it.',
+            ),
+            SizedBox(height: layout.gap(7)),
+            _emptyInsight(
+              context,
+              icon: Icons.location_on_outlined,
+              title: 'PLACES TO OPEN',
+              text: 'Restaurants, cities, and spots stay attached.',
+            ),
+            SizedBox(height: layout.gap(7)),
+            _emptyInsight(
+              context,
+              icon: Icons.search,
+              title: 'SEARCH WORDS',
+              text: 'Find it later by topic, place, or mood.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFirstSaveHint(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.inset(14),
+        vertical: layout.gap(12),
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.yellow,
+        border: Border.all(
+          color: AppTheme.fg(context),
+          width: AppTheme.borderWidth,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.ios_share, color: AppTheme.black, size: layout.inset(18)),
+          SizedBox(width: layout.inset(10)),
+          Expanded(
+            child: Text(
+              'OPEN A REEL, TAP SHARE, CHOOSE REELPIN.',
+              style: GoogleFonts.spaceMono(
+                color: AppTheme.black,
+                fontSize: layout.font(11),
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyInsight(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String text,
+  }) {
+    final layout = AppLayout.of(context);
+    return Container(
+      constraints: BoxConstraints(minHeight: layout.gap(56)),
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.inset(10),
+        vertical: layout.gap(8),
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.white.withAlpha(242),
+        border: Border.all(color: AppTheme.black, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: layout.inset(30),
+            height: layout.inset(30),
+            color: AppTheme.black,
+            child: Icon(icon, color: AppTheme.yellow, size: layout.inset(17)),
+          ),
+          SizedBox(width: layout.inset(10)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.spaceMono(
+                    color: AppTheme.black,
+                    fontSize: layout.font(10),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: layout.gap(2)),
+                Text(
+                  text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.spaceMono(
+                    color: const Color(0xFF3A3A3A),
+                    fontSize: layout.font(9.5),
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1403,6 +1594,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           fontSize: layout.font(9),
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyReelPreviewCard extends StatelessWidget {
+  final Widget child;
+
+  const _EmptyReelPreviewCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Padding(
+      padding: EdgeInsets.only(
+        top: layout.gap(8),
+        right: layout.inset(6),
+        bottom: layout.gap(4),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: AppTheme.bg(context),
+              border: Border.all(
+                color: AppTheme.fg(context),
+                width: AppTheme.borderWidth,
+              ),
+              boxShadow: AppTheme.brutalShadow(context),
+            ),
+            child: child,
+          ),
+          Positioned(
+            right: layout.inset(14),
+            top: layout.gap(14),
+            child: Container(
+              width: layout.inset(5),
+              height: layout.inset(5),
+              decoration: const BoxDecoration(
+                color: AppTheme.black,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            right: -layout.inset(6),
+            top: -layout.gap(6),
+            child: Image.asset(
+              'assets/images/pin.png',
+              width: layout.inset(26),
+              height: layout.inset(26),
+            ),
+          ),
+        ],
       ),
     );
   }

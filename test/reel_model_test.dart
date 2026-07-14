@@ -76,6 +76,17 @@ void main() {
       'carousel',
     );
   });
+
+  test('preserves source platform metadata from backend', () {
+    final reel = Reel.fromJson(
+      _reelJson({'source_platform': 'YouTube', 'source_content_type': 'Short'}),
+    );
+
+    expect(reel.sourcePlatform, 'youtube');
+    expect(reel.sourceContentType, 'short');
+    expect(reel.toJson()['source_platform'], 'youtube');
+    expect(reel.toJson()['source_content_type'], 'short');
+  });
 }
 
 Map<String, Object?> _reelJson(Map<String, Object?> overrides) {

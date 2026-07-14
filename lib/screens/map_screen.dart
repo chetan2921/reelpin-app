@@ -334,6 +334,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final vm = ref.watch(mapViewModelProvider);
     final themeVm = ref.watch(themeViewModelProvider);
     final categoryVm = ref.watch(categoryFiltersViewModelProvider);
+    final floatingNavClearance =
+        MediaQuery.viewPaddingOf(context).bottom + layout.gap(72);
 
     return Scaffold(
       backgroundColor: AppTheme.bg(context),
@@ -623,7 +625,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 // ── Selected reel sheet ──
                 if (vm.selectedMapItem != null)
                   Positioned(
-                    bottom: 24,
+                    bottom: floatingNavClearance,
                     left: 16,
                     right: 16,
                     child: _buildPinSheet(context, vm.selectedMapItem!),
@@ -633,8 +635,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 Positioned(
                   right: layout.inset(16),
                   bottom: vm.selectedMapItem != null
-                      ? layout.gap(280)
-                      : layout.gap(24),
+                      ? floatingNavClearance + layout.gap(256)
+                      : floatingNavClearance,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,11 +15,14 @@ import '../services/notification_service.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
 import '../services/share_handoff_service.dart';
+import '../services/share_url_extractor.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'map_screen.dart';
 import 'paywall_screen.dart';
 import 'search_screen.dart';
+
+const _navIconSize = 27.0;
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -33,6 +37,9 @@ class _AppShellState extends ConsumerState<AppShell>
       'app_shell_initial_permissions_prompted_v6';
   static const _shareConfirmationDuration = Duration(milliseconds: 1400);
   static const _resumeRefreshInterval = Duration(minutes: 5);
+  static const _floatingNavHeight = 56.0;
+  static const _floatingNavBottomInset = 14.0;
+  static const _floatingNavHorizontalInset = 60.0;
 
   int _currentIndex = 0;
   StreamSubscription? _mediaIntentSub;
@@ -44,21 +51,9 @@ class _AppShellState extends ConsumerState<AppShell>
   final ScrollController _homeScrollController = ScrollController();
 
   static const _navItems = [
-    _NavItem(
-      icon: Icons.home_outlined,
-      activeIcon: Icons.home_rounded,
-      label: 'HOME',
-    ),
-    _NavItem(
-      icon: Icons.map_outlined,
-      activeIcon: Icons.map_rounded,
-      label: 'MAP',
-    ),
-    _NavItem(
-      icon: Icons.explore_outlined,
-      activeIcon: Icons.explore_rounded,
-      label: 'DISCOVER',
-    ),
+    _NavItem(icon: HugeIcons.strokeRoundedHome04, label: 'HOME'),
+    _NavItem(icon: HugeIcons.strokeRoundedLocation03, label: 'MAP'),
+    _NavItem(icon: HugeIcons.strokeRoundedDiscoverSquare, label: 'DISCOVER'),
   ];
 
   @override
@@ -117,10 +112,13 @@ class _AppShellState extends ConsumerState<AppShell>
     _lastHandledSharedPayload = normalizedPayload;
 
     try {
+      final extractedUrl = ShareUrlExtractor.extractSupportedUrl(
+        normalizedPayload,
+      );
       final resolved = await ref
           .read(apiServiceProvider)
           .resolveSharePayload(
-            rawPayloadText: normalizedPayload,
+            rawPayloadText: extractedUrl ?? normalizedPayload,
             platform: Theme.of(context).platform.name,
           );
       if (!mounted || !resolved.supported) return;
@@ -467,45 +465,69 @@ class _AppShellState extends ConsumerState<AppShell>
         }
       },
       child: Scaffold(
-        body: Container(
-          color: AppTheme.bg(context),
-          child: IndexedStack(
-            index: _currentIndex,
-            children: [
-              HomeScreen(
-                onSearchTap: _openSearchFromHome,
-                scrollController: _homeScrollController,
+        extendBody: true,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                color: AppTheme.bg(context),
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: [
+                    HomeScreen(
+                      onSearchTap: _openSearchFromHome,
+                      scrollController: _homeScrollController,
+                    ),
+                    const MapScreen(),
+                    SearchScreen(focusRequestId: _searchFocusRequestId),
+                  ],
+                ),
               ),
-              const MapScreen(),
-              SearchScreen(focusRequestId: _searchFocusRequestId),
-            ],
-          ),
+            ),
+            _buildNavBar(),
+          ],
         ),
-        bottomNavigationBar: _buildNavBar(),
       ),
     );
   }
 
   Widget _buildNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.bg(context),
-        border: Border(
-          top: BorderSide(
+    final bottomInset =
+        MediaQuery.viewPaddingOf(context).bottom + _floatingNavBottomInset;
+
+    return Positioned(
+      left: _floatingNavHorizontalInset,
+      right: _floatingNavHorizontalInset,
+      bottom: bottomInset,
+      child: Container(
+        height: _floatingNavHeight,
+        decoration: BoxDecoration(
+          color: AppTheme.bg(context),
+          border: Border.all(
             color: AppTheme.fg(context),
             width: AppTheme.borderWidth,
           ),
         ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(_navItems.length, (i) {
-              return _buildNavItem(i, _navItems[i]);
-            }),
+        child: Padding(
+          padding: EdgeInsets.all(AppTheme.borderWidth),
+          child: Stack(
+            children: [
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment(-1.0 + _currentIndex, 0),
+                child: FractionallySizedBox(
+                  widthFactor: 1 / _navItems.length,
+                  heightFactor: 1,
+                  child: const ColoredBox(color: AppTheme.yellow),
+                ),
+              ),
+              Row(
+                children: List.generate(_navItems.length, (i) {
+                  return Expanded(child: _buildNavItem(i, _navItems[i]));
+                }),
+              ),
+            ],
           ),
         ),
       ),
@@ -515,36 +537,22 @@ class _AppShellState extends ConsumerState<AppShell>
   Widget _buildNavItem(int index, _NavItem item) {
     final isSelected = _currentIndex == index;
 
-    return GestureDetector(
-      onTap: () => _selectTab(index),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.yellow : Colors.transparent,
-          border: isSelected
-              ? Border.all(color: AppTheme.fg(context), width: 2)
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? item.activeIcon : item.icon,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: item.label,
+      child: GestureDetector(
+        onTap: () => _selectTab(index),
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox.expand(
+          child: Center(
+            child: HugeIcon(
+              icon: item.icon,
               color: isSelected ? AppTheme.black : AppTheme.fg(context),
-              size: 24,
+              size: _navIconSize,
+              strokeWidth: 1.8,
             ),
-            const SizedBox(height: 2),
-            Text(
-              item.label,
-              style: GoogleFonts.spaceMono(
-                color: isSelected ? AppTheme.black : AppTheme.fg(context),
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -552,13 +560,8 @@ class _AppShellState extends ConsumerState<AppShell>
 }
 
 class _NavItem {
-  final IconData icon;
-  final IconData activeIcon;
+  final List<List<dynamic>> icon;
   final String label;
 
-  const _NavItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-  });
+  const _NavItem({required this.icon, required this.label});
 }

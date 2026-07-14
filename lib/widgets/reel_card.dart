@@ -285,6 +285,7 @@ class _ReelCardState extends State<ReelCard>
     List<Shadow>? shadows,
   }) {
     final layout = AppLayout.of(context);
+    final sourceIconAsset = _sourcePlatformIconAsset(reel);
     return Container(
       padding: EdgeInsets.only(top: layout.gap(6)),
       decoration: BoxDecoration(
@@ -292,15 +293,18 @@ class _ReelCardState extends State<ReelCard>
       ),
       child: Row(
         children: [
-          if (reel.hasMapLocations) ...[
-            Icon(Icons.location_on, size: layout.inset(12), color: textColor),
-            SizedBox(width: layout.inset(2)),
+          if (sourceIconAsset != null) ...[
+            Image.asset(
+              sourceIconAsset,
+              width: layout.inset(14),
+              height: layout.inset(14),
+            ),
+            SizedBox(width: layout.inset(4)),
           ],
           Expanded(
             child: Text(
-              reel.hasMapLocations
-                  ? reel.primaryLocationLabel.toUpperCase()
-                  : reel.relativeDate.toUpperCase(),
+              reel.relativeDate.toUpperCase(),
+              textAlign: TextAlign.right,
               style: GoogleFonts.spaceMono(
                 color: textColor,
                 fontSize: layout.font(9),
@@ -311,19 +315,17 @@ class _ReelCardState extends State<ReelCard>
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (reel.hasMapLocations && reel.relativeDate.isNotEmpty)
-            Text(
-              reel.relativeDate.toUpperCase(),
-              style: GoogleFonts.spaceMono(
-                color: secondaryColor,
-                fontSize: layout.font(9),
-                fontWeight: FontWeight.w700,
-                shadows: shadows,
-              ),
-            ),
         ],
       ),
     );
+  }
+
+  String? _sourcePlatformIconAsset(Reel reel) {
+    return switch (reel.sourcePlatform) {
+      'instagram' => 'assets/images/instagram.png',
+      'youtube' => 'assets/images/youtube.png',
+      _ => null,
+    };
   }
 
   Widget _buildCategoryTag(BuildContext context, String label, Color catColor) {

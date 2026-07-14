@@ -9,6 +9,7 @@ import '../services/share_flow_analytics_service.dart';
 import '../viewmodels/category_filters_viewmodel.dart';
 import '../viewmodels/discover_viewmodel.dart';
 import '../viewmodels/entitlements_viewmodel.dart';
+import '../viewmodels/folders_viewmodel.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../viewmodels/map_viewmodel.dart';
 import '../viewmodels/search_viewmodel.dart';
@@ -82,6 +83,12 @@ final discoverViewModelProvider = ChangeNotifierProvider<DiscoverViewModel>((
 
 final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>((ref) {
   return SearchViewModel(ref.read(reelRepositoryProvider));
+});
+
+final foldersViewModelProvider = ChangeNotifierProvider<FoldersViewModel>((
+  ref,
+) {
+  return FoldersViewModel(ref.read(apiServiceProvider));
 });
 
 final entitlementsViewModelProvider =

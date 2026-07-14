@@ -15,6 +15,8 @@
 		5A1000012EE0000100000001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A10000A2EE000010000000A /* ShareViewController.swift */; };
 		5A1000022EE0000100000002 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 5A10000B2EE000010000000B /* MainInterface.storyboard */; };
 		5A1000032EE0000100000003 /* Share Extension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5A1000042EE0000100000004 /* Share Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5A1000212EE0000100000021 /* ShareUrlExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1000202EE0000100000020 /* ShareUrlExtractor.swift */; };
+		5A1000222EE0000100000022 /* ShareUrlExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1000202EE0000100000020 /* ShareUrlExtractor.swift */; };
 		5A10001C2EE000010000001C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 5A10001D2EE000010000001D /* GoogleService-Info.plist */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
@@ -79,6 +81,7 @@
 		49E2F24B7B43F5CD33F69711 /* Pods_Share_Extension.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Share_Extension.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A1000042EE0000100000004 /* Share Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Share Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A10000A2EE000010000000A /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		5A1000202EE0000100000020 /* ShareUrlExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareUrlExtractor.swift; sourceTree = "<group>"; };
 		5A10000C2EE000010000000C /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/MainInterface.storyboard; sourceTree = "<group>"; };
 		5A10000D2EE000010000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5A10000E2EE000010000000E /* Share Extension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Share Extension.entitlements"; sourceTree = "<group>"; };
@@ -146,6 +149,7 @@
 			children = (
 				5A10000E2EE000010000000E /* Share Extension.entitlements */,
 				5A10000A2EE000010000000A /* ShareViewController.swift */,
+				5A1000202EE0000100000020 /* ShareUrlExtractor.swift */,
 				5A10000B2EE000010000000B /* MainInterface.storyboard */,
 				5A10000D2EE000010000000D /* Info.plist */,
 			);
@@ -531,6 +535,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
+				5A1000222EE0000100000022 /* ShareUrlExtractor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -539,6 +544,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5A1000012EE0000100000001 /* ShareViewController.swift in Sources */,
+				5A1000212EE0000100000021 /* ShareUrlExtractor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

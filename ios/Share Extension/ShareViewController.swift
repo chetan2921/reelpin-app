@@ -1,8 +1,6 @@
 import UIKit
 
 class ShareViewController: UIViewController {
-  private let supportedUrlPattern =
-    #"https?://(www\.)?(instagram\.com/(reel|p|tv)/[A-Za-z0-9_-]+|((vt|vm)\.)?tiktok\.com/[A-Za-z0-9@._/\-]+|youtube\.com/shorts/[A-Za-z0-9_-]+|youtu\.be/[A-Za-z0-9_-]+)(/?\S*)?"#
   private let pendingSharesKey = "pending_urls"
   private let shareTokenKey = "share_token"
   private let baseUrlKey = "base_url"
@@ -18,7 +16,7 @@ class ShareViewController: UIViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
     configureStatusView()
-    showStatus("Saving to ReelPin...", isLoading: true)
+    showStatus("Saving to ReelPin", isLoading: true)
   }
 
   override func viewDidAppear(_ animated: Bool) {
@@ -28,7 +26,8 @@ class ShareViewController: UIViewController {
 
   override func viewWillLayoutSubviews() {
     super.viewWillLayoutSubviews()
-    preferredContentSize = CGSize(width: view.bounds.width, height: 104)
+    preferredContentSize = CGSize(width: view.bounds.width, height: 124)
+    clearExtensionBackground()
   }
 
   private func processShareIfNeeded() {
@@ -44,7 +43,7 @@ class ShareViewController: UIViewController {
 
       guard let sharedUrl else {
         self.showStatusAndComplete(
-          "ReelPin could not find a supported reel link.",
+          "Unsupported link.",
           isError: true
         )
         return
@@ -58,7 +57,7 @@ class ShareViewController: UIViewController {
     var parts: [String] = []
 
     guard let items = extensionContext?.inputItems as? [NSExtensionItem] else {
-      completion(extractSupportedUrl(from: parts.joined(separator: "\n")))
+      completion(ShareUrlExtractor.extractSupportedUrl(from: parts.joined(separator: "\n")))
       return
     }
 
@@ -76,7 +75,7 @@ class ShareViewController: UIViewController {
 
     let providers = items.flatMap { $0.attachments ?? [] }
     if providers.isEmpty {
-      completion(extractSupportedUrl(from: parts.joined(separator: "\n")))
+      completion(ShareUrlExtractor.extractSupportedUrl(from: parts.joined(separator: "\n")))
       return
     }
 
@@ -114,29 +113,8 @@ class ShareViewController: UIViewController {
     }
 
     group.notify(queue: .main) {
-      completion(self.extractSupportedUrl(from: parts.joined(separator: "\n")))
+      completion(ShareUrlExtractor.extractSupportedUrl(from: parts.joined(separator: "\n")))
     }
-  }
-
-  private func extractSupportedUrl(from text: String) -> String? {
-    guard
-      let regex = try? NSRegularExpression(
-        pattern: supportedUrlPattern,
-        options: [.caseInsensitive]
-      )
-    else {
-      return nil
-    }
-
-    let range = NSRange(text.startIndex..<text.endIndex, in: text)
-    guard
-      let match = regex.firstMatch(in: text, options: [], range: range),
-      let matchRange = Range(match.range, in: text)
-    else {
-      return nil
-    }
-
-    return String(text[matchRange]).trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   private func enqueueSharedUrl(_ sharedUrl: String) {
@@ -146,7 +124,7 @@ class ShareViewController: UIViewController {
       let baseUrl = cleanedString(defaults.string(forKey: baseUrlKey))
     else {
       savePendingShare(sharedUrl)
-      showStatusAndComplete("Saved to ReelPin. Open the app to finish.")
+      showStatusAndComplete("Open ReelPin to sync.")
       return
     }
 
@@ -162,10 +140,10 @@ class ShareViewController: UIViewController {
 
       if success {
         self.registerStoredPushToken(defaults: defaults, baseUrl: baseUrl, shareToken: shareToken)
-        self.showStatusAndComplete("Saved to ReelPin. Processing in background.")
+        self.showStatusAndComplete("Saved. Processing.")
       } else {
         self.savePendingShare(sharedUrl)
-        self.showStatusAndComplete("Saved to ReelPin. Open the app to finish.")
+        self.showStatusAndComplete("Open ReelPin to sync.")
       }
     }
   }
@@ -201,7 +179,7 @@ class ShareViewController: UIViewController {
 
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
-    request.timeoutInterval = 15
+    request.timeoutInterval = 5
     request.setValue("application/json; charset=UTF-8", forHTTPHeaderField: "Content-Type")
     request.setValue(shareToken, forHTTPHeaderField: "X-Share-Token")
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -275,13 +253,17 @@ class ShareViewController: UIViewController {
 
     statusContainer.translatesAutoresizingMaskIntoConstraints = false
     statusContainer.backgroundColor = UIColor(red: 0.05, green: 0.05, blue: 0.05, alpha: 0.96)
-    statusContainer.layer.cornerRadius = 12
-    statusContainer.layer.borderColor = UIColor.white.withAlphaComponent(0.16).cgColor
+    statusContainer.layer.cornerRadius = 16
+    statusContainer.layer.borderColor = UIColor.white.withAlphaComponent(0.14).cgColor
     statusContainer.layer.borderWidth = 1
+    statusContainer.layer.shadowColor = UIColor.black.cgColor
+    statusContainer.layer.shadowOpacity = 0.22
+    statusContainer.layer.shadowRadius = 14
+    statusContainer.layer.shadowOffset = CGSize(width: 0, height: 8)
     statusContainer.alpha = 0
 
     statusIconContainer.translatesAutoresizingMaskIntoConstraints = false
-    statusIconContainer.layer.cornerRadius = 11
+    statusIconContainer.layer.cornerRadius = 13
     statusIconContainer.clipsToBounds = true
 
     statusIconView.translatesAutoresizingMaskIntoConstraints = false
@@ -289,13 +271,13 @@ class ShareViewController: UIViewController {
     statusIconView.tintColor = .black
 
     activityIndicator.translatesAutoresizingMaskIntoConstraints = false
-    activityIndicator.color = .white
+    activityIndicator.color = .black
     activityIndicator.hidesWhenStopped = true
 
     statusLabel.translatesAutoresizingMaskIntoConstraints = false
     statusLabel.textColor = .white
-    statusLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-    statusLabel.numberOfLines = 2
+    statusLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+    statusLabel.numberOfLines = 1
     statusLabel.lineBreakMode = .byTruncatingTail
 
     view.addSubview(statusContainer)
@@ -304,33 +286,38 @@ class ShareViewController: UIViewController {
     statusIconContainer.addSubview(activityIndicator)
     statusContainer.addSubview(statusLabel)
 
+    let fillCardWidth = statusContainer.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -48)
+    fillCardWidth.priority = .defaultHigh
+
     NSLayoutConstraint.activate([
       statusContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor),
       statusContainer.bottomAnchor.constraint(
         equalTo: view.safeAreaLayoutGuide.bottomAnchor,
-        constant: -24
+        constant: -18
       ),
-      statusContainer.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, constant: -32),
-      statusContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: 52),
+      fillCardWidth,
+      statusContainer.widthAnchor.constraint(lessThanOrEqualToConstant: 360),
+      statusContainer.heightAnchor.constraint(equalToConstant: 58),
 
-      statusIconContainer.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 14),
+      statusIconContainer.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 16),
       statusIconContainer.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
-      statusIconContainer.widthAnchor.constraint(equalToConstant: 22),
-      statusIconContainer.heightAnchor.constraint(equalToConstant: 22),
+      statusIconContainer.widthAnchor.constraint(equalToConstant: 26),
+      statusIconContainer.heightAnchor.constraint(equalToConstant: 26),
 
       statusIconView.centerXAnchor.constraint(equalTo: statusIconContainer.centerXAnchor),
       statusIconView.centerYAnchor.constraint(equalTo: statusIconContainer.centerYAnchor),
-      statusIconView.widthAnchor.constraint(equalToConstant: 13),
-      statusIconView.heightAnchor.constraint(equalToConstant: 13),
+      statusIconView.widthAnchor.constraint(equalToConstant: 14),
+      statusIconView.heightAnchor.constraint(equalToConstant: 14),
 
       activityIndicator.centerXAnchor.constraint(equalTo: statusIconContainer.centerXAnchor),
       activityIndicator.centerYAnchor.constraint(equalTo: statusIconContainer.centerYAnchor),
 
-      statusLabel.leadingAnchor.constraint(equalTo: statusIconContainer.trailingAnchor, constant: 10),
-      statusLabel.trailingAnchor.constraint(equalTo: statusContainer.trailingAnchor, constant: -14),
-      statusLabel.topAnchor.constraint(equalTo: statusContainer.topAnchor, constant: 10),
-      statusLabel.bottomAnchor.constraint(equalTo: statusContainer.bottomAnchor, constant: -10),
+      statusLabel.leadingAnchor.constraint(equalTo: statusIconContainer.trailingAnchor, constant: 12),
+      statusLabel.trailingAnchor.constraint(equalTo: statusContainer.trailingAnchor, constant: -16),
+      statusLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
     ])
+
+    clearExtensionBackground()
   }
 
   private func showStatus(
@@ -340,7 +327,7 @@ class ShareViewController: UIViewController {
   ) {
     statusLabel.text = message
     if isLoading {
-      statusIconContainer.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+      statusIconContainer.backgroundColor = UIColor(red: 1.00, green: 0.84, blue: 0.00, alpha: 1.00)
       statusIconView.isHidden = true
       activityIndicator.startAnimating()
     } else {
@@ -349,11 +336,19 @@ class ShareViewController: UIViewController {
       statusIconContainer.backgroundColor = isError
         ? UIColor(red: 1.00, green: 0.27, blue: 0.23, alpha: 1.00)
         : UIColor(red: 0.78, green: 1.00, blue: 0.22, alpha: 1.00)
+      statusIconView.tintColor = isError ? .white : .black
       statusIconView.image = UIImage(systemName: isError ? "xmark" : "checkmark")
     }
 
     UIView.animate(withDuration: 0.18) {
       self.statusContainer.alpha = 1
     }
+  }
+
+  private func clearExtensionBackground() {
+    view.isOpaque = false
+    view.backgroundColor = .clear
+    view.superview?.isOpaque = false
+    view.superview?.backgroundColor = .clear
   }
 }
