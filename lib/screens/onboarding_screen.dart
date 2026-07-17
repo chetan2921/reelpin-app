@@ -19,13 +19,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const _pages = [
     _OnboardingStep(
       label: 'SAVE IT',
-      title: 'KEEP THE REELS YOU REALLY WANT TO TRY',
-      body:
-          'SEND A REEL TO REELPIN AND KEEP THE FOOD SPOT, WEEKEND PLAN, OR SHOPPING FIND BEFORE IT GETS LOST.',
+      title: 'KEEP THE POSTS, REELS, SHORTS, AND VIDEOS YOU WANT TO TRY',
+      body: 'SHARE FROM INSTAGRAM OR YOUTUBE. SAVE THE PLACE, PLAN, OR FIND.',
       accent: AppTheme.yellow,
       icon: Icons.bookmark_added_outlined,
-      bullet: 'ONE SHARE AND IT IS SAVED',
+      bullet: 'SHARES WORK',
       highlights: ['SPOTS', 'PLACES TO GO', 'THINGS TO BUY'],
+      platforms: [
+        _OnboardingPlatform('assets/images/instagram.png', 'INSTAGRAM'),
+        _OnboardingPlatform('assets/images/youtube.png', 'YOUTUBE'),
+      ],
     ),
     _OnboardingStep(
       label: 'FIND IT FAST',
@@ -94,7 +97,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               SizedBox(height: layout.gap(14)),
               Text(
-                'TURN SAVED REELS INTO PLANS YOU CAN ACTUALLY USE.',
+                'SAVE INSTAGRAM AND YOUTUBE FINDS INTO PLANS YOU CAN USE.',
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.fg(context),
                   fontSize: layout.font(18, minFactor: 0.9, maxFactor: 1.08),
@@ -191,18 +194,61 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                           child: Row(
                             children: [
-                              Container(
-                                width: layout.inset(10),
-                                height: layout.inset(10),
-                                decoration: BoxDecoration(
-                                  color: step.accent,
-                                  border: Border.all(
-                                    color: AppTheme.fg(context),
-                                    width: 2,
+                              if (step.platforms.isEmpty) ...[
+                                Container(
+                                  width: layout.inset(10),
+                                  height: layout.inset(10),
+                                  decoration: BoxDecoration(
+                                    color: step.accent,
+                                    border: Border.all(
+                                      color: AppTheme.fg(context),
+                                      width: 2,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(width: layout.inset(10)),
+                                SizedBox(width: layout.inset(10)),
+                              ] else ...[
+                                for (
+                                  var i = 0;
+                                  i < step.platforms.length;
+                                  i++
+                                ) ...[
+                                  if (i > 0)
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: layout.inset(6),
+                                      ),
+                                      child: Text(
+                                        '+',
+                                        style: GoogleFonts.spaceMono(
+                                          color: AppTheme.fg(context),
+                                          fontSize: layout.font(12),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  Image.asset(
+                                    step.platforms[i].assetPath,
+                                    width: layout.inset(22),
+                                    height: layout.inset(22),
+                                  ),
+                                  SizedBox(width: layout.inset(4)),
+                                  Text(
+                                    step.platforms[i].label,
+                                    style: GoogleFonts.spaceMono(
+                                      color: AppTheme.fg(context),
+                                      fontSize: layout.font(
+                                        10.5,
+                                        minFactor: 0.9,
+                                        maxFactor: 1.05,
+                                      ),
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.7,
+                                    ),
+                                  ),
+                                ],
+                                SizedBox(width: layout.inset(10)),
+                              ],
                               Expanded(
                                 child: Text(
                                   step.bullet,
@@ -664,6 +710,7 @@ class _OnboardingStep {
     required this.icon,
     required this.bullet,
     required this.highlights,
+    this.platforms = const [],
   });
 
   final String label;
@@ -673,4 +720,12 @@ class _OnboardingStep {
   final IconData icon;
   final String bullet;
   final List<String> highlights;
+  final List<_OnboardingPlatform> platforms;
+}
+
+class _OnboardingPlatform {
+  const _OnboardingPlatform(this.assetPath, this.label);
+
+  final String assetPath;
+  final String label;
 }

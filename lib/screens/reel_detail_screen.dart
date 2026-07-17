@@ -99,6 +99,98 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   String? _reelLoadError;
 
   Reel get reel => _activeReel;
+  String get _openSourceLabel => 'OPEN $_openSourceNoun';
+  String get _openSourceErrorLabel => 'COULD NOT OPEN $_openSourceNoun';
+  String get _openSourceNoun {
+    final platform = _sourcePlatform;
+    if (platform == 'youtube') {
+      if (_isShortsSource) return 'SHORTS';
+      return 'VIDEO';
+    }
+    if (platform == 'instagram') {
+      if (_isInstagramPostSource) return 'POST';
+      return 'REEL';
+    }
+    return 'REEL';
+  }
+
+  String? get _sourcePlatform {
+    final explicit = reel.sourcePlatform?.trim().toLowerCase();
+    if (explicit == 'youtube' || explicit == 'instagram') return explicit;
+    if (_hasSourceUri(_isYoutubeUri)) return 'youtube';
+    if (_hasSourceUri(_isInstagramUri)) return 'instagram';
+    return explicit?.isEmpty == true ? null : explicit;
+  }
+
+  bool get _isShortsSource {
+    final contentType = reel.sourceContentType?.trim().toLowerCase();
+    if (contentType == 'short' || contentType == 'shorts') return true;
+    return _hasSourceUri(_isYoutubeShortsUri);
+  }
+
+  bool get _isInstagramPostSource {
+    final contentType = reel.sourceContentType?.trim().toLowerCase();
+    if (contentType == 'post' ||
+        contentType == 'carousel' ||
+        contentType == 'carousal') {
+      return true;
+    }
+    if (contentType == 'reel') return false;
+    if (_hasSourceUri(_isInstagramPostUri)) return true;
+    if (_hasSourceUri(_isInstagramReelUri)) return false;
+
+    final fallbackType = reel.contentType.trim().toLowerCase();
+    if (fallbackType == 'carousel' || fallbackType == 'carousal') return true;
+    return _sourcePlatform == 'instagram' && fallbackType == 'post';
+  }
+
+  Iterable<Uri> get _sourceUris sync* {
+    for (final rawUrl in [
+      reel.sourceUrl,
+      reel.originalUrl,
+      reel.normalizedUrl,
+      reel.url,
+    ]) {
+      final uri = Uri.tryParse(rawUrl.trim());
+      if (uri != null && uri.hasScheme && uri.host.trim().isNotEmpty) {
+        yield uri;
+      }
+    }
+  }
+
+  bool _hasSourceUri(bool Function(Uri uri) test) => _sourceUris.any(test);
+
+  bool _isYoutubeUri(Uri uri) {
+    final host = uri.host.toLowerCase();
+    return host == 'youtube.com' ||
+        host == 'www.youtube.com' ||
+        host == 'm.youtube.com' ||
+        host == 'youtu.be';
+  }
+
+  bool _isYoutubeShortsUri(Uri uri) {
+    if (!_isYoutubeUri(uri)) return false;
+    return uri.pathSegments.isNotEmpty &&
+        uri.pathSegments.first.toLowerCase() == 'shorts';
+  }
+
+  bool _isInstagramUri(Uri uri) {
+    final host = uri.host.toLowerCase();
+    return host == 'instagram.com' || host == 'www.instagram.com';
+  }
+
+  bool _isInstagramPostUri(Uri uri) {
+    if (!_isInstagramUri(uri) || uri.pathSegments.isEmpty) return false;
+    final firstSegment = uri.pathSegments.first.toLowerCase();
+    return firstSegment == 'p' || firstSegment == 'tv';
+  }
+
+  bool _isInstagramReelUri(Uri uri) {
+    if (!_isInstagramUri(uri) || uri.pathSegments.isEmpty) return false;
+    final firstSegment = uri.pathSegments.first.toLowerCase();
+    return firstSegment == 'reel' || firstSegment == 'reels';
+  }
+
   Color get _detailTextColor => Theme.of(context).brightness == Brightness.dark
       ? const Color(0xFFD0D0D0)
       : AppTheme.textSecondary;
@@ -173,7 +265,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        'OPEN REEL',
+                        _openSourceLabel,
                         style: GoogleFonts.spaceMono(
                           color: hasOpenableReel
                               ? AppTheme.black
@@ -1155,7 +1247,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'COULD NOT OPEN REEL',
+          _openSourceErrorLabel,
           style: GoogleFonts.spaceMono(
             color: AppTheme.white,
             fontWeight: FontWeight.w700,

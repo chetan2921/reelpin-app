@@ -503,7 +503,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _buildEmptyFlow(context),
             SizedBox(height: layout.gap(18)),
             Text(
-              'FOUND A REEL YOU WILL NEED LATER?',
+              'FOUND A REEL OR SHORT YOU WILL NEED LATER?',
               textAlign: TextAlign.center,
               style: GoogleFonts.spaceMono(
                 color: AppTheme.fg(context),
@@ -535,7 +535,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               context,
               icon: Icons.play_arrow,
               title: 'FIND',
-              caption: 'a reel',
+              caption: 'reel or Short',
               color: AppTheme.surfaceElevatedColor(context),
               iconColor: AppTheme.yellow,
             ),
@@ -715,9 +715,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Icon(Icons.ios_share, color: AppTheme.black, size: layout.inset(18)),
           SizedBox(width: layout.inset(10)),
+          _platformIconBadge(context, 'assets/images/instagram.png'),
+          SizedBox(width: layout.inset(5)),
+          _platformIconBadge(context, 'assets/images/youtube.png'),
+          SizedBox(width: layout.inset(10)),
           Expanded(
             child: Text(
-              'OPEN A REEL, TAP SHARE, CHOOSE REELPIN.',
+              'SHARE POSTS, REELS, SHORTS, OR VIDEOS TO REELPIN.',
               style: GoogleFonts.spaceMono(
                 color: AppTheme.black,
                 fontSize: layout.font(11),
@@ -728,6 +732,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _platformIconBadge(BuildContext context, String assetPath) {
+    final layout = AppLayout.of(context);
+    return Container(
+      width: layout.inset(24),
+      height: layout.inset(24),
+      padding: EdgeInsets.all(layout.inset(3)),
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        border: Border.all(color: AppTheme.black, width: 1.5),
+      ),
+      child: Image.asset(assetPath),
     );
   }
 

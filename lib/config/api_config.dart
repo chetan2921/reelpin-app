@@ -6,13 +6,14 @@ class ApiConfig {
   ApiConfig._();
 
   static const String _productionBaseUrl = 'https://api-64-227-168-119.nip.io';
+  static const String _devBaseUrl = 'https://dev-api-64-227-168-119.nip.io';
   static const String _currentLanBaseUrl = 'http://192.168.1.12:8000/api/v1';
   static const String _defaultLanBaseUrl = 'http://192.168.1.4:8000/api/v1';
   static const String _legacyLanBaseUrl = 'http://192.168.1.2:8000/api/v1';
   static const String _olderLanBaseUrl = 'http://192.168.1.3:8000/api/v1';
   static const String _androidEmulatorBaseUrl = 'http://10.0.2.2:8000/api/v1';
 
-  /// Production API URL, overridable for local development.
+  /// API URL, overridable for local development.
   static String get baseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
     if (kReleaseMode) {
@@ -21,7 +22,7 @@ class ApiConfig {
 
     // Override with: flutter run --dart-define=API_BASE_URL=http://<ip>:8000
     final local = SupabaseConfig.localValue('API_BASE_URL');
-    return _firstNonEmpty(fromEnv, local, fallback: _productionBaseUrl);
+    return _firstNonEmpty(fromEnv, local, fallback: _devBaseUrl);
   }
 
   /// Additional URLs to auto-try when the primary host is unreachable.

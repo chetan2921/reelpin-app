@@ -466,6 +466,7 @@ class _AppShellState extends ConsumerState<AppShell>
       },
       child: Scaffold(
         extendBody: true,
+        resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
             Positioned.fill(
