@@ -268,17 +268,44 @@ flutter run
 
 ## Useful Commands
 
-Analyze:
+Run the same validation used for changes targeting `dev`:
 
 ```bash
+dart format --output=none --set-exit-if-changed lib test tool
+dart run tool/check_architecture.dart
+dart run tool/check_assets.dart
 flutter analyze
+flutter test
 ```
 
-Build release APK:
+Check that required project paths and optional local configuration are present:
+
+```bash
+dart run tool/verify_project.dart
+```
+
+Build a release APK:
 
 ```bash
 flutter build apk
 ```
+
+## Code Organization
+
+The Flutter application uses a single package with three top-level ownership areas:
+
+- `lib/app` starts the application, registers providers, selects the authenticated entry point, and coordinates user-scoped state.
+- `lib/core` contains configuration, design primitives, logging, network implementation, and platform integrations.
+- `lib/features` groups each feature's data contracts, domain models, state, screens, and widgets.
+
+Home and reel ownership are intentionally separate:
+
+- `lib/features/home` contains the Home screen, Home viewmodel, and category-filter state.
+- `lib/features/reels` contains reusable reel models, the reel repository, reel cards, and reel detail/share UI.
+
+Feature data and domain code cannot depend on presentation code. Core code does not depend on application composition. The architecture check enforces these boundaries for every change targeting `dev`.
+
+Tests mirror the application structure under `test/app`, `test/core`, and `test/features`. When you change a feature, its production code and tests stay in matching folders.
 
 ## Notes
 
