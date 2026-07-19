@@ -47,6 +47,7 @@ app.*.map.json
 /android/app/release
 
 # ── Secrets (API keys — NEVER commit these) ──
+.vscode/launch.json
 **/ios/Flutter/Secrets.xcconfig
 **/.env
 **/secrets.dart

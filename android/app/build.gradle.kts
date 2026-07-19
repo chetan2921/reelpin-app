@@ -1,4 +1,5 @@
 import java.io.File
+import java.util.Base64
 import java.util.Properties
 import org.gradle.api.GradleException
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -48,6 +49,39 @@ val mapsApiKey: String =
 
 val requestedTasks = gradle.startParameter.taskNames.map(String::lowercase)
 val isReleaseBuildRequested = requestedTasks.any { "release" in it }
+
+fun decodedDartDefines(): Map<String, String> {
+    val rawDefines = project.findProperty("dart-defines") as? String ?: return emptyMap()
+
+    return rawDefines
+        .split(",")
+        .mapNotNull { encoded ->
+            val decoded = runCatching {
+                String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+            }.getOrNull() ?: return@mapNotNull null
+
+            val separator = decoded.indexOf('=')
+            if (separator <= 0) {
+                return@mapNotNull null
+            }
+
+            decoded.substring(0, separator) to decoded.substring(separator + 1)
+        }
+        .toMap()
+}
+
+if (isReleaseBuildRequested) {
+    val dartDefines = decodedDartDefines()
+    listOf("SUPABASE_URL", "SUPABASE_ANON_KEY", "API_BASE_URL").forEach { key ->
+        val value = dartDefines[key]?.trim()
+        if (value.isNullOrEmpty() || value.contains("YOUR_")) {
+            throw GradleException(
+                "Missing required --dart-define=$key for Android release build. Use tool/reelpin_flutter.sh --reelpin-env=production build appbundle --release.",
+            )
+        }
+    }
+}
+
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 val hasReleaseKeystore = keystorePropertiesFile.exists()

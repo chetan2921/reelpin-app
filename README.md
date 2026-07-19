@@ -161,20 +161,9 @@ The app uses the backend category-filter tree for its filter UI. It does not rel
 - A Google Maps API key
 - Firebase project files for push notifications
 
-### Supabase Config
+### Runtime Config
 
-Pass runtime config with Dart defines:
-
-```bash
-flutter run \
-  --dart-define=SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY \
-  --dart-define=SUPABASE_REDIRECT_SCHEME=com.chetan.reelpin \
-  --dart-define=SUPABASE_REDIRECT_HOST=login-callback \
-  --dart-define=API_BASE_URL=https://YOUR_BACKEND
-```
-
-For local development only, the app also tries to read:
+Put local runtime config in the ignored file:
 
 ```text
 assets/config/local.env
@@ -187,10 +176,48 @@ SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 SUPABASE_REDIRECT_SCHEME=com.chetan.reelpin
 SUPABASE_REDIRECT_HOST=login-callback
-API_BASE_URL=https://YOUR_BACKEND
+API_BASE_URL=https://dev-api-64-227-168-119.nip.io
 ```
 
-Release builds ignore this file, and it is not packaged as a Flutter asset.
+Run the app through the config wrapper so Supabase is always passed as Dart defines:
+
+```bash
+tool/reelpin_flutter.sh --reelpin-env=dev run
+```
+
+Run against production:
+
+```bash
+tool/reelpin_flutter.sh --reelpin-env=production run
+```
+
+Build a production Android APK:
+
+```bash
+tool/reelpin_flutter.sh --reelpin-env=production build apk --release
+```
+
+Build a production Play Store app bundle:
+
+```bash
+tool/reelpin_flutter.sh --reelpin-env=production build appbundle --release
+```
+
+Build a production iOS IPA:
+
+```bash
+tool/reelpin_flutter.sh --reelpin-env=production build ipa \
+  --release \
+  --export-options-plist=ios/ExportOptions.plist
+```
+
+If you archive from Xcode, sync the ignored iOS Dart defines first:
+
+```bash
+tool/reelpin_flutter.sh --reelpin-env=production sync-xcode
+```
+
+The wrapper reads `assets/config/local.env` from disk before Flutter runs. That file is git-ignored and is not packaged as a Flutter asset.
 
 ### Android Maps Config
 

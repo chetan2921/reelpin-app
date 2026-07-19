@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-import 'supabase_config.dart';
-
 class ApiConfig {
   ApiConfig._();
 
@@ -20,9 +18,8 @@ class ApiConfig {
       return _firstNonEmpty(fromEnv, null, fallback: _productionBaseUrl);
     }
 
-    // Override with: flutter run --dart-define=API_BASE_URL=http://<ip>:8000
-    final local = SupabaseConfig.localValue('API_BASE_URL');
-    return _firstNonEmpty(fromEnv, local, fallback: _devBaseUrl);
+    // Override with: tool/reelpin_flutter.sh run --dart-define=API_BASE_URL=http://<ip>:8000
+    return _firstNonEmpty(fromEnv, null, fallback: _devBaseUrl);
   }
 
   /// Additional URLs to auto-try when the primary host is unreachable.

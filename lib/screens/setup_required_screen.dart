@@ -36,7 +36,7 @@ class SetupRequiredScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: Text(
-                    'ADD YOUR SUPABASE PROJECT URL AND ANON KEY WITH DART DEFINES BEFORE RUNNING THE APP.',
+                    'RUN THE APP THROUGH THE REELPIN CONFIG WRAPPER SO SUPABASE DART DEFINES ARE INCLUDED.',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.fg(context),
                       fontSize: 12,
@@ -53,9 +53,8 @@ class SetupRequiredScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: SelectableText(
-                    'flutter run \\\n'
-                    '  --dart-define=SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co \\\n'
-                    '  --dart-define=SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY',
+                    'tool/reelpin_flutter.sh --reelpin-env=dev run\n'
+                    'tool/reelpin_flutter.sh --reelpin-env=production run',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.fg(context),
                       fontSize: 12,
@@ -86,7 +85,8 @@ class SetupRequiredScreen extends StatelessWidget {
                     'SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co\n'
                     'SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY\n'
                     'SUPABASE_REDIRECT_SCHEME=${SupabaseConfig.redirectScheme}\n'
-                    'SUPABASE_REDIRECT_HOST=${SupabaseConfig.redirectHost}',
+                    'SUPABASE_REDIRECT_HOST=${SupabaseConfig.redirectHost}\n'
+                    'API_BASE_URL=https://dev-api-64-227-168-119.nip.io',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.fg(context),
                       fontSize: 12,
