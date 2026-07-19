@@ -177,6 +177,7 @@ SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 SUPABASE_REDIRECT_SCHEME=com.chetan.reelpin
 SUPABASE_REDIRECT_HOST=login-callback
 API_BASE_URL=https://dev-api-64-227-168-119.nip.io
+MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
 Run the app through the config wrapper so Supabase is always passed as Dart defines:
@@ -221,7 +222,7 @@ The wrapper reads `assets/config/local.env` from disk before Flutter runs. That 
 
 ### Android Maps Config
 
-Create:
+You can keep the Google Maps key in `assets/config/local.env`, which works for Android and iOS when using the wrapper. Android also supports:
 
 ```text
 android/local.properties

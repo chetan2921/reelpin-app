@@ -70,6 +70,11 @@ fun decodedDartDefines(): Map<String, String> {
         .toMap()
 }
 
+fun isMissingLocalBuildValue(value: String): Boolean {
+    val trimmed = value.trim()
+    return trimmed.isEmpty() || trimmed.contains("YOUR_") || trimmed.contains("$")
+}
+
 if (isReleaseBuildRequested) {
     val dartDefines = decodedDartDefines()
     listOf("SUPABASE_URL", "SUPABASE_ANON_KEY", "API_BASE_URL").forEach { key ->
@@ -79,6 +84,12 @@ if (isReleaseBuildRequested) {
                 "Missing required --dart-define=$key for Android release build. Use tool/reelpin_flutter.sh --reelpin-env=production build appbundle --release.",
             )
         }
+    }
+
+    if (isMissingLocalBuildValue(mapsApiKey)) {
+        throw GradleException(
+            "Missing MAPS_API_KEY for Android release build. Add it to assets/config/local.env or android/local.properties before building a Play Store bundle.",
+        )
     }
 }
 

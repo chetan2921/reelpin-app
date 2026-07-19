@@ -87,6 +87,49 @@ void main() {
     expect(reel.toJson()['source_platform'], 'youtube');
     expect(reel.toJson()['source_content_type'], 'short');
   });
+
+  test('prefers backend transcript over YouTube transcript aliases', () {
+    final reel = Reel.fromJson(
+      _reelJson({
+        'transcript': 'Stored transcript',
+        'transcript_text': 'Alias transcript',
+      }),
+    );
+
+    expect(reel.transcript, 'Stored transcript');
+  });
+
+  test('accepts YouTube transcript text alias', () {
+    final reel = Reel.fromJson(
+      _reelJson({'transcript_text': 'YouTube transcript'}),
+    );
+
+    expect(reel.transcript, 'YouTube transcript');
+  });
+
+  test('flattens YouTube caption segment lists', () {
+    final reel = Reel.fromJson(
+      _reelJson({
+        'captions': [
+          {'text': 'First line'},
+          {'caption': 'Second line'},
+        ],
+      }),
+    );
+
+    expect(reel.transcript, 'First line\nSecond line');
+  });
+
+  test('accepts encoded YouTube transcript segment lists', () {
+    final reel = Reel.fromJson(
+      _reelJson({
+        'transcription':
+            '[{"text":"First encoded line"},{"text":"Second encoded line"}]',
+      }),
+    );
+
+    expect(reel.transcript, 'First encoded line\nSecond encoded line');
+  });
 }
 
 Map<String, Object?> _reelJson(Map<String, Object?> overrides) {

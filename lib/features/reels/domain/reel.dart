@@ -211,7 +211,7 @@ class Reel {
           json['reel_caption']?.toString() ??
           json['video_caption']?.toString() ??
           '',
-      transcript: json['transcript']?.toString() ?? '',
+      transcript: _parseTranscript(json),
       category: category,
       subCategory: subCategory,
       categoryLabel: json['category_label']?.toString() ?? category,
@@ -285,6 +285,78 @@ class Reel {
           .toList(growable: false);
     }
     return const [];
+  }
+
+  static String _parseTranscript(Map<String, dynamic> json) {
+    const keys = [
+      'transcript',
+      'transcript_text',
+      'transcription',
+      'captions',
+      'subtitles',
+    ];
+
+    for (final key in keys) {
+      final value = _transcriptTextFromValue(json[key]).trim();
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  static String _transcriptTextFromValue(dynamic raw) {
+    if (raw == null) {
+      return '';
+    }
+    if (raw is String) {
+      final value = raw.trim();
+      if (value.isEmpty) {
+        return '';
+      }
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List || decoded is Map) {
+          final decodedText = _transcriptTextFromValue(decoded).trim();
+          if (decodedText.isNotEmpty) {
+            return decodedText;
+          }
+        }
+      } catch (_) {
+        // The value is already plain transcript text.
+      }
+      return value;
+    }
+    if (raw is List) {
+      return raw
+          .map(_transcriptTextFromValue)
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .join('\n');
+    }
+    if (raw is Map) {
+      const keys = [
+        'text',
+        'transcript',
+        'transcript_text',
+        'transcription',
+        'caption',
+        'captions',
+        'subtitle',
+        'subtitles',
+        'line',
+        'value',
+        'content',
+      ];
+      for (final key in keys) {
+        final value = _transcriptTextFromValue(raw[key]).trim();
+        if (value.isNotEmpty) {
+          return value;
+        }
+      }
+      return '';
+    }
+    return raw.toString().trim();
   }
 
   static String _normalizedContentType(dynamic raw) {

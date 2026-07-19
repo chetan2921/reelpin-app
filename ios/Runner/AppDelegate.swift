@@ -32,8 +32,10 @@ import receive_sharing_intent
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Read API key from build settings (Secrets.xcconfig → gitignored)
-    if let apiKey = Bundle.main.object(forInfoDictionaryKey: "MAPS_API_KEY") as? String {
+    // Read API key from build settings (Secrets.xcconfig -> gitignored)
+    if let apiKey = Bundle.main.object(forInfoDictionaryKey: "MAPS_API_KEY") as? String,
+       !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+       !apiKey.contains("$(") {
       GMSServices.provideAPIKey(apiKey)
     }
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
