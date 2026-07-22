@@ -157,7 +157,11 @@ class NotificationService {
         !_shouldPresentForegroundNotification(notification)) {
       return;
     }
-    unawaited(showMessageNotification(notification));
+    unawaited(
+      showMessageNotification(notification).catchError((error) {
+        AppLogger.error('Foreground notification display failed: $error');
+      }),
+    );
   }
 
   void _handleLocalNotificationResponse(NotificationResponse response) {
@@ -313,7 +317,7 @@ class NotificationService {
           updatesChannelName,
           importance: Importance.high,
           priority: Priority.high,
-          icon: 'ic_launcher',
+          icon: '@mipmap/ic_launcher',
         ),
         iOS: DarwinNotificationDetails(),
       ),
