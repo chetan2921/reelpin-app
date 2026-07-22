@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:reelpin/core/network/api_service.dart';
 import 'package:reelpin/core/platform/device_metadata_service.dart';
 import 'package:reelpin/core/platform/notification_service.dart';
-import 'package:reelpin/core/platform/push_registration_service.dart';
+import 'package:reelpin/features/sharing/services/push_registration_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

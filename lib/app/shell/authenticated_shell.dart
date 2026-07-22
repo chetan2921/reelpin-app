@@ -9,12 +9,12 @@ import 'package:reelpin/core/logging/app_logger.dart';
 import 'package:reelpin/core/platform/app_notification.dart';
 import 'package:reelpin/core/platform/notification_service.dart';
 import 'package:reelpin/core/platform/notification_tap_handler.dart';
-import 'package:reelpin/core/platform/push_registration_service.dart';
 import 'package:reelpin/features/account/presentation/entitlements_viewmodel.dart';
 import 'package:reelpin/features/account/presentation/profile_screen.dart';
 import 'package:reelpin/features/announcements/presentation/feature_announcement_screen.dart';
 import 'package:reelpin/features/auth/data/auth_service.dart';
 import 'package:reelpin/features/reels/presentation/detail/reel_detail_loader_screen.dart';
+import 'package:reelpin/features/sharing/services/push_registration_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthenticatedShell extends ConsumerStatefulWidget {
