@@ -902,19 +902,73 @@ class ApiService
     required String userId,
     required String token,
     required String platform,
+    required String appVersion,
+    required String appBuild,
+    required String timezone,
+    required String locale,
   }) async {
-    final res = await _client
-        .post(
-          _apiUri(_baseUrl, '/api/v1/device-push-tokens'),
-          headers: _headers(json: true),
-          body: jsonEncode({'token': token, 'platform': platform}),
-        )
-        .timeout(_backgroundRequestTimeout);
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/device-push-tokens'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'token': token,
+              'platform': platform,
+              'app_version': appVersion,
+              'app_build': appBuild,
+              'timezone': timezone,
+              'locale': locale,
+            }),
+          )
+          .timeout(_backgroundRequestTimeout),
+    );
 
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not register this device right now.',
+      );
+    }
+  }
+
+  @override
+  Future<void> unregisterPushToken({required String token}) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/device-push-tokens'),
+            headers: _headers(json: true),
+            body: jsonEncode({'token': token}),
+          )
+          .timeout(_backgroundRequestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not unregister this device right now.',
+      );
+    }
+  }
+
+  @override
+  Future<void> recordNotificationOpened({
+    required String notificationId,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/notifications/$notificationId/opened'),
+            headers: _headers(),
+          )
+          .timeout(_backgroundRequestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not record this notification open.',
       );
     }
   }

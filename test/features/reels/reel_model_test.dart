@@ -120,6 +120,23 @@ void main() {
     expect(reel.transcript, 'First line\nSecond line');
   });
 
+  test('flattens YouTube transcripts segment lists', () {
+    final reel = Reel.fromJson(
+      _reelJson({
+        'transcripts': [
+          {
+            'lines': [
+              {'text': 'First transcript line'},
+              {'text': 'Second transcript line'},
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(reel.transcript, 'First transcript line\nSecond transcript line');
+  });
+
   test('accepts encoded YouTube transcript segment lists', () {
     final reel = Reel.fromJson(
       _reelJson({

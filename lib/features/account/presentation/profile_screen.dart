@@ -7,7 +7,6 @@ import 'package:reelpin/app/providers.dart';
 import 'package:reelpin/core/network/error_message.dart';
 import 'package:reelpin/core/platform/location_service.dart';
 import 'package:reelpin/core/platform/notification_service.dart';
-import 'package:reelpin/features/sharing/services/share_handoff_service.dart';
 import 'package:reelpin/core/design/app_layout.dart';
 import 'package:reelpin/core/design/app_theme.dart';
 part 'profile_preference_cards.dart';

@@ -11,7 +11,15 @@ abstract interface class SharingApi {
     required String userId,
     required String token,
     required String platform,
+    required String appVersion,
+    required String appBuild,
+    required String timezone,
+    required String locale,
   });
+
+  Future<void> unregisterPushToken({required String token});
+
+  Future<void> recordNotificationOpened({required String notificationId});
 
   Future<String> mintShareToken();
 

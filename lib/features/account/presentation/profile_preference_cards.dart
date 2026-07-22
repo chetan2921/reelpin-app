@@ -45,7 +45,6 @@ class _NotificationPreferenceCardState
     });
 
     final notificationService = ref.read(notificationServiceProvider);
-    final sharingApi = ref.read(sharingApiProvider);
     final authService = ref.read(authServiceProvider);
 
     try {
@@ -56,18 +55,9 @@ class _NotificationPreferenceCardState
       if (state == NotificationPermissionState.enabled) {
         final userId = authService.currentUser?.id;
         if (userId != null && userId.trim().isNotEmpty) {
-          final token = await notificationService.getFcmToken();
-          if (token != null && token.trim().isNotEmpty) {
-            await sharingApi.registerPushToken(
-              userId: userId,
-              token: token,
-              platform: notificationService.currentPlatform,
-            );
-            await ShareHandoffService.instance.syncPushToken(
-              token: token,
-              platform: notificationService.currentPlatform,
-            );
-          }
+          await ref
+              .read(pushRegistrationServiceProvider)
+              .register(userId: userId);
         }
       }
 

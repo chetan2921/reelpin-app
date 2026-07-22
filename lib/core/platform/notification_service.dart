@@ -6,15 +6,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:reelpin/core/logging/app_logger.dart';
 import 'package:reelpin/core/config/supabase_config.dart';
+import 'package:reelpin/core/logging/app_logger.dart';
+import 'package:reelpin/core/platform/app_notification.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     if (!_supportsNativeFirebaseMessaging) return;
     await Firebase.initializeApp();
-  } catch (_) {}
+  } catch (e) {
+    AppLogger.error('Firebase background initialization skipped: $e');
+  }
 }
 
 bool get _supportsNativeFirebaseMessaging =>
@@ -24,20 +27,6 @@ bool get _supportsNativeFirebaseMessaging =>
 
 bool get _usesSystemForegroundPresentation =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
-
-class ReelReadyNotification {
-  const ReelReadyNotification({
-    required this.title,
-    required this.body,
-    this.reelId,
-    this.jobId,
-  });
-
-  final String title;
-  final String body;
-  final String? reelId;
-  final String? jobId;
-}
 
 enum NotificationPermissionState { enabled, disabled, unavailable }
 
@@ -52,17 +41,22 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
-  final StreamController<ReelReadyNotification> _reelReadyController =
-      StreamController<ReelReadyNotification>.broadcast();
-  final Map<String, DateTime> _recentReelReadyKeys = {};
+  final StreamController<AppNotification> _reelReadyController =
+      StreamController<AppNotification>.broadcast();
+  final StreamController<OpenedAppNotification> _notificationOpenedController =
+      StreamController<OpenedAppNotification>.broadcast();
+  final Map<String, DateTime> _recentForegroundNotifications = {};
 
-  bool _initialized = false;
+  Future<void>? _initializationFuture;
   bool _firebaseConfigured = false;
-  ReelReadyNotification? _pendingInitialReelReady;
+  OpenedAppNotification? _pendingNotificationOpen;
   NotificationPermissionState? _lastKnownPermissionState;
+  String? _currentFcmToken;
 
   bool get isFirebaseConfigured => _firebaseConfigured;
-  Stream<ReelReadyNotification> get onReelReady => _reelReadyController.stream;
+  Stream<AppNotification> get onReelReady => _reelReadyController.stream;
+  Stream<OpenedAppNotification> get onNotificationOpened =>
+      _notificationOpenedController.stream;
 
   Future<void> initialize({bool requestPermissions = true}) async {
     _lastKnownPermissionState ??= await getLastKnownPermissionState();
@@ -71,98 +65,122 @@ class NotificationService {
     _firebaseConfigured = Firebase.apps.isNotEmpty;
     if (!_firebaseConfigured) return;
 
-    if (_initialized) {
-      if (requestPermissions) {
-        await requestUserPermission();
-      }
-      return;
+    _initializationFuture ??= _initializeOnce();
+    try {
+      await _initializationFuture;
+    } catch (_) {
+      _initializationFuture = null;
+      rethrow;
     }
-
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-    );
-    const settings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-
-    await _localNotifications.initialize(settings);
-
-    final messaging = FirebaseMessaging.instance;
-    await messaging.setAutoInitEnabled(true);
     if (requestPermissions) {
       await requestUserPermission();
     }
+  }
 
+  Future<void> _initializeOnce() async {
+    const settings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      ),
+    );
+
+    await _localNotifications.initialize(
+      settings,
+      onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            updatesChannelId,
+            updatesChannelName,
+            description: 'Notifications for ReelPin updates.',
+            importance: Importance.high,
+          ),
+        );
+
+    final messaging = FirebaseMessaging.instance;
+    await messaging.setAutoInitEnabled(true);
     await messaging.setForegroundNotificationPresentationOptions(
       alert: _usesSystemForegroundPresentation,
       badge: _usesSystemForegroundPresentation,
       sound: _usesSystemForegroundPresentation,
     );
 
-    if (!kIsWeb) {
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(
-            const AndroidNotificationChannel(
-              updatesChannelId,
-              updatesChannelName,
-              description: 'Notifications for completed reel processing.',
-              importance: Importance.high,
-            ),
-          );
-    }
-
-    FirebaseMessaging.onMessage.listen((message) {
-      final reelReady = _parseReelReady(message);
-      if (reelReady != null) {
-        if (_shouldPresentReelReady(reelReady) &&
-            _shouldShowLocalForegroundNotification(message)) {
-          unawaited(
-            showMessageNotification(
-              title: reelReady.title,
-              body: reelReady.body,
-              notificationId: _notificationIdFor(reelReady),
-            ),
-          );
-        }
-        _reelReadyController.add(reelReady);
-        return;
-      }
-
-      final notification = message.notification;
-      if (notification == null ||
-          !_shouldShowLocalForegroundNotification(message)) {
-        return;
-      }
-      unawaited(
-        showMessageNotification(
-          title: notification.title ?? 'ReelPin',
-          body: notification.body ?? '',
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      _dispatchNotificationOpen(
+        OpenedAppNotification(
+          notification: AppNotification.fromRemoteMessage(message),
+          source: AppNotificationOpenSource.backgroundRemote,
         ),
       );
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      final reelReady = _parseReelReady(message);
-      if (reelReady != null) {
-        _reelReadyController.add(reelReady);
-      }
-    });
-
-    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-    if (initialMessage != null) {
-      _pendingInitialReelReady = _parseReelReady(initialMessage);
+    final localLaunch = await _localNotifications
+        .getNotificationAppLaunchDetails();
+    if (localLaunch?.didNotificationLaunchApp == true) {
+      _dispatchNotificationOpen(
+        OpenedAppNotification(
+          notification: AppNotification.fromLocalPayload(
+            localLaunch?.notificationResponse?.payload,
+          ),
+          source: AppNotificationOpenSource.terminatedLocal,
+        ),
+      );
     }
 
-    _initialized = true;
+    final initialMessage = await messaging.getInitialMessage();
+    if (initialMessage != null) {
+      _dispatchNotificationOpen(
+        OpenedAppNotification(
+          notification: AppNotification.fromRemoteMessage(initialMessage),
+          source: AppNotificationOpenSource.terminatedRemote,
+        ),
+      );
+    }
+  }
+
+  void _handleForegroundMessage(RemoteMessage message) {
+    final notification = AppNotification.fromRemoteMessage(message);
+    if (notification.isReelReady) {
+      _reelReadyController.add(notification);
+    }
+
+    if (!_shouldShowLocalForegroundNotification(message) ||
+        !_shouldPresentForegroundNotification(notification)) {
+      return;
+    }
+    unawaited(showMessageNotification(notification));
+  }
+
+  void _handleLocalNotificationResponse(NotificationResponse response) {
+    _dispatchNotificationOpen(
+      OpenedAppNotification(
+        notification: AppNotification.fromLocalPayload(response.payload),
+        source: AppNotificationOpenSource.foregroundLocal,
+      ),
+    );
+  }
+
+  void _dispatchNotificationOpen(OpenedAppNotification opened) {
+    if (_notificationOpenedController.hasListener) {
+      _notificationOpenedController.add(opened);
+      return;
+    }
+    _pendingNotificationOpen = opened;
+  }
+
+  OpenedAppNotification? consumePendingNotificationOpen() {
+    final pending = _pendingNotificationOpen;
+    _pendingNotificationOpen = null;
+    return pending;
   }
 
   Future<NotificationSettings?> requestUserPermission() async {
@@ -170,7 +188,7 @@ class NotificationService {
       return null;
     }
 
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
       await _localNotifications
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -197,25 +215,12 @@ class NotificationService {
 
     final prefs = await SharedPreferences.getInstance();
     final rawValue = prefs.getString(_permissionStateStorageKey);
-    if (rawValue == null || rawValue.trim().isEmpty) {
-      return null;
-    }
-
-    switch (rawValue) {
-      case 'enabled':
-        _lastKnownPermissionState = NotificationPermissionState.enabled;
-        break;
-      case 'disabled':
-        _lastKnownPermissionState = NotificationPermissionState.disabled;
-        break;
-      case 'unavailable':
-        _lastKnownPermissionState = NotificationPermissionState.unavailable;
-        break;
-      default:
-        _lastKnownPermissionState = null;
-        break;
-    }
-
+    _lastKnownPermissionState = switch (rawValue) {
+      'enabled' => NotificationPermissionState.enabled,
+      'disabled' => NotificationPermissionState.disabled,
+      'unavailable' => NotificationPermissionState.unavailable,
+      _ => null,
+    };
     return _lastKnownPermissionState;
   }
 
@@ -233,7 +238,7 @@ class NotificationService {
       return state;
     }
 
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
       final enabled = await _localNotifications
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -257,10 +262,9 @@ class NotificationService {
   Future<String?> getFcmToken({
     Duration apnsTimeout = const Duration(seconds: 5),
   }) async {
-    if (!SupabaseConfig.isConfigured) return null;
-    if (!_firebaseConfigured) return null;
+    if (!SupabaseConfig.isConfigured || !_firebaseConfigured) return null;
     try {
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
         final apnsToken = await _waitForApnsToken(timeout: apnsTimeout);
         if (apnsToken == null || apnsToken.trim().isEmpty) {
           AppLogger.error(
@@ -270,37 +274,39 @@ class NotificationService {
         }
       }
       final token = await FirebaseMessaging.instance.getToken();
-      AppLogger.error(
-        token == null || token.trim().isEmpty
+      _currentFcmToken = _nonEmpty(token);
+      AppLogger.info(
+        _currentFcmToken == null
             ? 'FCM token unavailable: Firebase returned no token.'
             : 'FCM token available for $currentPlatform.',
       );
-      return token;
+      return _currentFcmToken;
     } catch (e) {
       AppLogger.error('FCM token unavailable: $e');
       return null;
     }
   }
 
-  Stream<String> get onTokenRefresh => _firebaseConfigured
-      ? FirebaseMessaging.instance.onTokenRefresh
-      : const Stream<String>.empty();
-
-  ReelReadyNotification? consumePendingInitialReelReady() {
-    final pending = _pendingInitialReelReady;
-    _pendingInitialReelReady = null;
-    return pending;
+  Future<String?> getCurrentFcmToken() async {
+    return _currentFcmToken ?? getFcmToken();
   }
 
-  Future<void> showMessageNotification({
-    required String title,
-    required String body,
-    int? notificationId,
-  }) async {
+  void rememberFcmToken(String token) {
+    _currentFcmToken = _nonEmpty(token);
+  }
+
+  Stream<String> get onTokenRefresh => _firebaseConfigured
+      ? FirebaseMessaging.instance.onTokenRefresh.map((token) {
+          rememberFcmToken(token);
+          return token;
+        })
+      : const Stream<String>.empty();
+
+  Future<void> showMessageNotification(AppNotification notification) async {
     await _localNotifications.show(
-      notificationId ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000),
-      title,
-      body,
+      _notificationIdFor(notification),
+      notification.title,
+      notification.body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           updatesChannelId,
@@ -311,6 +317,7 @@ class NotificationService {
         ),
         iOS: DarwinNotificationDetails(),
       ),
+      payload: notification.toLocalPayload(),
     );
   }
 
@@ -322,50 +329,27 @@ class NotificationService {
     return 'unknown';
   }
 
-  ReelReadyNotification? _parseReelReady(RemoteMessage message) {
-    final type = message.data['type']?.trim().toLowerCase();
-    if (type != 'reel_ready') {
-      return null;
-    }
-
-    final notification = message.notification;
-    final title = notification?.title?.trim();
-    final body = notification?.body?.trim();
-    final reelId = message.data['reel_id']?.trim();
-    final jobId = message.data['job_id']?.trim();
-
-    return ReelReadyNotification(
-      title: title == null || title.isEmpty ? 'Reel pinned in ReelPin' : title,
-      body: body == null || body.isEmpty
-          ? 'Your saved reel is ready in ReelPin.'
-          : body,
-      reelId: reelId == null || reelId.isEmpty ? null : reelId,
-      jobId: jobId == null || jobId.isEmpty ? null : jobId,
-    );
-  }
-
-  bool _shouldPresentReelReady(ReelReadyNotification notification) {
-    final key = notification.reelId ?? notification.jobId ?? notification.body;
+  bool _shouldPresentForegroundNotification(AppNotification notification) {
+    final key =
+        notification.notificationId ??
+        notification.reelId ??
+        notification.campaignId ??
+        '${notification.title}:${notification.body}';
     final now = DateTime.now();
-    _recentReelReadyKeys.removeWhere(
+    _recentForegroundNotifications.removeWhere(
       (_, timestamp) => now.difference(timestamp) > const Duration(minutes: 2),
     );
-
-    final lastSeen = _recentReelReadyKeys[key];
+    final lastSeen = _recentForegroundNotifications[key];
     if (lastSeen != null &&
         now.difference(lastSeen) < const Duration(seconds: 30)) {
       return false;
     }
-
-    _recentReelReadyKeys[key] = now;
+    _recentForegroundNotifications[key] = now;
     return true;
   }
 
   bool _shouldShowLocalForegroundNotification(RemoteMessage message) {
-    if (_usesSystemForegroundPresentation && message.notification != null) {
-      return false;
-    }
-    return true;
+    return !(_usesSystemForegroundPresentation && message.notification != null);
   }
 
   NotificationPermissionState _mapAuthorizationStatus(
@@ -375,7 +359,6 @@ class NotificationService {
         status == AuthorizationStatus.provisional) {
       return NotificationPermissionState.enabled;
     }
-
     return NotificationPermissionState.disabled;
   }
 
@@ -395,9 +378,7 @@ class NotificationService {
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
       final token = await FirebaseMessaging.instance.getAPNSToken();
-      if (token != null && token.trim().isNotEmpty) {
-        return token;
-      }
+      if (token != null && token.trim().isNotEmpty) return token;
 
       final remaining = deadline.difference(DateTime.now());
       if (remaining <= Duration.zero) break;
@@ -410,13 +391,21 @@ class NotificationService {
     return null;
   }
 
-  int _notificationIdFor(ReelReadyNotification notification) {
+  int _notificationIdFor(AppNotification notification) {
     final source =
-        notification.reelId ?? notification.jobId ?? notification.body;
+        notification.notificationId ??
+        notification.reelId ??
+        notification.campaignId ??
+        '${notification.title}:${notification.body}';
     var hash = 0;
     for (final codeUnit in source.codeUnits) {
       hash = ((hash * 31) + codeUnit) & 0x7fffffff;
     }
     return hash;
+  }
+
+  String? _nonEmpty(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 }

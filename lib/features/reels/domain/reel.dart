@@ -290,10 +290,13 @@ class Reel {
   static String _parseTranscript(Map<String, dynamic> json) {
     const keys = [
       'transcript',
+      'transcripts',
       'transcript_text',
       'transcription',
       'captions',
       'subtitles',
+      'segments',
+      'lines',
     ];
 
     for (final key in keys) {
@@ -338,13 +341,17 @@ class Reel {
       const keys = [
         'text',
         'transcript',
+        'transcripts',
         'transcript_text',
         'transcription',
+        'segment',
+        'segments',
         'caption',
         'captions',
         'subtitle',
         'subtitles',
         'line',
+        'lines',
         'value',
         'content',
       ];

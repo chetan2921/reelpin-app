@@ -3,8 +3,6 @@ Place a git-ignored `local.env` file in this folder for local-only build and run
 ```text
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-SUPABASE_REDIRECT_SCHEME=com.chetan.reelpin
-SUPABASE_REDIRECT_HOST=login-callback
 API_BASE_URL=https://dev-api-64-227-168-119.nip.io
 MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```

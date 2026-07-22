@@ -3,11 +3,14 @@ package com.chetanjain.reelpin
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.util.Locale
+import java.util.TimeZone
 
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -49,6 +52,13 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "shareReelCard" -> shareReelCard(call, result)
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEVICE_METADATA_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "get" -> result.success(deviceMetadata())
                     else -> result.notImplemented()
                 }
             }
@@ -98,8 +108,25 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    @Suppress("DEPRECATION")
+    private fun deviceMetadata(): Map<String, String> {
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        val buildNumber = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode
+        } else {
+            packageInfo.versionCode.toLong()
+        }
+        return mapOf(
+            "appVersion" to (packageInfo.versionName ?: "unknown"),
+            "appBuild" to buildNumber.toString(),
+            "timezone" to TimeZone.getDefault().id,
+            "locale" to Locale.getDefault().toLanguageTag(),
+        )
+    }
+
     companion object {
         private const val SHARE_HANDOFF_CHANNEL = "com.chetanjain.reelpin/share_handoff"
         private const val REEL_SHARE_CHANNEL = "com.chetanjain.reelpin/reel_share"
+        private const val DEVICE_METADATA_CHANNEL = "com.chetanjain.reelpin/device_metadata"
     }
 }

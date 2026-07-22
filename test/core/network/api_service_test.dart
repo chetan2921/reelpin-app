@@ -243,6 +243,10 @@ void main() {
           expect(jsonDecode(request.body), {
             'token': 'push-token',
             'platform': 'android',
+            'app_version': '1.0.8',
+            'app_build': '14',
+            'timezone': 'Asia/Kolkata',
+            'locale': 'en-IN',
           });
           return http.Response(jsonEncode({'ok': true}), 200);
         }),
@@ -252,9 +256,47 @@ void main() {
         userId: 'user-123',
         token: 'push-token',
         platform: 'android',
+        appVersion: '1.0.8',
+        appBuild: '14',
+        timezone: 'Asia/Kolkata',
+        locale: 'en-IN',
       );
     },
   );
+
+  test('unregisterPushToken deletes the authenticated device token', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.method, 'DELETE');
+        expect(request.url.path, '/api/v1/device-push-tokens');
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        expect(jsonDecode(request.body), {'token': 'push-token'});
+        return http.Response(jsonEncode({'ok': true}), 200);
+      }),
+    );
+
+    await service.unregisterPushToken(token: 'push-token');
+  });
+
+  test('recordNotificationOpened posts the authenticated open event', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(
+          request.url.path,
+          '/api/v1/notifications/notification-123/opened',
+        );
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        return http.Response(jsonEncode({'ok': true}), 200);
+      }),
+    );
+
+    await service.recordNotificationOpened(notificationId: 'notification-123');
+  });
 
   test(
     'getCategoryFilters sends auth header without user_id query param',

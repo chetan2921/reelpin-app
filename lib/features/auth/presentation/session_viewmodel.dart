@@ -7,6 +7,7 @@ import 'package:reelpin/core/network/error_message.dart';
 import 'package:reelpin/core/logging/app_logger.dart';
 import 'package:reelpin/features/account/data/account_api.dart';
 import 'package:reelpin/features/auth/data/auth_service.dart';
+import 'package:reelpin/features/auth/presentation/auth_error_message.dart';
 import 'package:reelpin/features/sharing/data/sharing_api.dart';
 import 'package:reelpin/features/sharing/services/share_handoff_service.dart';
 
@@ -14,8 +15,9 @@ class SessionViewModel extends ChangeNotifier {
   SessionViewModel(
     this._authService,
     this._accountApiFactory,
-    this._sharingApiFactory,
-  ) {
+    this._sharingApiFactory, {
+    Future<void> Function()? unregisterPushToken,
+  }) : _unregisterPushToken = unregisterPushToken {
     _session = _authService.currentSession;
     _subscription = _authService.authStateChanges.listen((state) {
       _session = state.session;
@@ -33,6 +35,7 @@ class SessionViewModel extends ChangeNotifier {
   final AuthService _authService;
   final AccountApi Function() _accountApiFactory;
   final SharingApi Function() _sharingApiFactory;
+  final Future<void> Function()? _unregisterPushToken;
   StreamSubscription<AuthState>? _subscription;
 
   Session? _session;
@@ -109,7 +112,7 @@ class SessionViewModel extends ChangeNotifier {
       await _authService.signInWithGoogle();
       _forceSignedOut = false;
     } catch (e) {
-      _error = _normalizeError(e);
+      _error = authErrorMessage(e, operation: AuthOperation.signIn);
     } finally {
       _isSigningIn = false;
       notifyListeners();
@@ -129,7 +132,7 @@ class SessionViewModel extends ChangeNotifier {
       _forceSignedOut = false;
       await _syncProfileSilently();
     } catch (e) {
-      _error = _normalizeError(e);
+      _error = authErrorMessage(e, operation: AuthOperation.signIn);
     } finally {
       _isSigningIn = false;
       notifyListeners();
@@ -144,6 +147,11 @@ class SessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      try {
+        await _unregisterPushToken?.call();
+      } catch (e) {
+        AppLogger.error('Push token unregister skipped: $e');
+      }
       // Revoke the device share token while the session is still valid so it
       // can't be used after sign-out.
       try {
@@ -169,6 +177,11 @@ class SessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      try {
+        await _unregisterPushToken?.call();
+      } catch (e) {
+        AppLogger.error('Push token unregister before deletion skipped: $e');
+      }
       await _accountApiFactory().deleteAccount();
       _session = null;
       _forceSignedOut = true;
@@ -205,7 +218,7 @@ class SessionViewModel extends ChangeNotifier {
       await _syncProfileSilently();
       return true;
     } catch (e) {
-      _error = _normalizeError(e);
+      _error = authErrorMessage(e, operation: AuthOperation.signIn);
       return false;
     } finally {
       _isSigningIn = false;
@@ -242,7 +255,7 @@ class SessionViewModel extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      _error = _normalizeError(e);
+      _error = authErrorMessage(e, operation: AuthOperation.signUp);
       return false;
     } finally {
       _isSigningIn = false;
