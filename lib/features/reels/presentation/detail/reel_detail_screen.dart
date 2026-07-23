@@ -102,6 +102,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   String? _reelLoadError;
 
   Reel get reel => _activeReel;
+  bool get _isXPost => _sourcePlatform == 'x';
+  String get _savedItemNoun => _isXPost ? 'POST' : 'REEL';
+  String get _untitledLabel => 'UNTITLED $_savedItemNoun';
   String get _openSourceLabel => 'OPEN $_openSourceNoun';
   String get _openSourceErrorLabel => 'COULD NOT OPEN $_openSourceNoun';
   String get _openSourceNoun {
@@ -114,14 +117,18 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
       if (_isInstagramPostSource) return 'POST';
       return 'REEL';
     }
+    if (platform == 'x') return 'X POST';
     return 'REEL';
   }
 
   String? get _sourcePlatform {
     final explicit = reel.sourcePlatform?.trim().toLowerCase();
-    if (explicit == 'youtube' || explicit == 'instagram') return explicit;
+    if (explicit == 'youtube' || explicit == 'instagram' || explicit == 'x') {
+      return explicit;
+    }
     if (_hasSourceUri(_isYoutubeUri)) return 'youtube';
     if (_hasSourceUri(_isInstagramUri)) return 'instagram';
+    if (_hasSourceUri(_isXUri)) return 'x';
     return explicit?.isEmpty == true ? null : explicit;
   }
 
@@ -180,6 +187,17 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   bool _isInstagramUri(Uri uri) {
     final host = uri.host.toLowerCase();
     return host == 'instagram.com' || host == 'www.instagram.com';
+  }
+
+  bool _isXUri(Uri uri) {
+    var host = uri.host.toLowerCase();
+    for (final prefix in const ['www.', 'mobile.', 'm.']) {
+      if (host.startsWith(prefix)) {
+        host = host.substring(prefix.length);
+        break;
+      }
+    }
+    return host == 'x.com' || host == 'twitter.com' || host == 't.co';
   }
 
   bool _isInstagramPostUri(Uri uri) {
@@ -465,7 +483,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                         Text(
                           reel.title.isNotEmpty
                               ? reel.title.toUpperCase()
-                              : 'UNTITLED REEL',
+                              : _untitledLabel,
                           style: GoogleFonts.spaceMono(
                             color: AppTheme.fg(context),
                             fontSize: layout.font(22, maxFactor: 1.1),
@@ -869,7 +887,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
             ),
             SizedBox(height: layout.gap(10)),
             Text(
-              'This saved reel is outside the Free history window. Upgrade to Pro to open older saves again.',
+              'This saved ${_savedItemNoun.toLowerCase()} is outside the Free history window. Upgrade to Pro to open older saves again.',
               style: GoogleFonts.spaceMono(
                 color: AppTheme.black,
                 fontSize: layout.font(12),
@@ -949,7 +967,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'COULD NOT SHARE REEL',
+            'COULD NOT SHARE $_savedItemNoun',
             style: GoogleFonts.spaceMono(
               color: AppTheme.white,
               fontWeight: FontWeight.w700,
@@ -969,7 +987,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
 
   String get _shareTitle {
     final title = reel.title.trim();
-    return title.isEmpty ? 'ReelPin saved reel' : title;
+    return title.isEmpty
+        ? 'ReelPin saved ${_savedItemNoun.toLowerCase()}'
+        : title;
   }
 
   String _shareText(String? reelUrl) {
@@ -1101,7 +1121,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
           ),
         ),
         title: Text(
-          'DELETE THIS REEL?',
+          'DELETE THIS $_savedItemNoun?',
           style: GoogleFonts.spaceMono(
             color: AppTheme.fg(context),
             fontSize: 16,
@@ -1137,7 +1157,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'REEL DELETED',
+                        '$_savedItemNoun DELETED',
                         style: GoogleFonts.spaceMono(
                           color: AppTheme.white,
                           fontWeight: FontWeight.w700,
@@ -1288,7 +1308,8 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         } else {
           _reelLoadError = userFacingErrorMessage(
             error,
-            fallbackMessage: 'Could not load this reel right now.',
+            fallbackMessage:
+                'Could not load this ${_savedItemNoun.toLowerCase()} right now.',
           );
         }
       });
@@ -1299,7 +1320,8 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
       setState(() {
         _reelLoadError = userFacingErrorMessage(
           error,
-          fallbackMessage: 'Could not load this reel right now.',
+          fallbackMessage:
+              'Could not load this ${_savedItemNoun.toLowerCase()} right now.',
         );
       });
     } finally {

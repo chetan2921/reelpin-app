@@ -187,7 +187,7 @@ class _ReelCardState extends State<ReelCard>
               ),
               const Spacer(),
               Text(
-                reel.title.isNotEmpty ? reel.title : 'UNTITLED REEL',
+                reel.title.isNotEmpty ? reel.title : _untitledLabel(reel),
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.white,
                   fontSize: layout.font(11),
@@ -236,7 +236,7 @@ class _ReelCardState extends State<ReelCard>
                 ),
                 SizedBox(height: layout.gap(8)),
                 Text(
-                  reel.title.isNotEmpty ? reel.title : 'UNTITLED REEL',
+                  reel.title.isNotEmpty ? reel.title : _untitledLabel(reel),
                   style: GoogleFonts.spaceMono(
                     color: AppTheme.fg(context),
                     fontSize: layout.font(10.5),
@@ -286,7 +286,7 @@ class _ReelCardState extends State<ReelCard>
     List<Shadow>? shadows,
   }) {
     final layout = AppLayout.of(context);
-    final sourceIconAsset = _sourcePlatformIconAsset(reel);
+    final sourceBadge = _sourcePlatformBadge(context, reel);
     return Container(
       padding: EdgeInsets.only(top: layout.gap(6)),
       decoration: BoxDecoration(
@@ -294,12 +294,8 @@ class _ReelCardState extends State<ReelCard>
       ),
       child: Row(
         children: [
-          if (sourceIconAsset != null) ...[
-            Image.asset(
-              sourceIconAsset,
-              width: layout.inset(14),
-              height: layout.inset(14),
-            ),
+          if (sourceBadge != null) ...[
+            sourceBadge,
             SizedBox(width: layout.inset(4)),
           ],
           Expanded(
@@ -321,13 +317,34 @@ class _ReelCardState extends State<ReelCard>
     );
   }
 
-  String? _sourcePlatformIconAsset(Reel reel) {
-    return switch (reel.sourcePlatform) {
-      'instagram' => 'assets/images/instagram.png',
-      'youtube' => 'assets/images/youtube.png',
+  Widget? _sourcePlatformBadge(BuildContext context, Reel reel) {
+    final layout = AppLayout.of(context);
+    final asset = switch (reel.sourcePlatform) {
+      'instagram' => ('assets/images/instagram.png', 'Instagram'),
+      'youtube' => ('assets/images/youtube.png', 'YouTube'),
+      'x' => ('assets/images/twitter.png', 'X'),
       _ => null,
     };
+    if (asset == null) return null;
+
+    return Semantics(
+      label: '${asset.$2} source platform',
+      image: true,
+      child: ExcludeSemantics(
+        child: Image.asset(
+          asset.$1,
+          width: layout.inset(14),
+          height: layout.inset(14),
+        ),
+      ),
+    );
   }
+
+  String _untitledLabel(Reel reel) =>
+      reel.sourcePlatform == 'x' ? 'UNTITLED POST' : 'UNTITLED REEL';
+
+  String _savedItemLabel(Reel reel) =>
+      reel.sourcePlatform == 'x' ? 'POST' : 'REEL';
 
   Widget _buildCategoryTag(BuildContext context, String label, Color catColor) {
     final layout = AppLayout.of(context);
@@ -414,7 +431,7 @@ class _ReelCardState extends State<ReelCard>
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    'DELETE REEL',
+                    'DELETE ${_savedItemLabel(widget.reel)}',
                     style: GoogleFonts.spaceMono(
                       color: AppTheme.white,
                       fontSize: 14,
@@ -467,7 +484,7 @@ class _ReelCardState extends State<ReelCard>
           ),
         ),
         title: Text(
-          'DELETE THIS REEL?',
+          'DELETE THIS ${_savedItemLabel(widget.reel)}?',
           style: GoogleFonts.spaceMono(
             color: AppTheme.fg(ctx),
             fontSize: 16,

@@ -29,6 +29,23 @@ void main() {
     expect(notification.jobId, 'job-1');
   });
 
+  test('parses the reel-ready payload without a schema version', () {
+    final notification = AppNotification.fromData(
+      data: const {
+        'type': 'reel_ready',
+        'target': 'reel_detail',
+        'reel_id': 'reel-x-1',
+        'job_id': 'job-x-1',
+        'notification_id': 'notification-x-1',
+      },
+    );
+
+    expect(notification.isMalformed, isFalse);
+    expect(notification.target, AppNotificationTarget.reelDetail);
+    expect(notification.reelId, 'reel-x-1');
+    expect(notification.jobId, 'job-x-1');
+  });
+
   test('parses schema version 1 feature-update payload', () {
     final notification = AppNotification.fromData(
       title: 'YOUTUBE IS NOW ON REELPIN',

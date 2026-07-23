@@ -504,7 +504,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _buildEmptyFlow(context),
             SizedBox(height: layout.gap(18)),
             Text(
-              'FOUND A REEL OR SHORT YOU WILL NEED LATER?',
+              'FOUND A POST, REEL, SHORT, OR VIDEO YOU WILL NEED LATER?',
               textAlign: TextAlign.center,
               style: GoogleFonts.spaceMono(
                 color: AppTheme.fg(context),
@@ -536,7 +536,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               context,
               icon: Icons.play_arrow,
               title: 'FIND',
-              caption: 'reel or Short',
+              caption: 'post, reel, or Short',
               color: AppTheme.surfaceElevatedColor(context),
               iconColor: AppTheme.yellow,
             ),
@@ -716,9 +716,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Icon(Icons.ios_share, color: AppTheme.black, size: layout.inset(18)),
           SizedBox(width: layout.inset(10)),
-          _platformIconBadge(context, 'assets/images/instagram.png'),
+          _platformIconBadge(
+            context,
+            'assets/images/instagram.png',
+            'Instagram',
+          ),
           SizedBox(width: layout.inset(5)),
-          _platformIconBadge(context, 'assets/images/youtube.png'),
+          _platformIconBadge(context, 'assets/images/youtube.png', 'YouTube'),
+          SizedBox(width: layout.inset(5)),
+          _platformIconBadge(context, 'assets/images/twitter.png', 'X'),
           SizedBox(width: layout.inset(10)),
           Expanded(
             child: Text(
@@ -736,17 +742,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _platformIconBadge(BuildContext context, String assetPath) {
+  Widget _platformIconBadge(
+    BuildContext context,
+    String assetPath,
+    String label,
+  ) {
     final layout = AppLayout.of(context);
-    return Container(
-      width: layout.inset(24),
-      height: layout.inset(24),
-      padding: EdgeInsets.all(layout.inset(3)),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        border: Border.all(color: AppTheme.black, width: 1.5),
+    return Semantics(
+      label: '$label source platform',
+      image: true,
+      child: ExcludeSemantics(
+        child: Container(
+          width: layout.inset(24),
+          height: layout.inset(24),
+          padding: EdgeInsets.all(layout.inset(3)),
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            border: Border.all(color: AppTheme.black, width: 1.5),
+          ),
+          child: Image.asset(assetPath),
+        ),
       ),
-      child: Image.asset(assetPath),
     );
   }
 

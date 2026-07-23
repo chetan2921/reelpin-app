@@ -68,7 +68,7 @@ class AppNotification {
     final resolvedTitle = _nonEmpty(title) ?? 'ReelPin';
     final resolvedBody = _nonEmpty(body) ?? '';
 
-    if (schemaVersion == '1' &&
+    if ((schemaVersion == null || schemaVersion == '1') &&
         type == 'reel_ready' &&
         target == 'reel_detail') {
       final reelId = _nonEmpty(normalized['reel_id']);

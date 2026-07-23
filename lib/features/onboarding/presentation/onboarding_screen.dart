@@ -22,7 +22,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _OnboardingStep(
       label: 'SAVE IT',
       title: 'KEEP THE POSTS, REELS, SHORTS, AND VIDEOS YOU WANT TO TRY',
-      body: 'SHARE FROM INSTAGRAM OR YOUTUBE. SAVE THE PLACE, PLAN, OR FIND.',
+      body:
+          'SHARE FROM INSTAGRAM, YOUTUBE, OR X. SAVE THE PLACE, PLAN, OR FIND.',
       accent: AppTheme.yellow,
       icon: Icons.bookmark_added_outlined,
       bullet: 'SHARES WORK',
@@ -30,6 +31,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       platforms: [
         _OnboardingPlatform('assets/images/instagram.png', 'INSTAGRAM'),
         _OnboardingPlatform('assets/images/youtube.png', 'YOUTUBE'),
+        _OnboardingPlatform('assets/images/twitter.png', 'X'),
       ],
     ),
     _OnboardingStep(
@@ -99,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               SizedBox(height: layout.gap(14)),
               Text(
-                'SAVE INSTAGRAM AND YOUTUBE FINDS INTO PLANS YOU CAN USE.',
+                'SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.',
                 style: GoogleFonts.spaceMono(
                   color: AppTheme.fg(context),
                   fontSize: layout.font(18, minFactor: 0.9, maxFactor: 1.08),
@@ -229,10 +231,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                         ),
                                       ),
                                     ),
-                                  Image.asset(
-                                    step.platforms[i].assetPath,
-                                    width: layout.inset(22),
-                                    height: layout.inset(22),
+                                  Semantics(
+                                    label:
+                                        '${step.platforms[i].label} source platform',
+                                    image: true,
+                                    child: ExcludeSemantics(
+                                      child: Image.asset(
+                                        step.platforms[i].assetPath,
+                                        width: layout.inset(22),
+                                        height: layout.inset(22),
+                                      ),
+                                    ),
                                   ),
                                   SizedBox(width: layout.inset(4)),
                                   Text(

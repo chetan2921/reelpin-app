@@ -7,7 +7,11 @@ class ReelShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = reel.title.trim().isEmpty ? 'Untitled reel' : reel.title;
+    final title = reel.title.trim().isEmpty
+        ? reel.sourcePlatform == 'x'
+              ? 'Untitled post'
+              : 'Untitled reel'
+        : reel.title;
     final summary = _shareSummary(reel.summary);
     final facts = _shareItems(reel.keyFacts, 4);
     final actions = reel.actionableItems
@@ -92,7 +96,10 @@ class ReelShareCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _ShareHeader(contentType: reel.contentType),
+                        _ShareHeader(
+                          contentType: reel.contentType,
+                          sourcePlatform: reel.sourcePlatform,
+                        ),
                         const SizedBox(height: 5),
                         Container(height: 4, color: AppTheme.black),
                         const SizedBox(height: 5),
@@ -253,16 +260,20 @@ class _ShareBadge extends StatelessWidget {
 
 class _ShareHeader extends StatelessWidget {
   final String contentType;
+  final String? sourcePlatform;
 
-  const _ShareHeader({required this.contentType});
+  const _ShareHeader({required this.contentType, this.sourcePlatform});
 
   @override
   Widget build(BuildContext context) {
-    final typeLabel = switch (contentType) {
+    final contentTypeLabel = switch (contentType) {
       'reel' => 'REEL',
       'carousel' => 'CAROUSEL',
       _ => 'POST',
     };
+    final typeLabel = sourcePlatform == 'x'
+        ? 'X $contentTypeLabel'
+        : contentTypeLabel;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,

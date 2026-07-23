@@ -67,7 +67,7 @@ void main() {
     );
 
     expect(reel.id, 'reel-123');
-    expect(updates.map((job) => job.status), ['completed']);
+    expect(updates.map((job) => job.status), ['queued', 'completed']);
     expect(requests.map((uri) => uri.path), [
       '/api/v1/processing-jobs/reels',
       '/api/v1/processing-jobs/job-123',
@@ -166,6 +166,110 @@ void main() {
       expect(job.status, 'queued');
     },
   );
+
+  test(
+    'processReel returns an existing X saved item without another poll',
+    () async {
+      final requests = <Uri>[];
+      final service = ApiService(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          requests.add(request.url);
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(jsonDecode(request.body), {
+            'url': 'https://x.com/OpenAI/status/1234567890',
+          });
+          return http.Response(
+            jsonEncode({
+              'id': 'job-existing',
+              'status': 'completed',
+              'terminal': true,
+              'reel': {..._reelJson, 'source_platform': 'x'},
+            }),
+            200,
+          );
+        }),
+      );
+
+      final reel = await service.processReel(
+        'https://x.com/OpenAI/status/1234567890',
+      );
+
+      expect(reel.id, 'reel-123');
+      expect(reel.sourcePlatform, 'x');
+      expect(requests.map((uri) => uri.path), [
+        '/api/v1/processing-jobs/reels',
+      ]);
+    },
+  );
+
+  test('processReel prefers status_message for protected X posts', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'id': 'job-protected',
+            'status': 'failed',
+            'failure_code': 'protected_or_unavailable',
+            'status_message': 'This post is protected or was deleted.',
+            'terminal': true,
+            'retryable': false,
+          }),
+          202,
+        ),
+      ),
+    );
+
+    await expectLater(
+      service.processReel('https://x.com/private/status/1234567890'),
+      throwsA(
+        isA<ApiException>()
+            .having(
+              (error) => error.message,
+              'message',
+              'This post is protected or was deleted.',
+            )
+            .having(
+              (error) => error.errorCode,
+              'errorCode',
+              'protected_or_unavailable',
+            )
+            .having((error) => error.retryable, 'retryable', isFalse),
+      ),
+    );
+  });
+
+  test('processReel uses a local fallback for a deleted X post', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'id': 'job-deleted',
+            'status': 'failed',
+            'failure_code': 'post_not_found',
+            'terminal': true,
+          }),
+          202,
+        ),
+      ),
+    );
+
+    await expectLater(
+      service.processReel('https://x.com/OpenAI/status/0000000000'),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          'This X post could not be found. It may be deleted.',
+        ),
+      ),
+    );
+  });
 
   test('getReels sends auth header without user_id query param', () async {
     final service = ApiService(

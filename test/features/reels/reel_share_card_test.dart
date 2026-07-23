@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/features/reels/domain/reel.dart';
 import 'package:reelpin/features/reels/presentation/detail/reel_detail_screen.dart';
+import 'package:reelpin/features/reels/presentation/widgets/reel_card.dart';
 
 void main() {
   testWidgets('share card renders long reel details without overflow', (
@@ -98,10 +99,89 @@ void main() {
     expect(find.text('TOP ACTIONS'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('X post share card uses the X post label', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UnconstrainedBox(
+            alignment: Alignment.topLeft,
+            child: ReelShareCard(
+              reel: _shareReel(
+                contentType: 'post',
+                sourcePlatform: 'x',
+                keyFacts: const [],
+                actionableItems: const [],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('X POST'), findsOneWidget);
+    expect(find.text('REEL'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('X post without a thumbnail uses the neutral text card', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 180,
+              height: 240,
+              child: ReelCard(
+                reel: _shareReel(
+                  contentType: 'post',
+                  sourcePlatform: 'x',
+                  title: '',
+                  summary: 'A public X post saved without a thumbnail.',
+                  keyFacts: const [],
+                  actionableItems: const [],
+                ),
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('UNTITLED POST'), findsOneWidget);
+    expect(find.text('UNTITLED REEL'), findsNothing);
+    expect(find.bySemanticsLabel('X source platform'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/twitter.png',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Reel _shareReel({
   String contentType = 'reel',
+  String? sourcePlatform,
   String title = 'A saved reel worth remembering',
   String summary =
       'This reel has a clear summary that should be readable on the share card.',
@@ -125,6 +205,7 @@ Reel _shareReel({
     category: 'Travel',
     subCategory: 'City Guide',
     contentType: contentType,
+    sourcePlatform: sourcePlatform,
     keyFacts: keyFacts,
     locations: const [
       Location(

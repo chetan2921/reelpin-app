@@ -29,7 +29,7 @@ class ShareReceiverActivity : Activity() {
         if (sharedUrl == null) {
             Toast.makeText(
                 applicationContext,
-                "ReelPin could not find a supported reel link.",
+                "ReelPin could not find a supported post link.",
                 Toast.LENGTH_SHORT
             ).show()
             finishQuietly()

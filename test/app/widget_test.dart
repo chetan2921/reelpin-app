@@ -36,7 +36,7 @@ void main() {
 
     await _pumpAppEntry(tester);
     expect(
-      find.text('SAVE INSTAGRAM AND YOUTUBE FINDS INTO PLANS YOU CAN USE.'),
+      find.text('SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.'),
       findsOneWidget,
     );
 
@@ -52,7 +52,7 @@ void main() {
     await _pumpAppEntry(tester);
     expect(find.text('WELCOME BACK TO YOUR REEL ARCHIVE.'), findsOneWidget);
     expect(
-      find.text('SAVE INSTAGRAM AND YOUTUBE FINDS INTO PLANS YOU CAN USE.'),
+      find.text('SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.'),
       findsNothing,
     );
   });
@@ -77,7 +77,7 @@ Future<void> _pumpAppEntry(WidgetTester tester) async {
   for (var attempt = 0; attempt < 40; attempt++) {
     await tester.pump(const Duration(milliseconds: 100));
     final hasOnboarding = find
-        .text('SAVE INSTAGRAM AND YOUTUBE FINDS INTO PLANS YOU CAN USE.')
+        .text('SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.')
         .evaluate()
         .isNotEmpty;
     final hasAuth = find

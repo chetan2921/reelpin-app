@@ -88,6 +88,22 @@ void main() {
     expect(reel.toJson()['source_content_type'], 'short');
   });
 
+  test('parses X post metadata and a null thumbnail', () {
+    final reel = Reel.fromJson(
+      _reelJson({
+        'source_platform': 'x',
+        'source_content_type': 'post',
+        'content_type': 'post',
+        'thumbnail_url': null,
+      }),
+    );
+
+    expect(reel.sourcePlatform, 'x');
+    expect(reel.sourceContentType, 'post');
+    expect(reel.contentType, 'post');
+    expect(reel.thumbnailUrl, isEmpty);
+  });
+
   test('prefers backend transcript over YouTube transcript aliases', () {
     final reel = Reel.fromJson(
       _reelJson({

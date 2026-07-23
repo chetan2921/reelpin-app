@@ -40,7 +40,8 @@ struct ShareUrlExtractor {
 
     return isInstagramUrl(components, host: host) ||
       isTikTokUrl(components, host: host) ||
-      isYoutubeUrl(components, host: host)
+      isYoutubeUrl(components, host: host) ||
+      isXUrl(host: host)
   }
 
   private static func isInstagramUrl(_ components: URLComponents, host: String) -> Bool {
@@ -84,6 +85,20 @@ struct ShareUrlExtractor {
         .map { matches($0, pattern: videoIdPattern) } == true
   }
 
+  private static func isXUrl(host: String) -> Bool {
+    let normalizedHost = withoutMobileOrWebPrefix(host)
+    return normalizedHost == "x.com" ||
+      normalizedHost == "twitter.com" ||
+      normalizedHost == "t.co"
+  }
+
+  private static func withoutMobileOrWebPrefix(_ host: String) -> String {
+    for prefix in ["www.", "mobile.", "m."] where host.hasPrefix(prefix) {
+      return String(host.dropFirst(prefix.count))
+    }
+    return host
+  }
+
   private static func pathSegments(_ components: URLComponents) -> [String] {
     components.path
       .split(separator: "/")
@@ -101,5 +116,26 @@ struct ShareUrlExtractor {
       result.removeLast()
     }
     return result
+  }
+}
+
+enum ShareRequestResult: Equatable {
+  case success
+  case invalidShareToken
+  case failure
+}
+
+struct ShareResponseClassifier {
+  static func classify(statusCode: Int, data: Data?) -> ShareRequestResult {
+    if (200...299).contains(statusCode) {
+      return .success
+    }
+
+    let responseBody = data.flatMap { String(data: $0, encoding: .utf8) }?.lowercased()
+    if (statusCode == 401 || statusCode == 403),
+       responseBody?.contains("invalid_share_token") == true {
+      return .invalidShareToken
+    }
+    return .failure
   }
 }
