@@ -29,7 +29,12 @@ class _UpdateRequiredScreenState extends State<UpdateRequiredScreen> {
       _lastResult = null;
     });
 
-    final result = await widget.onUpdate();
+    AppUpdateStartResult result;
+    try {
+      result = await widget.onUpdate();
+    } catch (_) {
+      result = AppUpdateStartResult.failed;
+    }
     if (!mounted) return;
     setState(() {
       _isOpeningStore = false;

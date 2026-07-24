@@ -58,6 +58,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('recovers when starting the update throws', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: UpdateRequiredScreen(
+          update: _iosUpdate,
+          onUpdate: () => throw Exception('store unavailable'),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('UPDATE NOW'));
+    await tester.pump();
+
+    expect(
+      find.text(
+        'THE UPDATE COULD NOT START. CHECK YOUR CONNECTION AND TRY AGAIN.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows a retry message when an Android update is declined', (
     WidgetTester tester,
   ) async {
