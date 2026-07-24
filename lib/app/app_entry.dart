@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reelpin/app/providers.dart';
 import 'package:reelpin/app/shell/authenticated_shell.dart';
 import 'package:reelpin/app/splash_screen.dart';
-import 'package:reelpin/app/update_required_screen.dart';
 import 'package:reelpin/core/platform/app_update_service.dart';
 import 'package:reelpin/features/auth/presentation/auth_screen.dart';
 import 'package:reelpin/features/onboarding/presentation/onboarding_screen.dart';
@@ -25,26 +24,13 @@ class _AppEntryState extends ConsumerState<AppEntry> {
   bool _hasCompletedSplash = false;
   bool _hasCompletedOnboarding = false;
   bool _isLoadingOnboardingState = true;
-  bool _isCheckingForUpdate = true;
-  RequiredAppUpdate? _requiredUpdate;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_checkForRequiredUpdate());
+    unawaited(AppUpdateService.checkForImmediateUpdate());
     _holdSplash();
     _loadOnboardingState();
-  }
-
-  Future<void> _checkForRequiredUpdate() async {
-    final update = await ref
-        .read(appUpdateServiceProvider)
-        .checkForRequiredUpdate();
-    if (!mounted) return;
-    setState(() {
-      _requiredUpdate = update;
-      _isCheckingForUpdate = false;
-    });
   }
 
   Future<void> _holdSplash() async {
@@ -78,21 +64,10 @@ class _AppEntryState extends ConsumerState<AppEntry> {
     final sessionVm = ref.watch(sessionViewModelProvider);
 
     if (!_hasCompletedSplash ||
-        _isCheckingForUpdate ||
+        sessionVm.isBootstrapping ||
         _isLoadingOnboardingState) {
       return const SplashScreen();
     }
-
-    final requiredUpdate = _requiredUpdate;
-    if (requiredUpdate != null) {
-      return UpdateRequiredScreen(
-        update: requiredUpdate,
-        onUpdate: () =>
-            ref.read(appUpdateServiceProvider).startUpdate(requiredUpdate),
-      );
-    }
-
-    if (sessionVm.isBootstrapping) return const SplashScreen();
 
     if (!sessionVm.isAuthenticated) {
       if (!_hasCompletedOnboarding) {

@@ -6,7 +6,6 @@ import 'package:reelpin/features/reels/data/reel_repository.dart';
 import 'package:reelpin/features/reels/data/reels_api.dart';
 import 'package:reelpin/core/network/api_service.dart';
 import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/core/platform/app_update_service.dart';
 import 'package:reelpin/core/platform/notification_service.dart';
 import 'package:reelpin/features/auth/data/profile_service.dart';
 import 'package:reelpin/features/sharing/services/push_registration_service.dart';
@@ -50,10 +49,6 @@ final sessionViewModelProvider = ChangeNotifierProvider<SessionViewModel>((
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService.instance;
-});
-
-final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
-  return AppUpdateService();
 });
 
 final shareFlowAnalyticsServiceProvider = Provider<ShareFlowAnalyticsService>((

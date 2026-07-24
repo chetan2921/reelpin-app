@@ -9,7 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:reelpin/app/app_entry.dart';
 import 'package:reelpin/app/providers.dart';
 import 'package:reelpin/app/reelpin_app.dart';
-import 'package:reelpin/core/platform/app_update_service.dart';
 import 'package:reelpin/core/network/api_service.dart';
 import 'package:reelpin/features/auth/data/auth_service.dart';
 import 'package:reelpin/features/auth/data/profile_service.dart';
@@ -57,33 +56,6 @@ void main() {
       findsNothing,
     );
   });
-
-  testWidgets('required update blocks onboarding and login', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final updateService = _FakeRequiredUpdateService();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          sessionViewModelProvider.overrideWith(
-            (ref) => _FakeSessionViewModel(_FakeAuthService()),
-          ),
-          appUpdateServiceProvider.overrideWithValue(updateService),
-        ],
-        child: const MaterialApp(home: AppEntry()),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 1700));
-
-    expect(find.text('UPDATE REQUIRED'), findsOneWidget);
-    expect(
-      find.text('SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.'),
-      findsNothing,
-    );
-    expect(find.text('WELCOME BACK TO YOUR REEL ARCHIVE.'), findsNothing);
-  });
 }
 
 Future<void> _pumpPageTransition(WidgetTester tester) async {
@@ -98,7 +70,6 @@ Future<void> _pumpAppEntry(WidgetTester tester) async {
         sessionViewModelProvider.overrideWith(
           (ref) => _FakeSessionViewModel(_FakeAuthService()),
         ),
-        appUpdateServiceProvider.overrideWithValue(_FakeNoUpdateService()),
       ],
       child: const MaterialApp(home: AppEntry()),
     ),
@@ -143,21 +114,4 @@ class _FakeAuthService extends AuthService {
 
   @override
   Future<void> ensureProfile() async {}
-}
-
-class _FakeRequiredUpdateService extends AppUpdateService {
-  @override
-  Future<RequiredAppUpdate?> checkForRequiredUpdate() async {
-    return RequiredAppUpdate(
-      platform: AppUpdatePlatform.ios,
-      storeUri: Uri.parse('https://apps.apple.com/us/app/reelpin/id6777110022'),
-      installedVersion: '1.0.10',
-      latestVersion: '1.0.11',
-    );
-  }
-}
-
-class _FakeNoUpdateService extends AppUpdateService {
-  @override
-  Future<RequiredAppUpdate?> checkForRequiredUpdate() async => null;
 }
