@@ -27,7 +27,9 @@ import 'package:reelpin/features/discover/presentation/discover_screen.dart';
 const _navIconSize = 27.0;
 
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.controller});
+
+  final AppShellController? controller;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -61,6 +63,7 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void initState() {
     super.initState();
+    widget.controller?._attach(_selectControlledTab);
     WidgetsBinding.instance.addObserver(this);
     _initSharingIntent();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -256,6 +259,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void dispose() {
+    widget.controller?._detach();
     WidgetsBinding.instance.removeObserver(this);
     _homeScrollController.dispose();
     _mediaIntentSub?.cancel();
@@ -327,7 +331,6 @@ class _AppShellState extends ConsumerState<AppShell>
 
   Future<bool> _enableReelPinPermissions() async {
     final notificationService = ref.read(notificationServiceProvider);
-    final sharingApi = ref.read(sharingApiProvider);
     final authService = ref.read(authServiceProvider);
     var attemptedPermissionPrompt = false;
 
@@ -351,18 +354,9 @@ class _AppShellState extends ConsumerState<AppShell>
         userId != null &&
         userId.trim().isNotEmpty) {
       try {
-        final token = await notificationService.getFcmToken();
-        if (token != null && token.trim().isNotEmpty) {
-          await ShareHandoffService.instance.syncPushToken(
-            token: token,
-            platform: notificationService.currentPlatform,
-          );
-          await sharingApi.registerPushToken(
-            userId: userId,
-            token: token,
-            platform: notificationService.currentPlatform,
-          );
-        }
+        await ref
+            .read(pushRegistrationServiceProvider)
+            .register(userId: userId);
       } catch (e) {
         AppLogger.error('Push token registration skipped after prompt: $e');
       }
@@ -372,26 +366,12 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   Future<void> _syncPushTokenRegistrationIfPossible() async {
-    final notificationService = ref.read(notificationServiceProvider);
-    final sharingApi = ref.read(sharingApiProvider);
     final authService = ref.read(authServiceProvider);
     final userId = authService.currentUser?.id;
     if (userId == null || userId.trim().isEmpty) return;
 
     try {
-      await notificationService.initialize(requestPermissions: false);
-      final token = await notificationService.getFcmToken();
-      if (token == null || token.trim().isEmpty) return;
-
-      await ShareHandoffService.instance.syncPushToken(
-        token: token.trim(),
-        platform: notificationService.currentPlatform,
-      );
-      await sharingApi.registerPushToken(
-        userId: userId,
-        token: token.trim(),
-        platform: notificationService.currentPlatform,
-      );
+      await ref.read(pushRegistrationServiceProvider).register(userId: userId);
     } catch (e) {
       AppLogger.error(
         'Push token registration skipped before share enqueue: $e',
@@ -423,6 +403,14 @@ class _AppShellState extends ConsumerState<AppShell>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_scrollHomeToTop());
     });
+  }
+
+  void _selectControlledTab(int index) {
+    if (index == 0) {
+      _showHomeAtTop();
+      return;
+    }
+    _selectTab(index);
   }
 
   bool _isHomeScrolledDown() {
@@ -569,4 +557,43 @@ class _NavItem {
   final String label;
 
   const _NavItem({required this.icon, required this.label});
+}
+
+class AppShellController {
+  ValueChanged<int>? _selectTab;
+  int? _pendingTabIndex;
+
+  void showHome() {
+    _select(0);
+  }
+
+  void showMap() {
+    _select(1);
+  }
+
+  void showDiscover() {
+    _select(2);
+  }
+
+  void _select(int index) {
+    final callback = _selectTab;
+    if (callback == null) {
+      _pendingTabIndex = index;
+      return;
+    }
+    callback(index);
+  }
+
+  void _attach(ValueChanged<int> callback) {
+    _selectTab = callback;
+    final pendingTabIndex = _pendingTabIndex;
+    if (pendingTabIndex != null) {
+      _pendingTabIndex = null;
+      callback(pendingTabIndex);
+    }
+  }
+
+  void _detach() {
+    _selectTab = null;
+  }
 }

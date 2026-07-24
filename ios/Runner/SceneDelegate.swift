@@ -26,6 +26,9 @@ class SceneDelegate: FlutterSceneDelegate {
       appDelegate.configureReelShareChannel(
         binaryMessenger: controller.binaryMessenger
       )
+      appDelegate.configureDeviceMetadataChannel(
+        binaryMessenger: controller.binaryMessenger
+      )
     }
   }
 

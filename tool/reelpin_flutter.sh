@@ -10,8 +10,6 @@ DEV_API_BASE_URL="https://dev-api-64-227-168-119.nip.io"
 
 CONFIG_SUPABASE_URL=""
 CONFIG_SUPABASE_ANON_KEY=""
-CONFIG_SUPABASE_REDIRECT_SCHEME=""
-CONFIG_SUPABASE_REDIRECT_HOST=""
 CONFIG_API_BASE_URL=""
 CONFIG_MAPS_API_KEY=""
 
@@ -22,6 +20,7 @@ Usage:
   tool/reelpin_flutter.sh [--reelpin-env=dev|production] build apk [flutter build apk args]
   tool/reelpin_flutter.sh [--reelpin-env=dev|production] build appbundle [flutter build appbundle args]
   tool/reelpin_flutter.sh [--reelpin-env=dev|production] build ipa [flutter build ipa args]
+  tool/reelpin_flutter.sh [--reelpin-env=dev|production] check-config
   tool/reelpin_flutter.sh sync-local
   tool/reelpin_flutter.sh sync-vscode
   tool/reelpin_flutter.sh sync-xcode
@@ -34,6 +33,9 @@ Examples:
   tool/reelpin_flutter.sh --reelpin-env=production run
   tool/reelpin_flutter.sh --reelpin-env=production build apk --release
   tool/reelpin_flutter.sh --reelpin-env=production build appbundle --release
+
+For the normal development and store release commands, use:
+  tool/reelpin.sh --help
 USAGE
 }
 
@@ -71,8 +73,6 @@ read_config_file() {
     case "$key" in
       SUPABASE_URL) CONFIG_SUPABASE_URL="$value" ;;
       SUPABASE_ANON_KEY) CONFIG_SUPABASE_ANON_KEY="$value" ;;
-      SUPABASE_REDIRECT_SCHEME) CONFIG_SUPABASE_REDIRECT_SCHEME="$value" ;;
-      SUPABASE_REDIRECT_HOST) CONFIG_SUPABASE_REDIRECT_HOST="$value" ;;
       API_BASE_URL) CONFIG_API_BASE_URL="$value" ;;
       MAPS_API_KEY) CONFIG_MAPS_API_KEY="$value" ;;
     esac
@@ -84,8 +84,6 @@ value_for() {
   case "$key" in
     SUPABASE_URL) printf '%s' "${SUPABASE_URL:-$CONFIG_SUPABASE_URL}" ;;
     SUPABASE_ANON_KEY) printf '%s' "${SUPABASE_ANON_KEY:-$CONFIG_SUPABASE_ANON_KEY}" ;;
-    SUPABASE_REDIRECT_SCHEME) printf '%s' "${SUPABASE_REDIRECT_SCHEME:-${CONFIG_SUPABASE_REDIRECT_SCHEME:-com.chetan.reelpin}}" ;;
-    SUPABASE_REDIRECT_HOST) printf '%s' "${SUPABASE_REDIRECT_HOST:-${CONFIG_SUPABASE_REDIRECT_HOST:-login-callback}}" ;;
     API_BASE_URL) printf '%s' "${REELPIN_API_BASE_URL:-${API_BASE_URL:-$CONFIG_API_BASE_URL}}" ;;
     MAPS_API_KEY) printf '%s' "${MAPS_API_KEY:-$CONFIG_MAPS_API_KEY}" ;;
     *) return 1 ;;
@@ -156,8 +154,6 @@ json_define_list() {
   local defines=(
     "SUPABASE_URL=$SUPABASE_URL_VALUE"
     "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY_VALUE"
-    "SUPABASE_REDIRECT_SCHEME=$SUPABASE_REDIRECT_SCHEME_VALUE"
-    "SUPABASE_REDIRECT_HOST=$SUPABASE_REDIRECT_HOST_VALUE"
     "API_BASE_URL=$api_base_url"
   )
 
@@ -275,8 +271,6 @@ read_config_file
 
 SUPABASE_URL_VALUE="$(dart_define_value SUPABASE_URL "$@" || value_for SUPABASE_URL)"
 SUPABASE_ANON_KEY_VALUE="$(dart_define_value SUPABASE_ANON_KEY "$@" || value_for SUPABASE_ANON_KEY)"
-SUPABASE_REDIRECT_SCHEME_VALUE="$(dart_define_value SUPABASE_REDIRECT_SCHEME "$@" || value_for SUPABASE_REDIRECT_SCHEME)"
-SUPABASE_REDIRECT_HOST_VALUE="$(dart_define_value SUPABASE_REDIRECT_HOST "$@" || value_for SUPABASE_REDIRECT_HOST)"
 MAPS_API_KEY_VALUE="$(value_for MAPS_API_KEY)"
 
 reject_placeholder SUPABASE_URL "$SUPABASE_URL_VALUE"
@@ -297,7 +291,7 @@ else
   [[ -n "$API_BASE_URL_VALUE" ]] || API_BASE_URL_VALUE="$DEV_API_BASE_URL"
 fi
 
-if [[ "${1:-}" == "build" || "${1:-}" == "sync-xcode" ]]; then
+if [[ "${1:-}" == "build" || "${1:-}" == "sync-xcode" || "${1:-}" == "check-config" ]]; then
   reject_placeholder MAPS_API_KEY "$MAPS_API_KEY_VALUE"
 elif missing_or_placeholder "$MAPS_API_KEY_VALUE"; then
   printf 'reelpin_flutter: warning: MAPS_API_KEY is missing, the map screen will not load map tiles.\n' >&2
@@ -306,10 +300,13 @@ fi
 XCODE_DART_DEFINES=(
   "SUPABASE_URL=$SUPABASE_URL_VALUE"
   "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY_VALUE"
-  "SUPABASE_REDIRECT_SCHEME=$SUPABASE_REDIRECT_SCHEME_VALUE"
-  "SUPABASE_REDIRECT_HOST=$SUPABASE_REDIRECT_HOST_VALUE"
   "API_BASE_URL=$API_BASE_URL_VALUE"
 )
+
+if [[ "${1:-}" == "check-config" ]]; then
+  printf 'Configuration is ready. API_BASE_URL=%s\n' "$API_BASE_URL_VALUE"
+  exit 0
+fi
 
 if [[ "${1:-}" == "sync-xcode" ]]; then
   write_ios_secrets "${XCODE_DART_DEFINES[@]}"
@@ -333,8 +330,6 @@ fi
 FLUTTER_ARGS=("$@")
 append_define_if_missing SUPABASE_URL "$SUPABASE_URL_VALUE" "$@"
 append_define_if_missing SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY_VALUE" "$@"
-append_define_if_missing SUPABASE_REDIRECT_SCHEME "$SUPABASE_REDIRECT_SCHEME_VALUE" "$@"
-append_define_if_missing SUPABASE_REDIRECT_HOST "$SUPABASE_REDIRECT_HOST_VALUE" "$@"
 append_define_if_missing API_BASE_URL "$API_BASE_URL_VALUE" "$@"
 
 if [[ "${1:-}" == "build" ]]; then

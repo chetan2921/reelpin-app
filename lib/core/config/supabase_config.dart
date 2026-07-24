@@ -7,13 +7,6 @@ class SupabaseConfig {
   static const String _anonKeyFromEnv = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
   );
-  static const String _redirectSchemeFromEnv = String.fromEnvironment(
-    'SUPABASE_REDIRECT_SCHEME',
-  );
-  static const String _redirectHostFromEnv = String.fromEnvironment(
-    'SUPABASE_REDIRECT_HOST',
-    defaultValue: 'login-callback',
-  );
 
   static Future<void> loadLocalConfig() async {}
 
@@ -21,14 +14,10 @@ class SupabaseConfig {
 
   static String get anonKey => _anonKeyFromEnv.trim();
 
-  static String get redirectScheme => _firstNonEmpty(
-    _redirectSchemeFromEnv,
-    null,
-    fallback: _defaultRedirectScheme(),
-  );
+  // These schemes must match AndroidManifest.xml and Info.plist.
+  static String get redirectScheme => _defaultRedirectScheme();
 
-  static String get redirectHost =>
-      _firstNonEmpty(_redirectHostFromEnv, null, fallback: 'login-callback');
+  static const String redirectHost = 'login-callback';
 
   static bool get isConfigured =>
       url.trim().isNotEmpty && anonKey.trim().isNotEmpty;
@@ -40,19 +29,5 @@ class SupabaseConfig {
       return 'com.chetanjain.reelpin';
     }
     return 'com.chetan.reelpin';
-  }
-
-  static String _firstNonEmpty(
-    String? primary,
-    String? secondary, {
-    String fallback = '',
-  }) {
-    if (primary != null && primary.trim().isNotEmpty) {
-      return primary.trim();
-    }
-    if (secondary != null && secondary.trim().isNotEmpty) {
-      return secondary.trim();
-    }
-    return fallback;
   }
 }

@@ -3,6 +3,9 @@ package com.chetanjain.reelpin
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 import androidx.core.app.JobIntentService
 import org.json.JSONArray
 import org.json.JSONObject
@@ -28,17 +31,26 @@ class ShareEnqueueService : JobIntentService() {
             return
         }
 
-        val enqueued = runCatching { enqueueJob(baseUrl, shareToken, sharedUrl) }
-            .getOrDefault(false)
-        if (enqueued) {
-            runCatching { registerStoredPushToken(baseUrl, shareToken, pushToken, pushPlatform) }
-        } else {
-            // Token rejected/expired or network failure: don't drop the share.
-            savePendingShare(prefs, sharedUrl)
+        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedUrl) }
+            .getOrDefault(ShareRequestResult.FAILURE)
+        when (result) {
+            ShareRequestResult.SUCCESS -> {
+                runCatching { registerStoredPushToken(baseUrl, shareToken, pushToken, pushPlatform) }
+            }
+            ShareRequestResult.INVALID_SHARE_TOKEN -> {
+                prefs.edit().remove(KEY_SHARE_TOKEN).commit()
+                savePendingShare(prefs, sharedUrl)
+                showToast("Open ReelPin and sign in again.")
+            }
+            ShareRequestResult.FAILURE -> savePendingShare(prefs, sharedUrl)
         }
     }
 
-    private fun enqueueJob(baseUrl: String, shareToken: String, sharedUrl: String): Boolean {
+    private fun enqueueJob(
+        baseUrl: String,
+        shareToken: String,
+        sharedUrl: String,
+    ): ShareRequestResult {
         val connection = (URL(apiUrl(baseUrl, "processing-jobs/reels")).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15000
@@ -51,7 +63,12 @@ class ShareEnqueueService : JobIntentService() {
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
                 it.write(JSONObject().put("url", sharedUrl).toString())
             }
-            return connection.responseCode in 200..299
+            val statusCode = connection.responseCode
+            val responseBody = runCatching {
+                val stream = if (statusCode in 200..299) connection.inputStream else connection.errorStream
+                stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+            }.getOrNull()
+            return ShareResponseClassifier.classify(statusCode, responseBody)
         } finally {
             connection.disconnect()
         }
@@ -94,6 +111,12 @@ class ShareEnqueueService : JobIntentService() {
         // commit() (not apply()) so the value is on disk before the Flutter app
         // reads it back to drain pending shares.
         prefs.edit().putString(KEY_PENDING_URLS, array.toString()).commit()
+    }
+
+    private fun showToast(message: String) {
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun apiUrl(baseUrl: String, path: String): String {

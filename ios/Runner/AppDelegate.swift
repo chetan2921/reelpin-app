@@ -20,6 +20,8 @@ import receive_sharing_intent
   private var shareHandoffChannel: FlutterMethodChannel?
   private let reelShareChannelName = "com.chetanjain.reelpin/reel_share"
   private var reelShareChannel: FlutterMethodChannel?
+  private let deviceMetadataChannelName = "com.chetanjain.reelpin/device_metadata"
+  private var deviceMetadataChannel: FlutterMethodChannel?
 
   override init() {
 #if canImport(FirebaseCore)
@@ -42,6 +44,7 @@ import receive_sharing_intent
     if let controller = window?.rootViewController as? FlutterViewController {
       configureShareHandoffChannel(binaryMessenger: controller.binaryMessenger)
       configureReelShareChannel(binaryMessenger: controller.binaryMessenger)
+      configureDeviceMetadataChannel(binaryMessenger: controller.binaryMessenger)
     }
     return result
   }
@@ -94,6 +97,9 @@ import receive_sharing_intent
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ReelShareChannel") {
       configureReelShareChannel(binaryMessenger: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DeviceMetadataChannel") {
+      configureDeviceMetadataChannel(binaryMessenger: registrar.messenger())
     }
   }
 
@@ -179,6 +185,30 @@ import receive_sharing_intent
       }
     }
     reelShareChannel = channel
+  }
+
+  func configureDeviceMetadataChannel(binaryMessenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: deviceMetadataChannelName,
+      binaryMessenger: binaryMessenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "get" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result([
+        "appVersion": Bundle.main.object(
+          forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "unknown",
+        "appBuild": Bundle.main.object(
+          forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String ?? "0",
+        "timezone": TimeZone.current.identifier,
+        "locale": Locale.current.identifier.replacingOccurrences(of: "_", with: "-"),
+      ])
+    }
+    deviceMetadataChannel = channel
   }
 
   private func currentRootViewController() -> UIViewController? {

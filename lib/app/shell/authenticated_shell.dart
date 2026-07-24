@@ -6,11 +6,15 @@ import 'package:reelpin/app/providers.dart';
 import 'package:reelpin/app/shell/app_shell.dart';
 import 'package:reelpin/app/user_state_coordinator.dart';
 import 'package:reelpin/core/logging/app_logger.dart';
+import 'package:reelpin/core/platform/app_notification.dart';
 import 'package:reelpin/core/platform/notification_service.dart';
+import 'package:reelpin/core/platform/notification_tap_handler.dart';
 import 'package:reelpin/features/account/presentation/entitlements_viewmodel.dart';
+import 'package:reelpin/features/account/presentation/profile_screen.dart';
+import 'package:reelpin/features/announcements/presentation/feature_announcement_screen.dart';
 import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/features/sharing/data/sharing_api.dart';
-import 'package:reelpin/features/sharing/services/share_handoff_service.dart';
+import 'package:reelpin/features/reels/presentation/detail/reel_detail_loader_screen.dart';
+import 'package:reelpin/features/sharing/services/push_registration_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthenticatedShell extends ConsumerStatefulWidget {
@@ -26,35 +30,47 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   static const _pushRegistrationMaxAttempts = 4;
 
   late final AuthService _authService;
-  late final SharingApi _sharingApi;
   late final NotificationService _notificationService;
+  late final PushRegistrationService _pushRegistrationService;
   late final EntitlementsViewModel _entitlementsViewModel;
   late final UserStateCoordinator _userStateCoordinator;
   StreamSubscription<String>? _tokenRefreshSubscription;
-  StreamSubscription<ReelReadyNotification>? _reelReadySubscription;
+  StreamSubscription<AppNotification>? _reelReadySubscription;
+  StreamSubscription<OpenedAppNotification>? _notificationOpenedSubscription;
   StreamSubscription<AuthState>? _authStateSubscription;
   String? _lastRegisteredPushUserId;
   String? _lastRegisteredPushToken;
   DateTime? _lastRegisteredPushAt;
   String? _activeUserId;
   Timer? _pushRegistrationRetryTimer;
+  OpenedAppNotification? _deferredNotificationOpen;
+  String? _deferredNotificationUserId;
+  final NotificationTapHandler _notificationTapHandler =
+      NotificationTapHandler();
+  final AppShellController _appShellController = AppShellController();
 
   @override
   void initState() {
     super.initState();
     _authService = ref.read(authServiceProvider);
-    _sharingApi = ref.read(sharingApiProvider);
     _notificationService = ref.read(notificationServiceProvider);
+    _pushRegistrationService = ref.read(pushRegistrationServiceProvider);
     _entitlementsViewModel = ref.read(entitlementsViewModelProvider);
     _userStateCoordinator = ref.read(userStateCoordinatorProvider);
     _activeUserId = _authService.currentUser?.id;
     _authStateSubscription = _authService.authStateChanges.listen((state) {
       final nextUserId = state.session?.user.id;
       if (nextUserId == _activeUserId) return;
+      final deferred = _deferredNotificationOpen;
+      final deferredUserId = _deferredNotificationUserId;
       _activeUserId = nextUserId;
       _clearUserScopedState();
       if (nextUserId != null && nextUserId.trim().isNotEmpty) {
         unawaited(_entitlementsViewModel.refresh(reloadContent: true));
+        unawaited(_syncPushTokenRegistration());
+        if (deferred != null && deferredUserId == nextUserId) {
+          _queueNotificationOpen(deferred);
+        }
       }
     });
     _initializeBackgroundMessaging();
@@ -66,7 +82,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
 
   @override
   Widget build(BuildContext context) {
-    return const AppShell();
+    return AppShell(controller: _appShellController);
   }
 
   Future<void> _initializeBackgroundMessaging() async {
@@ -76,9 +92,6 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       AppLogger.error('Notification initialization skipped: $e');
       return;
     }
-
-    final userId = _authService.currentUser?.id;
-    if (userId == null || userId.trim().isEmpty) return;
 
     if (_notificationService.isFirebaseConfigured) {
       _tokenRefreshSubscription = _notificationService.onTokenRefresh.listen((
@@ -92,17 +105,18 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       });
     }
 
-    await _syncPushTokenRegistration();
-
     _reelReadySubscription = _notificationService.onReelReady.listen((event) {
       unawaited(_refreshSavedReels());
     });
+    _notificationOpenedSubscription = _notificationService.onNotificationOpened
+        .listen(_queueNotificationOpen);
 
-    final initialReelReady = _notificationService
-        .consumePendingInitialReelReady();
-    if (initialReelReady != null) {
-      await _refreshSavedReels();
+    for (final pendingOpen
+        in _notificationService.consumePendingNotificationOpens()) {
+      _queueNotificationOpen(pendingOpen);
     }
+
+    await _syncPushTokenRegistration();
   }
 
   Future<void> _syncPushTokenRegistration({
@@ -138,17 +152,17 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
         return;
       }
 
-      await ShareHandoffService.instance.syncPushToken(
-        token: normalizedToken,
-        platform: _notificationService.currentPlatform,
-      );
-      await _sharingApi.registerPushToken(
+      final registeredToken = await _pushRegistrationService.register(
         userId: userId,
-        token: normalizedToken,
-        platform: _notificationService.currentPlatform,
+        candidateToken: normalizedToken,
+        apnsTimeout: const Duration(seconds: 12),
       );
+      if (registeredToken == null) {
+        _schedulePushTokenRegistrationRetry(attempt: retryAttempt);
+        return;
+      }
       _lastRegisteredPushUserId = userId;
-      _lastRegisteredPushToken = normalizedToken;
+      _lastRegisteredPushToken = registeredToken;
       _lastRegisteredPushAt = DateTime.now();
       _pushRegistrationRetryTimer?.cancel();
       _pushRegistrationRetryTimer = null;
@@ -177,11 +191,81 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     }
   }
 
+  void _queueNotificationOpen(OpenedAppNotification opened) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_handleNotificationOpen(opened));
+    });
+  }
+
+  Future<void> _handleNotificationOpen(OpenedAppNotification opened) async {
+    if (_authService.currentUser == null) {
+      _deferredNotificationOpen = opened;
+      _deferredNotificationUserId = _activeUserId;
+      return;
+    }
+
+    await _notificationTapHandler.handle(
+      opened,
+      trackOpen: _recordNotificationOpen,
+      openReel: (reelId) async {
+        unawaited(_refreshSavedReels());
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => ReelDetailLoaderScreen(reelId: reelId),
+          ),
+        );
+      },
+      openAnnouncement: (notification) async {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => FeatureAnnouncementScreen(
+              title: notification.title,
+              body: notification.body,
+            ),
+          ),
+        );
+      },
+      openHome: () async {
+        _openShellTab(_appShellController.showHome);
+      },
+      openMap: () async {
+        _openShellTab(_appShellController.showMap);
+      },
+      openDiscover: () async {
+        _openShellTab(_appShellController.showDiscover);
+      },
+      openProfile: () async {
+        final navigator = Navigator.of(context);
+        navigator.popUntil((route) => route.isFirst);
+        await navigator.push(
+          MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+        );
+      },
+    );
+  }
+
+  void _openShellTab(VoidCallback selectTab) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    selectTab();
+  }
+
+  Future<void> _recordNotificationOpen(String notificationId) async {
+    try {
+      await _pushRegistrationService.recordNotificationOpened(notificationId);
+    } catch (e) {
+      AppLogger.error('Notification open tracking skipped: $e');
+    }
+  }
+
   void _clearUserScopedState() {
     _userStateCoordinator.reset();
     _lastRegisteredPushUserId = null;
     _lastRegisteredPushToken = null;
     _lastRegisteredPushAt = null;
+    _deferredNotificationOpen = null;
+    _deferredNotificationUserId = null;
+    _notificationTapHandler.clear();
   }
 
   @override
@@ -189,6 +273,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _clearUserScopedState();
     _tokenRefreshSubscription?.cancel();
     _reelReadySubscription?.cancel();
+    _notificationOpenedSubscription?.cancel();
     _authStateSubscription?.cancel();
     _pushRegistrationRetryTimer?.cancel();
     super.dispose();

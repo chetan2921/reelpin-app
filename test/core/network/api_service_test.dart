@@ -67,7 +67,7 @@ void main() {
     );
 
     expect(reel.id, 'reel-123');
-    expect(updates.map((job) => job.status), ['completed']);
+    expect(updates.map((job) => job.status), ['queued', 'completed']);
     expect(requests.map((uri) => uri.path), [
       '/api/v1/processing-jobs/reels',
       '/api/v1/processing-jobs/job-123',
@@ -167,6 +167,110 @@ void main() {
     },
   );
 
+  test(
+    'processReel returns an existing X saved item without another poll',
+    () async {
+      final requests = <Uri>[];
+      final service = ApiService(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          requests.add(request.url);
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(jsonDecode(request.body), {
+            'url': 'https://x.com/OpenAI/status/1234567890',
+          });
+          return http.Response(
+            jsonEncode({
+              'id': 'job-existing',
+              'status': 'completed',
+              'terminal': true,
+              'reel': {..._reelJson, 'source_platform': 'x'},
+            }),
+            200,
+          );
+        }),
+      );
+
+      final reel = await service.processReel(
+        'https://x.com/OpenAI/status/1234567890',
+      );
+
+      expect(reel.id, 'reel-123');
+      expect(reel.sourcePlatform, 'x');
+      expect(requests.map((uri) => uri.path), [
+        '/api/v1/processing-jobs/reels',
+      ]);
+    },
+  );
+
+  test('processReel prefers status_message for protected X posts', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'id': 'job-protected',
+            'status': 'failed',
+            'failure_code': 'protected_or_unavailable',
+            'status_message': 'This post is protected or was deleted.',
+            'terminal': true,
+            'retryable': false,
+          }),
+          202,
+        ),
+      ),
+    );
+
+    await expectLater(
+      service.processReel('https://x.com/private/status/1234567890'),
+      throwsA(
+        isA<ApiException>()
+            .having(
+              (error) => error.message,
+              'message',
+              'This post is protected or was deleted.',
+            )
+            .having(
+              (error) => error.errorCode,
+              'errorCode',
+              'protected_or_unavailable',
+            )
+            .having((error) => error.retryable, 'retryable', isFalse),
+      ),
+    );
+  });
+
+  test('processReel uses a local fallback for a deleted X post', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'id': 'job-deleted',
+            'status': 'failed',
+            'failure_code': 'post_not_found',
+            'terminal': true,
+          }),
+          202,
+        ),
+      ),
+    );
+
+    await expectLater(
+      service.processReel('https://x.com/OpenAI/status/0000000000'),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          'This X post could not be found. It may be deleted.',
+        ),
+      ),
+    );
+  });
+
   test('getReels sends auth header without user_id query param', () async {
     final service = ApiService(
       baseUrl: 'https://example.com',
@@ -243,6 +347,10 @@ void main() {
           expect(jsonDecode(request.body), {
             'token': 'push-token',
             'platform': 'android',
+            'app_version': '1.0.8',
+            'app_build': '14',
+            'timezone': 'Asia/Kolkata',
+            'locale': 'en-IN',
           });
           return http.Response(jsonEncode({'ok': true}), 200);
         }),
@@ -252,9 +360,47 @@ void main() {
         userId: 'user-123',
         token: 'push-token',
         platform: 'android',
+        appVersion: '1.0.8',
+        appBuild: '14',
+        timezone: 'Asia/Kolkata',
+        locale: 'en-IN',
       );
     },
   );
+
+  test('unregisterPushToken deletes the authenticated device token', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.method, 'DELETE');
+        expect(request.url.path, '/api/v1/device-push-tokens');
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        expect(jsonDecode(request.body), {'token': 'push-token'});
+        return http.Response(jsonEncode({'ok': true}), 200);
+      }),
+    );
+
+    await service.unregisterPushToken(token: 'push-token');
+  });
+
+  test('recordNotificationOpened posts the authenticated open event', () async {
+    final service = ApiService(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(
+          request.url.path,
+          '/api/v1/notifications/notification-123/opened',
+        );
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        return http.Response(jsonEncode({'ok': true}), 200);
+      }),
+    );
+
+    await service.recordNotificationOpened(notificationId: 'notification-123');
+  });
 
   test(
     'getCategoryFilters sends auth header without user_id query param',

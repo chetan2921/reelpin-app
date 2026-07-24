@@ -105,7 +105,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>ReelPin uses your location to center the map near you and show saved places on the map.</string>
 	<key>NSUserNotificationsUsageDescription</key>
-	<string>ReelPin sends a notification when a saved reel finishes processing.</string>
+	<string>ReelPin sends notifications when saved reels finish processing and when new features are available.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

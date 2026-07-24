@@ -8,6 +8,7 @@ import 'package:reelpin/core/network/api_service.dart';
 import 'package:reelpin/features/auth/data/auth_service.dart';
 import 'package:reelpin/core/platform/notification_service.dart';
 import 'package:reelpin/features/auth/data/profile_service.dart';
+import 'package:reelpin/features/sharing/services/push_registration_service.dart';
 import 'package:reelpin/features/sharing/services/share_flow_analytics_service.dart';
 import 'package:reelpin/features/home/presentation/category_filters_viewmodel.dart';
 import 'package:reelpin/features/discover/presentation/discover_viewmodel.dart';
@@ -41,6 +42,8 @@ final sessionViewModelProvider = ChangeNotifierProvider<SessionViewModel>((
     ref.read(authServiceProvider),
     ApiService.new,
     ApiService.new,
+    unregisterPushToken: () =>
+        ref.read(pushRegistrationServiceProvider).unregisterCurrentDevice(),
   );
 });
 
@@ -76,6 +79,15 @@ final accountApiProvider = Provider<AccountApi>((ref) {
 
 final sharingApiProvider = Provider<SharingApi>((ref) {
   return ref.read(apiServiceProvider);
+});
+
+final pushRegistrationServiceProvider = Provider<PushRegistrationService>((
+  ref,
+) {
+  return PushRegistrationService(
+    notificationService: ref.read(notificationServiceProvider),
+    sharingApi: ref.read(sharingApiProvider),
+  );
 });
 
 final reelRepositoryProvider = ChangeNotifierProvider<ReelRepository>((ref) {

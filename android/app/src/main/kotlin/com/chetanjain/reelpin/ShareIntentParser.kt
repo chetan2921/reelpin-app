@@ -43,7 +43,10 @@ object ShareIntentParser {
         val uri = runCatching { URI(value) }.getOrNull() ?: return false
         val host = uri.host?.lowercase() ?: return false
 
-        return isInstagramUrl(uri, host) || isTikTokUrl(uri, host) || isYoutubeUrl(uri, host)
+        return isInstagramUrl(uri, host) ||
+            isTikTokUrl(uri, host) ||
+            isYoutubeUrl(uri, host) ||
+            isXUrl(host)
     }
 
     private fun isInstagramUrl(uri: URI, host: String): Boolean {
@@ -83,6 +86,20 @@ object ShareIntentParser {
             queryValue(uri.rawQuery, "v")?.let(videoIdRegex::matches) == true
     }
 
+    private fun isXUrl(host: String): Boolean {
+        val normalizedHost = withoutMobileOrWebPrefix(host)
+        return normalizedHost == "x.com" ||
+            normalizedHost == "twitter.com" ||
+            normalizedHost == "t.co"
+    }
+
+    private fun withoutMobileOrWebPrefix(host: String): String {
+        return listOf("www.", "mobile.", "m.")
+            .firstOrNull { prefix -> host.startsWith(prefix) }
+            ?.let { prefix -> host.removePrefix(prefix) }
+            ?: host
+    }
+
     private fun pathSegments(uri: URI): List<String> {
         return uri.path
             ?.trim('/')
@@ -108,5 +125,24 @@ object ShareIntentParser {
             end--
         }
         return value.substring(0, end)
+    }
+}
+
+enum class ShareRequestResult {
+    SUCCESS,
+    INVALID_SHARE_TOKEN,
+    FAILURE,
+}
+
+object ShareResponseClassifier {
+    fun classify(statusCode: Int, responseBody: String?): ShareRequestResult {
+        if (statusCode in 200..299) return ShareRequestResult.SUCCESS
+        if (
+            statusCode in setOf(401, 403) &&
+            responseBody?.lowercase()?.contains("invalid_share_token") == true
+        ) {
+            return ShareRequestResult.INVALID_SHARE_TOKEN
+        }
+        return ShareRequestResult.FAILURE
     }
 }

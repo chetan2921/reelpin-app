@@ -79,11 +79,19 @@ class ApiService
   }) async {
     try {
       final job = await _enqueueReelProcessing(url, userId: userId);
-      return _waitForProcessingJob(job.id, onJobUpdate: onJobUpdate);
+      return _waitForProcessingJob(
+        job.id,
+        initialJob: job,
+        onJobUpdate: onJobUpdate,
+      );
     } on ApiException catch (e) {
       if (e.statusCode == 404 || e.statusCode == 405) {
         final job = await _startProcessReelJob(url, userId: userId);
-        return _waitForProcessingJob(job.id, onJobUpdate: onJobUpdate);
+        return _waitForProcessingJob(
+          job.id,
+          initialJob: job,
+          onJobUpdate: onJobUpdate,
+        );
       }
       rethrow;
     }
@@ -173,9 +181,26 @@ class ApiService
 
   Future<Reel> _waitForProcessingJob(
     String jobId, {
+    ProcessingJob? initialJob,
     void Function(ProcessingJob job)? onJobUpdate,
   }) async {
     final normalizedJobId = jobId.trim();
+    final startedAt = DateTime.now();
+    var attempt = 0;
+
+    if (initialJob != null) {
+      onJobUpdate?.call(initialJob);
+      final completed = await _completedJobResult(initialJob);
+      if (completed != null) return completed;
+      _throwIfTerminalFailure(initialJob);
+
+      if (initialJob.recommendedPollAfterSeconds != null ||
+          initialJob.isRetryScheduled) {
+        await Future.delayed(_jobPollingDelay(attempt, initialJob));
+        attempt += 1;
+      }
+    }
+
     if (normalizedJobId.isEmpty) {
       throw const ApiException(
         'Processing started but the job id is missing.',
@@ -183,40 +208,47 @@ class ApiService
       );
     }
 
-    final startedAt = DateTime.now();
-    var attempt = 0;
-
     while (DateTime.now().difference(startedAt) < _jobPollingTimeout) {
       final job = await _getProcessingJob(normalizedJobId);
       onJobUpdate?.call(job);
 
-      if (job.isCompleted) {
-        if (job.reel != null) {
-          return job.reel!;
-        }
+      final completed = await _completedJobResult(job);
+      if (completed != null) return completed;
+      _throwIfTerminalFailure(job);
 
-        final reelId = job.resultReelId;
-        if (reelId != null && reelId.isNotEmpty) {
-          return getReel(reelId);
-        }
-
-        throw const ApiException(
-          'Could not finish saving this reel. Please try again.',
-          500,
-        );
-      }
-
-      if (job.isTerminalFailure) {
-        throw ApiException(_jobFailureMessage(job), 500);
-      }
-
-      await Future.delayed(_jobPollingDelay(attempt, job));
+      final delay = _jobPollingDelay(attempt, job);
       attempt += 1;
+      await Future.delayed(delay);
     }
 
     throw const ApiException(
       'Processing is taking longer than expected. Please check again in a minute.',
       504,
+    );
+  }
+
+  Future<Reel?> _completedJobResult(ProcessingJob job) async {
+    if (!job.isCompleted) return null;
+    if (job.reel != null) return job.reel;
+
+    final reelId = job.resultReelId?.trim();
+    if (reelId != null && reelId.isNotEmpty) {
+      return getReel(reelId);
+    }
+
+    throw const ApiException(
+      'Could not finish saving this post. Please try again.',
+      500,
+    );
+  }
+
+  void _throwIfTerminalFailure(ProcessingJob job) {
+    if (!job.isTerminalFailure) return;
+    throw ApiException(
+      _jobFailureMessage(job),
+      500,
+      errorCode: job.failureCode,
+      retryable: job.retryable,
     );
   }
 
@@ -256,12 +288,31 @@ class ApiService
       return statusMessage;
     }
 
-    final message = job.errorMessage?.trim();
-    if (message != null && message.isNotEmpty) {
-      return message;
-    }
+    final fallback = switch (job.failureCode?.trim().toLowerCase()) {
+      'invalid_url' => 'This shared link is not valid.',
+      'unsupported_x_url' =>
+        'ReelPin can only save public X post links from X or Twitter.',
+      'external_tco_destination' =>
+        'This t.co link does not lead to a supported X post.',
+      'post_not_found' => 'This X post could not be found. It may be deleted.',
+      'protected_or_unavailable' => 'This X post is protected or unavailable.',
+      'malformed_oembed_response' => 'X returned an unreadable post response.',
+      'post_id_mismatch' =>
+        'The X post redirect did not match the shared post.',
+      'empty_post_content' => 'This X post does not contain readable text.',
+      'x_oembed_timeout' => 'X took too long to return this post.',
+      'x_oembed_upstream_error' => 'X could not return this post right now.',
+      'unsafe_redirect' => 'This link redirected to an unsafe destination.',
+      'rate_limit' => 'X is rate limiting requests. Please try again later.',
+      'internal_error' => 'ReelPin could not save this post right now.',
+      _ => null,
+    };
+    if (fallback != null) return fallback;
 
-    return 'Reel processing failed.';
+    final message = job.errorMessage?.trim();
+    return message == null || message.isEmpty
+        ? 'Post processing failed.'
+        : message;
   }
 
   // ─── Process Video File ───
@@ -902,19 +953,73 @@ class ApiService
     required String userId,
     required String token,
     required String platform,
+    required String appVersion,
+    required String appBuild,
+    required String timezone,
+    required String locale,
   }) async {
-    final res = await _client
-        .post(
-          _apiUri(_baseUrl, '/api/v1/device-push-tokens'),
-          headers: _headers(json: true),
-          body: jsonEncode({'token': token, 'platform': platform}),
-        )
-        .timeout(_backgroundRequestTimeout);
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/device-push-tokens'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'token': token,
+              'platform': platform,
+              'app_version': appVersion,
+              'app_build': appBuild,
+              'timezone': timezone,
+              'locale': locale,
+            }),
+          )
+          .timeout(_backgroundRequestTimeout),
+    );
 
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not register this device right now.',
+      );
+    }
+  }
+
+  @override
+  Future<void> unregisterPushToken({required String token}) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/device-push-tokens'),
+            headers: _headers(json: true),
+            body: jsonEncode({'token': token}),
+          )
+          .timeout(_backgroundRequestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not unregister this device right now.',
+      );
+    }
+  }
+
+  @override
+  Future<void> recordNotificationOpened({
+    required String notificationId,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/notifications/$notificationId/opened'),
+            headers: _headers(),
+          )
+          .timeout(_backgroundRequestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not record this notification open.',
       );
     }
   }

@@ -133,15 +133,21 @@ class ShareViewController: UIViewController {
       path: "processing-jobs/reels",
       shareToken: shareToken,
       body: ["url": sharedUrl]
-    ) { [weak self] success in
+    ) { [weak self] result in
       guard let self else {
         return
       }
 
-      if success {
+      switch result {
+      case .success:
         self.registerStoredPushToken(defaults: defaults, baseUrl: baseUrl, shareToken: shareToken)
         self.showStatusAndComplete("Saved. Processing.")
-      } else {
+      case .invalidShareToken:
+        defaults.removeObject(forKey: self.shareTokenKey)
+        defaults.synchronize()
+        self.savePendingShare(sharedUrl)
+        self.showStatusAndComplete("Open ReelPin and sign in again.", isError: true)
+      case .failure:
         self.savePendingShare(sharedUrl)
         self.showStatusAndComplete("Open ReelPin to sync.")
       }
@@ -170,10 +176,10 @@ class ShareViewController: UIViewController {
     path: String,
     shareToken: String,
     body: [String: String],
-    completion: @escaping (Bool) -> Void
+    completion: @escaping (ShareRequestResult) -> Void
   ) {
     guard let url = URL(string: apiUrl(baseUrl: baseUrl, path: path)) else {
-      completion(false)
+      completion(.failure)
       return
     }
 
@@ -184,10 +190,11 @@ class ShareViewController: UIViewController {
     request.setValue(shareToken, forHTTPHeaderField: "X-Share-Token")
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-    URLSession.shared.dataTask(with: request) { _, response, _ in
+    URLSession.shared.dataTask(with: request) { data, response, _ in
       let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+      let result = ShareResponseClassifier.classify(statusCode: statusCode, data: data)
       DispatchQueue.main.async {
-        completion((200...299).contains(statusCode))
+        completion(result)
       }
     }.resume()
   }

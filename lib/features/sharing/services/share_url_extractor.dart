@@ -38,7 +38,8 @@ class ShareUrlExtractor {
 
     return _isInstagramUrl(uri, host) ||
         _isTikTokUrl(uri, host) ||
-        _isYoutubeUrl(uri, host);
+        _isYoutubeUrl(uri, host) ||
+        _isXUrl(host);
   }
 
   static bool _isInstagramUrl(Uri uri, String host) {
@@ -80,6 +81,22 @@ class ShareUrlExtractor {
     }
     return uri.path.toLowerCase() == '/watch' &&
         _videoIdRegex.hasMatch(uri.queryParameters['v'] ?? '');
+  }
+
+  static bool _isXUrl(String host) {
+    final normalizedHost = _withoutMobileOrWebPrefix(host);
+    return normalizedHost == 'x.com' ||
+        normalizedHost == 'twitter.com' ||
+        normalizedHost == 't.co';
+  }
+
+  static String _withoutMobileOrWebPrefix(String host) {
+    for (final prefix in const ['www.', 'mobile.', 'm.']) {
+      if (host.startsWith(prefix)) {
+        return host.substring(prefix.length);
+      }
+    }
+    return host;
   }
 
   static String _trimTrailingPunctuation(String value) {
