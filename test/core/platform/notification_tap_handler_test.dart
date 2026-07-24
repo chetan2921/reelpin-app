@@ -100,6 +100,56 @@ void main() {
     expect(openCount, 1);
   });
 
+  test('malformed reel target falls back to Home', () async {
+    final handler = NotificationTapHandler();
+    var openedHome = false;
+
+    final handled = await handler.handle(
+      const OpenedAppNotification(
+        notification: AppNotification(
+          title: 'Ready',
+          body: 'Tap to open.',
+          target: AppNotificationTarget.reelDetail,
+          isMalformed: true,
+          data: {},
+          notificationId: 'notification-missing-reel',
+        ),
+        source: AppNotificationOpenSource.backgroundRemote,
+      ),
+      trackOpen: (_) async {},
+      openReel: (_) async => fail('Unexpected reel route'),
+      openAnnouncement: (_) async => fail('Unexpected announcement route'),
+      openHome: () async => openedHome = true,
+      openMap: () async => fail('Unexpected Map route'),
+      openDiscover: () async => fail('Unexpected Discover route'),
+      openProfile: () async => fail('Unexpected Profile route'),
+    );
+
+    expect(handled, isTrue);
+    expect(openedHome, isTrue);
+  });
+
+  test('records the open before starting navigation', () async {
+    final handler = NotificationTapHandler();
+    final events = <String>[];
+
+    await handler.handle(
+      OpenedAppNotification(
+        notification: _reelNotification,
+        source: AppNotificationOpenSource.backgroundRemote,
+      ),
+      trackOpen: (_) async => events.add('track'),
+      openReel: (_) async => events.add('navigate'),
+      openAnnouncement: (_) async => fail('Unexpected announcement route'),
+      openHome: () async => fail('Unexpected Home route'),
+      openMap: () async => fail('Unexpected Map route'),
+      openDiscover: () async => fail('Unexpected Discover route'),
+      openProfile: () async => fail('Unexpected Profile route'),
+    );
+
+    expect(events, ['track', 'navigate']);
+  });
+
   test('new feature targets route from every notification tap state', () async {
     final cases =
         <

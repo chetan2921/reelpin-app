@@ -34,40 +34,65 @@ class FeatureAnnouncementScreen extends StatelessWidget {
                   icon: Icon(Icons.close, color: AppTheme.fg(context)),
                 ),
               ),
-              const Spacer(),
-              Container(
-                width: layout.inset(76),
-                height: layout.inset(76),
-                decoration: AppTheme.brutalBox(context, color: AppTheme.yellow),
-                child: const Icon(
-                  Icons.campaign_outlined,
-                  color: AppTheme.black,
-                  size: 38,
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Spacer(),
+                              Container(
+                                width: layout.inset(76),
+                                height: layout.inset(76),
+                                decoration: AppTheme.brutalBox(
+                                  context,
+                                  color: AppTheme.yellow,
+                                ),
+                                child: const Icon(
+                                  Icons.campaign_outlined,
+                                  color: AppTheme.black,
+                                  size: 38,
+                                ),
+                              ),
+                              SizedBox(height: layout.gap(28)),
+                              Text(
+                                title.trim().isEmpty
+                                    ? 'WHAT\'S NEW IN REELPIN'
+                                    : title,
+                                style: GoogleFonts.spaceMono(
+                                  color: AppTheme.fg(context),
+                                  fontSize: layout.font(28),
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.2,
+                                ),
+                              ),
+                              SizedBox(height: layout.gap(16)),
+                              Text(
+                                body.trim().isEmpty
+                                    ? 'OPEN REELPIN TO SEE THE LATEST UPDATE.'
+                                    : body,
+                                style: GoogleFonts.spaceMono(
+                                  color: AppTheme.textSec(context),
+                                  fontSize: layout.font(15),
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.5,
+                                ),
+                              ),
+                              const Spacer(flex: 2),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-              SizedBox(height: layout.gap(28)),
-              Text(
-                title.trim().isEmpty ? 'WHAT\'S NEW IN REELPIN' : title,
-                style: GoogleFonts.spaceMono(
-                  color: AppTheme.fg(context),
-                  fontSize: layout.font(28),
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-              ),
-              SizedBox(height: layout.gap(16)),
-              Text(
-                body.trim().isEmpty
-                    ? 'OPEN REELPIN TO SEE THE LATEST UPDATE.'
-                    : body,
-                style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSec(context),
-                  fontSize: layout.font(15),
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
-              ),
-              const Spacer(flex: 2),
               SizedBox(
                 width: double.infinity,
                 height: layout.gap(54),

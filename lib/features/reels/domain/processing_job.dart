@@ -54,6 +54,9 @@ class ProcessingJob {
     final reelPayload = json['reel'];
     final status = json['status']?.toString().toLowerCase() ?? 'queued';
     final currentStep = json['current_step']?.toString();
+    final retryScheduled =
+        json['retry_scheduled'] == true ||
+        (status == 'queued' && currentStep == 'retry_scheduled');
     return ProcessingJob(
       id: (json['id'] ?? json['job_id'])?.toString() ?? '',
       normalizedUrl: json['normalized_url']?.toString(),
@@ -68,12 +71,11 @@ class ProcessingJob {
       terminal:
           json['terminal'] == true ||
           (json['terminal'] == null &&
+              !retryScheduled &&
               (status == 'completed' ||
                   status == 'failed' ||
                   status == 'dead_lettered')),
-      retryScheduled:
-          json['retry_scheduled'] == true ||
-          (status == 'queued' && currentStep == 'retry_scheduled'),
+      retryScheduled: retryScheduled,
       statusLabel: json['status_label']?.toString(),
       statusMessage: json['status_message']?.toString(),
       nextRetryAt: parseDate(json['next_retry_at']),

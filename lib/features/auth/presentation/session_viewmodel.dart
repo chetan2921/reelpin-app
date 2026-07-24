@@ -177,12 +177,12 @@ class SessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await _accountApiFactory().deleteAccount();
       try {
         await _unregisterPushToken?.call();
       } catch (e) {
-        AppLogger.error('Push token unregister before deletion skipped: $e');
+        AppLogger.error('Push token unregister after deletion skipped: $e');
       }
-      await _accountApiFactory().deleteAccount();
       _session = null;
       _forceSignedOut = true;
       await ShareHandoffService.instance.clear();

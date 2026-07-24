@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reelpin/core/network/api_service.dart';
+import 'package:reelpin/features/account/data/account_api.dart';
 import 'package:reelpin/features/auth/data/auth_service.dart';
 import 'package:reelpin/features/auth/data/profile_service.dart';
 import 'package:reelpin/features/auth/presentation/session_viewmodel.dart';
@@ -58,6 +59,36 @@ void main() {
     );
     viewModel.dispose();
   });
+
+  test('deactivates push only after account deletion succeeds', () async {
+    SharedPreferences.setMockInitialValues({});
+    final events = <String>[];
+    final viewModel = SessionViewModel(
+      _FakeAuthService(events),
+      () => _FakeAccountApi(events),
+      () => _FakeSharingApi(events),
+      unregisterPushToken: () async => events.add('unregister-push'),
+    );
+
+    expect(await viewModel.deleteAccount(), isTrue);
+    expect(events, ['delete-account', 'unregister-push', 'supabase-sign-out']);
+    viewModel.dispose();
+  });
+
+  test('keeps push registration when account deletion fails', () async {
+    SharedPreferences.setMockInitialValues({});
+    final events = <String>[];
+    final viewModel = SessionViewModel(
+      _FakeAuthService(events),
+      () => _FakeAccountApi(events, shouldFail: true),
+      () => _FakeSharingApi(events),
+      unregisterPushToken: () async => events.add('unregister-push'),
+    );
+
+    expect(await viewModel.deleteAccount(), isFalse);
+    expect(events, ['delete-account']);
+    viewModel.dispose();
+  });
 }
 
 class _FakeAuthService extends AuthService {
@@ -91,6 +122,22 @@ class _FakeSharingApi implements SharingApi {
   @override
   Future<void> revokeShareToken() async {
     events.add('revoke-share-token');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeAccountApi implements AccountApi {
+  _FakeAccountApi(this.events, {this.shouldFail = false});
+
+  final List<String> events;
+  final bool shouldFail;
+
+  @override
+  Future<void> deleteAccount() async {
+    events.add('delete-account');
+    if (shouldFail) throw Exception('deletion failed');
   }
 
   @override

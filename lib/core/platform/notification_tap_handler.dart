@@ -29,10 +29,16 @@ class NotificationTapHandler {
     final tracking = notificationId == null
         ? Future<void>.value()
         : trackOpen(notificationId);
+    await tracking;
 
     switch (notification.target) {
       case AppNotificationTarget.reelDetail:
-        await openReel(notification.reelId!);
+        final reelId = notification.reelId;
+        if (reelId == null || reelId.isEmpty) {
+          await openHome();
+        } else {
+          await openReel(reelId);
+        }
         break;
       case AppNotificationTarget.announcement:
         await openAnnouncement(notification);
@@ -51,7 +57,6 @@ class NotificationTapHandler {
         break;
     }
 
-    await tracking;
     return true;
   }
 

@@ -44,6 +44,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   String? _activeUserId;
   Timer? _pushRegistrationRetryTimer;
   OpenedAppNotification? _deferredNotificationOpen;
+  String? _deferredNotificationUserId;
   final NotificationTapHandler _notificationTapHandler =
       NotificationTapHandler();
   final AppShellController _appShellController = AppShellController();
@@ -60,14 +61,14 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _authStateSubscription = _authService.authStateChanges.listen((state) {
       final nextUserId = state.session?.user.id;
       if (nextUserId == _activeUserId) return;
+      final deferred = _deferredNotificationOpen;
+      final deferredUserId = _deferredNotificationUserId;
       _activeUserId = nextUserId;
       _clearUserScopedState();
       if (nextUserId != null && nextUserId.trim().isNotEmpty) {
         unawaited(_entitlementsViewModel.refresh(reloadContent: true));
         unawaited(_syncPushTokenRegistration());
-        final deferred = _deferredNotificationOpen;
-        if (deferred != null) {
-          _deferredNotificationOpen = null;
+        if (deferred != null && deferredUserId == nextUserId) {
           _queueNotificationOpen(deferred);
         }
       }
@@ -110,8 +111,8 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _notificationOpenedSubscription = _notificationService.onNotificationOpened
         .listen(_queueNotificationOpen);
 
-    final pendingOpen = _notificationService.consumePendingNotificationOpen();
-    if (pendingOpen != null) {
+    for (final pendingOpen
+        in _notificationService.consumePendingNotificationOpens()) {
       _queueNotificationOpen(pendingOpen);
     }
 
@@ -200,6 +201,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   Future<void> _handleNotificationOpen(OpenedAppNotification opened) async {
     if (_authService.currentUser == null) {
       _deferredNotificationOpen = opened;
+      _deferredNotificationUserId = _activeUserId;
       return;
     }
 
@@ -261,6 +263,8 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _lastRegisteredPushUserId = null;
     _lastRegisteredPushToken = null;
     _lastRegisteredPushAt = null;
+    _deferredNotificationOpen = null;
+    _deferredNotificationUserId = null;
     _notificationTapHandler.clear();
   }
 

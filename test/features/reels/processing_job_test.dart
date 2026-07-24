@@ -51,6 +51,21 @@ void main() {
     expect(job.isTerminalFailure, isFalse);
   });
 
+  test('retry scheduling overrides a missing terminal flag', () {
+    final job = ProcessingJob.fromJson({
+      'id': 'job-x-3',
+      'status': 'failed',
+      'failure_code': 'x_oembed_timeout',
+      'retry_scheduled': true,
+      'retryable': true,
+    });
+
+    expect(job.failureCode, 'x_oembed_timeout');
+    expect(job.retryable, isTrue);
+    expect(job.isRetryScheduled, isTrue);
+    expect(job.isTerminalFailure, isFalse);
+  });
+
   test('unknown source values remain parseable', () {
     final job = ProcessingJob.fromJson({
       'id': 'job-future',

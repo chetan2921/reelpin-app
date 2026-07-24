@@ -49,7 +49,7 @@ class NotificationService {
 
   Future<void>? _initializationFuture;
   bool _firebaseConfigured = false;
-  OpenedAppNotification? _pendingNotificationOpen;
+  final List<OpenedAppNotification> _pendingNotificationOpens = [];
   NotificationPermissionState? _lastKnownPermissionState;
   String? _currentFcmToken;
 
@@ -125,12 +125,11 @@ class NotificationService {
 
     final localLaunch = await _localNotifications
         .getNotificationAppLaunchDetails();
-    if (localLaunch?.didNotificationLaunchApp == true) {
+    final localPayload = _nonEmpty(localLaunch?.notificationResponse?.payload);
+    if (localLaunch?.didNotificationLaunchApp == true && localPayload != null) {
       _dispatchNotificationOpen(
         OpenedAppNotification(
-          notification: AppNotification.fromLocalPayload(
-            localLaunch?.notificationResponse?.payload,
-          ),
+          notification: AppNotification.fromLocalPayload(localPayload),
           source: AppNotificationOpenSource.terminatedLocal,
         ),
       );
@@ -178,12 +177,12 @@ class NotificationService {
       _notificationOpenedController.add(opened);
       return;
     }
-    _pendingNotificationOpen = opened;
+    _pendingNotificationOpens.add(opened);
   }
 
-  OpenedAppNotification? consumePendingNotificationOpen() {
-    final pending = _pendingNotificationOpen;
-    _pendingNotificationOpen = null;
+  List<OpenedAppNotification> consumePendingNotificationOpens() {
+    final pending = List<OpenedAppNotification>.of(_pendingNotificationOpens);
+    _pendingNotificationOpens.clear();
     return pending;
   }
 
