@@ -81,7 +81,7 @@ void main() {
     expect(update, isNotNull);
     expect(update!.platform, AppUpdatePlatform.android);
     expect(update.immediateUpdateAllowed, isTrue);
-    expect(await service.startUpdate(update), isTrue);
+    expect(await service.startUpdate(update), AppUpdateStartResult.started);
     expect(immediateUpdateCalls, 1);
     expect(storeLaunchCalls, 0);
   });
@@ -104,8 +104,45 @@ void main() {
       immediateUpdateAllowed: true,
     );
 
-    expect(await service.startUpdate(update), isTrue);
+    expect(await service.startUpdate(update), AppUpdateStartResult.started);
     expect(openedUri, update.storeUri);
+  });
+
+  test('Android resumes a developer-triggered immediate update', () async {
+    final service = AppUpdateService(
+      targetPlatform: TargetPlatform.android,
+      androidUpdateChecker: () async => _androidUpdateInfo(
+        availability: UpdateAvailability.developerTriggeredUpdateInProgress,
+        immediateUpdateAllowed: false,
+      ),
+    );
+
+    final update = await service.checkForRequiredUpdate();
+
+    expect(update, isNotNull);
+    expect(update!.immediateUpdateAllowed, isTrue);
+  });
+
+  test('preview forces the screen without calling Google Play', () async {
+    var playCheckCalls = 0;
+    final service = AppUpdateService(
+      targetPlatform: TargetPlatform.android,
+      forceUpdatePreview: true,
+      androidUpdateChecker: () async {
+        playCheckCalls += 1;
+        return _androidUpdateInfo(
+          availability: UpdateAvailability.updateNotAvailable,
+          immediateUpdateAllowed: false,
+        );
+      },
+    );
+
+    final update = await service.checkForRequiredUpdate();
+
+    expect(update, isNotNull);
+    expect(update!.platform, AppUpdatePlatform.android);
+    expect(update.immediateUpdateAllowed, isFalse);
+    expect(playCheckCalls, 0);
   });
 
   group('store version comparison', () {

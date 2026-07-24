@@ -12,7 +12,7 @@ class UpdateRequiredScreen extends StatefulWidget {
   });
 
   final RequiredAppUpdate update;
-  final Future<bool> Function() onUpdate;
+  final Future<AppUpdateStartResult> Function() onUpdate;
 
   @override
   State<UpdateRequiredScreen> createState() => _UpdateRequiredScreenState();
@@ -20,20 +20,20 @@ class UpdateRequiredScreen extends StatefulWidget {
 
 class _UpdateRequiredScreenState extends State<UpdateRequiredScreen> {
   bool _isOpeningStore = false;
-  bool _showOpenError = false;
+  AppUpdateStartResult? _lastResult;
 
   Future<void> _startUpdate() async {
     if (_isOpeningStore) return;
     setState(() {
       _isOpeningStore = true;
-      _showOpenError = false;
+      _lastResult = null;
     });
 
-    final started = await widget.onUpdate();
+    final result = await widget.onUpdate();
     if (!mounted) return;
     setState(() {
       _isOpeningStore = false;
-      _showOpenError = !started;
+      _lastResult = result;
     });
   }
 
@@ -138,7 +138,20 @@ class _UpdateRequiredScreenState extends State<UpdateRequiredScreen> {
                         ),
                       ),
                     ),
-                    if (_showOpenError) ...[
+                    if (_lastResult == AppUpdateStartResult.declined) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        'THE UPDATE WAS NOT COMPLETED. TAP UPDATE NOW TO TRY AGAIN.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.spaceMono(
+                          color: AppTheme.red,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    if (_lastResult == AppUpdateStartResult.failed) ...[
                       const SizedBox(height: 14),
                       Text(
                         'THE UPDATE COULD NOT START. CHECK YOUR CONNECTION AND TRY AGAIN.',

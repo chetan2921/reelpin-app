@@ -15,7 +15,7 @@ void main() {
           update: _iosUpdate,
           onUpdate: () async {
             updateCalls += 1;
-            return true;
+            return AppUpdateStartResult.started;
           },
         ),
       ),
@@ -41,7 +41,7 @@ void main() {
       MaterialApp(
         home: UpdateRequiredScreen(
           update: _iosUpdate,
-          onUpdate: () async => false,
+          onUpdate: () async => AppUpdateStartResult.failed,
         ),
       ),
     );
@@ -58,6 +58,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('shows a retry message when an Android update is declined', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: UpdateRequiredScreen(
+          update: _iosUpdate,
+          onUpdate: () async => AppUpdateStartResult.declined,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('UPDATE NOW'));
+    await tester.pump();
+
+    expect(
+      find.text('THE UPDATE WAS NOT COMPLETED. TAP UPDATE NOW TO TRY AGAIN.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('fits a small screen with enlarged text', (
     WidgetTester tester,
   ) async {
@@ -72,7 +93,7 @@ void main() {
       MaterialApp(
         home: UpdateRequiredScreen(
           update: _iosUpdate,
-          onUpdate: () async => true,
+          onUpdate: () async => AppUpdateStartResult.started,
         ),
       ),
     );

@@ -15,6 +15,8 @@ typedef StoreLauncher = Future<bool> Function(Uri uri);
 
 enum AppUpdatePlatform { android, ios }
 
+enum AppUpdateStartResult { started, declined, failed }
+
 class RequiredAppUpdate {
   const RequiredAppUpdate({
     required this.platform,
@@ -39,6 +41,7 @@ class AppUpdateService {
     AndroidUpdateChecker? androidUpdateChecker,
     ImmediateUpdatePerformer? immediateUpdatePerformer,
     StoreLauncher? storeLauncher,
+    bool? forceUpdatePreview,
   }) : _client = client ?? http.Client(),
        _targetPlatform = targetPlatform ?? defaultTargetPlatform,
        _installedVersionLoader =
@@ -49,7 +52,8 @@ class AppUpdateService {
            androidUpdateChecker ?? InAppUpdate.checkForUpdate,
        _immediateUpdatePerformer =
            immediateUpdatePerformer ?? InAppUpdate.performImmediateUpdate,
-       _storeLauncher = storeLauncher ?? _launchExternalStore;
+       _storeLauncher = storeLauncher ?? _launchExternalStore,
+       _forceUpdatePreview = forceUpdatePreview ?? _previewFromEnvironment;
 
   static final Uri _appStoreLookupUri = Uri.https(
     'itunes.apple.com',
@@ -62,7 +66,11 @@ class AppUpdateService {
   static final Uri _playStoreUri = Uri.parse(
     'https://play.google.com/store/apps/details?id=com.chetanjain.reelpin',
   );
+  static const bool _previewFromEnvironment = bool.fromEnvironment(
+    'APP_UPDATE_PREVIEW',
+  );
   static const Duration _lookupTimeout = Duration(seconds: 5);
+  static const Duration _androidCheckTimeout = Duration(seconds: 15);
 
   final http.Client _client;
   final TargetPlatform _targetPlatform;
@@ -70,9 +78,11 @@ class AppUpdateService {
   final AndroidUpdateChecker _androidUpdateChecker;
   final ImmediateUpdatePerformer _immediateUpdatePerformer;
   final StoreLauncher _storeLauncher;
+  final bool _forceUpdatePreview;
 
   Future<RequiredAppUpdate?> checkForRequiredUpdate() async {
     if (kIsWeb) return null;
+    if (_forceUpdatePreview) return _previewUpdate();
 
     return switch (_targetPlatform) {
       TargetPlatform.android => _checkAndroidUpdate(),
@@ -81,29 +91,52 @@ class AppUpdateService {
     };
   }
 
-  Future<bool> startUpdate(RequiredAppUpdate update) async {
+  Future<AppUpdateStartResult> startUpdate(RequiredAppUpdate update) async {
     if (update.platform == AppUpdatePlatform.android &&
         update.immediateUpdateAllowed) {
       try {
         final result = await _immediateUpdatePerformer();
-        if (result == AppUpdateResult.success) return true;
-        if (result == AppUpdateResult.userDeniedUpdate) return false;
+        if (result == AppUpdateResult.success) {
+          return AppUpdateStartResult.started;
+        }
+        if (result == AppUpdateResult.userDeniedUpdate) {
+          return AppUpdateStartResult.declined;
+        }
       } catch (e) {
         AppLogger.error('Immediate Android update failed: $e');
       }
     }
 
     try {
-      return await _storeLauncher(update.storeUri);
+      final opened = await _storeLauncher(update.storeUri);
+      return opened
+          ? AppUpdateStartResult.started
+          : AppUpdateStartResult.failed;
     } catch (e) {
       AppLogger.error('App store launch failed: $e');
-      return false;
+      return AppUpdateStartResult.failed;
     }
+  }
+
+  RequiredAppUpdate? _previewUpdate() {
+    return switch (_targetPlatform) {
+      TargetPlatform.android => RequiredAppUpdate(
+        platform: AppUpdatePlatform.android,
+        storeUri: _playStoreUri,
+      ),
+      TargetPlatform.iOS => RequiredAppUpdate(
+        platform: AppUpdatePlatform.ios,
+        storeUri: _appStoreUri,
+      ),
+      _ => null,
+    };
   }
 
   Future<RequiredAppUpdate?> _checkAndroidUpdate() async {
     try {
-      final updateInfo = await _androidUpdateChecker().timeout(_lookupTimeout);
+      final updateInfo = await _androidUpdateChecker().timeout(
+        _androidCheckTimeout,
+      );
       final availability = updateInfo.updateAvailability;
       final updateRequired =
           availability == UpdateAvailability.updateAvailable ||

@@ -45,12 +45,6 @@ class _AppEntryState extends ConsumerState<AppEntry> {
       _requiredUpdate = update;
       _isCheckingForUpdate = false;
     });
-
-    if (update != null &&
-        update.platform == AppUpdatePlatform.android &&
-        update.immediateUpdateAllowed) {
-      unawaited(ref.read(appUpdateServiceProvider).startUpdate(update));
-    }
   }
 
   Future<void> _holdSplash() async {
