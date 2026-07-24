@@ -20,6 +20,7 @@ Usage:
   tool/reelpin_flutter.sh [--reelpin-env=dev|production] build apk [flutter build apk args]
   tool/reelpin_flutter.sh [--reelpin-env=dev|production] build appbundle [flutter build appbundle args]
   tool/reelpin_flutter.sh [--reelpin-env=dev|production] build ipa [flutter build ipa args]
+  tool/reelpin_flutter.sh [--reelpin-env=dev|production] check-config
   tool/reelpin_flutter.sh sync-local
   tool/reelpin_flutter.sh sync-vscode
   tool/reelpin_flutter.sh sync-xcode
@@ -32,6 +33,9 @@ Examples:
   tool/reelpin_flutter.sh --reelpin-env=production run
   tool/reelpin_flutter.sh --reelpin-env=production build apk --release
   tool/reelpin_flutter.sh --reelpin-env=production build appbundle --release
+
+For the normal development and store release commands, use:
+  tool/reelpin.sh --help
 USAGE
 }
 
@@ -287,7 +291,7 @@ else
   [[ -n "$API_BASE_URL_VALUE" ]] || API_BASE_URL_VALUE="$DEV_API_BASE_URL"
 fi
 
-if [[ "${1:-}" == "build" || "${1:-}" == "sync-xcode" ]]; then
+if [[ "${1:-}" == "build" || "${1:-}" == "sync-xcode" || "${1:-}" == "check-config" ]]; then
   reject_placeholder MAPS_API_KEY "$MAPS_API_KEY_VALUE"
 elif missing_or_placeholder "$MAPS_API_KEY_VALUE"; then
   printf 'reelpin_flutter: warning: MAPS_API_KEY is missing, the map screen will not load map tiles.\n' >&2
@@ -298,6 +302,11 @@ XCODE_DART_DEFINES=(
   "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY_VALUE"
   "API_BASE_URL=$API_BASE_URL_VALUE"
 )
+
+if [[ "${1:-}" == "check-config" ]]; then
+  printf 'Configuration is ready. API_BASE_URL=%s\n' "$API_BASE_URL_VALUE"
+  exit 0
+fi
 
 if [[ "${1:-}" == "sync-xcode" ]]; then
   write_ios_secrets "${XCODE_DART_DEFINES[@]}"

@@ -535,8 +535,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: _emptyFlowTile(
               context,
               icon: Icons.play_arrow,
-              title: 'FIND',
-              caption: 'post, reel, or Short',
+              title: 'NEED',
+              caption: 'anything',
               color: AppTheme.surfaceElevatedColor(context),
               iconColor: AppTheme.yellow,
             ),
@@ -558,8 +558,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: _emptyFlowTile(
               context,
               icon: Icons.bookmark,
-              title: 'SAVED',
-              caption: 'for later',
+              title: 'FIND',
+              caption: 'it later',
               color: AppTheme.surfaceElevatedColor(context),
               iconColor: AppTheme.yellow,
             ),

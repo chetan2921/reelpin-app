@@ -178,45 +178,158 @@ API_BASE_URL=https://dev-api-64-227-168-119.nip.io
 MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
-Run the app through the config wrapper so Supabase is always passed as Dart defines:
+Use the project command so Supabase and the selected backend are always passed
+as Dart defines:
 
 ```bash
-tool/reelpin_flutter.sh --reelpin-env=dev run
+tool/reelpin.sh run-dev
 ```
 
 Run against production:
 
 ```bash
-tool/reelpin_flutter.sh --reelpin-env=production run
+tool/reelpin.sh run-production
 ```
 
-Build a production Android APK:
+List available devices, then pass a simulator or emulator ID to either command:
 
 ```bash
-tool/reelpin_flutter.sh --reelpin-env=production build apk --release
+flutter devices
+tool/reelpin.sh run-dev -d <device-id>
+tool/reelpin.sh run-production -d <device-id>
 ```
 
-Build a production Play Store app bundle:
+`run-dev` uses `https://dev-api-64-227-168-119.nip.io`. `run-production` uses
+`https://api-64-227-168-119.nip.io`.
+
+Clean Flutter build output without deleting saved release artifacts:
 
 ```bash
-tool/reelpin_flutter.sh --reelpin-env=production build appbundle --release
+tool/reelpin.sh clean
 ```
 
-Build a production iOS IPA:
+Build a signed release APK with the development backend. This APK is for testing
+and must not be uploaded to Play Console:
 
 ```bash
-tool/reelpin_flutter.sh --reelpin-env=production build ipa \
-  --release \
-  --export-options-plist=ios/ExportOptions.plist
+tool/reelpin.sh apk-dev
 ```
+
+Build a signed release APK with the production backend:
+
+```bash
+tool/reelpin.sh apk-production
+```
+
+Both APK commands clean the project, install dependencies, run the project
+checks, and save versioned APKs as:
+
+```text
+artifacts/releases/<version>/reelpin-<version>-dev.apk
+artifacts/releases/<version>/reelpin-<version>-production.apk
+```
+
+The command reads `assets/config/local.env` from disk before Flutter runs. That
+file is git-ignored and is not packaged as a Flutter asset.
+
+### Store Release Builds
+
+The release commands create files that are ready to upload. They do not change
+the version, increment the build number, or upload anything.
+
+Before each release, update the version in `pubspec.yaml` yourself:
+
+```yaml
+version: 1.0.9+15
+```
+
+The value before `+` is the Android version name and iOS marketing version. The
+number after `+` is the Android version code and iOS build number. Both stores
+require a build number greater than the last uploaded build.
+
+Confirm the version without changing it:
+
+```bash
+tool/reelpin.sh version
+```
+
+Check the complete local release setup without building:
+
+```bash
+tool/reelpin.sh doctor
+```
+
+The local preflight also checks that the app uses these Supabase OAuth callback
+URLs:
+
+```text
+com.chetanjain.reelpin://login-callback
+com.chetan.reelpin://login-callback
+```
+
+Keep both URLs in the Supabase Authentication redirect allowlist. Also keep the
+Google provider enabled in Supabase and its Google OAuth callback configured in
+Google Cloud. These are remote settings, so `doctor` cannot inspect them.
+
+Build the production Play Store AAB:
+
+```bash
+tool/reelpin.sh playstore
+```
+
+Build the production App Store IPA:
+
+```bash
+tool/reelpin.sh appstore
+```
+
+Build both store files after running the checks once:
+
+```bash
+tool/reelpin.sh stores
+```
+
+Store commands run `flutter clean`, install dependencies, check formatting and
+project structure, run analysis and tests, build with production configuration,
+and verify the generated package IDs, versions, signing, and store capabilities.
+
+The files and SHA-256 checksums are saved outside Flutter's build directory:
+
+```text
+artifacts/releases/<version>/reelpin-<version>-playstore.aab
+artifacts/releases/<version>/reelpin-<version>-appstore.ipa
+```
+
+Running `flutter clean` later does not delete these files.
+
+The iOS command expects the Apple Distribution certificate and both manual App
+Store profiles from `ios/ExportOptions.plist` to be installed on the Mac. The
+current profile names are `ReelPin App Store 2026` and
+`ReelPin Share Extension App Store 2026`. Replace the profiles and update the
+plist when they expire. The currently installed profiles expire on June 22,
+2027.
+
+The distribution certificate must include its private key. Check it with:
+
+```bash
+security find-identity -v -p codesigning
+```
+
+If this reports `0 valid identities found`, import the Apple Distribution
+certificate and private key into the login keychain. You can import a `.p12`
+backup in Keychain Access, or create/download the certificate from Xcode under
+Settings, Accounts, your team, Manage Certificates. Run `tool/reelpin.sh doctor
+ios` again after installing it.
+
+Run `tool/reelpin.sh --help` to see every supported command. Use
+`tool/reelpin_flutter.sh` only when you need to pass a raw Flutter command or
+sync production values before opening Xcode directly.
 
 If you archive from Xcode, sync the ignored iOS Dart defines first:
 
 ```bash
 tool/reelpin_flutter.sh --reelpin-env=production sync-xcode
 ```
-
-The wrapper reads `assets/config/local.env` from disk before Flutter runs. That file is git-ignored and is not packaged as a Flutter asset.
 
 ### Android Maps Config
 
@@ -261,32 +374,27 @@ storePassword=...
 ## Run The App
 
 ```bash
-flutter pub get
-flutter run
+tool/reelpin.sh run-dev
 ```
 
 ## Useful Commands
 
-Run the same validation used for changes targeting `dev`:
+Run the same validation used by the store release commands:
 
 ```bash
-dart format --output=none --set-exit-if-changed lib test tool
-dart run tool/check_architecture.dart
-dart run tool/check_assets.dart
-flutter analyze
-flutter test
+tool/reelpin.sh verify
 ```
 
-Check that required project paths and optional local configuration are present:
+Check the Android release setup only:
 
 ```bash
-dart run tool/verify_project.dart
+tool/reelpin.sh doctor android
 ```
 
-Build a release APK:
+Check the iOS release setup only:
 
 ```bash
-flutter build apk
+tool/reelpin.sh doctor ios
 ```
 
 ## Code Organization

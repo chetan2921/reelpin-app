@@ -7,4 +7,9 @@ API_BASE_URL=https://dev-api-64-227-168-119.nip.io
 MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
-Use `tool/reelpin_flutter.sh` so the values are passed as Dart defines. This folder is not packaged as a Flutter asset because `local.env` must not be bundled into release builds.
+Use `tool/reelpin.sh` for normal development and store builds. It delegates to
+`tool/reelpin_flutter.sh`, which passes these values as Dart defines. Run
+`tool/reelpin.sh --help` for the available commands.
+
+This folder is not packaged as a Flutter asset because `local.env` must not be
+bundled into release builds.

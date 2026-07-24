@@ -26,7 +26,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'SHARE FROM INSTAGRAM, YOUTUBE, OR X. SAVE THE PLACE, PLAN, OR FIND.',
       accent: AppTheme.yellow,
       icon: Icons.bookmark_added_outlined,
-      bullet: 'SHARES WORK',
+      bullet: '',
       highlights: ['SPOTS', 'PLACES TO GO', 'THINGS TO BUY'],
       platforms: [
         _OnboardingPlatform('assets/images/instagram.png', 'INSTAGRAM'),
