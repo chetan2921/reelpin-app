@@ -17,7 +17,8 @@ class AppEntry extends ConsumerStatefulWidget {
   ConsumerState<AppEntry> createState() => _AppEntryState();
 }
 
-class _AppEntryState extends ConsumerState<AppEntry> {
+class _AppEntryState extends ConsumerState<AppEntry>
+    with WidgetsBindingObserver {
   static const _minimumSplashDuration = Duration(milliseconds: 1600);
   static const _onboardingCompletedKey = 'app_entry_onboarding_completed_v1';
 
@@ -28,9 +29,23 @@ class _AppEntryState extends ConsumerState<AppEntry> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(AppUpdateService.checkForImmediateUpdate());
     _holdSplash();
     _loadOnboardingState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(AppUpdateService.checkForImmediateUpdate());
+    }
   }
 
   Future<void> _holdSplash() async {
