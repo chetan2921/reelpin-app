@@ -36,10 +36,10 @@ class ShareUrlExtractor {
     final host = uri?.host.trim().toLowerCase() ?? '';
     if (uri == null || host.isEmpty) return false;
 
-    return _isInstagramUrl(uri, host) ||
-        _isTikTokUrl(uri, host) ||
-        _isYoutubeUrl(uri, host) ||
-        _isXUrl(host);
+    // Supported platforms are decided by the backend; accept any http(s)
+    // link here so adding a platform needs only a backend change.
+    final scheme = uri.scheme.toLowerCase();
+    return scheme == 'http' || scheme == 'https';
   }
 
   static bool _isInstagramUrl(Uri uri, String host) {

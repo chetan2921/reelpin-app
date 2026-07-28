@@ -43,10 +43,10 @@ object ShareIntentParser {
         val uri = runCatching { URI(value) }.getOrNull() ?: return false
         val host = uri.host?.lowercase() ?: return false
 
-        return isInstagramUrl(uri, host) ||
-            isTikTokUrl(uri, host) ||
-            isYoutubeUrl(uri, host) ||
-            isXUrl(host)
+        // Supported platforms are decided by the backend; accept any http(s)
+        // link here so adding a platform needs only a backend change.
+        val scheme = uri.scheme?.lowercase()
+        return (scheme == "http" || scheme == "https") && host.isNotEmpty()
     }
 
     private fun isInstagramUrl(uri: URI, host: String): Boolean {

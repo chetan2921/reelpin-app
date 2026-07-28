@@ -32,16 +32,16 @@ struct ShareUrlExtractor {
   private static func isSupportedUrl(_ value: String) -> Bool {
     guard
       let components = URLComponents(string: value),
+      let scheme = components.scheme?.lowercased(),
       let host = components.host?.lowercased(),
       !host.isEmpty
     else {
       return false
     }
 
-    return isInstagramUrl(components, host: host) ||
-      isTikTokUrl(components, host: host) ||
-      isYoutubeUrl(components, host: host) ||
-      isXUrl(host: host)
+    // Supported platforms are decided by the backend; accept any http(s)
+    // link here so adding a platform needs only a backend change.
+    return scheme == "http" || scheme == "https"
   }
 
   private static func isInstagramUrl(_ components: URLComponents, host: String) -> Bool {
