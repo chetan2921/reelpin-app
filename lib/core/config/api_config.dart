@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   ApiConfig._();
 
-  static const String _productionBaseUrl = 'https://api-64-227-168-119.nip.io';
+  static const String _productionBaseUrl = 'https://api.reelpin.in';
   static const String _devBaseUrl = 'https://dev-api-64-227-168-119.nip.io';
   static const String _currentLanBaseUrl = 'http://192.168.1.12:8000/api/v1';
   static const String _defaultLanBaseUrl = 'http://192.168.1.4:8000/api/v1';
