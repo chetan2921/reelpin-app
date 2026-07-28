@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_FILE="${REELPIN_CONFIG_FILE:-"$ROOT_DIR/assets/config/local.env"}"
 IOS_SECRETS_FILE="$ROOT_DIR/ios/Flutter/Secrets.xcconfig"
 VSCODE_LAUNCH_FILE="$ROOT_DIR/.vscode/launch.json"
-PRODUCTION_API_BASE_URL="https://api-64-227-168-119.nip.io"
+PRODUCTION_API_BASE_URL="https://api.reelpin.in"
 DEV_API_BASE_URL="https://dev-api-64-227-168-119.nip.io"
 
 CONFIG_SUPABASE_URL=""

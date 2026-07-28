@@ -200,7 +200,7 @@ tool/reelpin.sh run-production -d <device-id>
 ```
 
 `run-dev` uses `https://dev-api-64-227-168-119.nip.io`. `run-production` uses
-`https://api-64-227-168-119.nip.io`.
+`https://api.reelpin.in`.
 
 Clean Flutter build output without deleting saved release artifacts:
 
