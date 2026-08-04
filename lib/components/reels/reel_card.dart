@@ -1,9 +1,14 @@
+import 'dart:math' as math;
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/constants/source_platforms.dart';
 
 class ReelCard extends StatefulWidget {
   final Reel reel;
@@ -49,7 +54,7 @@ class _ReelCardState extends State<ReelCard>
   @override
   Widget build(BuildContext context) {
     final reel = widget.reel;
-    final catColor = AppTheme.getCategoryColor(reel.category);
+    final catColor = AppColors.getCategoryColor(reel.category);
     final layout = AppLayout.of(context);
     final hasThumbnail = reel.thumbnailUrl.trim().isNotEmpty;
 
@@ -80,9 +85,9 @@ class _ReelCardState extends State<ReelCard>
           children: [
             Container(
               decoration: BoxDecoration(
-                color: AppTheme.bg(context),
+                color: AppColors.bg(context),
                 border: Border.all(
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                   width: AppTheme.borderWidth,
                 ),
                 boxShadow: _isPressed ? null : AppTheme.brutalShadow(context),
@@ -100,7 +105,7 @@ class _ReelCardState extends State<ReelCard>
                 width: layout.inset(5),
                 height: layout.inset(5),
                 decoration: const BoxDecoration(
-                  color: AppTheme.black,
+                  color: AppColors.black,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -125,7 +130,7 @@ class _ReelCardState extends State<ReelCard>
     final layout = AppLayout.of(context);
     final textShadow = [
       Shadow(
-        color: AppTheme.black.withAlpha(190),
+        color: AppColors.black.withAlpha(190),
         offset: const Offset(1, 1),
         blurRadius: 2,
       ),
@@ -134,38 +139,26 @@ class _ReelCardState extends State<ReelCard>
     return Stack(
       fit: StackFit.expand,
       children: [
-        Container(color: AppTheme.black),
+        Container(color: AppColors.black),
+        // Both layers share one URL, so they share one cache entry and one
+        // decode — the backdrop costs nothing extra.
         Opacity(
           opacity: 0.32,
-          child: Image.network(
-            reel.thumbnailUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(color: catColor),
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(color: catColor.withAlpha(90));
-            },
+          child: _ReelThumbnail(
+            url: reel.thumbnailUrl,
+            fallbackColor: catColor,
           ),
         ),
-        Image.network(
-          reel.thumbnailUrl,
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          errorBuilder: (_, _, _) => Container(color: catColor),
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(color: catColor.withAlpha(90));
-          },
-        ),
+        _ReelThumbnail(url: reel.thumbnailUrl, fallbackColor: catColor),
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                AppTheme.black.withAlpha(70),
-                AppTheme.black.withAlpha(115),
-                AppTheme.black.withAlpha(225),
+                AppColors.black.withAlpha(70),
+                AppColors.black.withAlpha(115),
+                AppColors.black.withAlpha(225),
               ],
               stops: const [0.0, 0.42, 1.0],
             ),
@@ -189,7 +182,7 @@ class _ReelCardState extends State<ReelCard>
               Text(
                 reel.title.isNotEmpty ? reel.title : _untitledLabel(reel),
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.white,
+                  color: AppColors.white,
                   fontSize: layout.font(11),
                   fontWeight: FontWeight.w700,
                   height: 1.3,
@@ -202,9 +195,9 @@ class _ReelCardState extends State<ReelCard>
               _buildBottomInfoRow(
                 context,
                 reel,
-                textColor: AppTheme.white,
-                secondaryColor: AppTheme.white.withAlpha(210),
-                borderColor: AppTheme.white,
+                textColor: AppColors.white,
+                secondaryColor: AppColors.white.withAlpha(210),
+                borderColor: AppColors.white,
                 shadows: textShadow,
               ),
             ],
@@ -238,7 +231,7 @@ class _ReelCardState extends State<ReelCard>
                 Text(
                   reel.title.isNotEmpty ? reel.title : _untitledLabel(reel),
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: layout.font(10.5),
                     fontWeight: FontWeight.w700,
                     height: 1.3,
@@ -252,7 +245,7 @@ class _ReelCardState extends State<ReelCard>
                     child: Text(
                       reel.summary,
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.textSec(context),
+                        color: AppColors.textSec(context),
                         fontSize: layout.font(10),
                         height: 1.4,
                       ),
@@ -265,9 +258,9 @@ class _ReelCardState extends State<ReelCard>
                 _buildBottomInfoRow(
                   context,
                   reel,
-                  textColor: AppTheme.fg(context),
-                  secondaryColor: AppTheme.textSec(context),
-                  borderColor: AppTheme.fg(context),
+                  textColor: AppColors.fg(context),
+                  secondaryColor: AppColors.textSec(context),
+                  borderColor: AppColors.fg(context),
                 ),
               ],
             ),
@@ -319,20 +312,15 @@ class _ReelCardState extends State<ReelCard>
 
   Widget? _sourcePlatformBadge(BuildContext context, Reel reel) {
     final layout = AppLayout.of(context);
-    final asset = switch (reel.sourcePlatform) {
-      'instagram' => ('assets/images/instagram.png', 'Instagram'),
-      'youtube' => ('assets/images/youtube.png', 'YouTube'),
-      'x' => ('assets/images/twitter.png', 'X'),
-      _ => null,
-    };
-    if (asset == null) return null;
+    final platform = SourcePlatform.byId(reel.sourcePlatform);
+    if (platform == null) return null;
 
     return Semantics(
-      label: '${asset.$2} source platform',
+      label: '${platform.name} source platform',
       image: true,
       child: ExcludeSemantics(
         child: Image.asset(
-          asset.$1,
+          platform.assetPath,
           width: layout.inset(14),
           height: layout.inset(14),
         ),
@@ -340,11 +328,10 @@ class _ReelCardState extends State<ReelCard>
     );
   }
 
-  String _untitledLabel(Reel reel) =>
-      reel.sourcePlatform == 'x' ? 'UNTITLED POST' : 'UNTITLED REEL';
+  String _untitledLabel(Reel reel) => 'UNTITLED ${_savedItemLabel(reel)}';
 
   String _savedItemLabel(Reel reel) =>
-      reel.sourcePlatform == 'x' ? 'POST' : 'REEL';
+      SourcePlatform.byId(reel.sourcePlatform)?.savedItemNoun ?? 'REEL';
 
   Widget _buildCategoryTag(BuildContext context, String label, Color catColor) {
     final layout = AppLayout.of(context);
@@ -355,7 +342,7 @@ class _ReelCardState extends State<ReelCard>
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: constraints.maxWidth),
             child: Container(
-              color: AppTheme.black.withAlpha(130),
+              color: AppColors.black.withAlpha(130),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -373,7 +360,7 @@ class _ReelCardState extends State<ReelCard>
                       child: Text(
                         label.toUpperCase(),
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.white,
+                          color: AppColors.white,
                           fontSize: layout.font(8, minFactor: 0.9),
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
@@ -398,16 +385,16 @@ class _ReelCardState extends State<ReelCard>
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
-        decoration: AppTheme.brutalCard(ctx, color: AppTheme.bg(ctx)),
+        decoration: AppTheme.brutalCard(ctx, color: AppColors.bg(ctx)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 40, height: 4, color: AppTheme.fg(ctx)),
+            Container(width: 40, height: 4, color: AppColors.fg(ctx)),
             const SizedBox(height: 20),
             Text(
               widget.reel.title.toUpperCase(),
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(ctx),
+                color: AppColors.fg(ctx),
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
@@ -426,14 +413,14 @@ class _ReelCardState extends State<ReelCard>
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: AppTheme.brutalBox(
                     ctx,
-                    color: AppTheme.destructive,
+                    color: AppColors.destructive,
                     shadow: true,
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     'DELETE ${_savedItemLabel(widget.reel)}',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.white,
+                      color: AppColors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -450,14 +437,14 @@ class _ReelCardState extends State<ReelCard>
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: AppTheme.brutalBox(
                     ctx,
-                    color: AppTheme.bg(ctx),
+                    color: AppColors.bg(ctx),
                     shadow: false,
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     'CANCEL',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(ctx),
+                      color: AppColors.fg(ctx),
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -475,18 +462,18 @@ class _ReelCardState extends State<ReelCard>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bg(ctx),
+        backgroundColor: AppColors.bg(ctx),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
           side: BorderSide(
-            color: AppTheme.fg(ctx),
+            color: AppColors.fg(ctx),
             width: AppTheme.borderWidth,
           ),
         ),
         title: Text(
           'DELETE THIS ${_savedItemLabel(widget.reel)}?',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(ctx),
+            color: AppColors.fg(ctx),
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -494,7 +481,7 @@ class _ReelCardState extends State<ReelCard>
         content: Text(
           'This action cannot be undone.',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.textSec(ctx),
+            color: AppColors.textSec(ctx),
             fontSize: 13,
           ),
         ),
@@ -504,7 +491,7 @@ class _ReelCardState extends State<ReelCard>
             child: Text(
               'CANCEL',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.textSec(ctx),
+                color: AppColors.textSec(ctx),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -517,14 +504,14 @@ class _ReelCardState extends State<ReelCard>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.destructive,
-                border: Border.all(color: AppTheme.fg(ctx), width: 2),
+                color: AppColors.destructive,
+                border: Border.all(color: AppColors.fg(ctx), width: 2),
                 boxShadow: AppTheme.brutalShadowSmall(ctx),
               ),
               child: Text(
                 'DELETE',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.white,
+                  color: AppColors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -533,6 +520,56 @@ class _ReelCardState extends State<ReelCard>
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Thumbnail image, tuned so a card that scrolls out of view and back in does
+/// not visibly reload.
+///
+/// Two things make that happen:
+///  * **Disk caching.** `Image.network` keeps nothing on disk, so every evicted
+///    image costs another download. These are cached to disk and come back
+///    instantly, even on the next cold start.
+///  * **Decoding at display size.** A full-resolution thumbnail decodes to
+///    several megabytes; a screenful of them blows past Flutter's image cache
+///    budget and starts evicting images that are still on screen. Decoding to
+///    the size actually painted cuts each one by an order of magnitude, so a
+///    long scroll stays comfortably inside the cache.
+class _ReelThumbnail extends StatelessWidget {
+  const _ReelThumbnail({required this.url, required this.fallbackColor});
+
+  final String url;
+  final Color fallbackColor;
+
+  /// Ceiling on decode width in physical pixels. Cards are at most half the
+  /// screen wide, so this is generous even on a 3x phone, and it keeps one
+  /// oversized source image from dominating the cache.
+  static const _maxDecodeWidth = 720;
+
+  @override
+  Widget build(BuildContext context) {
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final targetWidth = constraints.hasBoundedWidth
+            ? (constraints.maxWidth * devicePixelRatio).round()
+            : _maxDecodeWidth;
+
+        return CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          memCacheWidth: math.min(math.max(targetWidth, 1), _maxDecodeWidth),
+          // Only fade the very first paint. A cache hit renders immediately,
+          // which is what stops the flicker when scrolling back up.
+          fadeInDuration: const Duration(milliseconds: 180),
+          fadeOutDuration: Duration.zero,
+          placeholderFadeInDuration: Duration.zero,
+          placeholder: (_, _) => ColoredBox(color: fallbackColor.withAlpha(90)),
+          errorWidget: (_, _, _) => ColoredBox(color: fallbackColor),
+        );
+      },
     );
   }
 }

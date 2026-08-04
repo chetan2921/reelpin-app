@@ -4,17 +4,20 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
-import 'package:reelpin/features/reels/domain/reel_category_filters.dart';
-import 'package:reelpin/features/account/domain/user_entitlement.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-import 'package:reelpin/features/home/presentation/category_filters_viewmodel.dart';
-import 'package:reelpin/features/home/presentation/home_viewmodel.dart';
-import 'package:reelpin/features/reels/presentation/widgets/category_badge.dart';
-import 'package:reelpin/features/reels/presentation/widgets/reel_card.dart';
-import 'package:reelpin/features/account/presentation/paywall_screen.dart';
-import 'package:reelpin/features/reels/presentation/detail/reel_detail_screen.dart';
+import 'package:reelpin/data_models/reels/reel_category_filters.dart';
+import 'package:reelpin/data_models/account/user_entitlement.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/constants/source_platforms.dart';
+import 'package:reelpin/router.dart';
+import 'package:reelpin/view_models/category_filters_view_model.dart';
+import 'package:reelpin/view_models/home_view_model.dart';
+import 'package:reelpin/components/reels/category_badge.dart';
+import 'package:reelpin/components/reels/reel_card.dart';
+
+part 'partials/filter_option.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, this.onSearchTap, this.scrollController});
@@ -37,13 +40,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _didRequestInitialLoad = true;
       final vm = ref.read(homeViewModelProvider);
       final categoryVm = ref.read(categoryFiltersViewModelProvider);
-      if (vm.reels.isEmpty && !vm.isLoading) {
+      // Always revalidate, even when restored content is already on screen —
+      // both calls no-op while a load is already in flight.
+      if (!vm.isLoading) {
         vm.loadReels(forceRefresh: true);
       }
-      if (!categoryVm.isLoading && !categoryVm.hasGroups) {
+      if (!categoryVm.isLoading) {
         categoryVm.loadCategoryFilters(forceRefresh: true);
       }
     });
+  }
+
+  /// Single source of truth for "the library is empty", so the category row and
+  /// the content branch below can never disagree about which one is showing.
+  bool _isEmptyStateVisible(HomeViewModel vm) {
+    if (vm.isLoading && vm.reels.isEmpty) return false;
+    if (vm.error != null && vm.reels.isEmpty) return false;
+    return vm.isEmpty;
   }
 
   @override
@@ -54,9 +67,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final entitlementsVm = ref.watch(entitlementsViewModelProvider);
     final entitlements = entitlementsVm.entitlement;
     final entitlementResponse = entitlementsVm.response;
+    final isEmptyState = _isEmptyStateVisible(vm);
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -64,8 +78,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             vm.loadReels(forceRefresh: true),
             categoryVm.loadCategoryFilters(forceRefresh: true),
           ]),
-          color: AppTheme.fg(context),
-          backgroundColor: AppTheme.yellow,
+          color: AppColors.fg(context),
+          backgroundColor: AppColors.yellow,
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification.metrics.pixels >=
@@ -77,6 +91,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: CustomScrollView(
               controller: widget.scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
+              // Keep roughly a screenful of cards built past each edge. The
+              // default 250px drops a row almost as soon as it leaves view, so
+              // a small scroll back up rebuilds it from scratch.
+              cacheExtent: MediaQuery.sizeOf(context).height,
               slivers: [
                 // ── Header ──
                 SliverToBoxAdapter(
@@ -97,7 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             Text(
                               'REELPIN',
                               style: GoogleFonts.spaceMono(
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                                 fontSize: layout.font(
                                   28,
                                   minFactor: 0.9,
@@ -119,38 +137,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
 
                 // ── Category Filter Chips ──
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: layout.gap(56),
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
+                // Nothing saved means nothing to filter, so the row is hidden
+                // rather than offering categories that all resolve to empty.
+                if (isEmptyState)
+                  SliverToBoxAdapter(
+                    child: Padding(
                       padding: EdgeInsets.fromLTRB(
                         layout.inset(20),
-                        layout.gap(12),
+                        layout.gap(14),
                         layout.inset(20),
-                        layout.gap(4),
+                        0,
                       ),
-                      itemCount: categoryVm.categories.length + 1,
-                      separatorBuilder: (_, _) =>
-                          SizedBox(width: layout.inset(8)),
-                      itemBuilder: (_, i) {
-                        if (i == 0) {
+                      child: _buildGuideButton(context),
+                    ),
+                  )
+                else
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: layout.gap(56),
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.fromLTRB(
+                          layout.inset(20),
+                          layout.gap(12),
+                          layout.inset(20),
+                          layout.gap(4),
+                        ),
+                        itemCount: categoryVm.categories.length + 1,
+                        separatorBuilder: (_, _) =>
+                            SizedBox(width: layout.inset(8)),
+                        itemBuilder: (_, i) {
+                          if (i == 0) {
+                            return CategoryBadge(
+                              category: 'All',
+                              isSelected: vm.selectedCategory == null,
+                              onTap: () => vm.filterByCategory(null),
+                            );
+                          }
+                          final cat = categoryVm.categories[i - 1];
                           return CategoryBadge(
-                            category: 'All',
-                            isSelected: vm.selectedCategory == null,
-                            onTap: () => vm.filterByCategory(null),
+                            category: cat,
+                            isSelected: vm.selectedCategory == cat,
+                            onTap: () => vm.filterByCategory(cat),
                           );
-                        }
-                        final cat = categoryVm.categories[i - 1];
-                        return CategoryBadge(
-                          category: cat,
-                          isSelected: vm.selectedCategory == cat,
-                          onTap: () => vm.filterByCategory(cat),
-                        );
-                      },
+                        },
+                      ),
                     ),
                   ),
-                ),
 
                 if (_showFreeHistoryBanner(entitlements))
                   SliverToBoxAdapter(
@@ -169,19 +202,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
 
                 // ── Content ──
-                if (vm.isLoading)
-                  _buildShimmerGrid(context)
-                else if (vm.error != null)
-                  _buildErrorState(context, vm)
-                else if (vm.isEmpty)
+                // Keep restored reels on screen while a refresh runs; the
+                // skeleton is only for a genuinely empty first load.
+                if (isEmptyState)
                   _buildEmptyState(context)
+                else if (vm.isLoading && vm.reels.isEmpty)
+                  _buildShimmerGrid(context)
+                else if (vm.error != null && vm.reels.isEmpty)
+                  _buildErrorState(context, vm)
                 else ...[
                   _buildReelGrid(context, vm),
                   _buildPaginationState(context, vm),
                 ],
 
                 // ── Bottom spacing ──
-                SliverToBoxAdapter(child: SizedBox(height: layout.gap(112))),
+                // The empty state fills the viewport and carries this clearance
+                // in its own padding, so adding it again would make a screen
+                // that exactly fits start scrolling.
+                if (!isEmptyState)
+                  SliverToBoxAdapter(child: SizedBox(height: layout.gap(112))),
               ],
             ),
           ),
@@ -206,7 +245,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               width: layout.inset(24),
               height: layout.inset(24),
               child: CircularProgressIndicator(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 strokeWidth: 2.5,
               ),
             ),
@@ -236,14 +275,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             decoration: AppTheme.brutalBox(
               context,
-              color: AppTheme.bg(context),
+              color: AppColors.bg(context),
               shadow: true,
             ),
             alignment: Alignment.center,
             child: Text(
               'LOAD MORE SAVED REELS',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: layout.font(11),
                 fontWeight: FontWeight.w700,
               ),
@@ -264,7 +303,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         decoration: AppTheme.brutalBox(context, shadow: true),
         child: Icon(
           Icons.search,
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
           size: layout.inset(20),
         ),
       ),
@@ -285,7 +324,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         decoration: AppTheme.brutalBox(context, shadow: true),
         child: Icon(
           Icons.tune,
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
           size: layout.inset(20),
         ),
       ),
@@ -321,11 +360,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 width: layout.inset(18),
                 height: layout.inset(18),
                 margin: EdgeInsets.only(top: layout.gap(2)),
-                color: AppTheme.yellow,
+                color: AppColors.yellow,
                 child: Icon(
                   Icons.lock_outline,
                   size: layout.inset(12),
-                  color: AppTheme.black,
+                  color: AppColors.black,
                 ),
               ),
               SizedBox(width: layout.inset(10)),
@@ -338,7 +377,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ? 'FREE ACCOUNT ACCESS'
                           : 'SHOWING LAST $historyDays DAYS ON FREE',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.black,
+                        color: AppColors.black,
                         fontSize: layout.font(11),
                         fontWeight: FontWeight.w700,
                       ),
@@ -349,7 +388,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ? '$savedThisMonth SAVES USED THIS MONTH. TAP TO SEE PLANS.'
                           : '$savedThisMonth / $monthlyLimit SAVES USED THIS MONTH. TAP TO SEE PLANS.',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.black,
+                        color: AppColors.black,
                         fontSize: layout.font(10),
                         fontWeight: FontWeight.w600,
                         height: 1.4,
@@ -405,29 +444,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: ReelCard(
                     reel: reel,
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder: (_, _, _) =>
-                              ReelDetailScreen(reel: reel),
-                          transitionsBuilder: (_, anim, _, child) {
-                            return SlideTransition(
-                              position:
-                                  Tween<Offset>(
-                                    begin: const Offset(1, 0),
-                                    end: Offset.zero,
-                                  ).animate(
-                                    CurvedAnimation(
-                                      parent: anim,
-                                      curve: Curves.easeOut,
-                                    ),
-                                  ),
-                              child: child,
-                            );
-                          },
-                          transitionDuration: const Duration(milliseconds: 200),
-                        ),
-                      );
+                      Navigator.push(context, reelDetailSlideRoute(reel));
                     },
                     onDelete: () => vm.deleteReel(reel.id),
                   ),
@@ -469,13 +486,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         delegate: SliverChildBuilderDelegate(
           (_, _) => Shimmer.fromColors(
-            baseColor: AppTheme.yellow.withAlpha(80),
-            highlightColor: AppTheme.yellow,
+            baseColor: AppColors.yellow.withAlpha(80),
+            highlightColor: AppColors.yellow,
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.bg(context),
+                color: AppColors.bg(context),
                 border: Border.all(
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                   width: AppTheme.borderWidth,
                 ),
               ),
@@ -490,33 +507,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── Empty ──
   Widget _buildEmptyState(BuildContext context) {
     final layout = AppLayout.of(context);
-    return SliverToBoxAdapter(
+    // Fills the rest of the viewport so the content can reach the bottom of the
+    // screen instead of stacking at the top over a screenful of dead space.
+    return SliverFillRemaining(
+      hasScrollBody: false,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           layout.inset(20),
-          layout.gap(18),
+          layout.gap(26),
           layout.inset(20),
-          0,
+          // Clears the floating nav bar, which overlays the bottom of the shell.
+          layout.gap(96),
         ),
+        // Grouped by proximity rather than spread evenly: the headline and its
+        // supporting line read as one unit, the flow diagram sits close under
+        // them as the explanation, and the single remaining gap pushes the
+        // source strip to the bottom. Even spacing made three loose islands.
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildEmptyFlow(context),
-            SizedBox(height: layout.gap(18)),
             Text(
-              'FOUND A POST, REEL, SHORT, OR VIDEO YOU WILL NEED LATER?',
+              'NOTHING SAVED YET',
               textAlign: TextAlign.center,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
-                fontSize: layout.font(18),
+                color: AppColors.fg(context),
+                fontSize: layout.font(22, minFactor: 0.88, maxFactor: 1.06),
                 fontWeight: FontWeight.w700,
-                height: 1.22,
                 letterSpacing: 0.5,
               ),
             ),
-            SizedBox(height: layout.gap(18)),
-            _buildEmptySavePreview(context),
-            SizedBox(height: layout.gap(18)),
+            SizedBox(height: layout.gap(10)),
+            Text(
+              'FOUND A POST, REEL, SHORT, OR VIDEO YOU WILL NEED LATER? '
+              'SHARE IT TO REELPIN AND IT STAYS HERE, READY TO FIND.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.spaceMono(
+                color: AppColors.textSec(context),
+                fontSize: layout.font(12),
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+              ),
+            ),
+            SizedBox(height: layout.gap(28)),
+            _buildEmptyFlow(context),
+            const Spacer(),
             _buildFirstSaveHint(context),
           ],
         ),
@@ -537,8 +571,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               icon: Icons.play_arrow,
               title: 'NEED',
               caption: 'anything',
-              color: AppTheme.surfaceElevatedColor(context),
-              iconColor: AppTheme.yellow,
+              color: AppColors.surfaceElevatedColor(context),
+              iconColor: AppColors.yellow,
             ),
           ),
           _flowArrow(context),
@@ -548,9 +582,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               icon: Icons.ios_share,
               title: 'SHARE',
               caption: 'to ReelPin',
-              color: AppTheme.yellow,
-              iconColor: AppTheme.black,
-              textColor: AppTheme.black,
+              color: AppColors.yellow,
+              iconColor: AppColors.black,
+              textColor: AppColors.black,
             ),
           ),
           _flowArrow(context),
@@ -560,8 +594,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               icon: Icons.bookmark,
               title: 'FIND',
               caption: 'it later',
-              color: AppTheme.surfaceElevatedColor(context),
-              iconColor: AppTheme.yellow,
+              color: AppColors.surfaceElevatedColor(context),
+              iconColor: AppColors.yellow,
             ),
           ),
         ],
@@ -579,7 +613,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Color? textColor,
   }) {
     final layout = AppLayout.of(context);
-    final resolvedTextColor = textColor ?? AppTheme.fg(context);
+    final resolvedTextColor = textColor ?? AppColors.fg(context);
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: layout.inset(8),
@@ -588,7 +622,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       decoration: BoxDecoration(
         color: color,
         border: Border.all(
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
           width: AppTheme.borderWidth,
         ),
       ),
@@ -630,67 +664,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Center(
         child: Icon(
           Icons.arrow_forward,
-          color: AppTheme.yellow,
+          color: AppColors.yellow,
           size: layout.inset(18),
         ),
       ),
     );
   }
 
-  Widget _buildEmptySavePreview(BuildContext context) {
+  /// Sits where the category row goes once there is content. Phrased as the
+  /// question a stuck user actually asks, rather than a bare "show me how"
+  /// that gives no clue what it will show.
+  Widget _buildGuideButton(BuildContext context) {
     final layout = AppLayout.of(context);
-    return _EmptyReelPreviewCard(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          layout.inset(14),
-          layout.gap(16),
-          layout.inset(14),
-          layout.gap(14),
+
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(howToUseRoute()),
+      child: Container(
+        decoration: AppTheme.brutalCard(context, color: AppColors.yellow),
+        padding: EdgeInsets.symmetric(
+          horizontal: layout.inset(14),
+          vertical: layout.gap(14),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: layout.inset(8),
-                    vertical: layout.gap(5),
-                  ),
-                  color: AppTheme.yellow,
-                  child: Text(
-                    'REELPIN MAKES',
+            Container(
+              width: layout.inset(34),
+              height: layout.inset(34),
+              decoration: BoxDecoration(
+                color: AppColors.black,
+                border: Border.all(
+                  color: AppColors.black,
+                  width: AppTheme.borderWidth,
+                ),
+              ),
+              child: Icon(
+                Icons.question_mark,
+                size: layout.font(18),
+                color: AppColors.yellow,
+              ),
+            ),
+            SizedBox(width: layout.inset(12)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'HOW DO I SAVE SOMETHING?',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
-                      fontSize: layout.font(9),
+                      color: AppColors.black,
+                      fontSize: layout.font(13),
                       fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                ),
-                const Spacer(),
-              ],
+                  SizedBox(height: layout.gap(3)),
+                  Text(
+                    'WALK THROUGH IT IN 4 STEPS',
+                    style: GoogleFonts.spaceMono(
+                      color: AppColors.black,
+                      fontSize: layout.font(10.5),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(height: layout.gap(12)),
-            _emptyInsight(
-              context,
-              icon: Icons.subject,
-              title: 'SHORT SUMMARY',
-              text: 'Know why you saved it.',
-            ),
-            SizedBox(height: layout.gap(7)),
-            _emptyInsight(
-              context,
-              icon: Icons.location_on_outlined,
-              title: 'PLACES TO OPEN',
-              text: 'Restaurants, cities, and spots stay attached.',
-            ),
-            SizedBox(height: layout.gap(7)),
-            _emptyInsight(
-              context,
-              icon: Icons.search,
-              title: 'SEARCH WORDS',
-              text: 'Find it later by topic, place, or mood.',
+            SizedBox(width: layout.inset(8)),
+            Icon(
+              Icons.arrow_forward,
+              size: layout.font(18),
+              color: AppColors.black,
             ),
           ],
         ),
@@ -698,6 +741,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Footnote naming the apps you can share from. Deliberately quiet: the
+  /// yellow guide button above is the only call to action on this screen, and a
+  /// second yellow block was splitting the emphasis between them.
   Widget _buildFirstSaveHint(BuildContext context) {
     final layout = AppLayout.of(context);
     return Container(
@@ -706,35 +752,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         vertical: layout.gap(12),
       ),
       decoration: BoxDecoration(
-        color: AppTheme.yellow,
+        color: AppColors.surfaceElevatedColor(context),
         border: Border.all(
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
           width: AppTheme.borderWidth,
         ),
       ),
-      child: Row(
+      // Stacked rather than side by side: six badges plus the caption on one
+      // row leaves the text a column too narrow to read on small phones.
+      child: Column(
+        // The empty-state column hands its non-flex children an unbounded
+        // height, so this one has to size to its contents.
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.ios_share, color: AppTheme.black, size: layout.inset(18)),
-          SizedBox(width: layout.inset(10)),
-          _platformIconBadge(
-            context,
-            'assets/images/instagram.png',
-            'Instagram',
+          Wrap(
+            spacing: layout.inset(5),
+            runSpacing: layout.inset(5),
+            children: [
+              for (final platform in SourcePlatform.all)
+                _platformIconBadge(context, platform),
+            ],
           ),
-          SizedBox(width: layout.inset(5)),
-          _platformIconBadge(context, 'assets/images/youtube.png', 'YouTube'),
-          SizedBox(width: layout.inset(5)),
-          _platformIconBadge(context, 'assets/images/twitter.png', 'X'),
-          SizedBox(width: layout.inset(10)),
-          Expanded(
-            child: Text(
-              'SHARE POSTS, REELS, SHORTS, OR VIDEOS TO REELPIN.',
-              style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
-                fontSize: layout.font(11),
-                fontWeight: FontWeight.w700,
-                height: 1.35,
-              ),
+          SizedBox(height: layout.gap(10)),
+          Text(
+            'SHARE FROM ${_supportedPlatformSentence()}',
+            style: GoogleFonts.spaceMono(
+              color: AppColors.fg(context),
+              fontSize: layout.font(10.5),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              height: 1.35,
             ),
           ),
         ],
@@ -742,14 +790,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _platformIconBadge(
-    BuildContext context,
-    String assetPath,
-    String label,
-  ) {
+  /// "INSTAGRAM, YOUTUBE, ... OR LINKEDIN" — built from the registry so the
+  /// caption cannot fall out of step with the badges above it.
+  String _supportedPlatformSentence() {
+    final labels = SourcePlatform.all
+        .map((platform) => platform.label)
+        .toList();
+    if (labels.length == 1) return labels.single;
+    return '${labels.sublist(0, labels.length - 1).join(', ')}, OR ${labels.last}';
+  }
+
+  Widget _platformIconBadge(BuildContext context, SourcePlatform platform) {
     final layout = AppLayout.of(context);
     return Semantics(
-      label: '$label source platform',
+      label: '${platform.name} source platform',
       image: true,
       child: ExcludeSemantics(
         child: Container(
@@ -757,70 +811,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           height: layout.inset(24),
           padding: EdgeInsets.all(layout.inset(3)),
           decoration: BoxDecoration(
-            color: AppTheme.white,
-            border: Border.all(color: AppTheme.black, width: 1.5),
+            color: AppColors.white,
+            border: Border.all(color: AppColors.black, width: 1.5),
           ),
-          child: Image.asset(assetPath),
+          child: Image.asset(platform.assetPath),
         ),
-      ),
-    );
-  }
-
-  Widget _emptyInsight(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String text,
-  }) {
-    final layout = AppLayout.of(context);
-    return Container(
-      constraints: BoxConstraints(minHeight: layout.gap(56)),
-      padding: EdgeInsets.symmetric(
-        horizontal: layout.inset(10),
-        vertical: layout.gap(8),
-      ),
-      decoration: BoxDecoration(
-        color: AppTheme.white.withAlpha(242),
-        border: Border.all(color: AppTheme.black, width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: layout.inset(30),
-            height: layout.inset(30),
-            color: AppTheme.black,
-            child: Icon(icon, color: AppTheme.yellow, size: layout.inset(17)),
-          ),
-          SizedBox(width: layout.inset(10)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.spaceMono(
-                    color: AppTheme.black,
-                    fontSize: layout.font(10),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: layout.gap(2)),
-                Text(
-                  text,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.spaceMono(
-                    color: const Color(0xFF3A3A3A),
-                    fontSize: layout.font(9.5),
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -837,7 +832,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             padding: EdgeInsets.all(layout.inset(24)),
             decoration: AppTheme.brutalBox(
               context,
-              color: AppTheme.bg(context),
+              color: AppColors.bg(context),
               shadow: true,
             ),
             child: Column(
@@ -847,20 +842,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   width: layout.inset(48),
                   height: layout.inset(48),
                   decoration: BoxDecoration(
-                    color: AppTheme.destructive,
-                    border: Border.all(color: AppTheme.fg(context), width: 2),
+                    color: AppColors.destructive,
+                    border: Border.all(color: AppColors.fg(context), width: 2),
                   ),
                   child: const Icon(
                     Icons.cloud_off,
                     size: 24,
-                    color: AppTheme.white,
+                    color: AppColors.white,
                   ),
                 ),
                 SizedBox(height: layout.gap(16)),
                 Text(
                   'COULD NOT CONNECT',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: layout.font(16),
                     fontWeight: FontWeight.w700,
                   ),
@@ -870,7 +865,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   vm.error ?? '',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSec(context),
+                    color: AppColors.textSec(context),
                     fontSize: layout.font(12),
                   ),
                 ),
@@ -884,13 +879,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     decoration: AppTheme.brutalBox(
                       context,
-                      color: AppTheme.red,
+                      color: AppColors.red,
                       shadow: true,
                     ),
                     child: Text(
                       'RETRY',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.white,
+                        color: AppColors.white,
                         fontWeight: FontWeight.w700,
                         fontSize: layout.font(14),
                       ),
@@ -959,25 +954,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ? '$selectedCategory / $selectedSubcategory'
                 : selectedCategory ?? 'ALL REELS';
             final topCategoryAccentColor = topCategory != null
-                ? AppTheme.getCategoryColor(topCategory.category)
-                : AppTheme.yellow;
+                ? AppColors.getCategoryColor(topCategory.category)
+                : AppColors.yellow;
             final currentAccentColor = selectedCategory != null
-                ? AppTheme.getCategoryColor(selectedCategory!)
+                ? AppColors.getCategoryColor(selectedCategory!)
                 : topCategoryAccentColor;
             final applyAccentColor = selectedCategory != null
                 ? currentAccentColor
-                : AppTheme.yellow;
+                : AppColors.yellow;
             final applyTextColor = applyAccentColor.computeLuminance() > 0.5
-                ? AppTheme.black
-                : AppTheme.white;
+                ? AppColors.black
+                : AppColors.white;
 
             return FractionallySizedBox(
               heightFactor: 0.82,
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.bg(context),
+                  color: AppColors.bg(context),
                   border: Border.all(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     width: AppTheme.borderWidth,
                   ),
                 ),
@@ -994,7 +989,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: Container(
                                 width: 40,
                                 height: 4,
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                               ),
                             ),
                             const SizedBox(height: 18),
@@ -1009,7 +1004,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       Text(
                                         'FILTER SAVED REELS',
                                         style: GoogleFonts.spaceMono(
-                                          color: AppTheme.fg(context),
+                                          color: AppColors.fg(context),
                                           fontSize: 17,
                                           fontWeight: FontWeight.w700,
                                           letterSpacing: 1,
@@ -1019,7 +1014,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       Text(
                                         'Use the dropdowns to jump straight to the category you want.',
                                         style: GoogleFonts.spaceMono(
-                                          color: AppTheme.textSec(context),
+                                          color: AppColors.textSec(context),
                                           fontSize: 11,
                                           height: 1.5,
                                         ),
@@ -1035,12 +1030,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     height: 40,
                                     decoration: AppTheme.brutalBox(
                                       context,
-                                      color: AppTheme.bg(context),
+                                      color: AppColors.bg(context),
                                       shadow: true,
                                     ),
                                     child: Icon(
                                       Icons.close,
-                                      color: AppTheme.fg(context),
+                                      color: AppColors.fg(context),
                                       size: 20,
                                     ),
                                   ),
@@ -1104,7 +1099,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                               label: item.category,
                                               count: item.count,
                                               accentColor:
-                                                  AppTheme.getCategoryColor(
+                                                  AppColors.getCategoryColor(
                                                     item.category,
                                                   ),
                                             ),
@@ -1152,7 +1147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           ? 'No saved subcategories in this category yet.'
                                           : 'Choose a saved subcategory for ${selectedCategory!.toLowerCase()}.',
                                       style: GoogleFonts.spaceMono(
-                                        color: AppTheme.textSec(context),
+                                        color: AppColors.textSec(context),
                                         fontSize: 10,
                                         height: 1.5,
                                       ),
@@ -1174,10 +1169,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Container(
                         padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                         decoration: BoxDecoration(
-                          color: AppTheme.bg(context),
+                          color: AppColors.bg(context),
                           border: Border(
                             top: BorderSide(
-                              color: AppTheme.fg(context),
+                              color: AppColors.fg(context),
                               width: AppTheme.thinBorderWidth,
                             ),
                           ),
@@ -1198,14 +1193,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   decoration: AppTheme.brutalBox(
                                     context,
-                                    color: AppTheme.bg(context),
+                                    color: AppColors.bg(context),
                                     shadow: true,
                                   ),
                                   alignment: Alignment.center,
                                   child: Text(
                                     'RESET',
                                     style: GoogleFonts.spaceMono(
-                                      color: AppTheme.fg(context),
+                                      color: AppColors.fg(context),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -1272,7 +1267,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             width: 18,
             height: 18,
             child: CircularProgressIndicator(
-              color: AppTheme.fg(context),
+              color: AppColors.fg(context),
               strokeWidth: 2.4,
             ),
           ),
@@ -1281,7 +1276,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Text(
               label,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -1321,7 +1316,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.all(18),
       decoration: AppTheme.brutalBox(
         context,
-        color: AppTheme.bg(context),
+        color: AppColors.bg(context),
         shadow: true,
       ),
       child: Column(
@@ -1330,7 +1325,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             'COULD NOT LOAD FILTERS',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
+              color: AppColors.fg(context),
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
@@ -1339,7 +1334,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             categoryVm.error ?? '',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.textSec(context),
+              color: AppColors.textSec(context),
               fontSize: 11,
               height: 1.5,
             ),
@@ -1351,13 +1346,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: AppTheme.brutalBox(
                 context,
-                color: AppTheme.red,
+                color: AppColors.red,
                 shadow: true,
               ),
               child: Text(
                 'RETRY',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.white,
+                  color: AppColors.white,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1376,7 +1371,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Text(
         'NO CATEGORY FILTERS YET. SAVE A FEW REELS FIRST, THEN OPEN FILTERS AGAIN.',
         style: GoogleFonts.spaceMono(
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
           fontSize: 11,
           fontWeight: FontWeight.w700,
           height: 1.5,
@@ -1432,8 +1427,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     final layout = AppLayout.of(context);
     final accentText = accentColor.computeLuminance() > 0.5
-        ? AppTheme.black
-        : AppTheme.white;
+        ? AppColors.black
+        : AppColors.white;
     final fixedHeight = layout.gap(126);
     return Container(
       constraints: BoxConstraints(
@@ -1448,7 +1443,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             label,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.textSec(context),
+              color: AppColors.textSec(context),
               fontSize: layout.font(10),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
@@ -1462,7 +1457,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             decoration: BoxDecoration(
               color: accentColor,
-              border: Border.all(color: AppTheme.fg(context), width: 2),
+              border: Border.all(color: AppColors.fg(context), width: 2),
             ),
             child: Text(
               title.toUpperCase(),
@@ -1479,7 +1474,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             subtitle,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.textSec(context),
+              color: AppColors.textSec(context),
               fontSize: layout.font(10),
               height: 1.5,
             ),
@@ -1502,14 +1497,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final layout = AppLayout.of(context);
     final resolvedAccent = enabled
         ? accentColor
-        : AppTheme.surfaceElevatedColor(context);
+        : AppColors.surfaceElevatedColor(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.textSec(context),
+            color: AppColors.textSec(context),
             fontSize: layout.font(10),
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
@@ -1521,8 +1516,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           decoration: AppTheme.brutalBox(
             context,
             color: enabled
-                ? AppTheme.bg(context)
-                : AppTheme.surfaceElevatedColor(context),
+                ? AppColors.bg(context)
+                : AppColors.surfaceElevatedColor(context),
             shadow: true,
           ),
           child: Row(
@@ -1539,18 +1534,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     value: value,
                     isExpanded: true,
                     menuMaxHeight: 320,
-                    dropdownColor: AppTheme.bg(context),
-                    iconEnabledColor: AppTheme.fg(context),
-                    iconDisabledColor: AppTheme.textSec(context),
+                    dropdownColor: AppColors.bg(context),
+                    iconEnabledColor: AppColors.fg(context),
+                    iconDisabledColor: AppColors.textSec(context),
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: layout.font(11),
                       fontWeight: FontWeight.w700,
                     ),
                     hint: Text(
                       hint,
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.textSec(context),
+                        color: AppColors.textSec(context),
                         fontSize: layout.font(11),
                       ),
                     ),
@@ -1562,7 +1557,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               item.label.toUpperCase(),
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.spaceMono(
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                                 fontSize: layout.font(11),
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1611,8 +1606,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     final layout = AppLayout.of(context);
     final textColor = backgroundColor.computeLuminance() > 0.5
-        ? AppTheme.black
-        : AppTheme.white;
+        ? AppColors.black
+        : AppColors.white;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: layout.inset(8),
@@ -1620,7 +1615,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       decoration: BoxDecoration(
         color: backgroundColor,
-        border: Border.all(color: AppTheme.fg(context), width: 1.5),
+        border: Border.all(color: AppColors.fg(context), width: 1.5),
       ),
       child: Text(
         '$count',
@@ -1632,72 +1627,4 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-}
-
-class _EmptyReelPreviewCard extends StatelessWidget {
-  final Widget child;
-
-  const _EmptyReelPreviewCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = AppLayout.of(context);
-    return Padding(
-      padding: EdgeInsets.only(
-        top: layout.gap(8),
-        right: layout.inset(6),
-        bottom: layout.gap(4),
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: AppTheme.bg(context),
-              border: Border.all(
-                color: AppTheme.fg(context),
-                width: AppTheme.borderWidth,
-              ),
-              boxShadow: AppTheme.brutalShadow(context),
-            ),
-            child: child,
-          ),
-          Positioned(
-            right: layout.inset(14),
-            top: layout.gap(14),
-            child: Container(
-              width: layout.inset(5),
-              height: layout.inset(5),
-              decoration: const BoxDecoration(
-                color: AppTheme.black,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            right: -layout.inset(6),
-            top: -layout.gap(6),
-            child: Image.asset(
-              'assets/images/pin.png',
-              width: layout.inset(26),
-              height: layout.inset(26),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterOption {
-  final String label;
-  final int count;
-  final Color accentColor;
-
-  const _FilterOption({
-    required this.label,
-    required this.count,
-    required this.accentColor,
-  });
 }

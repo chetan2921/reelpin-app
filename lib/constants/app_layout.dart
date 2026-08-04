@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:reelpin/core/design/app_spacing.dart';
+import 'package:reelpin/constants/app_spacing.dart';
 
 class AppLayout {
   AppLayout._(this.size, this.padding);

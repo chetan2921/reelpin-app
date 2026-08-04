@@ -9,6 +9,7 @@ enum AppNotificationTarget {
   map,
   discover,
   profile,
+  appUpdate,
 }
 
 enum AppNotificationOpenSource {
@@ -95,6 +96,7 @@ class AppNotification {
         'map' => AppNotificationTarget.map,
         'discover' => AppNotificationTarget.discover,
         'profile' => AppNotificationTarget.profile,
+        'app_update' => AppNotificationTarget.appUpdate,
         _ => null,
       };
       final announcementId = target == 'announcement'

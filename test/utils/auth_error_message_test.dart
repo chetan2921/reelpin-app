@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:reelpin/features/auth/presentation/auth_error_message.dart';
+import 'package:reelpin/utils/auth_error_message.dart';
 
 void main() {
   group('authErrorMessage', () {

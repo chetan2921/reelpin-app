@@ -10,19 +10,25 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/core/logging/app_logger.dart';
-import 'package:reelpin/core/platform/notification_service.dart';
-import 'package:reelpin/core/network/api_exception.dart';
-import 'package:reelpin/core/network/error_message.dart';
-import 'package:reelpin/core/platform/location_service.dart';
-import 'package:reelpin/features/sharing/services/share_handoff_service.dart';
-import 'package:reelpin/features/sharing/services/share_url_extractor.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-import 'package:reelpin/features/home/presentation/home_screen.dart';
-import 'package:reelpin/features/map/presentation/map_screen.dart';
-import 'package:reelpin/features/account/presentation/paywall_screen.dart';
-import 'package:reelpin/features/discover/presentation/discover_screen.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/router.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/services/notifications/notification_service.dart';
+import 'package:reelpin/http/api_exception.dart';
+import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/services/how_to_guide_service.dart';
+import 'package:reelpin/services/location/location_service.dart';
+import 'package:reelpin/services/sharing/share_handoff_service.dart';
+import 'package:reelpin/utils/share_url_extractor.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/screens/home/home_screen.dart';
+import 'package:reelpin/screens/map/map_screen.dart';
+import 'package:reelpin/screens/paywall/paywall_screen.dart';
+import 'package:reelpin/screens/discover/discover_screen.dart';
+
+part 'partials/app_shell_controller.dart';
+part 'partials/nav_item.dart';
 
 const _navIconSize = 27.0;
 
@@ -67,7 +73,7 @@ class _AppShellState extends ConsumerState<AppShell>
     WidgetsBinding.instance.addObserver(this);
     _initSharingIntent();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_maybePromptInitialPermissions());
+      unawaited(_runFirstRunFlow());
       unawaited(_drainPendingNativeShares());
     });
   }
@@ -121,7 +127,7 @@ class _AppShellState extends ConsumerState<AppShell>
         normalizedPayload,
       );
       final resolved = await ref
-          .read(sharingApiProvider)
+          .read(sharingHttpProvider)
           .resolveSharePayload(
             rawPayloadText: extractedUrl ?? normalizedPayload,
             platform: Theme.of(context).platform.name,
@@ -172,11 +178,11 @@ class _AppShellState extends ConsumerState<AppShell>
                 Container(
                   width: 18,
                   height: 18,
-                  color: AppTheme.neonGreen,
+                  color: AppColors.neonGreen,
                   child: Icon(
                     Icons.check,
                     size: 14,
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -184,7 +190,7 @@ class _AppShellState extends ConsumerState<AppShell>
                   child: Text(
                     'SAVED TO REELPIN. PROCESSING IN BACKGROUND.',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
                     ),
@@ -192,12 +198,12 @@ class _AppShellState extends ConsumerState<AppShell>
                 ),
               ],
             ),
-            backgroundColor: AppTheme.bg(context),
+            backgroundColor: AppColors.bg(context),
             behavior: SnackBarBehavior.floating,
             duration: _shareConfirmationDuration,
             shape: RoundedRectangleBorder(
               side: BorderSide(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 width: AppTheme.borderWidth,
               ),
             ),
@@ -240,14 +246,14 @@ class _AppShellState extends ConsumerState<AppShell>
                 fallbackMessage: 'Could not start background save.',
               ),
               style: GoogleFonts.spaceMono(
-                color: AppTheme.white,
+                color: AppColors.white,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            backgroundColor: AppTheme.destructive,
+            backgroundColor: AppColors.destructive,
             shape: RoundedRectangleBorder(
               side: BorderSide(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 width: AppTheme.borderWidth,
               ),
             ),
@@ -309,6 +315,36 @@ class _AppShellState extends ConsumerState<AppShell>
     } catch (e) {
       AppLogger.error('Pending share drain skipped: $e');
     }
+  }
+
+  /// The walkthrough runs before the permission prompts so the OS dialogs land
+  /// with context ("we notify you when a save is ready") instead of on an empty
+  /// home screen.
+  Future<void> _runFirstRunFlow() async {
+    await _maybeShowHowToGuide();
+    await _maybePromptInitialPermissions();
+  }
+
+  Future<void> _maybeShowHowToGuide() async {
+    if (!mounted) return;
+    // The guide walks through a mobile share sheet and ships captures for both
+    // platforms; there is nothing to show anywhere else.
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS)) {
+      return;
+    }
+
+    final userId = ref.read(authServiceProvider).currentUser?.id;
+    if (userId == null || userId.trim().isEmpty) return;
+
+    final guideService = HowToGuideService.instance;
+    if (await guideService.hasSeenGuide(userId)) return;
+    if (!mounted) return;
+
+    await Navigator.of(context).push(howToUseRoute(isFirstRun: true));
+    // Skipping still counts as seen — Profile keeps it reachable afterwards.
+    await guideService.markGuideSeen(userId);
   }
 
   Future<void> _maybePromptInitialPermissions() async {
@@ -463,7 +499,7 @@ class _AppShellState extends ConsumerState<AppShell>
           children: [
             Positioned.fill(
               child: Container(
-                color: AppTheme.bg(context),
+                color: AppColors.bg(context),
                 child: IndexedStack(
                   index: _currentIndex,
                   children: [
@@ -495,9 +531,9 @@ class _AppShellState extends ConsumerState<AppShell>
       child: Container(
         height: _floatingNavHeight,
         decoration: BoxDecoration(
-          color: AppTheme.bg(context),
+          color: AppColors.bg(context),
           border: Border.all(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             width: AppTheme.borderWidth,
           ),
         ),
@@ -512,7 +548,7 @@ class _AppShellState extends ConsumerState<AppShell>
                 child: FractionallySizedBox(
                   widthFactor: 1 / _navItems.length,
                   heightFactor: 1,
-                  child: const ColoredBox(color: AppTheme.yellow),
+                  child: const ColoredBox(color: AppColors.yellow),
                 ),
               ),
               Row(
@@ -541,7 +577,7 @@ class _AppShellState extends ConsumerState<AppShell>
           child: Center(
             child: HugeIcon(
               icon: item.icon,
-              color: isSelected ? AppTheme.black : AppTheme.fg(context),
+              color: isSelected ? AppColors.black : AppColors.fg(context),
               size: _navIconSize,
               strokeWidth: 1.8,
             ),
@@ -549,51 +585,5 @@ class _AppShellState extends ConsumerState<AppShell>
         ),
       ),
     );
-  }
-}
-
-class _NavItem {
-  final List<List<dynamic>> icon;
-  final String label;
-
-  const _NavItem({required this.icon, required this.label});
-}
-
-class AppShellController {
-  ValueChanged<int>? _selectTab;
-  int? _pendingTabIndex;
-
-  void showHome() {
-    _select(0);
-  }
-
-  void showMap() {
-    _select(1);
-  }
-
-  void showDiscover() {
-    _select(2);
-  }
-
-  void _select(int index) {
-    final callback = _selectTab;
-    if (callback == null) {
-      _pendingTabIndex = index;
-      return;
-    }
-    callback(index);
-  }
-
-  void _attach(ValueChanged<int> callback) {
-    _selectTab = callback;
-    final pendingTabIndex = _pendingTabIndex;
-    if (pendingTabIndex != null) {
-      _pendingTabIndex = null;
-      callback(pendingTabIndex);
-    }
-  }
-
-  void _detach() {
-    _selectTab = null;
   }
 }

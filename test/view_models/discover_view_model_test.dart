@@ -1,14 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:reelpin/features/discover/domain/discover_response.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/features/reels/domain/reel_page.dart';
-import 'package:reelpin/features/reels/data/reel_repository.dart';
-import 'package:reelpin/core/network/api_service.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/features/auth/data/profile_service.dart';
-import 'package:reelpin/features/discover/presentation/discover_viewmodel.dart';
+import 'package:reelpin/data_models/discover/discover_response.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/data_models/reels/reel_page.dart';
+import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/services/auth/profile_service.dart';
+import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
@@ -124,7 +124,7 @@ void main() {
 
 class _FakeReelRepository extends ReelRepository {
   _FakeReelRepository({this.onDiscover, this.onReelsPage})
-    : super(ApiService(baseUrl: 'https://example.com'), _FakeAuthService());
+    : super(ApiClient(baseUrl: 'https://example.com'), _FakeAuthService());
 
   final Future<DiscoverResponse> Function(String? savedDate)? onDiscover;
   final Future<ReelPage> Function({

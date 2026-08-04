@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
-import 'package:reelpin/core/network/api_exception.dart';
+import 'package:reelpin/http/api_exception.dart';
 
 String userFacingErrorMessage(
   Object error, {

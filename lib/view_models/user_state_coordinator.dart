@@ -1,13 +1,18 @@
-import 'package:reelpin/features/account/presentation/entitlements_viewmodel.dart';
-import 'package:reelpin/features/discover/presentation/discover_viewmodel.dart';
-import 'package:reelpin/features/discover/presentation/search_viewmodel.dart';
-import 'package:reelpin/features/reels/data/reel_repository.dart';
-import 'package:reelpin/features/home/presentation/category_filters_viewmodel.dart';
-import 'package:reelpin/features/home/presentation/home_viewmodel.dart';
-import 'package:reelpin/features/map/presentation/map_viewmodel.dart';
+import 'dart:async';
 
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/view_models/entitlements_view_model.dart';
+import 'package:reelpin/view_models/discover_view_model.dart';
+import 'package:reelpin/view_models/search_view_model.dart';
+import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/view_models/category_filters_view_model.dart';
+import 'package:reelpin/view_models/home_view_model.dart';
+import 'package:reelpin/view_models/map_view_model.dart';
+
+/// Owns the lifecycle of everything scoped to the signed-in user: restoring it
+/// on startup and clearing it when the user changes.
 class UserStateCoordinator {
-  const UserStateCoordinator({
+  UserStateCoordinator({
     required SearchViewModel searchViewModel,
     required CategoryFiltersViewModel categoryFiltersViewModel,
     required MapViewModel mapViewModel,
@@ -31,7 +36,42 @@ class UserStateCoordinator {
   final ReelRepository _reelRepository;
   final EntitlementsViewModel _entitlementsViewModel;
 
+  Future<void>? _hydrationFuture;
+
+  /// Restores the last saved snapshot of every tab on cold start.
+  ///
+  /// Runs before — and in parallel with — the network refresh. Each view model
+  /// drops its cached payload the moment live data arrives, so the worst case
+  /// of a slow disk read is that the snapshot is simply skipped.
+  Future<void> hydrate() {
+    final existing = _hydrationFuture;
+    if (existing != null) return existing;
+
+    final future = _hydrate();
+    _hydrationFuture = future;
+    return future;
+  }
+
+  Future<void> _hydrate() async {
+    try {
+      // Access state alongside the reels: the home screen gates content on it,
+      // so restoring both together avoids a paywall flash on a restricted plan.
+      await Future.wait<void>([
+        _entitlementsViewModel.hydrateFromCache(),
+        _reelRepository.hydrateCache(),
+        _categoryFiltersViewModel.hydrateFromCache(),
+        _mapViewModel.hydrateFromCache(),
+        _discoverViewModel.hydrateFromCache(),
+      ]);
+    } catch (e) {
+      AppLogger.error('Cache hydration skipped: $e');
+    }
+  }
+
+  /// Drops everything belonging to the previous user and re-arms hydration so
+  /// the next sign-in can restore its own snapshot.
   void reset() {
+    _hydrationFuture = null;
     _searchViewModel.clear();
     _categoryFiltersViewModel.reset();
     _mapViewModel.reset();

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:reelpin/features/reels/domain/reel_category_filters.dart';
+import 'package:reelpin/data_models/reels/reel_category_filters.dart';
 
 void main() {
   test('parses backend category filter response', () {

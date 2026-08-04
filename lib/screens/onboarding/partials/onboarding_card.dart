@@ -1,4 +1,4 @@
-part of 'onboarding_screen.dart';
+part of '../onboarding_screen.dart';
 
 class _OnboardingCard extends StatelessWidget {
   const _OnboardingCard({required this.step, required this.isActive});
@@ -74,7 +74,7 @@ class _OnboardingCard extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       color: step.accent,
-                      border: Border.all(color: AppTheme.black, width: 3),
+                      border: Border.all(color: AppColors.black, width: 3),
                       boxShadow: AppTheme.inkShadow,
                     ),
                     child: Stack(
@@ -93,9 +93,9 @@ class _OnboardingCard extends StatelessWidget {
                                       vertical: layout.gap(6),
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.white,
+                                      color: AppColors.white,
                                       border: Border.all(
-                                        color: AppTheme.black,
+                                        color: AppColors.black,
                                         width: 2,
                                       ),
                                       boxShadow: AppTheme.inkShadowSmall,
@@ -103,7 +103,7 @@ class _OnboardingCard extends StatelessWidget {
                                     child: Text(
                                       step.label,
                                       style: GoogleFonts.spaceMono(
-                                        color: AppTheme.black,
+                                        color: AppColors.black,
                                         fontSize: layout.font(10),
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.8,
@@ -124,16 +124,16 @@ class _OnboardingCard extends StatelessWidget {
                                           width: iconBoxSize,
                                           height: iconBoxSize,
                                           decoration: BoxDecoration(
-                                            color: AppTheme.white,
+                                            color: AppColors.white,
                                             border: Border.all(
-                                              color: AppTheme.black,
+                                              color: AppColors.black,
                                               width: 2,
                                             ),
                                             boxShadow: AppTheme.inkShadowSmall,
                                           ),
                                           child: Icon(
                                             step.icon,
-                                            color: AppTheme.black,
+                                            color: AppColors.black,
                                             size: layout.inset(24),
                                           ),
                                         ),
@@ -156,7 +156,7 @@ class _OnboardingCard extends StatelessWidget {
                                   child: Text(
                                     step.title,
                                     style: GoogleFonts.spaceMono(
-                                      color: AppTheme.black,
+                                      color: AppColors.black,
                                       fontSize: layout.font(
                                         compactWidth ? 20 : 23,
                                         minFactor: 0.88,
@@ -177,9 +177,9 @@ class _OnboardingCard extends StatelessWidget {
                                   vertical: layout.gap(7),
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.white,
+                                  color: AppColors.white,
                                   border: Border.all(
-                                    color: AppTheme.black,
+                                    color: AppColors.black,
                                     width: 2,
                                   ),
                                   boxShadow: AppTheme.inkShadowSmall,
@@ -187,7 +187,7 @@ class _OnboardingCard extends StatelessWidget {
                                 child: Text(
                                   step.highlights.first,
                                   style: GoogleFonts.spaceMono(
-                                    color: AppTheme.black,
+                                    color: AppColors.black,
                                     fontSize: layout.font(10),
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -238,7 +238,7 @@ class _OnboardingCard extends StatelessWidget {
                       child: Text(
                         step.body,
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           fontSize: layout.font(12),
                           fontWeight: FontWeight.w500,
                           height: 1.5,
@@ -264,7 +264,7 @@ class _OnboardingCard extends StatelessWidget {
                   child: Container(
                     decoration: AppTheme.brutalCard(
                       context,
-                      color: AppTheme.white,
+                      color: AppColors.white,
                     ),
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -285,7 +285,7 @@ class _OnboardingCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: step.accent,
                               border: Border.all(
-                                color: AppTheme.black,
+                                color: AppColors.black,
                                 width: 2,
                               ),
                             ),
@@ -293,8 +293,8 @@ class _OnboardingCard extends StatelessWidget {
                               'LOOK FOR',
                               style: GoogleFonts.spaceMono(
                                 color: step.accent.computeLuminance() > 0.5
-                                    ? AppTheme.black
-                                    : AppTheme.white,
+                                    ? AppColors.black
+                                    : AppColors.white,
                                 fontSize: layout.font(9),
                                 fontWeight: FontWeight.w700,
                               ),
@@ -315,16 +315,16 @@ class _OnboardingCard extends StatelessWidget {
                                       vertical: layout.gap(7),
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.bg(context),
+                                      color: AppColors.bg(context),
                                       border: Border.all(
-                                        color: AppTheme.black,
+                                        color: AppColors.black,
                                         width: 2,
                                       ),
                                     ),
                                     child: Text(
                                       highlight,
                                       style: GoogleFonts.spaceMono(
-                                        color: AppTheme.fg(context),
+                                        color: AppColors.fg(context),
                                         fontSize: layout.font(9),
                                         fontWeight: FontWeight.w700,
                                         height: 1.3,
@@ -345,33 +345,4 @@ class _OnboardingCard extends StatelessWidget {
       },
     );
   }
-}
-
-class _OnboardingStep {
-  const _OnboardingStep({
-    required this.label,
-    required this.title,
-    required this.body,
-    required this.accent,
-    required this.icon,
-    required this.bullet,
-    required this.highlights,
-    this.platforms = const [],
-  });
-
-  final String label;
-  final String title;
-  final String body;
-  final Color accent;
-  final IconData icon;
-  final String bullet;
-  final List<String> highlights;
-  final List<_OnboardingPlatform> platforms;
-}
-
-class _OnboardingPlatform {
-  const _OnboardingPlatform(this.assetPath, this.label);
-
-  final String assetPath;
-  final String label;
 }

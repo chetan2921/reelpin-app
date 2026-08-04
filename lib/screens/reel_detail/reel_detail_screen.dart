@@ -6,20 +6,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/core/network/api_exception.dart';
-import 'package:reelpin/core/network/error_message.dart';
-import 'package:reelpin/features/reels/presentation/detail/reel_share_service.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-import 'package:reelpin/features/account/presentation/paywall_screen.dart';
-part 'reel_share_card.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/http/api_exception.dart';
+import 'package:reelpin/router.dart';
+import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/services/sharing/reel_share_service.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/constants/source_platforms.dart';
+import 'package:reelpin/utils/app_store_links.dart';
+import 'package:reelpin/screens/paywall/paywall_screen.dart';
+part 'partials/reel_share_card.dart';
 
-const String _appStoreUrl =
-    'https://apps.apple.com/us/app/reelpin/id6777110022';
-const String _playStoreUrl =
-    'https://play.google.com/store/apps/details?id=com.chetanjain.reelpin';
+const String _appStoreUrl = appStoreUrl;
+const String _playStoreUrl = playStoreUrl;
+
+/// Mirrors `ShareUrlExtractor`: Pinterest serves per-country domains from
+/// regional subdomains, and anchoring both ends keeps lookalikes out.
+final RegExp _pinterestHostRegex = RegExp(
+  r'^(?:[a-z0-9-]+\.)*pinterest\.(?:com|net|info|[a-z]{2}|(?:com|co)\.[a-z]{2})$',
+);
 
 Uri? locationMapsUri(Location loc) {
   return locationMapsSearchUri(
@@ -102,13 +110,15 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   String? _reelLoadError;
 
   Reel get reel => _activeReel;
-  bool get _isXPost => _sourcePlatform == 'x';
-  String get _savedItemNoun => _isXPost ? 'POST' : 'REEL';
+  String get _savedItemNoun =>
+      SourcePlatform.byId(_sourcePlatform)?.savedItemNoun ?? 'REEL';
   String get _untitledLabel => 'UNTITLED $_savedItemNoun';
   String get _openSourceLabel => 'OPEN $_openSourceNoun';
   String get _openSourceErrorLabel => 'COULD NOT OPEN $_openSourceNoun';
   String get _openSourceNoun {
     final platform = _sourcePlatform;
+    // Instagram and YouTube get a noun per content type; everything else has a
+    // single shape of content, so the platform's own noun is accurate.
     if (platform == 'youtube') {
       if (_isShortsSource) return 'SHORTS';
       return 'VIDEO';
@@ -117,18 +127,22 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
       if (_isInstagramPostSource) return 'POST';
       return 'REEL';
     }
-    if (platform == 'x') return 'X POST';
-    return 'REEL';
+    return SourcePlatform.byId(platform)?.openSourceNoun ?? 'REEL';
   }
 
   String? get _sourcePlatform {
     final explicit = reel.sourcePlatform?.trim().toLowerCase();
-    if (explicit == 'youtube' || explicit == 'instagram' || explicit == 'x') {
+    if (SourcePlatform.byId(explicit) != null) {
       return explicit;
     }
+    // Older saves predate `source_platform`, so fall back to sniffing whichever
+    // source URL the reel carries.
     if (_hasSourceUri(_isYoutubeUri)) return 'youtube';
     if (_hasSourceUri(_isInstagramUri)) return 'instagram';
     if (_hasSourceUri(_isXUri)) return 'x';
+    if (_hasSourceUri(_isPinterestUri)) return 'pinterest';
+    if (_hasSourceUri(_isRedditUri)) return 'reddit';
+    if (_hasSourceUri(_isLinkedInUri)) return 'linkedin';
     return explicit?.isEmpty == true ? null : explicit;
   }
 
@@ -200,6 +214,22 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
     return host == 'x.com' || host == 'twitter.com' || host == 't.co';
   }
 
+  bool _isPinterestUri(Uri uri) {
+    final host = uri.host.toLowerCase();
+    return host == 'pin.it' || _pinterestHostRegex.hasMatch(host);
+  }
+
+  bool _isRedditUri(Uri uri) {
+    final host = uri.host.toLowerCase();
+    return host == 'redd.it' || _isHostOrSubdomainOf(host, 'reddit.com');
+  }
+
+  bool _isLinkedInUri(Uri uri) =>
+      _isHostOrSubdomainOf(uri.host.toLowerCase(), 'linkedin.com');
+
+  bool _isHostOrSubdomainOf(String host, String domain) =>
+      host == domain || host.endsWith('.$domain');
+
   bool _isInstagramPostUri(Uri uri) {
     if (!_isInstagramUri(uri) || uri.pathSegments.isEmpty) return false;
     final firstSegment = uri.pathSegments.first.toLowerCase();
@@ -214,7 +244,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
 
   Color get _detailTextColor => Theme.of(context).brightness == Brightness.dark
       ? const Color(0xFFD0D0D0)
-      : AppTheme.textSecondary;
+      : AppColors.textSecondary;
 
   @override
   void initState() {
@@ -227,12 +257,12 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final catColor = AppTheme.getCategoryColor(reel.category);
+    final catColor = AppColors.getCategoryColor(reel.category);
     final layout = AppLayout.of(context);
     final hasOpenableReel = _openReelUrl != null;
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -241,18 +271,21 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
               // ── App Bar ──
               SliverAppBar(
                 pinned: true,
-                backgroundColor: AppTheme.bg(context),
+                backgroundColor: AppColors.bg(context),
                 surfaceTintColor: Colors.transparent,
                 leading: GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
                     margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fg(context), width: 2),
+                      border: Border.all(
+                        color: AppColors.fg(context),
+                        width: 2,
+                      ),
                     ),
                     child: Icon(
                       Icons.arrow_back,
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       size: 20,
                     ),
                   ),
@@ -261,7 +294,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                   preferredSize: const Size.fromHeight(3),
                   child: Container(
                     height: AppTheme.borderWidth,
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                   ),
                 ),
                 actions: [
@@ -276,10 +309,10 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                       height: layout.inset(36),
                       decoration: BoxDecoration(
                         color: hasOpenableReel
-                            ? AppTheme.yellow
-                            : AppTheme.surfaceElevatedColor(context),
+                            ? AppColors.yellow
+                            : AppColors.surfaceElevatedColor(context),
                         border: Border.all(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           width: 2,
                         ),
                         boxShadow: AppTheme.brutalShadowSmall(context),
@@ -289,8 +322,8 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                         _openSourceLabel,
                         style: GoogleFonts.spaceMono(
                           color: hasOpenableReel
-                              ? AppTheme.black
-                              : AppTheme.textSec(context),
+                              ? AppColors.black
+                              : AppColors.textSec(context),
                           fontSize: layout.font(10),
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1,
@@ -307,16 +340,16 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                       width: layout.inset(36),
                       height: layout.inset(36),
                       decoration: BoxDecoration(
-                        color: AppTheme.destructive,
+                        color: AppColors.destructive,
                         border: Border.all(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           width: 2,
                         ),
                         boxShadow: AppTheme.brutalShadowSmall(context),
                       ),
                       child: const Icon(
                         Icons.delete,
-                        color: AppTheme.white,
+                        color: AppColors.white,
                         size: 18,
                       ),
                     ),
@@ -344,7 +377,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                           ),
                           decoration: AppTheme.brutalBox(
                             context,
-                            color: AppTheme.bg(context),
+                            color: AppColors.bg(context),
                             shadow: true,
                           ),
                           child: Row(
@@ -355,14 +388,14 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                 height: layout.inset(14),
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppTheme.fg(context),
+                                  color: AppColors.fg(context),
                                 ),
                               ),
                               SizedBox(width: layout.inset(8)),
                               Text(
                                 'CHECKING ACCESS...',
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.fg(context),
+                                  color: AppColors.fg(context),
                                   fontSize: layout.font(10),
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -389,7 +422,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                             child: Text(
                               _reelLoadError!,
                               style: GoogleFonts.spaceMono(
-                                color: AppTheme.black,
+                                color: AppColors.black,
                                 fontSize: layout.font(11),
                                 fontWeight: FontWeight.w700,
                                 height: 1.4,
@@ -417,7 +450,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                     decoration: BoxDecoration(
                                       color: catColor,
                                       border: Border.all(
-                                        color: AppTheme.fg(context),
+                                        color: AppColors.fg(context),
                                         width: 2,
                                       ),
                                     ),
@@ -438,16 +471,16 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.bg(context),
+                                        color: AppColors.bg(context),
                                         border: Border.all(
-                                          color: AppTheme.fg(context),
+                                          color: AppColors.fg(context),
                                           width: 2,
                                         ),
                                       ),
                                       child: Text(
                                         reel.subCategory.toUpperCase(),
                                         style: GoogleFonts.spaceMono(
-                                          color: AppTheme.fg(context),
+                                          color: AppColors.fg(context),
                                           fontSize: layout.font(10),
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -485,7 +518,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                               ? reel.title.toUpperCase()
                               : _untitledLabel,
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.fg(context),
+                            color: AppColors.fg(context),
                             fontSize: layout.font(22, maxFactor: 1.1),
                             fontWeight: FontWeight.w700,
                             height: 1.2,
@@ -497,7 +530,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                         Container(
                           height: layout.gap(4),
                           width: layout.inset(60),
-                          color: AppTheme.yellow,
+                          color: AppColors.yellow,
                         ),
 
                         SizedBox(height: layout.gap(20)),
@@ -522,9 +555,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                     width: 8,
                                     height: 8,
                                     decoration: BoxDecoration(
-                                      color: AppTheme.red,
+                                      color: AppColors.red,
                                       border: Border.all(
-                                        color: AppTheme.fg(context),
+                                        color: AppColors.fg(context),
                                         width: 1,
                                       ),
                                     ),
@@ -566,7 +599,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                       Container(
                                         width: 6,
                                         height: 56,
-                                        color: AppTheme.neonGreen,
+                                        color: AppColors.neonGreen,
                                       ),
                                       Expanded(
                                         child: Padding(
@@ -581,7 +614,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                               Text(
                                                 loc.name.toUpperCase(),
                                                 style: GoogleFonts.spaceMono(
-                                                  color: AppTheme.fg(context),
+                                                  color: AppColors.fg(context),
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w700,
                                                 ),
@@ -609,9 +642,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                             width: 40,
                                             height: 40,
                                             decoration: BoxDecoration(
-                                              color: AppTheme.red,
+                                              color: AppColors.red,
                                               border: Border.all(
-                                                color: AppTheme.fg(context),
+                                                color: AppColors.fg(context),
                                                 width: 2,
                                               ),
                                             ),
@@ -619,7 +652,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                             child: Icon(
                                               Icons.navigation,
                                               size: 22,
-                                              color: AppTheme.white,
+                                              color: AppColors.white,
                                             ),
                                           ),
                                         ),
@@ -645,9 +678,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.yellow,
+                                  color: AppColors.yellow,
                                   border: Border.all(
-                                    color: AppTheme.fg(context),
+                                    color: AppColors.fg(context),
                                     width: 2,
                                   ),
                                   boxShadow: AppTheme.brutalShadowSmall(
@@ -657,7 +690,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                 child: Text(
                                   person.toUpperCase(),
                                   style: GoogleFonts.spaceMono(
-                                    color: AppTheme.black,
+                                    color: AppColors.black,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -682,16 +715,16 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                     width: 20,
                                     height: 20,
                                     decoration: BoxDecoration(
-                                      color: AppTheme.neonGreen,
+                                      color: AppColors.neonGreen,
                                       border: Border.all(
-                                        color: AppTheme.fg(context),
+                                        color: AppColors.fg(context),
                                         width: 1.5,
                                       ),
                                     ),
                                     child: Icon(
                                       Icons.arrow_forward,
                                       size: 12,
-                                      color: AppTheme.black,
+                                      color: AppColors.black,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -720,9 +753,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: AppTheme.surfaceElevated,
+                              color: AppColors.surfaceElevated,
                               border: Border.all(
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                                 width: 2,
                               ),
                             ),
@@ -733,7 +766,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                 maxLines: 4,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.black,
+                                  color: AppColors.black,
                                   fontSize: 12,
                                   height: 1.6,
                                 ),
@@ -741,7 +774,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                               secondChild: Text(
                                 reel.transcript,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.black,
+                                  color: AppColors.black,
                                   fontSize: 12,
                                   height: 1.6,
                                 ),
@@ -762,9 +795,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.blue,
+                                color: AppColors.blue,
                                 border: Border.all(
-                                  color: AppTheme.fg(context),
+                                  color: AppColors.fg(context),
                                   width: 2,
                                 ),
                                 boxShadow: AppTheme.brutalShadowSmall(context),
@@ -777,7 +810,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                         ? 'SHOW LESS'
                                         : 'SHOW FULL TRANSCRIPT',
                                     style: GoogleFonts.spaceMono(
-                                      color: AppTheme.white,
+                                      color: AppColors.white,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -789,7 +822,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                     child: const Icon(
                                       Icons.keyboard_arrow_down,
                                       size: 18,
-                                      color: AppTheme.white,
+                                      color: AppColors.white,
                                     ),
                                   ),
                                 ],
@@ -822,7 +855,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   }
 
   Color _contrastText(Color bg) {
-    return bg.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
+    return bg.computeLuminance() > 0.5 ? AppColors.black : AppColors.white;
   }
 
   Widget _sectionTitle(String title) {
@@ -832,13 +865,13 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         Container(
           width: layout.inset(4),
           height: layout.gap(18),
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
         ),
         SizedBox(width: layout.inset(8)),
         Text(
           title,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             fontSize: layout.font(14),
             fontWeight: FontWeight.w700,
             letterSpacing: 1,
@@ -880,7 +913,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
             Text(
               'FULL HISTORY IS PRO',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
+                color: AppColors.black,
                 fontSize: layout.font(18),
                 fontWeight: FontWeight.w700,
               ),
@@ -889,7 +922,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
             Text(
               'This saved ${_savedItemNoun.toLowerCase()} is outside the Free history window. Upgrade to Pro to open older saves again.',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.black,
+                color: AppColors.black,
                 fontSize: layout.font(12),
                 fontWeight: FontWeight.w600,
                 height: 1.5,
@@ -906,13 +939,13 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                 ),
                 decoration: AppTheme.brutalBox(
                   context,
-                  color: AppTheme.hotPink,
+                  color: AppColors.hotPink,
                   shadow: true,
                 ),
                 child: Text(
                   'VIEW PRO',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.white,
+                    color: AppColors.white,
                     fontSize: layout.font(11),
                     fontWeight: FontWeight.w700,
                   ),
@@ -969,11 +1002,11 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
           content: Text(
             'COULD NOT SHARE $_savedItemNoun',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.white,
+              color: AppColors.white,
               fontWeight: FontWeight.w700,
             ),
           ),
-          backgroundColor: AppTheme.destructive,
+          backgroundColor: AppColors.destructive,
         ),
       );
     } finally {
@@ -1073,9 +1106,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         height: layout.inset(30),
         decoration: BoxDecoration(
           color: _isSharingReel
-              ? AppTheme.surfaceElevatedColor(context)
-              : AppTheme.blue,
-          border: Border.all(color: AppTheme.fg(context), width: 2),
+              ? AppColors.surfaceElevatedColor(context)
+              : AppColors.blue,
+          border: Border.all(color: AppColors.fg(context), width: 2),
           boxShadow: AppTheme.brutalShadowSmall(context),
         ),
         alignment: Alignment.center,
@@ -1085,18 +1118,18 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                 height: layout.inset(12),
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                 ),
               )
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.share, color: AppTheme.white, size: 16),
+                  const Icon(Icons.share, color: AppColors.white, size: 16),
                   SizedBox(width: layout.inset(5)),
                   Text(
                     'SHARE',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.white,
+                      color: AppColors.white,
                       fontSize: layout.font(9),
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
@@ -1112,18 +1145,18 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bg(context),
+        backgroundColor: AppColors.bg(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
           side: BorderSide(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             width: AppTheme.borderWidth,
           ),
         ),
         title: Text(
           'DELETE THIS $_savedItemNoun?',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -1159,11 +1192,11 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                       content: Text(
                         '$_savedItemNoun DELETED',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.white,
+                          color: AppColors.white,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      backgroundColor: AppTheme.black,
+                      backgroundColor: AppColors.black,
                     ),
                   );
                 }
@@ -1174,11 +1207,11 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                       content: Text(
                         'FAILED TO DELETE: $e',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.white,
+                          color: AppColors.white,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      backgroundColor: AppTheme.destructive,
+                      backgroundColor: AppColors.destructive,
                     ),
                   );
                 }
@@ -1187,14 +1220,14 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.destructive,
-                border: Border.all(color: AppTheme.fg(context), width: 2),
+                color: AppColors.destructive,
+                border: Border.all(color: AppColors.fg(context), width: 2),
                 boxShadow: AppTheme.brutalShadowSmall(context),
               ),
               child: Text(
                 'DELETE',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.white,
+                  color: AppColors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -1272,11 +1305,11 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         content: Text(
           _openSourceErrorLabel,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.white,
+            color: AppColors.white,
             fontWeight: FontWeight.w700,
           ),
         ),
-        backgroundColor: AppTheme.destructive,
+        backgroundColor: AppColors.destructive,
       ),
     );
   }

@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:reelpin/features/reels/domain/reel_page.dart';
-import 'package:reelpin/features/discover/domain/search_response.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/features/account/domain/user_entitlement.dart';
-import 'package:reelpin/features/reels/data/reel_repository.dart';
-import 'package:reelpin/core/network/api_service.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/features/auth/data/profile_service.dart';
+import 'package:reelpin/data_models/reels/reel_page.dart';
+import 'package:reelpin/data_models/discover/search_response.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/data_models/account/user_entitlement.dart';
+import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/services/auth/profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
@@ -54,7 +54,7 @@ void main() {
   );
 }
 
-class _FakeApiService extends ApiService {
+class _FakeApiService extends ApiClient {
   _FakeApiService({this.searchResponse})
     : super(baseUrl: 'https://example.com');
 
@@ -153,7 +153,7 @@ class _MutableAuthService extends AuthService {
   Future<void> ensureProfile() async {}
 }
 
-class _DelayedApiService extends ApiService {
+class _DelayedApiService extends ApiClient {
   _DelayedApiService()
     : super(
         baseUrl: 'https://example.com',

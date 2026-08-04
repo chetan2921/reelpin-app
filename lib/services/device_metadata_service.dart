@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import 'package:reelpin/core/logging/app_logger.dart';
+import 'package:reelpin/utils/app_logger.dart';
 
 class DeviceMetadata {
   const DeviceMetadata({

@@ -1,8 +1,8 @@
 import 'package:http/http.dart' as http;
-import 'package:reelpin/features/discover/domain/discover_response.dart';
-import 'package:reelpin/features/discover/domain/search_response.dart';
+import 'package:reelpin/data_models/discover/discover_response.dart';
+import 'package:reelpin/data_models/discover/search_response.dart';
 
-abstract interface class DiscoverApi {
+abstract interface class DiscoverHttp {
   Future<SearchResponse> searchReels(
     String query, {
     String userId = 'default-user',

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:reelpin/app/app_entry.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/app/setup_required_screen.dart';
-import 'package:reelpin/core/design/app_theme.dart';
+import 'package:reelpin/app_entry.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/screens/setup_required/setup_required_screen.dart';
+import 'package:reelpin/constants/app_theme.dart';
 
 class ReelPinApp extends ConsumerWidget {
   const ReelPinApp({super.key, required this.isSupabaseConfigured});

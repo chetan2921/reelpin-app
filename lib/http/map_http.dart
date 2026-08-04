@@ -1,7 +1,7 @@
-import 'package:reelpin/features/map/domain/map_place_search_response.dart';
-import 'package:reelpin/features/map/domain/map_response.dart';
+import 'package:reelpin/data_models/map/map_place_search_response.dart';
+import 'package:reelpin/data_models/map/map_response.dart';
 
-abstract interface class MapApi {
+abstract interface class MapHttp {
   Future<MapResponse> getMapData({String? category});
 
   Future<MapPlaceSearchResponse> searchMapPlaces(

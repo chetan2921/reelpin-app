@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:reelpin/features/sharing/services/share_flow_analytics_service.dart';
+import 'package:reelpin/services/sharing/share_flow_analytics_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

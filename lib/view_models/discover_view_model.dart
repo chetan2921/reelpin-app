@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
-import 'package:reelpin/features/discover/domain/discover_response.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/features/reels/domain/reel_page.dart';
-import 'package:reelpin/features/reels/data/reel_repository.dart';
-import 'package:reelpin/core/network/error_message.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/data_models/discover/discover_response.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/data_models/reels/reel_page.dart';
+import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/utils/error_message.dart';
 
 class DiscoverViewModel extends ChangeNotifier {
   DiscoverViewModel(this._repository);
@@ -36,6 +40,34 @@ class DiscoverViewModel extends ChangeNotifier {
   String? get selectedCategory => _selectedCategory;
   String? get selectedCategoryLabel => _selectedCategoryLabel;
   int? get selectedCategoryExpectedCount => _selectedCategoryExpectedCount;
+
+  /// Restores the last saved discover snapshot so the tab opens with content
+  /// instead of a skeleton. No-ops once live data has arrived.
+  Future<void> hydrateFromCache() async {
+    if (_discover != null || _selectedSavedDate != null) return;
+
+    final payload = await ContentCache.instance.read(
+      ContentCacheKeys.discoverOverview,
+    );
+    if (payload == null) return;
+    if (_discover != null || _selectedSavedDate != null) return;
+
+    try {
+      final response = DiscoverResponse.fromJson(payload);
+      _discover = response;
+      _selectedSavedDate = response.selectedDate;
+      _selectedSavedDateLabel = _labelForSavedDate(
+        response,
+        _selectedSavedDate,
+      );
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Cached discover data could not be restored: $e');
+      unawaited(
+        ContentCache.instance.invalidate(ContentCacheKeys.discoverOverview),
+      );
+    }
+  }
 
   Future<void> loadDiscover({bool forceRefresh = false}) async {
     final requestId = ++_discoverRequestId;

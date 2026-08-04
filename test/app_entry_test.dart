@@ -8,13 +8,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:reelpin/app/app_entry.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/app/reelpin_app.dart';
-import 'package:reelpin/core/network/api_service.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/features/auth/data/profile_service.dart';
-import 'package:reelpin/features/auth/presentation/session_viewmodel.dart';
+import 'package:reelpin/app_entry.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/reelpin_app.dart';
+import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/services/auth/profile_service.dart';
+import 'package:reelpin/view_models/session_view_model.dart';
 
 void main() {
   testWidgets('App renders setup screen when Supabase is not configured', (
@@ -38,7 +38,7 @@ void main() {
 
     await _pumpAppEntry(tester);
     expect(
-      find.text('SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.'),
+      find.text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.'),
       findsOneWidget,
     );
 
@@ -54,7 +54,7 @@ void main() {
     await _pumpAppEntry(tester);
     expect(find.text('WELCOME BACK TO YOUR REEL ARCHIVE.'), findsOneWidget);
     expect(
-      find.text('SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.'),
+      find.text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.'),
       findsNothing,
     );
   });
@@ -130,7 +130,7 @@ Future<void> _pumpAppEntry(WidgetTester tester) async {
   for (var attempt = 0; attempt < 40; attempt++) {
     await tester.pump(const Duration(milliseconds: 100));
     final hasOnboarding = find
-        .text('SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.')
+        .text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.')
         .evaluate()
         .isNotEmpty;
     final hasAuth = find
@@ -145,8 +145,8 @@ class _FakeSessionViewModel extends SessionViewModel {
   _FakeSessionViewModel(AuthService authService)
     : super(
         authService,
-        () => ApiService(baseUrl: 'https://example.com'),
-        () => ApiService(baseUrl: 'https://example.com'),
+        () => ApiClient(baseUrl: 'https://example.com'),
+        () => ApiClient(baseUrl: 'https://example.com'),
       );
 
   @override

@@ -2,16 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:reelpin/core/network/error_message.dart';
-import 'package:reelpin/features/folders/data/folders_api.dart';
-import 'package:reelpin/features/folders/domain/folder.dart';
+import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/http/folders_http.dart';
+import 'package:reelpin/data_models/folders/folder_models.dart';
 
 class FoldersViewModel extends ChangeNotifier {
-  FoldersViewModel(this._foldersApi);
+  FoldersViewModel(this._foldersHttp);
 
   static const _pageSize = 25;
 
-  final FoldersApi _foldersApi;
+  final FoldersHttp _foldersHttp;
 
   List<FolderSummary> _folders = const [];
   final Map<String, FolderDetailResponse> _details = {};
@@ -51,7 +51,7 @@ class FoldersViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _folders = await _foldersApi.getFolders();
+      _folders = await _foldersHttp.getFolders();
     } catch (e) {
       _foldersError = userFacingErrorMessage(
         e,
@@ -86,7 +86,7 @@ class FoldersViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final detail = await _foldersApi.getFolderDetail(
+      final detail = await _foldersHttp.getFolderDetail(
         folderId,
         limit: _pageSize,
       );
@@ -113,7 +113,7 @@ class FoldersViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final next = await _foldersApi.getFolderDetail(
+      final next = await _foldersHttp.getFolderDetail(
         folderId,
         limit: current.pagination.limit,
         offset: current.pagination.nextOffset,
@@ -138,7 +138,7 @@ class FoldersViewModel extends ChangeNotifier {
     required String note,
   }) async {
     await _mutate(() async {
-      final folder = await _foldersApi.updateFolder(
+      final folder = await _foldersHttp.updateFolder(
         folderId: folderId,
         name: name,
         note: note,
@@ -157,7 +157,7 @@ class FoldersViewModel extends ChangeNotifier {
 
   Future<void> deleteFolder(String folderId) async {
     await _mutate(() async {
-      await _foldersApi.deleteFolder(folderId);
+      await _foldersHttp.deleteFolder(folderId);
       _folders = _folders.where((folder) => folder.id != folderId).toList();
       _details.remove(folderId);
     });
@@ -169,7 +169,7 @@ class FoldersViewModel extends ChangeNotifier {
     bool moveExisting = false,
   }) async {
     await _mutate(() async {
-      await _foldersApi.addReelsToFolder(
+      await _foldersHttp.addReelsToFolder(
         folderId: folderId,
         reelIds: reelIds,
         moveExisting: moveExisting,
@@ -182,7 +182,7 @@ class FoldersViewModel extends ChangeNotifier {
     required String reelId,
   }) async {
     await _mutate(() async {
-      await _foldersApi.removeReelFromFolder(
+      await _foldersHttp.removeReelFromFolder(
         folderId: folderId,
         reelId: reelId,
       );

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:reelpin/core/platform/app_notification.dart';
-import 'package:reelpin/core/platform/notification_tap_handler.dart';
+import 'package:reelpin/data_models/notifications/app_notification.dart';
+import 'package:reelpin/services/notifications/notification_tap_handler.dart';
 
 void main() {
   test('background reel tap tracks the open and routes to its reel', () async {
@@ -21,6 +21,7 @@ void main() {
       openMap: () async => fail('Unexpected Map route'),
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
+      openAppUpdate: () async => fail('Unexpected app update route'),
     );
 
     expect(handled, isTrue);
@@ -46,6 +47,7 @@ void main() {
       openMap: () async => fail('Unexpected Map route'),
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
+      openAppUpdate: () async => fail('Unexpected app update route'),
     );
 
     expect(openedAnnouncement?.announcementId, 'youtube_support_v1');
@@ -70,6 +72,7 @@ void main() {
       openMap: () async => fail('Unexpected Map route'),
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
+      openAppUpdate: () async => fail('Unexpected app update route'),
     );
 
     expect(openedHome, isTrue);
@@ -93,6 +96,7 @@ void main() {
       openMap: () async {},
       openDiscover: () async {},
       openProfile: () async {},
+      openAppUpdate: () async {},
     );
 
     expect(await handle(), isTrue);
@@ -123,6 +127,7 @@ void main() {
       openMap: () async => fail('Unexpected Map route'),
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
+      openAppUpdate: () async => fail('Unexpected app update route'),
     );
 
     expect(handled, isTrue);
@@ -145,6 +150,7 @@ void main() {
       openMap: () async => fail('Unexpected Map route'),
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
+      openAppUpdate: () async => fail('Unexpected app update route'),
     );
 
     expect(events, ['track', 'navigate']);
@@ -179,6 +185,11 @@ void main() {
             source: AppNotificationOpenSource.terminatedLocal,
             expected: AppNotificationTarget.profile,
           ),
+          (
+            target: 'app_update',
+            source: AppNotificationOpenSource.backgroundRemote,
+            expected: AppNotificationTarget.appUpdate,
+          ),
         ];
 
     for (final testCase in cases) {
@@ -199,6 +210,8 @@ void main() {
         openMap: () async => openedTarget = AppNotificationTarget.map,
         openDiscover: () async => openedTarget = AppNotificationTarget.discover,
         openProfile: () async => openedTarget = AppNotificationTarget.profile,
+        openAppUpdate: () async =>
+            openedTarget = AppNotificationTarget.appUpdate,
       );
 
       expect(handled, isTrue);

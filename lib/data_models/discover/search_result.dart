@@ -1,4 +1,4 @@
-import 'package:reelpin/features/reels/domain/reel.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
 
 class SearchResult {
   final Reel reel;

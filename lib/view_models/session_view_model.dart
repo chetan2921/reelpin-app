@@ -3,19 +3,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:reelpin/core/network/error_message.dart';
-import 'package:reelpin/core/logging/app_logger.dart';
-import 'package:reelpin/features/account/data/account_api.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/features/auth/presentation/auth_error_message.dart';
-import 'package:reelpin/features/sharing/data/sharing_api.dart';
-import 'package:reelpin/features/sharing/services/share_handoff_service.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/http/account_http.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/utils/auth_error_message.dart';
+import 'package:reelpin/http/sharing_http.dart';
+import 'package:reelpin/services/sharing/share_handoff_service.dart';
 
 class SessionViewModel extends ChangeNotifier {
   SessionViewModel(
     this._authService,
-    this._accountApiFactory,
-    this._sharingApiFactory, {
+    this._accountHttpFactory,
+    this._sharingHttpFactory, {
     Future<void> Function()? unregisterPushToken,
   }) : _unregisterPushToken = unregisterPushToken {
     _session = _authService.currentSession;
@@ -33,8 +34,8 @@ class SessionViewModel extends ChangeNotifier {
   }
 
   final AuthService _authService;
-  final AccountApi Function() _accountApiFactory;
-  final SharingApi Function() _sharingApiFactory;
+  final AccountHttp Function() _accountHttpFactory;
+  final SharingHttp Function() _sharingHttpFactory;
   final Future<void> Function()? _unregisterPushToken;
   StreamSubscription<AuthState>? _subscription;
 
@@ -155,12 +156,14 @@ class SessionViewModel extends ChangeNotifier {
       // Revoke the device share token while the session is still valid so it
       // can't be used after sign-out.
       try {
-        await _sharingApiFactory().revokeShareToken();
+        await _sharingHttpFactory().revokeShareToken();
       } catch (_) {}
       await _authService.signOut();
       _session = null;
       _forceSignedOut = true;
       await ShareHandoffService.instance.clear();
+      // Don't leave saved content on disk for whoever signs in next.
+      await ContentCache.instance.clear();
     } catch (e) {
       _error = _normalizeError(e);
     } finally {
@@ -177,7 +180,7 @@ class SessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _accountApiFactory().deleteAccount();
+      await _accountHttpFactory().deleteAccount();
       try {
         await _unregisterPushToken?.call();
       } catch (e) {
@@ -186,6 +189,7 @@ class SessionViewModel extends ChangeNotifier {
       _session = null;
       _forceSignedOut = true;
       await ShareHandoffService.instance.clear();
+      await ContentCache.instance.clear();
       try {
         await _authService.signOut();
       } catch (e) {
@@ -313,7 +317,7 @@ class SessionViewModel extends ChangeNotifier {
     try {
       final existing = await ShareHandoffService.instance.getShareToken();
       if (existing != null && existing.isNotEmpty) return;
-      final token = await _sharingApiFactory().mintShareToken();
+      final token = await _sharingHttpFactory().mintShareToken();
       if (token.isNotEmpty) {
         await ShareHandoffService.instance.setShareToken(token);
       }

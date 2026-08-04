@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/features/discover/domain/search_result.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-import 'package:reelpin/features/reels/presentation/detail/reel_detail_screen.dart';
+import 'package:reelpin/data_models/discover/search_result.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/router.dart';
 
 class SearchResultTile extends StatelessWidget {
   final SearchResult result;
@@ -14,15 +15,12 @@ class SearchResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reel = result.reel;
-    final catColor = AppTheme.getCategoryColor(reel.category);
+    final catColor = AppColors.getCategoryColor(reel.category);
     final layout = AppLayout.of(context);
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => ReelDetailScreen(reel: reel)),
-        );
+        Navigator.push(context, reelDetailRoute(reel));
       },
       child: Container(
         padding: EdgeInsets.all(layout.inset(14)),
@@ -45,7 +43,7 @@ class SearchResultTile extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: catColor,
                         border: Border.all(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           width: 2,
                         ),
                       ),
@@ -69,7 +67,7 @@ class SearchResultTile extends StatelessWidget {
             Text(
               reel.title.isNotEmpty ? reel.title : 'UNTITLED',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: layout.font(14),
                 fontWeight: FontWeight.w700,
                 height: 1.3,
@@ -84,7 +82,7 @@ class SearchResultTile extends StatelessWidget {
               Text(
                 reel.summary,
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSec(context),
+                  color: AppColors.textSec(context),
                   fontSize: layout.font(11),
                   height: 1.4,
                 ),
@@ -99,6 +97,6 @@ class SearchResultTile extends StatelessWidget {
   }
 
   Color _contrastText(Color bg) {
-    return bg.computeLuminance() > 0.5 ? AppTheme.black : AppTheme.white;
+    return bg.computeLuminance() > 0.5 ? AppColors.black : AppColors.white;
   }
 }

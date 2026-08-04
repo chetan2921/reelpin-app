@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
 
 class CategoryBadge extends StatelessWidget {
   final String category;
@@ -24,7 +25,7 @@ class CategoryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = AppTheme.getCategoryColor(category);
+    final color = AppColors.getCategoryColor(category);
     final layout = AppLayout.of(context);
 
     if (small) {
@@ -35,7 +36,7 @@ class CategoryBadge extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: color,
-          border: Border.all(color: AppTheme.fg(context), width: 2),
+          border: Border.all(color: AppColors.fg(context), width: 2),
         ),
         child: Text(
           category.toUpperCase(),
@@ -57,9 +58,9 @@ class CategoryBadge extends StatelessWidget {
         height: layout.gap(customHeight),
         padding: EdgeInsets.symmetric(horizontal: layout.inset(14)),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.yellow : AppTheme.bg(context),
+          color: isSelected ? AppColors.yellow : AppColors.bg(context),
           border: Border.all(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             width: AppTheme.thinBorderWidth,
           ),
           boxShadow: isSelected ? AppTheme.brutalShadowSmall(context) : null,
@@ -71,7 +72,7 @@ class CategoryBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(
-              color: isSelected ? AppTheme.black : AppTheme.fg(context),
+              color: isSelected ? AppColors.black : AppColors.fg(context),
               fontSize: layout.font(customFontSize),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.3,
@@ -84,6 +85,6 @@ class CategoryBadge extends StatelessWidget {
 
   Color _contrastText(Color bg) {
     final luminance = bg.computeLuminance();
-    return luminance > 0.5 ? AppTheme.black : AppTheme.white;
+    return luminance > 0.5 ? AppColors.black : AppColors.white;
   }
 }

@@ -2,21 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/features/account/domain/user_entitlement.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
+import 'package:reelpin/data_models/account/user_entitlement.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
 
 enum PaywallEntryPoint { account, saveLimit, history }
-
-Future<void> openPaywall(
-  BuildContext context, {
-  PaywallEntryPoint entryPoint = PaywallEntryPoint.account,
-}) {
-  return Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => PaywallScreen(entryPoint: entryPoint)),
-  );
-}
 
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key, required this.entryPoint});
@@ -33,14 +25,14 @@ class PaywallScreen extends ConsumerWidget {
     final message = entitlementResponse?.messageFor(entryPoint.name);
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       appBar: AppBar(
-        backgroundColor: AppTheme.bg(context),
+        backgroundColor: AppColors.bg(context),
         surfaceTintColor: Colors.transparent,
         title: Text(
           'REELPIN PRO',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             fontSize: layout.font(18),
             fontWeight: FontWeight.w700,
             letterSpacing: 1,
@@ -71,16 +63,16 @@ class PaywallScreen extends ConsumerWidget {
                       vertical: layout.gap(6),
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.yellow,
+                      color: AppColors.yellow,
                       border: Border.all(
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                         width: AppTheme.borderWidth,
                       ),
                     ),
                     child: Text(
                       (message?.title ?? entryPoint.name).toUpperCase(),
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.black,
+                        color: AppColors.black,
                         fontSize: layout.font(10),
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.8,
@@ -91,7 +83,7 @@ class PaywallScreen extends ConsumerWidget {
                   Text(
                     (message?.headline ?? '').toUpperCase(),
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.white,
+                      color: AppColors.white,
                       fontSize: layout.font(20),
                       fontWeight: FontWeight.w700,
                       height: 1.25,
@@ -131,7 +123,10 @@ class PaywallScreen extends ConsumerWidget {
                       .read(entitlementsViewModelProvider)
                       .refresh(reloadContent: true),
             child: Container(
-              decoration: AppTheme.brutalCard(context, color: AppTheme.hotPink),
+              decoration: AppTheme.brutalCard(
+                context,
+                color: AppColors.hotPink,
+              ),
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: layout.gap(16)),
                 child: Center(
@@ -141,7 +136,7 @@ class PaywallScreen extends ConsumerWidget {
                           height: layout.inset(18),
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            color: AppTheme.white,
+                            color: AppColors.white,
                           ),
                         )
                       : Text(
@@ -149,7 +144,7 @@ class PaywallScreen extends ConsumerWidget {
                               ? 'REFRESH PRO ACCESS'
                               : 'CHECK MY PLAN AGAIN',
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.white,
+                            color: AppColors.white,
                             fontSize: layout.font(13),
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.8,
@@ -164,7 +159,7 @@ class PaywallScreen extends ConsumerWidget {
             Text(
               entitlementVm.error!,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.destructive,
+                color: AppColors.destructive,
                 fontSize: layout.font(11),
                 fontWeight: FontWeight.w600,
               ),
@@ -180,7 +175,7 @@ class PaywallScreen extends ConsumerWidget {
     return Text(
       text,
       style: GoogleFonts.spaceMono(
-        color: AppTheme.textSec(context),
+        color: AppColors.textSec(context),
         fontSize: layout.font(11),
         fontWeight: FontWeight.w700,
         letterSpacing: 1,
@@ -199,7 +194,7 @@ class PaywallScreen extends ConsumerWidget {
           child: Text(
             'LOADING YOUR PLAN...',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
+              color: AppColors.fg(context),
               fontSize: layout.font(12),
               fontWeight: FontWeight.w700,
             ),
@@ -217,7 +212,7 @@ class PaywallScreen extends ConsumerWidget {
         context,
         color: entitlements.isPro
             ? const Color(0xFFE1FFF5)
-            : AppTheme.bg(context),
+            : AppColors.bg(context),
       ),
       child: Padding(
         padding: EdgeInsets.all(layout.inset(16)),
@@ -233,17 +228,17 @@ class PaywallScreen extends ConsumerWidget {
                   ),
                   decoration: BoxDecoration(
                     color: entitlements.isPro
-                        ? AppTheme.neonGreen
-                        : AppTheme.yellow,
+                        ? AppColors.neonGreen
+                        : AppColors.yellow,
                     border: Border.all(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       width: AppTheme.borderWidth,
                     ),
                   ),
                   child: Text(
                     entitlements.planLabel,
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.black,
+                      color: AppColors.black,
                       fontSize: layout.font(10),
                       fontWeight: FontWeight.w700,
                     ),
@@ -254,7 +249,7 @@ class PaywallScreen extends ConsumerWidget {
                   child: Text(
                     '${entitlements.searchModeLabel} SEARCH',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: layout.font(12),
                       fontWeight: FontWeight.w700,
                     ),
@@ -266,7 +261,7 @@ class PaywallScreen extends ConsumerWidget {
             Text(
               usageText.toUpperCase(),
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: layout.font(11),
                 fontWeight: FontWeight.w700,
               ),
@@ -276,7 +271,7 @@ class PaywallScreen extends ConsumerWidget {
               Text(
                 'History window: last ${response.limits.accessibleHistoryDays} days',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSec(context),
+                  color: AppColors.textSec(context),
                   fontSize: layout.font(11),
                   fontWeight: FontWeight.w500,
                 ),
@@ -301,7 +296,7 @@ class PaywallScreen extends ConsumerWidget {
           child: Text(
             'PLAN DETAILS ARE NOT AVAILABLE RIGHT NOW.',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
+              color: AppColors.fg(context),
               fontSize: layout.font(12),
               fontWeight: FontWeight.w700,
             ),
@@ -316,7 +311,7 @@ class PaywallScreen extends ConsumerWidget {
         _planCard(
           context,
           card: planCards[index],
-          accent: index == 0 ? AppTheme.yellow : AppTheme.neonGreen,
+          accent: index == 0 ? AppColors.yellow : AppColors.neonGreen,
         ),
       ],
     ];
@@ -345,7 +340,7 @@ class PaywallScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: accent,
                     border: Border.all(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       width: AppTheme.borderWidth,
                     ),
                   ),
@@ -353,8 +348,8 @@ class PaywallScreen extends ConsumerWidget {
                     card.title.toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: accent.computeLuminance() > 0.5
-                          ? AppTheme.black
-                          : AppTheme.white,
+                          ? AppColors.black
+                          : AppColors.white,
                       fontSize: layout.font(10),
                       fontWeight: FontWeight.w700,
                     ),
@@ -365,7 +360,7 @@ class PaywallScreen extends ConsumerWidget {
                   child: Text(
                     card.priceLabel.toUpperCase(),
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: layout.font(13),
                       fontWeight: FontWeight.w700,
                     ),
@@ -391,7 +386,7 @@ class PaywallScreen extends ConsumerWidget {
                       child: Text(
                         bullet.toUpperCase(),
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           fontSize: layout.font(11),
                           fontWeight: FontWeight.w600,
                           height: 1.45,

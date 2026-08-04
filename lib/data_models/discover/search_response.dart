@@ -1,5 +1,5 @@
-import 'package:reelpin/features/discover/domain/search_result.dart';
-import 'package:reelpin/features/account/domain/user_entitlement.dart';
+import 'package:reelpin/data_models/discover/search_result.dart';
+import 'package:reelpin/data_models/account/user_entitlement.dart';
 
 class SearchResponse {
   const SearchResponse({

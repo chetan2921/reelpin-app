@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:reelpin/core/config/api_config.dart';
-import 'package:reelpin/core/logging/app_logger.dart';
+import 'package:reelpin/env.dart';
+import 'package:reelpin/utils/app_logger.dart';
 
 class ShareHandoffService {
   ShareHandoffService._();

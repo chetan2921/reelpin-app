@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/app/shell/authenticated_shell.dart';
-import 'package:reelpin/app/splash_screen.dart';
-import 'package:reelpin/core/platform/app_update_service.dart';
-import 'package:reelpin/features/auth/presentation/auth_screen.dart';
-import 'package:reelpin/features/onboarding/presentation/onboarding_screen.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/screens/app_shell/authenticated_shell.dart';
+import 'package:reelpin/screens/splash/splash_screen.dart';
+import 'package:reelpin/services/app_update_service.dart';
+import 'package:reelpin/screens/auth/auth_screen.dart';
+import 'package:reelpin/screens/onboarding/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppEntry extends ConsumerStatefulWidget {

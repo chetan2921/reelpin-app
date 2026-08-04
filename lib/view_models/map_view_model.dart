@@ -2,16 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:reelpin/features/map/data/map_api.dart';
-import 'package:reelpin/features/map/domain/map_place_search_response.dart';
-import 'package:reelpin/features/map/domain/map_response.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/core/network/error_message.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/http/map_http.dart';
+import 'package:reelpin/data_models/map/map_place_search_response.dart';
+import 'package:reelpin/data_models/map/map_response.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/utils/error_message.dart';
 
 class MapViewModel extends ChangeNotifier {
-  final MapApi _mapApi;
+  final MapHttp _mapHttp;
 
-  MapViewModel(this._mapApi);
+  MapViewModel(this._mapHttp);
 
   List<MapItem> _mapItems = [];
   bool _isLoading = false;
@@ -59,6 +61,31 @@ class MapViewModel extends ChangeNotifier {
   @Deprecated('Map selection now comes from backend map_items.')
   Location? get selectedLocation => null;
 
+  /// Restores the last saved map snapshot so pins are on screen before the
+  /// network request comes back. No-ops once live data has arrived.
+  Future<void> hydrateFromCache() async {
+    if (_mapItems.isNotEmpty || _selectedCategory != null) return;
+
+    final payload = await ContentCache.instance.read(
+      ContentCacheKeys.mapOverview,
+    );
+    if (payload == null) return;
+    if (_mapItems.isNotEmpty || _selectedCategory != null) return;
+
+    try {
+      final response = MapResponse.fromJson(payload);
+      if (response.mapItems.isEmpty) return;
+
+      _mapItems = response.mapItems;
+      _totalPinnedLocations = response.totalPinnedLocations;
+      _visiblePinnedLocations = response.visiblePinnedLocations;
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Cached map data could not be restored: $e');
+      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+    }
+  }
+
   Future<void> loadMapReels({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
@@ -67,7 +94,7 @@ class MapViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _mapApi.getMapData(category: _selectedCategory);
+      final response = await _mapHttp.getMapData(category: _selectedCategory);
       _mapItems = response.mapItems;
       _totalPinnedLocations = response.totalPinnedLocations;
       _visiblePinnedLocations = response.visiblePinnedLocations;
@@ -155,7 +182,7 @@ class MapViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _mapApi.searchMapPlaces(
+      final response = await _mapHttp.searchMapPlaces(
         normalizedQuery,
         category: _selectedCategory,
         sessionToken: _placeSearchSessionToken,
@@ -188,7 +215,7 @@ class MapViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final item = await _mapApi.pinMapPlace(
+      final item = await _mapHttp.pinMapPlace(
         googlePlaceId,
         sessionToken: _placeSearchSessionToken,
       );
@@ -198,6 +225,7 @@ class MapViewModel extends ChangeNotifier {
       _visiblePinnedLocations = _mapItems.length;
       _placeSearchSessionToken = '';
       _mapPinActionError = null;
+      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
       return item;
     } catch (e) {
       _mapPinActionError = userFacingErrorMessage(
@@ -220,7 +248,7 @@ class MapViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _mapApi.removeMapItem(mapItemId);
+      await _mapHttp.removeMapItem(mapItemId);
       _mapItems = _mapItems
           .where((candidate) => candidate.effectiveMapItemId != mapItemId)
           .toList(growable: false);
@@ -237,6 +265,7 @@ class MapViewModel extends ChangeNotifier {
           .where((result) => result.mapItem?.effectiveMapItemId != mapItemId)
           .toList(growable: false);
       _mapPinActionError = null;
+      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
       return true;
     } catch (e) {
       _mapPinActionError = userFacingErrorMessage(

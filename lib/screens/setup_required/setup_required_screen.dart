@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/core/config/supabase_config.dart';
-import 'package:reelpin/core/design/app_theme.dart';
+import 'package:reelpin/env.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
 
 class SetupRequiredScreen extends StatelessWidget {
   const SetupRequiredScreen({super.key});
@@ -10,7 +11,7 @@ class SetupRequiredScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -20,7 +21,7 @@ class SetupRequiredScreen extends StatelessWidget {
               Text(
                 'SUPABASE SETUP REQUIRED',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                   fontSize: 26,
                   fontWeight: FontWeight.w700,
                   height: 1.1,
@@ -31,14 +32,14 @@ class SetupRequiredScreen extends StatelessWidget {
                 width: double.infinity,
                 decoration: AppTheme.brutalCard(
                   context,
-                  color: AppTheme.yellow,
+                  color: AppColors.yellow,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: Text(
                     'RUN THE APP THROUGH THE REELPIN CONFIG WRAPPER SO SUPABASE DART DEFINES ARE INCLUDED.',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       height: 1.5,
@@ -56,7 +57,7 @@ class SetupRequiredScreen extends StatelessWidget {
                     'tool/reelpin_flutter.sh --reelpin-env=dev run\n'
                     'tool/reelpin_flutter.sh --reelpin-env=production run',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       height: 1.6,
@@ -68,7 +69,7 @@ class SetupRequiredScreen extends StatelessWidget {
               Text(
                 'LOCAL-ONLY FILE KEYS:',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSec(context),
+                  color: AppColors.textSec(context),
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
@@ -86,9 +87,9 @@ class SetupRequiredScreen extends StatelessWidget {
                     'SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY\n'
                     'SUPABASE_REDIRECT_SCHEME=${SupabaseConfig.redirectScheme}\n'
                     'SUPABASE_REDIRECT_HOST=${SupabaseConfig.redirectHost}\n'
-                    'API_BASE_URL=https://dev-api-64-227-168-119.nip.io',
+                    'API_BASE_URL=https://api-dev.reelpin.in',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       height: 1.6,
@@ -100,7 +101,7 @@ class SetupRequiredScreen extends StatelessWidget {
               Text(
                 'DEFAULT OAUTH REDIRECT URL:',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSec(context),
+                  color: AppColors.textSec(context),
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.8,
@@ -114,13 +115,13 @@ class SetupRequiredScreen extends StatelessWidget {
                 ),
                 decoration: AppTheme.brutalBox(
                   context,
-                  color: AppTheme.cyan.withAlpha(40),
+                  color: AppColors.cyan.withAlpha(40),
                   shadow: false,
                 ),
                 child: Text(
                   SupabaseConfig.redirectUrl,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),

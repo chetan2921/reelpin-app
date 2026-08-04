@@ -2,20 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:reelpin/features/account/data/account_api.dart';
-import 'package:reelpin/features/account/domain/user_entitlement.dart';
-import 'package:reelpin/features/reels/data/reel_repository.dart';
-import 'package:reelpin/core/network/error_message.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/features/home/presentation/category_filters_viewmodel.dart';
-import 'package:reelpin/features/discover/presentation/discover_viewmodel.dart';
-import 'package:reelpin/features/home/presentation/home_viewmodel.dart';
-import 'package:reelpin/features/map/presentation/map_viewmodel.dart';
-import 'package:reelpin/features/discover/presentation/search_viewmodel.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/http/account_http.dart';
+import 'package:reelpin/data_models/account/user_entitlement.dart';
+import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/view_models/category_filters_view_model.dart';
+import 'package:reelpin/view_models/discover_view_model.dart';
+import 'package:reelpin/view_models/home_view_model.dart';
+import 'package:reelpin/view_models/map_view_model.dart';
+import 'package:reelpin/view_models/search_view_model.dart';
 
 class EntitlementsViewModel extends ChangeNotifier {
   EntitlementsViewModel(
-    this._accountApi,
+    this._accountHttp,
     this._authService,
     this._repository,
     this._homeViewModel,
@@ -25,7 +27,7 @@ class EntitlementsViewModel extends ChangeNotifier {
     this._searchViewModel,
   );
 
-  final AccountApi _accountApi;
+  final AccountHttp _accountHttp;
   final AuthService _authService;
   final ReelRepository _repository;
   final HomeViewModel _homeViewModel;
@@ -45,6 +47,29 @@ class EntitlementsViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get hasEntitlement => _response != null;
+
+  /// Restores the last known access state so cached content can render without
+  /// waiting on the entitlements call. Always re-checked against the server on
+  /// the refresh that follows, and the backend stays the authority regardless.
+  Future<void> hydrateFromCache() async {
+    if (_response != null) return;
+
+    final payload = await ContentCache.instance.read(
+      ContentCacheKeys.entitlements,
+    );
+    if (payload == null) return;
+    if (_response != null) return;
+
+    try {
+      _response = EntitlementsResponse.fromJson(payload);
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Cached entitlements could not be restored: $e');
+      unawaited(
+        ContentCache.instance.invalidate(ContentCacheKeys.entitlements),
+      );
+    }
+  }
 
   Future<void> refresh({bool reloadContent = false}) {
     final activeRefresh = _refreshFuture;
@@ -81,7 +106,7 @@ class EntitlementsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final next = await _accountApi.getAccountEntitlements(userId: userId);
+      final next = await _accountHttp.getAccountEntitlements(userId: userId);
       final isDifferentUser =
           previous != null &&
           previous.currentEntitlement.userId != next.currentEntitlement.userId;

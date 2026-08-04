@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
 
 void main() {
   test('preserves backend source URLs for opening the original reel', () {

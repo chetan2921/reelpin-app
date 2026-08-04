@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-part 'onboarding_partials.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/constants/source_platforms.dart';
+part 'partials/onboarding_card.dart';
+part 'partials/onboarding_step.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, required this.onContinue});
@@ -23,23 +26,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       label: 'SAVE IT',
       title: 'KEEP THE POSTS, REELS, SHORTS, AND VIDEOS YOU WANT TO TRY',
       body:
-          'SHARE FROM INSTAGRAM, YOUTUBE, OR X. SAVE THE PLACE, PLAN, OR FIND.',
-      accent: AppTheme.yellow,
+          'SHARE FROM INSTAGRAM, YOUTUBE, X, PINTEREST, REDDIT, OR LINKEDIN. '
+          'SAVE THE PLACE, PLAN, OR FIND.',
+      accent: AppColors.yellow,
       icon: Icons.bookmark_added_outlined,
       bullet: '',
       highlights: ['SPOTS', 'PLACES TO GO', 'THINGS TO BUY'],
-      platforms: [
-        _OnboardingPlatform('assets/images/instagram.png', 'INSTAGRAM'),
-        _OnboardingPlatform('assets/images/youtube.png', 'YOUTUBE'),
-        _OnboardingPlatform('assets/images/twitter.png', 'X'),
-      ],
+      platforms: SourcePlatform.all,
     ),
     _OnboardingStep(
       label: 'FIND IT FAST',
       title: 'COME BACK TO THE GOOD PART IN SECONDS',
       body:
           'OPEN A SAVED REEL LATER AND GET THE PART YOU CARE ABOUT WITHOUT SCRUBBING THROUGH THE WHOLE VIDEO AGAIN.',
-      accent: AppTheme.hotPink,
+      accent: AppColors.hotPink,
       icon: Icons.auto_awesome,
       bullet: 'LESS REWATCHING, MORE USING',
       highlights: ['IDEAS', 'TIPS', 'WHY YOU SAVED IT'],
@@ -49,7 +49,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'SEE CLEARLY NAMED PLACES ON YOUR MAP',
       body:
           'WHEN A REEL CALLS OUT A PLACE BY NAME, REELPIN DROPS IT ON YOUR MAP SO YOU CAN ACTUALLY GO THERE LATER.',
-      accent: AppTheme.blue,
+      accent: AppColors.blue,
       icon: Icons.map,
       bullet: 'SAVE NOW, USE IT WHEN YOU ARE OUT',
       highlights: ['TRIPS', 'LOCAL SAVES', 'PLANS THAT STICK'],
@@ -79,11 +79,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final step = _pages[_currentPage];
     final layout = AppLayout.of(context);
     final buttonTextColor = step.accent.computeLuminance() > 0.5
-        ? AppTheme.black
-        : AppTheme.white;
+        ? AppColors.black
+        : AppColors.white;
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         child: Padding(
           padding: layout.pagePadding(horizontal: 20, top: 18, bottom: 30),
@@ -93,7 +93,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Text(
                 'REELPIN',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                   fontSize: layout.font(28, minFactor: 0.9, maxFactor: 1.08),
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2,
@@ -101,9 +101,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               SizedBox(height: layout.gap(14)),
               Text(
-                'SAVE INSTAGRAM, YOUTUBE, AND X FINDS INTO PLANS YOU CAN USE.',
+                'SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                   fontSize: layout.font(18, minFactor: 0.9, maxFactor: 1.08),
                   fontWeight: FontWeight.w700,
                   height: 1.35,
@@ -144,8 +144,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     decoration: BoxDecoration(
                       color: _currentPage == index
                           ? step.accent
-                          : AppTheme.bg(context),
-                      border: Border.all(color: AppTheme.fg(context), width: 2),
+                          : AppColors.bg(context),
+                      border: Border.all(
+                        color: AppColors.fg(context),
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -194,7 +197,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                           decoration: AppTheme.brutalCard(
                             context,
-                            color: AppTheme.bg(context),
+                            color: AppColors.bg(context),
                           ),
                           child: Row(
                             children: [
@@ -205,35 +208,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   decoration: BoxDecoration(
                                     color: step.accent,
                                     border: Border.all(
-                                      color: AppTheme.fg(context),
+                                      color: AppColors.fg(context),
                                       width: 2,
                                     ),
                                   ),
                                 ),
                                 SizedBox(width: layout.inset(10)),
                               ] else ...[
+                                // Icons only. Naming each platform beside its
+                                // icon stopped fitting once the list passed
+                                // three, and the card body already spells the
+                                // apps out.
                                 for (
                                   var i = 0;
                                   i < step.platforms.length;
                                   i++
                                 ) ...[
-                                  if (i > 0)
-                                    Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: layout.inset(6),
-                                      ),
-                                      child: Text(
-                                        '+',
-                                        style: GoogleFonts.spaceMono(
-                                          color: AppTheme.fg(context),
-                                          fontSize: layout.font(12),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
+                                  if (i > 0) SizedBox(width: layout.inset(6)),
                                   Semantics(
                                     label:
-                                        '${step.platforms[i].label} source platform',
+                                        '${step.platforms[i].name} source platform',
                                     image: true,
                                     child: ExcludeSemantics(
                                       child: Image.asset(
@@ -243,20 +237,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                       ),
                                     ),
                                   ),
-                                  SizedBox(width: layout.inset(4)),
-                                  Text(
-                                    step.platforms[i].label,
-                                    style: GoogleFonts.spaceMono(
-                                      color: AppTheme.fg(context),
-                                      fontSize: layout.font(
-                                        10.5,
-                                        minFactor: 0.9,
-                                        maxFactor: 1.05,
-                                      ),
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.7,
-                                    ),
-                                  ),
                                 ],
                                 SizedBox(width: layout.inset(10)),
                               ],
@@ -264,7 +244,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 child: Text(
                                   step.bullet,
                                   style: GoogleFonts.spaceMono(
-                                    color: AppTheme.fg(context),
+                                    color: AppColors.fg(context),
                                     fontSize: layout.font(
                                       10.5,
                                       minFactor: 0.9,
@@ -349,7 +329,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       child: Text(
                         'SKIP',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.textSec(context),
+                          color: AppColors.textSec(context),
                           fontSize: layout.font(12),
                           fontWeight: FontWeight.w700,
                         ),

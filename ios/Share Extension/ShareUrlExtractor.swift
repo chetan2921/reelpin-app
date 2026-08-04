@@ -4,6 +4,12 @@ struct ShareUrlExtractor {
   private static let urlCandidatePattern = #"https?://[^\s<>"']+"#
   private static let videoIdPattern = #"^[A-Za-z0-9_-]+$"#
   private static let tiktokPathPattern = #"^[A-Za-z0-9@._/\-]+$"#
+  /// Pinterest runs a per-country domain (pinterest.ca, pinterest.co.uk,
+  /// pinterest.com.au) and serves them from regional subdomains such as
+  /// in.pinterest.com. Anchoring both ends keeps lookalikes like
+  /// pinterest.com.example.com out.
+  private static let pinterestHostPattern =
+    #"^(?:[a-z0-9-]+\.)*pinterest\.(?:com|net|info|[a-z]{2}|(?:com|co)\.[a-z]{2})$"#
   private static let trailingPunctuation = Set<Character>([".", ",", "!", "?", ";", ":", ")", "]", "}", "\""])
 
   static func extractSupportedUrl(from text: String) -> String? {
@@ -41,7 +47,10 @@ struct ShareUrlExtractor {
     return isInstagramUrl(components, host: host) ||
       isTikTokUrl(components, host: host) ||
       isYoutubeUrl(components, host: host) ||
-      isXUrl(host: host)
+      isXUrl(host: host) ||
+      isPinterestUrl(host: host) ||
+      isRedditUrl(host: host) ||
+      isLinkedInUrl(host: host)
   }
 
   private static func isInstagramUrl(_ components: URLComponents, host: String) -> Bool {
@@ -90,6 +99,25 @@ struct ShareUrlExtractor {
     return normalizedHost == "x.com" ||
       normalizedHost == "twitter.com" ||
       normalizedHost == "t.co"
+  }
+
+  // Pinterest, Reddit, and LinkedIn are matched on host alone, the way X is:
+  // the backend owns the path rules and returns a far better message than a
+  // silent "no supported link found" from the share sheet.
+  private static func isPinterestUrl(host: String) -> Bool {
+    host == "pin.it" || matches(host, pattern: pinterestHostPattern)
+  }
+
+  private static func isRedditUrl(host: String) -> Bool {
+    host == "redd.it" || isHostOrSubdomain(host, of: "reddit.com")
+  }
+
+  private static func isLinkedInUrl(host: String) -> Bool {
+    isHostOrSubdomain(host, of: "linkedin.com")
+  }
+
+  private static func isHostOrSubdomain(_ host: String, of domain: String) -> Bool {
+    host == domain || host.hasSuffix(".\(domain)")
   }
 
   private static func withoutMobileOrWebPrefix(_ host: String) -> String {

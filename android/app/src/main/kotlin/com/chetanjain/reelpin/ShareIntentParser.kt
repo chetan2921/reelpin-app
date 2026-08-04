@@ -11,6 +11,16 @@ object ShareIntentParser {
     )
     private val videoIdRegex = Regex("""^[A-Za-z0-9_-]+$""")
     private val tiktokPathRegex = Regex("""^[A-Za-z0-9@._/\-]+$""")
+
+    /**
+     * Pinterest runs a per-country domain (pinterest.ca, pinterest.co.uk,
+     * pinterest.com.au) and serves them from regional subdomains such as
+     * in.pinterest.com. Anchoring both ends keeps lookalikes like
+     * pinterest.com.example.com out.
+     */
+    private val pinterestHostRegex = Regex(
+        """^(?:[a-z0-9\-]+\.)*pinterest\.(?:com|net|info|[a-z]{2}|(?:com|co)\.[a-z]{2})$"""
+    )
     private val trailingPunctuation = setOf('.', ',', '!', '?', ';', ':', ')', ']', '}', '"')
 
     fun extractPayload(context: Context, intent: Intent): String {
@@ -46,7 +56,10 @@ object ShareIntentParser {
         return isInstagramUrl(uri, host) ||
             isTikTokUrl(uri, host) ||
             isYoutubeUrl(uri, host) ||
-            isXUrl(host)
+            isXUrl(host) ||
+            isPinterestUrl(host) ||
+            isRedditUrl(host) ||
+            isLinkedInUrl(host)
     }
 
     private fun isInstagramUrl(uri: URI, host: String): Boolean {
@@ -91,6 +104,25 @@ object ShareIntentParser {
         return normalizedHost == "x.com" ||
             normalizedHost == "twitter.com" ||
             normalizedHost == "t.co"
+    }
+
+    // Pinterest, Reddit, and LinkedIn are matched on host alone, the way X is:
+    // the backend owns the path rules and returns a far better message than a
+    // silent "no supported link found" from the share sheet.
+    private fun isPinterestUrl(host: String): Boolean {
+        return host == "pin.it" || pinterestHostRegex.matches(host)
+    }
+
+    private fun isRedditUrl(host: String): Boolean {
+        return host == "redd.it" || isHostOrSubdomainOf(host, "reddit.com")
+    }
+
+    private fun isLinkedInUrl(host: String): Boolean {
+        return isHostOrSubdomainOf(host, "linkedin.com")
+    }
+
+    private fun isHostOrSubdomainOf(host: String, domain: String): Boolean {
+        return host == domain || host.endsWith(".$domain")
     }
 
     private fun withoutMobileOrWebPrefix(host: String): String {

@@ -1,4 +1,4 @@
-part of 'reel_detail_screen.dart';
+part of '../reel_detail_screen.dart';
 
 class ReelShareCard extends StatelessWidget {
   final Reel reel;
@@ -43,7 +43,7 @@ class ReelShareCard extends StatelessWidget {
                     height: 116,
                     decoration: BoxDecoration(
                       color: const Color(0xFF16D7C8),
-                      border: Border.all(color: AppTheme.black, width: 3),
+                      border: Border.all(color: AppColors.black, width: 3),
                     ),
                   ),
                 ),
@@ -58,7 +58,7 @@ class ReelShareCard extends StatelessWidget {
                     height: 72,
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF4AA4),
-                      border: Border.all(color: AppTheme.black, width: 3),
+                      border: Border.all(color: AppColors.black, width: 3),
                     ),
                   ),
                 ),
@@ -81,11 +81,11 @@ class ReelShareCard extends StatelessWidget {
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.white,
-                    border: Border.all(color: AppTheme.black, width: 4),
+                    color: AppColors.white,
+                    border: Border.all(color: AppColors.black, width: 4),
                     boxShadow: const [
                       BoxShadow(
-                        color: AppTheme.black,
+                        color: AppColors.black,
                         offset: Offset(7, 7),
                         blurRadius: 0,
                       ),
@@ -101,13 +101,13 @@ class ReelShareCard extends StatelessWidget {
                           sourcePlatform: reel.sourcePlatform,
                         ),
                         const SizedBox(height: 5),
-                        Container(height: 4, color: AppTheme.black),
+                        Container(height: 4, color: AppColors.black),
                         const SizedBox(height: 5),
                         SizedBox(
                           height: 96,
                           child: _PinnedNote(
                             height: 96,
-                            color: AppTheme.white,
+                            color: AppColors.white,
                             angle: -0.018,
                             pinAlignment: Alignment.topRight,
                             childPadding: const EdgeInsets.fromLTRB(
@@ -128,7 +128,7 @@ class ReelShareCard extends StatelessWidget {
                                       softWrap: true,
                                       textWidthBasis: TextWidthBasis.parent,
                                       style: GoogleFonts.spaceMono(
-                                        color: AppTheme.black,
+                                        color: AppColors.black,
                                         fontSize: 18,
                                         fontWeight: FontWeight.w700,
                                         height: 1.02,
@@ -242,7 +242,7 @@ class _ShareBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
         color: color,
-        border: Border.all(color: AppTheme.black, width: 2),
+        border: Border.all(color: AppColors.black, width: 2),
       ),
       child: Text(
         label,
@@ -283,7 +283,7 @@ class _ShareHeader extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
             color: const Color(0xFFFFD600),
-            border: Border.all(color: AppTheme.black, width: 3),
+            border: Border.all(color: AppColors.black, width: 3),
             boxShadow: AppTheme.inkShadowSmall,
           ),
           child: Padding(
@@ -302,7 +302,7 @@ class _ShareHeader extends StatelessWidget {
               Text(
                 'REELPIN',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.black,
+                  color: AppColors.black,
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,
@@ -313,7 +313,7 @@ class _ShareHeader extends StatelessWidget {
               Text(
                 'Pinned ${typeLabel.toLowerCase()} brief',
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.textSecondary,
+                  color: AppColors.textSecondary,
                   fontSize: 8,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.7,
@@ -324,8 +324,8 @@ class _ShareHeader extends StatelessWidget {
         ),
         _ShareBadge(
           label: typeLabel,
-          color: AppTheme.hotPink,
-          textColor: AppTheme.white,
+          color: AppColors.hotPink,
+          textColor: AppColors.white,
         ),
       ],
     );
@@ -361,8 +361,8 @@ class _PinnedNote extends StatelessWidget {
             left: 8,
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.black.withAlpha(70),
-                border: Border.all(color: AppTheme.black, width: 2),
+                color: AppColors.black.withAlpha(70),
+                border: Border.all(color: AppColors.black, width: 2),
               ),
             ),
           ),
@@ -373,7 +373,7 @@ class _PinnedNote extends StatelessWidget {
               height: height,
               decoration: BoxDecoration(
                 color: color,
-                border: Border.all(color: AppTheme.black, width: 3),
+                border: Border.all(color: AppColors.black, width: 3),
                 boxShadow: AppTheme.inkShadowSmall,
               ),
               child: Padding(padding: childPadding, child: child),
@@ -415,7 +415,7 @@ class _ShareSummaryNote extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _NoteTitle(label: 'SUMMARY', color: AppTheme.black, fontSize: 10),
+          _NoteTitle(label: 'SUMMARY', color: AppColors.black, fontSize: 10),
           const SizedBox(height: 6),
           Expanded(
             child: Text(
@@ -479,8 +479,8 @@ class _KeyFactsBoard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppTheme.black,
-        border: Border.all(color: AppTheme.black, width: 3),
+        color: AppColors.black,
+        border: Border.all(color: AppColors.black, width: 3),
         boxShadow: AppTheme.inkShadowSmall,
       ),
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
@@ -530,8 +530,8 @@ class _ShareFactRow extends StatelessWidget {
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: AppTheme.red,
-              border: Border.all(color: AppTheme.white, width: 1),
+              color: AppColors.red,
+              border: Border.all(color: AppColors.white, width: 1),
             ),
           ),
           const SizedBox(width: 10),
@@ -543,7 +543,7 @@ class _ShareFactRow extends StatelessWidget {
               softWrap: true,
               textWidthBasis: TextWidthBasis.parent,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.white,
+                color: AppColors.white,
                 fontSize: 9.6,
                 height: 1.12,
                 fontWeight: FontWeight.w700,
@@ -568,7 +568,7 @@ class _ShareActionNote extends StatelessWidget {
       label: 'TOP ACTIONS',
       items: actions,
       color: const Color(0xFF19D6C8),
-      textColor: AppTheme.black,
+      textColor: AppColors.black,
       angle: -0.018,
       height: isPrimary ? 190 : null,
       fontSize: 10.5,
@@ -605,7 +605,7 @@ class _ShareMiniNote extends StatelessWidget {
           Positioned.fill(
             top: 7,
             left: 7,
-            child: Container(color: AppTheme.black.withAlpha(70)),
+            child: Container(color: AppColors.black.withAlpha(70)),
           ),
           ClipPath(
             clipper: _ShareStickyNoteClipper(),
@@ -614,7 +614,7 @@ class _ShareMiniNote extends StatelessWidget {
               height: height ?? _heightForItems(items.length),
               decoration: BoxDecoration(
                 color: color,
-                border: Border.all(color: AppTheme.black, width: 3),
+                border: Border.all(color: AppColors.black, width: 3),
               ),
               padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
               child: Column(
@@ -641,9 +641,9 @@ class _ShareMiniNote extends StatelessWidget {
                                   width: 6,
                                   height: 6,
                                   decoration: BoxDecoration(
-                                    color: AppTheme.white,
+                                    color: AppColors.white,
                                     border: Border.all(
-                                      color: AppTheme.black,
+                                      color: AppColors.black,
                                       width: 1,
                                     ),
                                   ),
@@ -685,7 +685,7 @@ class _ShareMiniNote extends StatelessWidget {
                 height: 13,
                 decoration: BoxDecoration(
                   color: color,
-                  border: Border.all(color: AppTheme.black, width: 2),
+                  border: Border.all(color: AppColors.black, width: 2),
                 ),
               ),
             ),
@@ -714,7 +714,7 @@ class _ShareFooter extends StatelessWidget {
           child: Text(
             'Saved, summarized, and pinned with ReelPin',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppColors.black,
               fontSize: 8.5,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.3,
@@ -727,13 +727,13 @@ class _ShareFooter extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: const Color(0xFFFFD600),
-            border: Border.all(color: AppTheme.black, width: 3),
+            border: Border.all(color: AppColors.black, width: 3),
             boxShadow: AppTheme.inkShadowSmall,
           ),
           child: Text(
             'GET REELPIN',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppColors.black,
               fontSize: 8.5,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,

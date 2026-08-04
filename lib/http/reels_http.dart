@@ -1,11 +1,11 @@
 import 'dart:io';
 
-import 'package:reelpin/features/reels/domain/processing_job.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/features/reels/domain/reel_category_filters.dart';
-import 'package:reelpin/features/reels/domain/reel_page.dart';
+import 'package:reelpin/data_models/reels/processing_job.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/data_models/reels/reel_category_filters.dart';
+import 'package:reelpin/data_models/reels/reel_page.dart';
 
-abstract interface class ReelsApi {
+abstract interface class ReelsHttp {
   Future<Reel> processReel(
     String url, {
     String userId = 'default-user',

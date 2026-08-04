@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
-import 'package:reelpin/features/reels/domain/reel_category_filters.dart';
-import 'package:reelpin/features/reels/data/reel_repository.dart';
-import 'package:reelpin/core/network/error_message.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/data_models/reels/reel_category_filters.dart';
+import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/utils/error_message.dart';
 
 class CategoryFiltersViewModel extends ChangeNotifier {
   CategoryFiltersViewModel(this._repository);
@@ -31,6 +35,32 @@ class CategoryFiltersViewModel extends ChangeNotifier {
     _isLoading = false;
     _error = null;
     notifyListeners();
+  }
+
+  /// Restores the last saved filter chips so the header renders immediately.
+  /// No-ops once live data has arrived.
+  Future<void> hydrateFromCache() async {
+    if (_groups.isNotEmpty) return;
+
+    final payload = await ContentCache.instance.read(
+      ContentCacheKeys.categoryFilters,
+    );
+    if (payload == null) return;
+    if (_groups.isNotEmpty) return;
+
+    try {
+      final response = ReelCategoryFiltersResponse.fromJson(payload);
+      if (response.categories.isEmpty) return;
+
+      _response = response;
+      _groups = response.categories;
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Cached category filters could not be restored: $e');
+      unawaited(
+        ContentCache.instance.invalidate(ContentCacheKeys.categoryFilters),
+      );
+    }
   }
 
   Future<void> loadCategoryFilters({

@@ -5,10 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:reelpin/core/network/api_service.dart';
-import 'package:reelpin/core/platform/device_metadata_service.dart';
-import 'package:reelpin/core/platform/notification_service.dart';
-import 'package:reelpin/features/sharing/services/push_registration_service.dart';
+import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/services/device_metadata_service.dart';
+import 'package:reelpin/services/notifications/notification_service.dart';
+import 'package:reelpin/services/sharing/push_registration_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +16,7 @@ void main() {
   test('registers startup and refreshed tokens with device metadata', () async {
     SharedPreferences.setMockInitialValues({});
     final requests = <http.Request>[];
-    final api = ApiService(
+    final api = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'access-token',
       client: MockClient((request) async {
@@ -26,7 +26,7 @@ void main() {
     );
     final service = PushRegistrationService(
       notificationService: NotificationService.instance,
-      sharingApi: api,
+      sharingHttp: api,
       deviceMetadataService: const _FakeDeviceMetadataService(),
     );
 
@@ -49,7 +49,7 @@ void main() {
   test('unregisters the latest known token', () async {
     SharedPreferences.setMockInitialValues({});
     http.Request? deletion;
-    final api = ApiService(
+    final api = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'access-token',
       client: MockClient((request) async {
@@ -59,7 +59,7 @@ void main() {
     );
     final service = PushRegistrationService(
       notificationService: NotificationService.instance,
-      sharingApi: api,
+      sharingHttp: api,
       deviceMetadataService: const _FakeDeviceMetadataService(),
     );
 

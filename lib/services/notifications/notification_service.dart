@@ -6,9 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:reelpin/core/config/supabase_config.dart';
-import 'package:reelpin/core/logging/app_logger.dart';
-import 'package:reelpin/core/platform/app_notification.dart';
+import 'package:reelpin/env.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/data_models/notifications/app_notification.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {

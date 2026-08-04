@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
 
 class FeatureAnnouncementScreen extends StatelessWidget {
   const FeatureAnnouncementScreen({
@@ -19,7 +20,7 @@ class FeatureAnnouncementScreen extends StatelessWidget {
     final layout = AppLayout.of(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         child: Padding(
           padding: layout.pagePadding(horizontal: 22, top: 18, bottom: 24),
@@ -31,7 +32,7 @@ class FeatureAnnouncementScreen extends StatelessWidget {
                 child: IconButton(
                   tooltip: 'Close',
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(Icons.close, color: AppTheme.fg(context)),
+                  icon: Icon(Icons.close, color: AppColors.fg(context)),
                 ),
               ),
               Expanded(
@@ -52,11 +53,11 @@ class FeatureAnnouncementScreen extends StatelessWidget {
                                 height: layout.inset(76),
                                 decoration: AppTheme.brutalBox(
                                   context,
-                                  color: AppTheme.yellow,
+                                  color: AppColors.yellow,
                                 ),
                                 child: const Icon(
                                   Icons.campaign_outlined,
-                                  color: AppTheme.black,
+                                  color: AppColors.black,
                                   size: 38,
                                 ),
                               ),
@@ -66,7 +67,7 @@ class FeatureAnnouncementScreen extends StatelessWidget {
                                     ? 'WHAT\'S NEW IN REELPIN'
                                     : title,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.fg(context),
+                                  color: AppColors.fg(context),
                                   fontSize: layout.font(28),
                                   fontWeight: FontWeight.w700,
                                   height: 1.2,
@@ -78,7 +79,7 @@ class FeatureAnnouncementScreen extends StatelessWidget {
                                     ? 'OPEN REELPIN TO SEE THE LATEST UPDATE.'
                                     : body,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.textSec(context),
+                                  color: AppColors.textSec(context),
                                   fontSize: layout.font(15),
                                   fontWeight: FontWeight.w700,
                                   height: 1.5,
@@ -99,11 +100,11 @@ class FeatureAnnouncementScreen extends StatelessWidget {
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.yellow,
-                    foregroundColor: AppTheme.black,
+                    backgroundColor: AppColors.yellow,
+                    foregroundColor: AppColors.black,
                     shape: RoundedRectangleBorder(
                       side: BorderSide(
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                         width: AppTheme.borderWidth,
                       ),
                     ),

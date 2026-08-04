@@ -1,6 +1,6 @@
-import 'package:reelpin/features/folders/domain/folder.dart';
+import 'package:reelpin/data_models/folders/folder_models.dart';
 
-abstract interface class FoldersApi {
+abstract interface class FoldersHttp {
   Future<List<FolderSummary>> getFolders();
 
   Future<FolderDetailResponse> getFolderDetail(

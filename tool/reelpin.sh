@@ -140,13 +140,13 @@ check_common_setup() {
   require_command dart
   require_file "$FLUTTER_WRAPPER"
   require_file "$ROOT_DIR/assets/config/local.env"
-  require_file "$ROOT_DIR/lib/core/config/supabase_config.dart"
+  require_file "$ROOT_DIR/lib/env.dart"
 
-  require_text "$ROOT_DIR/lib/core/config/supabase_config.dart" "return 'com.chetanjain.reelpin';" \
+  require_text "$ROOT_DIR/lib/env.dart" "return 'com.chetanjain.reelpin';" \
     "SupabaseConfig must use the Android OAuth callback scheme com.chetanjain.reelpin."
-  require_text "$ROOT_DIR/lib/core/config/supabase_config.dart" "return 'com.chetan.reelpin';" \
+  require_text "$ROOT_DIR/lib/env.dart" "return 'com.chetan.reelpin';" \
     "SupabaseConfig must use the iOS OAuth callback scheme com.chetan.reelpin."
-  require_text "$ROOT_DIR/lib/core/config/supabase_config.dart" "redirectHost = 'login-callback'" \
+  require_text "$ROOT_DIR/lib/env.dart" "redirectHost = 'login-callback'" \
     "SupabaseConfig must use the OAuth callback host login-callback."
 
   step "Checking development configuration"

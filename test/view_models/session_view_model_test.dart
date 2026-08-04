@@ -2,12 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:reelpin/core/network/api_service.dart';
-import 'package:reelpin/features/account/data/account_api.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/features/auth/data/profile_service.dart';
-import 'package:reelpin/features/auth/presentation/session_viewmodel.dart';
-import 'package:reelpin/features/sharing/data/sharing_api.dart';
+import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/http/account_http.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/services/auth/profile_service.dart';
+import 'package:reelpin/view_models/session_view_model.dart';
+import 'package:reelpin/http/sharing_http.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -16,11 +16,11 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final events = <String>[];
     final authService = _FakeAuthService(events);
-    final sharingApi = _FakeSharingApi(events);
+    final sharingHttp = _FakeSharingHttp(events);
     final viewModel = SessionViewModel(
       authService,
-      ApiService.new,
-      () => sharingApi,
+      ApiClient.new,
+      () => sharingHttp,
       unregisterPushToken: () async => events.add('unregister-push'),
     );
 
@@ -39,8 +39,8 @@ void main() {
     final events = <String>[];
     final viewModel = SessionViewModel(
       _FakeAuthService(events),
-      ApiService.new,
-      () => _FakeSharingApi(events),
+      ApiClient.new,
+      () => _FakeSharingHttp(events),
       unregisterPushToken: () async {
         events.add('unregister-push');
         throw Exception('network unavailable');
@@ -65,8 +65,8 @@ void main() {
     final events = <String>[];
     final viewModel = SessionViewModel(
       _FakeAuthService(events),
-      () => _FakeAccountApi(events),
-      () => _FakeSharingApi(events),
+      () => _FakeAccountHttp(events),
+      () => _FakeSharingHttp(events),
       unregisterPushToken: () async => events.add('unregister-push'),
     );
 
@@ -80,8 +80,8 @@ void main() {
     final events = <String>[];
     final viewModel = SessionViewModel(
       _FakeAuthService(events),
-      () => _FakeAccountApi(events, shouldFail: true),
-      () => _FakeSharingApi(events),
+      () => _FakeAccountHttp(events, shouldFail: true),
+      () => _FakeSharingHttp(events),
       unregisterPushToken: () async => events.add('unregister-push'),
     );
 
@@ -114,8 +114,8 @@ class _FakeAuthService extends AuthService {
   }
 }
 
-class _FakeSharingApi implements SharingApi {
-  _FakeSharingApi(this.events);
+class _FakeSharingHttp implements SharingHttp {
+  _FakeSharingHttp(this.events);
 
   final List<String> events;
 
@@ -128,8 +128,8 @@ class _FakeSharingApi implements SharingApi {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _FakeAccountApi implements AccountApi {
-  _FakeAccountApi(this.events, {this.shouldFail = false});
+class _FakeAccountHttp implements AccountHttp {
+  _FakeAccountHttp(this.events, {this.shouldFail = false});
 
   final List<String> events;
   final bool shouldFail;

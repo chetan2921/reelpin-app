@@ -1,97 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:reelpin/constants/app_colors.dart';
+
 class AppTheme {
   AppTheme._();
-
-  // ══════════════════════════════════════════════════
-  //  NEO-BRUTALISM COLOR PALETTE
-  // ══════════════════════════════════════════════════
-
-  // ── Core ──
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color black = Color(0xFF000000);
-
-  // ── Primary Bold (loud, saturated) ──
-  static const Color yellow = Color(0xFFFFD600);
-  static const Color blue = Color(0xFF2962FF);
-  static const Color red = Color(0xFFFF3D00);
-
-  // ── Neon Accents ──
-  static const Color neonGreen = Color(0xFF39FF14);
-  static const Color hotPink = Color(0xFFFF00FF);
-  static const Color cyan = Color(0xFF00FFFF);
-
-  // ── Flat Solid ──
-  static const Color orange = Color(0xFFFF6F00);
-  static const Color lime = Color(0xFFAEEA00);
-  static const Color purple = Color(0xFF6A1B9A);
-  static const Color darkTeal = Color(0xFF0D6F69);
-
-  // ── Semantic Shortcuts ──
-  static const Color background = white;
-  static const Color surface = white;
-  static const Color surfaceElevated = Color(0xFFF5F5F5);
-  static const Color accent = yellow;
-  static const Color accentSoft = Color(0xFFFFF9C4);
-  static const Color textPrimary = black;
-  static const Color textSecondary = Color(0xFF444444);
-  static const Color textTertiary = Color(0xFF888888);
-  static const Color border = black;
-  static const Color positive = neonGreen;
-  static const Color destructive = Color(0xFFFF0000);
-  static const Color warning = orange;
-
-  // ── Backwards-compatible aliases ──
-  // These map old names to new brutalist roles so nothing breaks
-  static const Color heiSeBlack = white;
-  static const Color blueWhale = white;
-  static const Color blueWhaleLight = Color(0xFFF0F0F0);
-  static const Color siestaTan = black;
-  static const Color stellarStrawberry = red;
-  static const Color grauzone = Color(0xFF444444);
-  static const Color picoEggplant = purple;
-  static const Color midnightPlum = white;
-  static const Color deepIndigo = white;
-  static const Color cardDark = white;
-  static const Color cream = black;
-  static const Color dustyRose = red;
-  static const Color heiSeBlackLight = white;
-  static const Color blueWhaleDark = Color(0xFFE0E0E0);
 
   // ── Border specs ──
   static const double borderWidth = 1;
   static const double thinBorderWidth = 1;
-
-  // ── Dynamic Color Helpers ──
-  static Color bg(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF1A1A1A)
-        : white;
-  }
-
-  static Color fg(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark ? white : black;
-  }
-
-  static Color textSec(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFCCCCCC)
-        : textSecondary;
-  }
-
-  static Color surfaceElevatedColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF2A2A2A)
-        : surfaceElevated;
-  }
 
   // ── Hard shadow ──
   static const Offset shadowOffset = Offset(4, 4);
 
   static List<BoxShadow> brutalShadow(BuildContext context) => [
     BoxShadow(
-      color: fg(context),
+      color: AppColors.fg(context),
       offset: shadowOffset,
       blurRadius: 0,
       spreadRadius: 0,
@@ -100,7 +24,7 @@ class AppTheme {
 
   static List<BoxShadow> brutalShadowSmall(BuildContext context) => [
     BoxShadow(
-      color: fg(context),
+      color: AppColors.fg(context),
       offset: const Offset(3, 3),
       blurRadius: 0,
       spreadRadius: 0,
@@ -109,7 +33,7 @@ class AppTheme {
 
   static const List<BoxShadow> inkShadow = [
     BoxShadow(
-      color: black,
+      color: AppColors.black,
       offset: shadowOffset,
       blurRadius: 0,
       spreadRadius: 0,
@@ -118,40 +42,12 @@ class AppTheme {
 
   static const List<BoxShadow> inkShadowSmall = [
     BoxShadow(
-      color: black,
+      color: AppColors.black,
       offset: Offset(3, 3),
       blurRadius: 0,
       spreadRadius: 0,
     ),
   ];
-
-  // ── Category Colors (rotating brutalist palette) ──
-  static const List<Color> _categoryPalette = [
-    blue,
-    neonGreen,
-    red,
-    yellow,
-    hotPink,
-    cyan,
-    orange,
-    lime,
-    purple,
-    Color(0xFF00E5FF),
-  ];
-
-  static Color getCategoryColor(String category) {
-    final normalized = category.trim().toLowerCase();
-    final index = _stablePaletteIndex(normalized);
-    return _categoryPalette[index];
-  }
-
-  static int _stablePaletteIndex(String value) {
-    var hash = 0;
-    for (final codeUnit in value.codeUnits) {
-      hash = ((hash * 31) + codeUnit) & 0x7fffffff;
-    }
-    return hash % _categoryPalette.length;
-  }
 
   // ── Brutal Box Decoration ──
   static BoxDecoration brutalBox(
@@ -162,9 +58,9 @@ class AppTheme {
     double borderW = borderWidth,
   }) {
     return BoxDecoration(
-      color: color ?? bg(context),
+      color: color ?? AppColors.bg(context),
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.all(color: fg(context), width: borderW),
+      border: Border.all(color: AppColors.fg(context), width: borderW),
       boxShadow: shadow ? brutalShadow(context) : null,
     );
   }
@@ -176,9 +72,9 @@ class AppTheme {
     double borderRadius = 0,
   }) {
     return BoxDecoration(
-      color: color ?? bg(context),
+      color: color ?? AppColors.bg(context),
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.all(color: fg(context), width: borderWidth),
+      border: Border.all(color: AppColors.fg(context), width: borderWidth),
       boxShadow: brutalShadow(context),
     );
   }
@@ -207,9 +103,11 @@ class AppTheme {
   static ThemeData get darkTheme => _buildTheme(isDark: true);
 
   static ThemeData _buildTheme({required bool isDark}) {
-    final bgColor = isDark ? const Color(0xFF1A1A1A) : white;
-    final fgColor = isDark ? white : black;
-    final tSecondary = isDark ? const Color(0xFFCCCCCC) : textSecondary;
+    final bgColor = isDark ? const Color(0xFF1A1A1A) : AppColors.white;
+    final fgColor = isDark ? AppColors.white : AppColors.black;
+    final tSecondary = isDark
+        ? const Color(0xFFCCCCCC)
+        : AppColors.textSecondary;
 
     final headingText = GoogleFonts.spaceMonoTextTheme();
     final bodyText = GoogleFonts.spaceMonoTextTheme();
@@ -219,15 +117,15 @@ class AppTheme {
       colorScheme: ColorScheme(
         brightness: isDark ? Brightness.dark : Brightness.light,
         primary: fgColor,
-        secondary: yellow,
-        tertiary: blue,
+        secondary: AppColors.yellow,
+        tertiary: AppColors.blue,
         surface: bgColor,
         onSurface: fgColor,
         onPrimary: bgColor,
         onSecondary: fgColor,
         onTertiary: bgColor,
-        error: destructive,
-        onError: white,
+        error: AppColors.destructive,
+        onError: AppColors.white,
       ),
       scaffoldBackgroundColor: bgColor,
       textTheme: bodyText.copyWith(
@@ -290,7 +188,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: bgColor,
-        indicatorColor: yellow,
+        indicatorColor: AppColors.yellow,
         labelTextStyle: WidgetStatePropertyAll(
           GoogleFonts.spaceMono(
             fontWeight: FontWeight.w700,
@@ -301,7 +199,7 @@ class AppTheme {
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const IconThemeData(
-              color: black,
+              color: AppColors.black,
               size: 24,
             ); // Keep black icon inside yellow chip
           }
@@ -321,17 +219,20 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(0),
-          borderSide: BorderSide(color: blue, width: borderWidth),
+          borderSide: BorderSide(color: AppColors.blue, width: borderWidth),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
         ),
-        hintStyle: GoogleFonts.spaceMono(color: textTertiary, fontSize: 14),
+        hintStyle: GoogleFonts.spaceMono(
+          color: AppColors.textTertiary,
+          fontSize: 14,
+        ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: isDark ? const Color(0xFF222222) : white,
-        selectedColor: yellow,
+        backgroundColor: isDark ? const Color(0xFF222222) : AppColors.white,
+        selectedColor: AppColors.yellow,
         labelStyle: GoogleFonts.spaceMono(
           fontWeight: FontWeight.w700,
           color: fgColor,
@@ -339,7 +240,7 @@ class AppTheme {
         ),
         secondaryLabelStyle: GoogleFonts.spaceMono(
           fontWeight: FontWeight.w700,
-          color: black, // Black inside yellow
+          color: AppColors.black, // Black inside yellow
           fontSize: 12,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
@@ -347,8 +248,8 @@ class AppTheme {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: yellow,
-        foregroundColor: black,
+        backgroundColor: AppColors.yellow,
+        foregroundColor: AppColors.black,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
           side: BorderSide(color: fgColor, width: borderWidth),

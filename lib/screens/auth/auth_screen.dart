@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-import 'package:reelpin/features/auth/presentation/session_viewmodel.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/view_models/session_view_model.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -76,7 +77,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final sessionVm = ref.watch(sessionViewModelProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: layout.pagePadding(horizontal: 20, top: 20, bottom: 24),
@@ -90,7 +91,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     Text(
                       'REELPIN',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                         fontSize: layout.font(
                           28,
                           minFactor: 0.9,
@@ -107,16 +108,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         vertical: layout.gap(4),
                       ),
                       decoration: BoxDecoration(
-                        color: _isSignUp ? AppTheme.lime : AppTheme.darkTeal,
+                        color: _isSignUp ? AppColors.lime : AppColors.darkTeal,
                         border: Border.all(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           width: 2,
                         ),
                       ),
                       child: Text(
                         _isSignUp ? 'SIGN UP' : 'SIGN IN',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.black,
+                          color: AppColors.black,
                           fontSize: layout.font(10),
                           fontWeight: FontWeight.w700,
                         ),
@@ -130,7 +131,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ? 'JOIN THE COMMUNITY OF REEL SAVERS'
                       : 'WELCOME BACK TO YOUR REEL ARCHIVE.',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: layout.font(24, minFactor: 0.9, maxFactor: 1.12),
                     fontWeight: FontWeight.w700,
                     height: 1.1,
@@ -150,7 +151,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       Container(
                         width: AppTheme.borderWidth,
                         height: layout.gap(54),
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                       ),
                       _modeButton(
                         context,
@@ -166,8 +167,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   _messageBanner(
                     context,
                     text: sessionVm.error!,
-                    color: AppTheme.red,
-                    textColor: AppTheme.white,
+                    color: AppColors.red,
+                    textColor: AppColors.white,
                   ),
                   SizedBox(height: layout.gap(14)),
                 ],
@@ -175,8 +176,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   _messageBanner(
                     context,
                     text: sessionVm.statusMessage!,
-                    color: AppTheme.neonGreen,
-                    textColor: AppTheme.fg(context),
+                    color: AppColors.neonGreen,
+                    textColor: AppColors.fg(context),
                   ),
                   SizedBox(height: layout.gap(14)),
                 ],
@@ -236,7 +237,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               _showPassword
                                   ? Icons.visibility
                                   : Icons.visibility_off,
-                              color: AppTheme.fg(context),
+                              color: AppColors.fg(context),
                               size: layout.inset(18),
                             ),
                           ),
@@ -267,7 +268,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                 _showConfirmPassword
                                     ? Icons.visibility
                                     : Icons.visibility_off,
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                                 size: layout.inset(18),
                               ),
                             ),
@@ -293,9 +294,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             child: Container(
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                color: AppTheme.white,
+                                color: AppColors.white,
                                 border: Border.all(
-                                  color: AppTheme.black,
+                                  color: AppColors.black,
                                   width: 3,
                                 ),
                                 boxShadow: AppTheme.inkShadow,
@@ -311,7 +312,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                           height: layout.inset(20),
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2.5,
-                                            color: AppTheme.bg(context),
+                                            color: AppColors.bg(context),
                                           ),
                                         )
                                       : Text(
@@ -319,7 +320,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                               ? 'CREATE ACCOUNT'
                                               : 'SIGN IN',
                                           style: GoogleFonts.spaceMono(
-                                            color: AppTheme.black,
+                                            color: AppColors.black,
                                             fontSize: layout.font(14),
                                             fontWeight: FontWeight.w700,
                                             letterSpacing: 1,
@@ -336,7 +337,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             Expanded(
                               child: Container(
                                 height: AppTheme.borderWidth,
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                               ),
                             ),
                             Padding(
@@ -346,7 +347,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               child: Text(
                                 'OR',
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.textSec(context),
+                                  color: AppColors.textSec(context),
                                   fontSize: layout.font(11),
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -355,7 +356,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             Expanded(
                               child: Container(
                                 height: AppTheme.borderWidth,
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                               ),
                             ),
                           ],
@@ -386,7 +387,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                 : 'SIGN IN WITH APPLE',
                             icon: Icon(
                               Icons.apple,
-                              color: AppTheme.white,
+                              color: AppColors.white,
                               size: layout.inset(24),
                             ),
                             isBusy: sessionVm.isBusy,
@@ -394,10 +395,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               FocusScope.of(context).unfocus();
                               sessionVm.signInWithApple();
                             },
-                            color: AppTheme.black,
-                            textColor: AppTheme.white,
-                            borderColor: AppTheme.black,
-                            arrowColor: AppTheme.white,
+                            color: AppColors.black,
+                            textColor: AppColors.white,
+                            borderColor: AppColors.black,
+                            arrowColor: AppColors.white,
                           ),
                         ],
                       ],
@@ -430,12 +431,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         onTap: onTap,
         child: Container(
           height: layout.gap(54),
-          color: active ? AppTheme.yellow : AppTheme.bg(context),
+          color: active ? AppColors.yellow : AppColors.bg(context),
           alignment: Alignment.center,
           child: Text(
             label,
             style: GoogleFonts.spaceMono(
-              color: active ? AppTheme.black : AppTheme.fg(context),
+              color: active ? AppColors.black : AppColors.fg(context),
               fontSize: layout.font(13),
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
@@ -452,10 +453,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     required Widget icon,
     required bool isBusy,
     required VoidCallback onTap,
-    Color color = AppTheme.white,
-    Color textColor = AppTheme.black,
-    Color borderColor = AppTheme.black,
-    Color arrowColor = AppTheme.black,
+    Color color = AppColors.white,
+    Color textColor = AppColors.black,
+    Color borderColor = AppColors.black,
+    Color arrowColor = AppColors.black,
   }) {
     final layout = AppLayout.of(context);
     return GestureDetector(
@@ -544,7 +545,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         Text(
           label,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             fontSize: layout.font(11),
             fontWeight: FontWeight.w700,
             letterSpacing: 0.7,
@@ -556,18 +557,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           obscureText: obscureText,
           keyboardType: keyboardType,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             fontSize: layout.font(13),
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: GoogleFonts.spaceMono(
-              color: AppTheme.textSec(context),
+              color: AppColors.textSec(context),
               fontSize: layout.font(12),
             ),
             filled: true,
-            fillColor: AppTheme.bg(context),
+            fillColor: AppColors.bg(context),
             suffixIcon: suffixIcon == null
                 ? null
                 : Padding(
@@ -584,19 +585,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.fg(context), width: 2),
+              borderSide: BorderSide(color: AppColors.fg(context), width: 2),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.fg(context), width: 3),
+              borderSide: BorderSide(color: AppColors.fg(context), width: 3),
             ),
             errorBorder: const OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.red, width: 2),
+              borderSide: BorderSide(color: AppColors.red, width: 2),
             ),
             focusedErrorBorder: const OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.red, width: 3),
+              borderSide: BorderSide(color: AppColors.red, width: 3),
             ),
           ),
           validator: validator,

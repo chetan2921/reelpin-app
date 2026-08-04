@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/features/account/domain/library_stats.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/core/network/error_message.dart';
-import 'package:reelpin/core/platform/location_service.dart';
-import 'package:reelpin/core/platform/notification_service.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-part 'profile_preference_cards.dart';
+import 'package:reelpin/data_models/account/library_stats.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/router.dart';
+import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/services/location/location_service.dart';
+import 'package:reelpin/services/notifications/notification_service.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+part 'partials/location_preference_card.dart';
+part 'partials/notification_preference_card.dart';
+part 'partials/profile_action_card.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -38,7 +42,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
 
     try {
-      final stats = await ref.read(accountApiProvider).getLibraryStats();
+      final stats = await ref.read(accountHttpProvider).getLibraryStats();
       if (!mounted) return;
       setState(() {
         _stats = stats;
@@ -67,14 +71,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final themeVm = ref.watch(themeViewModelProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       appBar: AppBar(
-        backgroundColor: AppTheme.bg(context),
+        backgroundColor: AppColors.bg(context),
         surfaceTintColor: Colors.transparent,
         title: Text(
           'PROFILE',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             fontSize: layout.font(22),
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
@@ -82,7 +86,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back, color: AppTheme.fg(context)),
+          icon: Icon(Icons.arrow_back, color: AppColors.fg(context)),
         ),
       ),
       body: SafeArea(
@@ -90,7 +94,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Builder(
           builder: (context) {
             final stats = _stats;
-            const heroTextColor = AppTheme.white;
+            const heroTextColor = AppColors.white;
             const heroSupportColor = Color(0xFFD6F3EF);
 
             return ListView(
@@ -117,9 +121,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               width: layout.inset(64),
                               height: layout.inset(64),
                               decoration: BoxDecoration(
-                                color: AppTheme.yellow,
+                                color: AppColors.yellow,
                                 border: Border.all(
-                                  color: AppTheme.fg(context),
+                                  color: AppColors.fg(context),
                                   width: 3,
                                 ),
                               ),
@@ -127,7 +131,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               child: Text(
                                 sessionVm.initials,
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.black,
+                                  color: AppColors.black,
                                   fontSize: layout.font(22),
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -184,7 +188,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Text(
                     _statsError!,
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.destructive,
+                      color: AppColors.destructive,
                       fontSize: layout.font(11),
                       fontWeight: FontWeight.w600,
                     ),
@@ -195,7 +199,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 SizedBox(height: layout.gap(10)),
                 _actionCard(
                   context,
-                  color: AppTheme.bg(context),
+                  color: AppColors.bg(context),
                   title: 'THEME MODE',
                   subtitle:
                       'FOLLOWS YOUR DEVICE BY DEFAULT. THIS TOGGLE SETS A MANUAL OVERRIDE.',
@@ -209,8 +213,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       decoration: AppTheme.brutalBox(
                         context,
                         color: themeVm.isDarkMode
-                            ? AppTheme.grauzone
-                            : AppTheme.accentSoft,
+                            ? AppColors.grauzone
+                            : AppColors.accentSoft,
                         shadow: false,
                       ),
                       child: Row(
@@ -219,15 +223,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Icon(
                             themeVm.themeIcon,
                             size: 16,
-                            color: AppTheme.fg(context),
+                            color: AppColors.fg(context),
                           ),
                           const SizedBox(width: 6),
                           Text(
                             themeVm.themeLabel,
                             style: GoogleFonts.spaceMono(
                               color: themeVm.isDarkMode
-                                  ? AppTheme.background
-                                  : AppTheme.black,
+                                  ? AppColors.background
+                                  : AppColors.black,
                               fontSize: layout.font(11),
                               fontWeight: FontWeight.w700,
                             ),
@@ -241,6 +245,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const _NotificationPreferenceCard(),
                 SizedBox(height: layout.gap(14)),
                 const _LocationPreferenceCard(),
+                SizedBox(height: layout.gap(18)),
+                _sectionTitle(context, 'HELP'),
+                SizedBox(height: layout.gap(10)),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(howToUseRoute()),
+                  child: _actionCard(
+                    context,
+                    color: AppColors.bg(context),
+                    title: 'HOW TO USE REELPIN',
+                    subtitle:
+                        'WALK THROUGH SENDING A POST, REEL, OR VIDEO TO REELPIN FROM ANY APP.',
+                    trailing: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.inset(12),
+                        vertical: layout.gap(10),
+                      ),
+                      decoration: AppTheme.brutalBox(
+                        context,
+                        color: AppColors.yellow,
+                        shadow: false,
+                      ),
+                      child: Text(
+                        'VIEW',
+                        style: GoogleFonts.spaceMono(
+                          color: AppColors.black,
+                          fontSize: layout.font(11),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'ACCOUNT'),
                 SizedBox(height: layout.gap(10)),
@@ -259,7 +295,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       width: double.infinity,
                       decoration: AppTheme.brutalCard(
                         context,
-                        color: AppTheme.red,
+                        color: AppColors.red,
                       ),
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: layout.gap(16)),
@@ -269,7 +305,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ? 'SIGNING OUT...'
                                 : 'SIGN OUT',
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.white,
+                              color: AppColors.white,
                               fontSize: layout.font(14),
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1,
@@ -289,7 +325,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       width: double.infinity,
                       decoration: AppTheme.brutalCard(
                         context,
-                        color: AppTheme.black,
+                        color: AppColors.black,
                       ),
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: layout.gap(16)),
@@ -299,7 +335,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ? 'DELETING ACCOUNT...'
                                 : 'DELETE ACCOUNT',
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.white,
+                              color: AppColors.white,
                               fontSize: layout.font(14),
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1,
@@ -315,7 +351,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Text(
                     sessionVm.error!,
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.destructive,
+                      color: AppColors.destructive,
                       fontSize: layout.font(11),
                       fontWeight: FontWeight.w600,
                       height: 1.4,
@@ -364,18 +400,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.bg(context),
+        backgroundColor: AppColors.bg(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
           side: BorderSide(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             width: AppTheme.borderWidth,
           ),
         ),
         title: Text(
           title,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -383,7 +419,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         content: Text(
           message,
           style: GoogleFonts.spaceMono(
-            color: AppTheme.textSec(context),
+            color: AppColors.textSec(context),
             fontSize: 12,
             height: 1.5,
           ),
@@ -394,7 +430,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: Text(
               'CANCEL',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.textSec(context),
+                color: AppColors.textSec(context),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -404,14 +440,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.destructive,
-                border: Border.all(color: AppTheme.fg(context), width: 2),
+                color: AppColors.destructive,
+                border: Border.all(color: AppColors.fg(context), width: 2),
                 boxShadow: AppTheme.brutalShadowSmall(context),
               ),
               child: Text(
                 actionLabel,
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.white,
+                  color: AppColors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -428,7 +464,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Text(
       text,
       style: GoogleFonts.spaceMono(
-        color: AppTheme.textSec(context),
+        color: AppColors.textSec(context),
         fontSize: layout.font(11),
         fontWeight: FontWeight.w700,
         letterSpacing: 1,
@@ -441,7 +477,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Container(
       width: AppTheme.borderWidth,
       height: layout.gap(90),
-      color: AppTheme.fg(context),
+      color: AppColors.fg(context),
     );
   }
 
@@ -461,7 +497,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Text(
               value,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: layout.font(22),
                 fontWeight: FontWeight.w700,
               ),
@@ -470,7 +506,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Text(
               label,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: layout.font(10),
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.6,
@@ -493,7 +529,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             width: layout.inset(22),
             height: layout.inset(22),
             child: CircularProgressIndicator(
-              color: AppTheme.fg(context),
+              color: AppColors.fg(context),
               strokeWidth: 2.5,
             ),
           ),
@@ -509,21 +545,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             context,
             value: '${stats?.totalReels ?? 0}',
             label: 'REELS',
-            color: AppTheme.yellow,
+            color: AppColors.yellow,
           ),
           _divider(context),
           _statTile(
             context,
             value: '${stats?.totalPinnedLocations ?? 0}',
             label: 'PINNED',
-            color: AppTheme.neonGreen,
+            color: AppColors.neonGreen,
           ),
           _divider(context),
           _statTile(
             context,
             value: '${stats?.totalTags ?? 0}',
             label: 'TAGS',
-            color: AppTheme.hotPink,
+            color: AppColors.hotPink,
           ),
         ],
       ),
@@ -552,7 +588,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Text(
                     title,
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: layout.font(13),
                       fontWeight: FontWeight.w700,
                     ),
@@ -561,7 +597,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Text(
                     subtitle,
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.textSec(context),
+                      color: AppColors.textSec(context),
                       fontSize: layout.font(11),
                       fontWeight: FontWeight.w500,
                       height: 1.45,

@@ -1,4 +1,4 @@
-import 'package:reelpin/core/platform/supabase_client.dart';
+import 'package:reelpin/services/auth/supabase_client.dart';
 
 class ProfileService {
   Future<void> upsertProfile({

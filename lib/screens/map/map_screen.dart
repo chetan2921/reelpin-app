@@ -7,16 +7,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:reelpin/features/map/domain/map_place_search_response.dart';
-import 'package:reelpin/features/map/domain/map_response.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/core/platform/location_service.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-import 'package:reelpin/features/map/presentation/map_viewmodel.dart';
-import 'package:reelpin/features/reels/presentation/widgets/category_badge.dart';
-import 'package:reelpin/features/reels/presentation/detail/reel_detail_screen.dart';
-part 'map_place_search_sheet.dart';
+import 'package:reelpin/data_models/map/map_place_search_response.dart';
+import 'package:reelpin/data_models/map/map_response.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/router.dart';
+import 'package:reelpin/services/location/location_service.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/view_models/map_view_model.dart';
+import 'package:reelpin/components/reels/category_badge.dart';
+import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
+part 'partials/map_place_search_sheet.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -229,7 +231,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   /// Brutalist map pin: flat colored square with thick black border
   Future<BitmapDescriptor> _createCustomPin(String category) async {
-    final catColor = AppTheme.getCategoryColor(category);
+    final catColor = AppColors.getCategoryColor(category);
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -274,8 +276,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // Letter (centered in square body)
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     final letterColor = catColor.computeLuminance() > 0.5
-        ? AppTheme.black
-        : AppTheme.white;
+        ? AppColors.black
+        : AppColors.white;
     textPainter.text = TextSpan(
       text: category.isNotEmpty ? category[0].toUpperCase() : '?',
       style: TextStyle(
@@ -340,7 +342,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         MediaQuery.viewPaddingOf(context).bottom + layout.gap(72);
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         bottom: false,
         child: Builder(
@@ -400,7 +402,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               ),
                               decoration: AppTheme.brutalBox(
                                 context,
-                                color: AppTheme.bg(context),
+                                color: AppColors.bg(context),
                                 shadow: true,
                               ),
                               child: Row(
@@ -409,15 +411,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                     width: layout.inset(20),
                                     height: layout.inset(20),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.red,
+                                      color: AppColors.red,
                                       border: Border.all(
-                                        color: AppTheme.fg(context),
+                                        color: AppColors.fg(context),
                                         width: 2,
                                       ),
                                     ),
                                     child: Icon(
                                       Icons.pin_drop,
-                                      color: AppTheme.bg(context),
+                                      color: AppColors.bg(context),
                                       size: layout.inset(12),
                                     ),
                                   ),
@@ -428,7 +430,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.spaceMono(
-                                        color: AppTheme.fg(context),
+                                        color: AppColors.fg(context),
                                         fontSize: layout.font(11),
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -474,20 +476,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
 
                 // ── Loading ──
-                if (vm.isLoading)
+                // Restored pins stay visible while the refresh runs.
+                if (vm.isLoading && vm.mapItems.isEmpty)
                   Center(
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: AppTheme.brutalBox(
                         context,
-                        color: AppTheme.yellow,
+                        color: AppColors.yellow,
                         shadow: true,
                       ),
                       child: SizedBox(
                         width: 24,
                         height: 24,
                         child: CircularProgressIndicator(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           strokeWidth: 3,
                         ),
                       ),
@@ -495,14 +498,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
 
                 // ── Error ──
-                if (!vm.isLoading && vm.error != null)
+                if (!vm.isLoading && vm.error != null && vm.mapItems.isEmpty)
                   Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 32),
                       padding: const EdgeInsets.all(20),
                       decoration: AppTheme.brutalBox(
                         context,
-                        color: AppTheme.bg(context),
+                        color: AppColors.bg(context),
                         shadow: true,
                       ),
                       child: Column(
@@ -512,15 +515,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: AppTheme.destructive,
+                              color: AppColors.destructive,
                               border: Border.all(
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                                 width: 2,
                               ),
                             ),
                             child: Icon(
                               Icons.cloud_off,
-                              color: AppTheme.bg(context),
+                              color: AppColors.bg(context),
                               size: 20,
                             ),
                           ),
@@ -529,7 +532,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             'COULD NOT LOAD MAP DATA',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
+                              color: AppColors.fg(context),
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -539,7 +542,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             vm.error!,
                             textAlign: TextAlign.center,
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.textSecondary,
+                              color: AppColors.textSecondary,
                               fontSize: 11,
                             ),
                           ),
@@ -553,13 +556,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               ),
                               decoration: AppTheme.brutalBox(
                                 context,
-                                color: AppTheme.red,
+                                color: AppColors.red,
                                 shadow: true,
                               ),
                               child: Text(
                                 'RETRY',
                                 style: GoogleFonts.spaceMono(
-                                  color: AppTheme.bg(context),
+                                  color: AppColors.bg(context),
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
                                 ),
@@ -579,7 +582,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       padding: const EdgeInsets.all(24),
                       decoration: AppTheme.brutalBox(
                         context,
-                        color: AppTheme.bg(context),
+                        color: AppColors.bg(context),
                         shadow: true,
                       ),
                       child: Column(
@@ -589,23 +592,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: AppTheme.yellow,
+                              color: AppColors.yellow,
                               border: Border.all(
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                                 width: 2,
                               ),
                             ),
                             child: Icon(
                               Icons.location_off,
                               size: 22,
-                              color: AppTheme.fg(context),
+                              color: AppColors.fg(context),
                             ),
                           ),
                           const SizedBox(height: 14),
                           Text(
                             'NO LOCATIONS YET',
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
+                              color: AppColors.fg(context),
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -615,7 +618,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             'Reels that clearly name places will\nshow up here on the map.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.textSecondary,
+                              color: AppColors.textSecondary,
                               fontSize: 11,
                             ),
                           ),
@@ -675,10 +678,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         height: layout.inset(44),
         decoration: AppTheme.brutalBox(
           context,
-          color: AppTheme.bg(context),
+          color: AppColors.bg(context),
           shadow: true,
         ),
-        child: Icon(icon, size: layout.inset(20), color: AppTheme.fg(context)),
+        child: Icon(icon, size: layout.inset(20), color: AppColors.fg(context)),
       ),
     );
   }
@@ -707,10 +710,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildPinSheet(BuildContext context, MapItem item) {
-    final catColor = AppTheme.getCategoryColor(item.category);
+    final catColor = AppColors.getCategoryColor(item.category);
     final supportingTextColor = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFFD0D0D0)
-        : AppTheme.textSecondary;
+        : AppColors.textSecondary;
     final mapsUri = locationMapsSearchUri(
       name: item.locationName,
       displayLabel: item.locationDisplayLabel,
@@ -724,7 +727,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       padding: const EdgeInsets.all(16),
       decoration: AppTheme.brutalBox(
         context,
-        color: AppTheme.bg(context),
+        color: AppColors.bg(context),
         shadow: true,
       ),
       child: Column(
@@ -745,14 +748,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: catColor,
-                      border: Border.all(color: AppTheme.fg(context), width: 2),
+                      border: Border.all(
+                        color: AppColors.fg(context),
+                        width: 2,
+                      ),
                     ),
                     child: Text(
                       item.categoryLabel.toUpperCase(),
                       style: GoogleFonts.spaceMono(
                         color: catColor.computeLuminance() > 0.5
-                            ? AppTheme.black
-                            : AppTheme.white,
+                            ? AppColors.black
+                            : AppColors.white,
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
                       ),
@@ -770,13 +776,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppTheme.destructive,
-                      border: Border.all(color: AppTheme.fg(context), width: 2),
+                      color: AppColors.destructive,
+                      border: Border.all(
+                        color: AppColors.fg(context),
+                        width: 2,
+                      ),
                     ),
                     child: Icon(
                       Icons.delete_outline,
                       size: 22,
-                      color: AppTheme.bg(context),
+                      color: AppColors.bg(context),
                     ),
                   ),
                 ),
@@ -788,12 +797,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.fg(context), width: 2),
+                    border: Border.all(color: AppColors.fg(context), width: 2),
                   ),
                   child: Icon(
                     Icons.close,
                     size: 22,
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                   ),
                 ),
               ),
@@ -805,7 +814,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           Text(
             item.displayName.toUpperCase(),
             style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
+              color: AppColors.fg(context),
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -835,13 +844,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 width: 16,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: AppTheme.neonGreen,
-                  border: Border.all(color: AppTheme.fg(context), width: 1.5),
+                  color: AppColors.neonGreen,
+                  border: Border.all(color: AppColors.fg(context), width: 1.5),
                 ),
                 child: Icon(
                   Icons.location_on,
                   size: 10,
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                 ),
               ),
               const SizedBox(width: 6),
@@ -868,25 +877,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 Expanded(
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ReelDetailScreen(reel: item.toReel()),
-                        ),
-                      );
+                      Navigator.push(context, reelDetailRoute(item.toReel()));
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: AppTheme.brutalBox(
                         context,
-                        color: AppTheme.bg(context),
+                        color: AppColors.bg(context),
                         shadow: true,
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         'DETAILS',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -912,7 +916,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: AppTheme.brutalBox(
                       context,
-                      color: AppTheme.red,
+                      color: AppColors.red,
                       shadow: true,
                     ),
                     alignment: Alignment.center,
@@ -922,13 +926,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         Icon(
                           Icons.directions,
                           size: 16,
-                          color: AppTheme.bg(context),
+                          color: AppColors.bg(context),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           'GO',
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.bg(context),
+                            color: AppColors.bg(context),
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
@@ -949,18 +953,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bg(context),
+        backgroundColor: AppColors.bg(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(0),
           side: BorderSide(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             width: AppTheme.borderWidth,
           ),
         ),
         title: Text(
           'REMOVE THIS PIN?',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -968,7 +972,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         content: Text(
           'This only hides the place from your map.',
           style: GoogleFonts.spaceMono(
-            color: AppTheme.textSec(context),
+            color: AppColors.textSec(context),
             fontSize: 13,
           ),
         ),
@@ -978,7 +982,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             child: Text(
               'CANCEL',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.textSec(context),
+                color: AppColors.textSec(context),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -999,20 +1003,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ? 'PIN REMOVED'
                         : vm.mapPinActionError ?? 'COULD NOT REMOVE THIS PIN',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.white,
+                      color: AppColors.white,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   backgroundColor: success
-                      ? AppTheme.black
-                      : AppTheme.destructive,
+                      ? AppColors.black
+                      : AppColors.destructive,
                 ),
               );
             },
             child: Text(
               'REMOVE',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.destructive,
+                color: AppColors.destructive,
                 fontWeight: FontWeight.w700,
               ),
             ),

@@ -1,19 +1,19 @@
-import 'package:reelpin/core/platform/device_metadata_service.dart';
-import 'package:reelpin/core/platform/notification_service.dart';
-import 'package:reelpin/features/sharing/data/sharing_api.dart';
-import 'package:reelpin/features/sharing/services/share_handoff_service.dart';
+import 'package:reelpin/services/device_metadata_service.dart';
+import 'package:reelpin/services/notifications/notification_service.dart';
+import 'package:reelpin/http/sharing_http.dart';
+import 'package:reelpin/services/sharing/share_handoff_service.dart';
 
 class PushRegistrationService {
   PushRegistrationService({
     required NotificationService notificationService,
-    required SharingApi sharingApi,
+    required SharingHttp sharingHttp,
     DeviceMetadataService deviceMetadataService = const DeviceMetadataService(),
   }) : _notificationService = notificationService,
-       _sharingApi = sharingApi,
+       _sharingHttp = sharingHttp,
        _deviceMetadataService = deviceMetadataService;
 
   final NotificationService _notificationService;
-  final SharingApi _sharingApi;
+  final SharingHttp _sharingHttp;
   final DeviceMetadataService _deviceMetadataService;
 
   Future<String?> register({
@@ -31,7 +31,7 @@ class PushRegistrationService {
     final normalizedToken = token.trim();
     _notificationService.rememberFcmToken(normalizedToken);
     final metadata = await _deviceMetadataService.load();
-    await _sharingApi.registerPushToken(
+    await _sharingHttp.registerPushToken(
       userId: userId,
       token: normalizedToken,
       platform: _notificationService.currentPlatform,
@@ -51,10 +51,12 @@ class PushRegistrationService {
     await _notificationService.initialize(requestPermissions: false);
     final token = await _notificationService.getCurrentFcmToken();
     if (token == null || token.trim().isEmpty) return;
-    await _sharingApi.unregisterPushToken(token: token.trim());
+    await _sharingHttp.unregisterPushToken(token: token.trim());
   }
 
   Future<void> recordNotificationOpened(String notificationId) {
-    return _sharingApi.recordNotificationOpened(notificationId: notificationId);
+    return _sharingHttp.recordNotificationOpened(
+      notificationId: notificationId,
+    );
   }
 }

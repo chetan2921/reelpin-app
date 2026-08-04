@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/features/reels/presentation/detail/reel_detail_screen.dart';
-import 'package:reelpin/features/reels/presentation/widgets/reel_card.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
+import 'package:reelpin/components/reels/reel_card.dart';
 
 void main() {
   testWidgets('share card renders long reel details without overflow', (

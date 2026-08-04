@@ -5,15 +5,15 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:reelpin/features/map/domain/map_response.dart';
-import 'package:reelpin/features/reels/domain/processing_job.dart';
-import 'package:reelpin/core/network/api_service.dart';
-import 'package:reelpin/core/network/api_exception.dart';
-import 'package:reelpin/core/network/error_message.dart';
+import 'package:reelpin/data_models/map/map_response.dart';
+import 'package:reelpin/data_models/reels/processing_job.dart';
+import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/http/api_exception.dart';
+import 'package:reelpin/utils/error_message.dart';
 
 void main() {
   test('healthCheck uses the backend health endpoint', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       client: MockClient((request) async {
         expect(request.url.path, '/api/v1/health');
@@ -26,7 +26,7 @@ void main() {
 
   test('processReel queues a job and polls until the reel is ready', () async {
     final requests = <Uri>[];
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -76,7 +76,7 @@ void main() {
 
   test('processReel polls a job returned by the legacy endpoint', () async {
     final requests = <Uri>[];
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -134,7 +134,7 @@ void main() {
   test(
     'enqueueReelProcessing accepts job_id from process-reel compatibility path',
     () async {
-      final service = ApiService(
+      final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
@@ -171,7 +171,7 @@ void main() {
     'processReel returns an existing X saved item without another poll',
     () async {
       final requests = <Uri>[];
-      final service = ApiService(
+      final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
@@ -205,7 +205,7 @@ void main() {
   );
 
   test('processReel prefers status_message for protected X posts', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient(
@@ -243,7 +243,7 @@ void main() {
   });
 
   test('processReel uses a local fallback for a deleted X post', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient(
@@ -265,14 +265,14 @@ void main() {
         isA<ApiException>().having(
           (error) => error.message,
           'message',
-          'This X post could not be found. It may be deleted.',
+          'This post could not be found. It may be deleted.',
         ),
       ),
     );
   });
 
   test('getReels sends auth header without user_id query param', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -302,7 +302,7 @@ void main() {
   });
 
   test('searchReels sends auth header without user_id body field', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -338,7 +338,7 @@ void main() {
   test(
     'registerPushToken sends auth header without user_id body field',
     () async {
-      final service = ApiService(
+      final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
@@ -369,7 +369,7 @@ void main() {
   );
 
   test('unregisterPushToken deletes the authenticated device token', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -385,7 +385,7 @@ void main() {
   });
 
   test('recordNotificationOpened posts the authenticated open event', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -405,7 +405,7 @@ void main() {
   test(
     'getCategoryFilters sends auth header without user_id query param',
     () async {
-      final service = ApiService(
+      final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
@@ -432,7 +432,7 @@ void main() {
   );
 
   test('deleteReel sends auth header', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -450,7 +450,7 @@ void main() {
   });
 
   test('searchMapPlaces sends auth header and search params', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -496,7 +496,7 @@ void main() {
   });
 
   test('pinMapPlace posts google place id and parses map item', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -523,7 +523,7 @@ void main() {
   });
 
   test('removeMapItem deletes map item by id', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -538,7 +538,7 @@ void main() {
   });
 
   test('deleteAccount sends auth header', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
@@ -555,7 +555,7 @@ void main() {
   test(
     'getAccountEntitlements reports missing endpoint without assuming Pro',
     () async {
-      final service = ApiService(
+      final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
@@ -582,7 +582,7 @@ void main() {
   );
 
   test('getAccountEntitlements still reports non-404 failures', () async {
-    final service = ApiService(
+    final service = ApiClient(
       baseUrl: 'https://example.com',
       client: MockClient((request) async {
         return http.Response(jsonEncode({'detail': 'Server error'}), 500);

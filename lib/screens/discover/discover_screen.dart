@@ -5,18 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/features/discover/domain/discover_response.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/core/design/app_layout.dart';
-import 'package:reelpin/core/design/app_theme.dart';
-import 'package:reelpin/features/discover/presentation/discover_viewmodel.dart';
-import 'package:reelpin/features/discover/presentation/search_viewmodel.dart';
-import 'package:reelpin/features/reels/presentation/widgets/reel_card.dart';
-import 'package:reelpin/features/discover/presentation/search_result_tile.dart';
-import 'package:reelpin/features/account/presentation/profile_screen.dart';
-import 'package:reelpin/features/reels/presentation/detail/reel_detail_screen.dart';
-part 'saved_date_calendar_sheet.dart';
+import 'package:reelpin/data_models/discover/discover_response.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/router.dart';
+import 'package:reelpin/view_models/discover_view_model.dart';
+import 'package:reelpin/view_models/search_view_model.dart';
+import 'package:reelpin/components/reels/reel_card.dart';
+import 'package:reelpin/screens/discover/partials/search_result_tile.dart';
+part 'partials/saved_date_calendar_sheet.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key, this.focusRequestId = 0});
@@ -91,7 +91,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     final sessionVm = ref.watch(sessionViewModelProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -109,7 +109,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   Text(
                     'DISCOVER',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: layout.font(
                         28,
                         minFactor: 0.9,
@@ -128,8 +128,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       decoration: AppTheme.brutalBox(
                         context,
                         color: discoverVm.selectedSavedDate != null
-                            ? AppTheme.yellow
-                            : AppTheme.bg(context),
+                            ? AppColors.yellow
+                            : AppColors.bg(context),
                         shadow: true,
                       ),
                       alignment: Alignment.center,
@@ -138,8 +138,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                             ? Icons.event_available
                             : Icons.calendar_month,
                         color: discoverVm.selectedSavedDate != null
-                            ? AppTheme.black
-                            : AppTheme.fg(context),
+                            ? AppColors.black
+                            : AppColors.fg(context),
                         size: layout.inset(20),
                       ),
                     ),
@@ -148,26 +148,21 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
 
                   GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ProfileScreen(),
-                        ),
-                      );
+                      Navigator.push(context, profileRoute());
                     },
                     child: Container(
                       width: layout.inset(44),
                       height: layout.inset(44),
                       decoration: AppTheme.brutalBox(
                         context,
-                        color: AppTheme.hotPink,
+                        color: AppColors.hotPink,
                         shadow: true,
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         sessionVm.initials,
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           fontSize: layout.font(13),
                           fontWeight: FontWeight.w700,
                         ),
@@ -191,21 +186,21 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       controller: _controller,
                       focusNode: _focusNode,
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                         fontSize: layout.font(13),
                         fontWeight: FontWeight.w500,
                       ),
-                      cursorColor: AppTheme.fg(context),
+                      cursorColor: AppColors.fg(context),
                       decoration: InputDecoration(
                         hintText:
                             'SEARCH BY KEYWORD, PLACE, CATEGORY, OR NATURAL LANGUAGE...',
                         hintStyle: GoogleFonts.spaceMono(
-                          color: AppTheme.textSec(context),
+                          color: AppColors.textSec(context),
                           fontSize: layout.font(12),
                         ),
                         prefixIcon: Icon(
                           Icons.search,
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           size: layout.inset(22),
                         ),
                         suffixIcon: _buildSearchFieldAction(context, vm),
@@ -226,7 +221,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   Text(
                     'TRY: "GOA", "COFFEE", "WEEKEND TRIP", OR "SHOW ME THE GOA BEACH CLUBS WITH SUNSET VIEWS".',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.textSec(context),
+                      color: AppColors.textSec(context),
                       fontSize: layout.font(10),
                       fontWeight: FontWeight.w600,
                       height: 1.4,
@@ -291,7 +286,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         onPressed: () => _clearSearch(vm),
         icon: Icon(
           Icons.close,
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
           size: layout.inset(20),
         ),
       );
@@ -308,7 +303,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         height: layout.inset(16),
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
         ),
       ),
     );
@@ -363,13 +358,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           content: Text(
             'NO SAVED REELS WITH DATES YET.',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
+              color: AppColors.fg(context),
               fontWeight: FontWeight.w700,
             ),
           ),
-          backgroundColor: AppTheme.bg(context),
+          backgroundColor: AppColors.bg(context),
           shape: RoundedRectangleBorder(
-            side: BorderSide(color: AppTheme.fg(context), width: 2),
+            side: BorderSide(color: AppColors.fg(context), width: 2),
           ),
         ),
       );
@@ -379,7 +374,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     final selected = await showModalBottomSheet<SavedDateOption>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       builder: (context) => _SavedDateCalendarSheet(
         savedDates: discover.savedDates,
         selectedSavedDate: discoverVm.selectedSavedDate,
@@ -407,12 +402,12 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   height: 54,
                   decoration: AppTheme.brutalBox(
                     context,
-                    color: AppTheme.yellow,
+                    color: AppColors.yellow,
                     shadow: false,
                   ),
                   child: Icon(
                     Icons.search_off,
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     size: 26,
                   ),
                 ),
@@ -420,7 +415,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 Text(
                   'NO MATCHES FOUND',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -430,7 +425,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   'TRY A DIFFERENT PHRASE OR USE A CATEGORY NAME. SEARCH LOOKS THROUGH TITLES, SUMMARIES, TRANSCRIPTS, FACTS, PEOPLE, AND LOCATIONS.\n\nQUERY: ${query.toUpperCase()}',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSec(context),
+                    color: AppColors.textSec(context),
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     height: 1.5,
@@ -461,12 +456,12 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   height: 54,
                   decoration: AppTheme.brutalBox(
                     context,
-                    color: AppTheme.yellow,
+                    color: AppColors.yellow,
                     shadow: false,
                   ),
                   child: Icon(
                     Icons.keyboard,
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     size: 26,
                   ),
                 ),
@@ -474,7 +469,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 Text(
                   'KEEP TYPING',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -484,7 +479,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   'ENTER AT LEAST ${SearchViewModel.minimumQueryLength} CHARACTERS BEFORE REELPIN STARTS SEARCHING.\n\nCURRENT: ${query.toUpperCase()}',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSec(context),
+                    color: AppColors.textSec(context),
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     height: 1.5,
@@ -536,7 +531,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                     child: Text(
                       'SAVED ON ${(discoverVm.selectedSavedDateLabel ?? discoverVm.selectedSavedDate!).toUpperCase()}',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1,
@@ -552,13 +547,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       ),
                       decoration: AppTheme.brutalBox(
                         context,
-                        color: AppTheme.bg(context),
+                        color: AppColors.bg(context),
                         shadow: true,
                       ),
                       child: Text(
                         'CLEAR DATE',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                         ),
@@ -587,7 +582,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             child: Text(
               'QUICK SEARCH',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.textSec(context),
+                color: AppColors.textSec(context),
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
@@ -608,7 +603,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   Text(
                     'RECENT SAVES',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1,
@@ -621,13 +616,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.yellow,
-                      border: Border.all(color: AppTheme.fg(context), width: 2),
+                      color: AppColors.yellow,
+                      border: Border.all(
+                        color: AppColors.fg(context),
+                        width: 2,
+                      ),
                     ),
                     child: Text(
                       '$recentSavesCount',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.black,
+                        color: AppColors.black,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -646,7 +644,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             child: Text(
               'BROWSE BY CATEGORY',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
@@ -677,7 +675,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 Text(
                   'COULD NOT LOAD DISCOVER',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -687,7 +685,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   discoverVm.discoverError ?? '',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSec(context),
+                    color: AppColors.textSec(context),
                     fontSize: 11,
                     height: 1.5,
                   ),
@@ -716,6 +714,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
 
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
+      // Same reasoning as the home grid: keep a screenful of cards built past
+      // each edge so scrolling back does not rebuild them.
+      cacheExtent: MediaQuery.sizeOf(context).height,
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
@@ -729,7 +730,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       Text(
                         categoryLabel.toUpperCase(),
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.fg(context),
+                          color: AppColors.fg(context),
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1,
@@ -739,7 +740,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       Text(
                         '$totalCount REEL${totalCount == 1 ? '' : 'S'}',
                         style: GoogleFonts.spaceMono(
-                          color: AppTheme.textSec(context),
+                          color: AppColors.textSec(context),
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                         ),
@@ -760,13 +761,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                     ),
                     decoration: AppTheme.brutalBox(
                       context,
-                      color: AppTheme.bg(context),
+                      color: AppColors.bg(context),
                       shadow: true,
                     ),
                     child: Text(
                       'ALL CATEGORIES',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
@@ -809,7 +810,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         padding: const EdgeInsets.all(24),
         decoration: AppTheme.brutalBox(
           context,
-          color: AppTheme.bg(context),
+          color: AppColors.bg(context),
           shadow: true,
         ),
         child: Column(
@@ -818,7 +819,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             Text(
               'CATEGORY LOAD FAILED',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
@@ -828,7 +829,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               discoverVm.categoryReelsError ?? '',
               textAlign: TextAlign.center,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.textSec(context),
+                color: AppColors.textSec(context),
                 fontSize: 11,
                 height: 1.5,
               ),
@@ -852,7 +853,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               'NO REELS FOUND IN ${categoryLabel.toUpperCase()}',
               textAlign: TextAlign.center,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 height: 1.4,
@@ -897,12 +898,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   child: ReelCard(
                     reel: reel,
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ReelDetailScreen(reel: reel),
-                        ),
-                      );
+                      Navigator.push(context, reelDetailRoute(reel));
                     },
                   ),
                 ),
@@ -930,13 +926,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 height: 48,
                 decoration: AppTheme.brutalBox(
                   context,
-                  color: AppTheme.yellow,
+                  color: AppColors.yellow,
                   shadow: false,
                 ),
                 child: Icon(
                   Icons.event_busy,
                   size: 22,
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                 ),
               ),
               const SizedBox(height: 14),
@@ -944,7 +940,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 'NO REELS SAVED ON ${selectedDateLabel.toUpperCase()}',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   height: 1.4,
@@ -981,7 +977,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 child: Text(
                   prompts[i].toUpperCase(),
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1007,13 +1003,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
           final reel = reels[i];
-          final catColor = AppTheme.getCategoryColor(reel.category);
+          final catColor = AppColors.getCategoryColor(reel.category);
           return GestureDetector(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ReelDetailScreen(reel: reel)),
-              );
+              Navigator.push(context, reelDetailRoute(reel));
             },
             child: Container(
               width: 190,
@@ -1039,7 +1032,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                             decoration: BoxDecoration(
                               color: catColor,
                               border: Border.all(
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                                 width: 1.5,
                               ),
                             ),
@@ -1047,8 +1040,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                               reel.subCategory.toUpperCase(),
                               style: GoogleFonts.spaceMono(
                                 color: catColor.computeLuminance() > 0.5
-                                    ? AppTheme.black
-                                    : AppTheme.white,
+                                    ? AppColors.black
+                                    : AppColors.white,
                                 fontSize: 8,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1061,7 +1054,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                             child: Text(
                               reel.title.isNotEmpty ? reel.title : 'Untitled',
                               style: GoogleFonts.spaceMono(
-                                color: AppTheme.fg(context),
+                                color: AppColors.fg(context),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 height: 1.3,
@@ -1075,7 +1068,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                             decoration: BoxDecoration(
                               border: Border(
                                 top: BorderSide(
-                                  color: AppTheme.fg(context),
+                                  color: AppColors.fg(context),
                                   width: 1,
                                 ),
                               ),
@@ -1083,7 +1076,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                             child: Text(
                               reel.relativeDate.toUpperCase(),
                               style: GoogleFonts.spaceMono(
-                                color: AppTheme.textSecondary,
+                                color: AppColors.textSecondary,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1121,7 +1114,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           itemCount: categories.length,
           itemBuilder: (_, i) {
             final item = categories[i];
-            final color = AppTheme.getCategoryColor(item.category);
+            final color = AppColors.getCategoryColor(item.category);
 
             return AnimationConfiguration.staggeredGrid(
               position: i,
@@ -1148,7 +1141,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                                   Text(
                                     item.label.toUpperCase(),
                                     style: GoogleFonts.spaceMono(
-                                      color: AppTheme.fg(context),
+                                      color: AppColors.fg(context),
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -1164,14 +1157,14 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                                     decoration: BoxDecoration(
                                       color: color.withAlpha(60),
                                       border: Border.all(
-                                        color: AppTheme.fg(context),
+                                        color: AppColors.fg(context),
                                         width: 1,
                                       ),
                                     ),
                                     child: Text(
                                       '${item.count} REEL${item.count == 1 ? '' : 'S'}',
                                       style: GoogleFonts.spaceMono(
-                                        color: AppTheme.fg(context),
+                                        color: AppColors.fg(context),
                                         fontSize: 9,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -1205,7 +1198,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
             height: 48,
             decoration: AppTheme.brutalBox(
               context,
-              color: AppTheme.yellow,
+              color: AppColors.yellow,
               shadow: true,
             ),
             child: Center(
@@ -1213,7 +1206,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                   strokeWidth: 3,
                 ),
               ),
@@ -1223,7 +1216,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           Text(
             'SEARCHING YOUR SAVED REELS...',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.fg(context),
+              color: AppColors.fg(context),
               fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
@@ -1252,13 +1245,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.yellow,
-                      border: Border.all(color: AppTheme.fg(context), width: 2),
+                      color: AppColors.yellow,
+                      border: Border.all(
+                        color: AppColors.fg(context),
+                        width: 2,
+                      ),
                     ),
                     child: Text(
                       '${vm.total}',
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1268,7 +1264,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   Text(
                     'RESULT${vm.total == 1 ? '' : 'S'} FOR "${vm.lastQuery.toUpperCase()}"',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.textSec(context),
+                      color: AppColors.textSec(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1300,7 +1296,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         padding: const EdgeInsets.all(24),
         decoration: AppTheme.brutalBox(
           context,
-          color: AppTheme.bg(context),
+          color: AppColors.bg(context),
           shadow: true,
         ),
         child: Column(
@@ -1310,20 +1306,20 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.destructive,
-                border: Border.all(color: AppTheme.fg(context), width: 2),
+                color: AppColors.destructive,
+                border: Border.all(color: AppColors.fg(context), width: 2),
               ),
               child: Icon(
                 Icons.error_outline,
                 size: 22,
-                color: AppTheme.bg(context),
+                color: AppColors.bg(context),
               ),
             ),
             const SizedBox(height: 12),
             Text(
               'SEARCH FAILED',
               style: GoogleFonts.spaceMono(
-                color: AppTheme.fg(context),
+                color: AppColors.fg(context),
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
@@ -1333,7 +1329,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
               vm.error ?? '',
               textAlign: TextAlign.center,
               style: GoogleFonts.spaceMono(
-                color: AppTheme.textSecondary,
+                color: AppColors.textSecondary,
                 fontSize: 12,
               ),
             ),

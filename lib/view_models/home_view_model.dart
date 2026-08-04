@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:reelpin/features/reels/domain/processing_job.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/features/reels/data/reel_repository.dart';
-import 'package:reelpin/core/network/error_message.dart';
+import 'package:reelpin/data_models/reels/processing_job.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/utils/error_message.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final ReelRepository _repository;

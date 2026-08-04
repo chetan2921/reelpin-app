@@ -54,6 +54,7 @@ app.*.map.json
 **/secrets.dart
 dart_defines.local.json
 assets/config/local.env
+assets/config/local.env.*
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 lib/firebase_options.dart

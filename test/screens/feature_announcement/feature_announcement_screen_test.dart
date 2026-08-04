@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:reelpin/features/announcements/presentation/feature_announcement_screen.dart';
+import 'package:reelpin/screens/feature_announcement/feature_announcement_screen.dart';
 
 void main() {
   testWidgets('shows feature update push content', (tester) async {

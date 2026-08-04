@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:reelpin/core/config/supabase_config.dart';
+import 'package:reelpin/env.dart';
 
 void main() {
   tearDown(() {

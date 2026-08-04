@@ -1,27 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:reelpin/features/account/data/account_api.dart';
-import 'package:reelpin/app/user_state_coordinator.dart';
-import 'package:reelpin/features/reels/data/reel_repository.dart';
-import 'package:reelpin/features/reels/data/reels_api.dart';
-import 'package:reelpin/core/network/api_service.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/core/platform/notification_service.dart';
-import 'package:reelpin/features/auth/data/profile_service.dart';
-import 'package:reelpin/features/sharing/services/push_registration_service.dart';
-import 'package:reelpin/features/sharing/services/share_flow_analytics_service.dart';
-import 'package:reelpin/features/home/presentation/category_filters_viewmodel.dart';
-import 'package:reelpin/features/discover/presentation/discover_viewmodel.dart';
-import 'package:reelpin/features/account/presentation/entitlements_viewmodel.dart';
-import 'package:reelpin/features/folders/presentation/folders_viewmodel.dart';
-import 'package:reelpin/features/home/presentation/home_viewmodel.dart';
-import 'package:reelpin/features/map/presentation/map_viewmodel.dart';
-import 'package:reelpin/features/map/data/map_api.dart';
-import 'package:reelpin/features/folders/data/folders_api.dart';
-import 'package:reelpin/features/sharing/data/sharing_api.dart';
-import 'package:reelpin/features/discover/presentation/search_viewmodel.dart';
-import 'package:reelpin/features/auth/presentation/session_viewmodel.dart';
-import 'package:reelpin/app/theme_viewmodel.dart';
+import 'package:reelpin/http/account_http.dart';
+import 'package:reelpin/view_models/user_state_coordinator.dart';
+import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/http/reels_http.dart';
+import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/services/notifications/notification_service.dart';
+import 'package:reelpin/services/auth/profile_service.dart';
+import 'package:reelpin/services/sharing/push_registration_service.dart';
+import 'package:reelpin/services/sharing/share_flow_analytics_service.dart';
+import 'package:reelpin/view_models/category_filters_view_model.dart';
+import 'package:reelpin/view_models/discover_view_model.dart';
+import 'package:reelpin/view_models/entitlements_view_model.dart';
+import 'package:reelpin/view_models/folders_view_model.dart';
+import 'package:reelpin/view_models/home_view_model.dart';
+import 'package:reelpin/view_models/map_view_model.dart';
+import 'package:reelpin/http/map_http.dart';
+import 'package:reelpin/http/folders_http.dart';
+import 'package:reelpin/http/sharing_http.dart';
+import 'package:reelpin/view_models/search_view_model.dart';
+import 'package:reelpin/view_models/session_view_model.dart';
+import 'package:reelpin/view_models/theme_view_model.dart';
 
 final themeViewModelProvider = ChangeNotifierProvider<ThemeViewModel>((ref) {
   return ThemeViewModel()..loadPreference();
@@ -40,8 +40,8 @@ final sessionViewModelProvider = ChangeNotifierProvider<SessionViewModel>((
 ) {
   return SessionViewModel(
     ref.read(authServiceProvider),
-    ApiService.new,
-    ApiService.new,
+    ApiClient.new,
+    ApiClient.new,
     unregisterPushToken: () =>
         ref.read(pushRegistrationServiceProvider).unregisterCurrentDevice(),
   );
@@ -57,28 +57,28 @@ final shareFlowAnalyticsServiceProvider = Provider<ShareFlowAnalyticsService>((
   return ShareFlowAnalyticsService();
 });
 
-final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
+final apiClientProvider = Provider<ApiClient>((ref) {
+  return ApiClient();
 });
 
-final reelsApiProvider = Provider<ReelsApi>((ref) {
-  return ref.read(apiServiceProvider);
+final reelsHttpProvider = Provider<ReelsHttp>((ref) {
+  return ref.read(apiClientProvider);
 });
 
-final mapApiProvider = Provider<MapApi>((ref) {
-  return ref.read(apiServiceProvider);
+final mapHttpProvider = Provider<MapHttp>((ref) {
+  return ref.read(apiClientProvider);
 });
 
-final foldersApiProvider = Provider<FoldersApi>((ref) {
-  return ref.read(apiServiceProvider);
+final foldersHttpProvider = Provider<FoldersHttp>((ref) {
+  return ref.read(apiClientProvider);
 });
 
-final accountApiProvider = Provider<AccountApi>((ref) {
-  return ref.read(apiServiceProvider);
+final accountHttpProvider = Provider<AccountHttp>((ref) {
+  return ref.read(apiClientProvider);
 });
 
-final sharingApiProvider = Provider<SharingApi>((ref) {
-  return ref.read(apiServiceProvider);
+final sharingHttpProvider = Provider<SharingHttp>((ref) {
+  return ref.read(apiClientProvider);
 });
 
 final pushRegistrationServiceProvider = Provider<PushRegistrationService>((
@@ -86,13 +86,13 @@ final pushRegistrationServiceProvider = Provider<PushRegistrationService>((
 ) {
   return PushRegistrationService(
     notificationService: ref.read(notificationServiceProvider),
-    sharingApi: ref.read(sharingApiProvider),
+    sharingHttp: ref.read(sharingHttpProvider),
   );
 });
 
 final reelRepositoryProvider = ChangeNotifierProvider<ReelRepository>((ref) {
   return ReelRepository(
-    ref.read(apiServiceProvider),
+    ref.read(apiClientProvider),
     ref.read(authServiceProvider),
   );
 });
@@ -109,7 +109,7 @@ final homeViewModelProvider = ChangeNotifierProvider<HomeViewModel>((ref) {
 });
 
 final mapViewModelProvider = ChangeNotifierProvider<MapViewModel>((ref) {
-  return MapViewModel(ref.read(mapApiProvider));
+  return MapViewModel(ref.read(mapHttpProvider));
 });
 
 final categoryFiltersViewModelProvider =
@@ -130,13 +130,13 @@ final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>((ref) {
 final foldersViewModelProvider = ChangeNotifierProvider<FoldersViewModel>((
   ref,
 ) {
-  return FoldersViewModel(ref.read(foldersApiProvider));
+  return FoldersViewModel(ref.read(foldersHttpProvider));
 });
 
 final entitlementsViewModelProvider =
     ChangeNotifierProvider<EntitlementsViewModel>((ref) {
       return EntitlementsViewModel(
-        ref.read(accountApiProvider),
+        ref.read(accountHttpProvider),
         ref.read(authServiceProvider),
         ref.read(reelRepositoryProvider),
         ref.read(homeViewModelProvider),

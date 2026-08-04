@@ -2,19 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:reelpin/app/providers.dart';
-import 'package:reelpin/app/shell/app_shell.dart';
-import 'package:reelpin/app/user_state_coordinator.dart';
-import 'package:reelpin/core/logging/app_logger.dart';
-import 'package:reelpin/core/platform/app_notification.dart';
-import 'package:reelpin/core/platform/notification_service.dart';
-import 'package:reelpin/core/platform/notification_tap_handler.dart';
-import 'package:reelpin/features/account/presentation/entitlements_viewmodel.dart';
-import 'package:reelpin/features/account/presentation/profile_screen.dart';
-import 'package:reelpin/features/announcements/presentation/feature_announcement_screen.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
-import 'package:reelpin/features/reels/presentation/detail/reel_detail_loader_screen.dart';
-import 'package:reelpin/features/sharing/services/push_registration_service.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/router.dart';
+import 'package:reelpin/screens/app_shell/app_shell.dart';
+import 'package:reelpin/view_models/user_state_coordinator.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/data_models/notifications/app_notification.dart';
+import 'package:reelpin/utils/app_store_links.dart';
+import 'package:reelpin/services/notifications/notification_service.dart';
+import 'package:reelpin/services/notifications/notification_tap_handler.dart';
+import 'package:reelpin/view_models/entitlements_view_model.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/services/sharing/push_registration_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthenticatedShell extends ConsumerStatefulWidget {
@@ -58,6 +57,9 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _entitlementsViewModel = ref.read(entitlementsViewModelProvider);
     _userStateCoordinator = ref.read(userStateCoordinatorProvider);
     _activeUserId = _authService.currentUser?.id;
+    // Put the last saved snapshot on screen before the network refresh below;
+    // whichever lands first wins, and the refresh always replaces it.
+    unawaited(_userStateCoordinator.hydrate());
     _authStateSubscription = _authService.authStateChanges.listen((state) {
       final nextUserId = state.session?.user.id;
       if (nextUserId == _activeUserId) return;
@@ -66,6 +68,9 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       _activeUserId = nextUserId;
       _clearUserScopedState();
       if (nextUserId != null && nextUserId.trim().isNotEmpty) {
+        // Any snapshot still on disk from the previous account is rejected on
+        // its user-id stamp, so this only restores a match.
+        unawaited(_userStateCoordinator.hydrate());
         unawaited(_entitlementsViewModel.refresh(reloadContent: true));
         unawaited(_syncPushTokenRegistration());
         if (deferred != null && deferredUserId == nextUserId) {
@@ -210,19 +215,13 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       trackOpen: _recordNotificationOpen,
       openReel: (reelId) async {
         unawaited(_refreshSavedReels());
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ReelDetailLoaderScreen(reelId: reelId),
-          ),
-        );
+        await Navigator.of(context).push(reelDetailLoaderRoute(reelId));
       },
       openAnnouncement: (notification) async {
         await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => FeatureAnnouncementScreen(
-              title: notification.title,
-              body: notification.body,
-            ),
+          featureAnnouncementRoute(
+            title: notification.title,
+            body: notification.body,
           ),
         );
       },
@@ -238,9 +237,14 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       openProfile: () async {
         final navigator = Navigator.of(context);
         navigator.popUntil((route) => route.isFirst);
-        await navigator.push(
-          MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
-        );
+        await navigator.push(profileRoute());
+      },
+      openAppUpdate: () async {
+        try {
+          await launchStoreListing();
+        } catch (e) {
+          AppLogger.error('Store listing launch failed: $e');
+        }
       },
     );
   }

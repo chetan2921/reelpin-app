@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/core/design/app_theme.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
@@ -9,7 +10,7 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bg(context),
+      backgroundColor: AppColors.bg(context),
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -26,7 +27,7 @@ class SplashScreen extends StatelessWidget {
                       child: Container(
                         width: 116,
                         height: 116,
-                        color: AppTheme.fg(context),
+                        color: AppColors.fg(context),
                       ),
                     ),
                     Container(
@@ -34,7 +35,7 @@ class SplashScreen extends StatelessWidget {
                       height: 116,
                       decoration: AppTheme.brutalBox(
                         context,
-                        color: AppTheme.yellow,
+                        color: AppColors.yellow,
                         shadow: false,
                       ),
                       child: Padding(
@@ -51,7 +52,7 @@ class SplashScreen extends StatelessWidget {
                 Text(
                   'REELPIN',
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                     fontSize: 34,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -62,7 +63,7 @@ class SplashScreen extends StatelessWidget {
                   'SYNCING YOUR SAVED WORLD',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSec(context),
+                    color: AppColors.textSec(context),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1,
@@ -75,8 +76,8 @@ class SplashScreen extends StatelessWidget {
                   decoration: AppTheme.brutalBox(context, shadow: false),
                   child: LinearProgressIndicator(
                     minHeight: 10,
-                    color: AppTheme.red,
-                    backgroundColor: AppTheme.accentSoft,
+                    color: AppColors.red,
+                    backgroundColor: AppColors.accentSoft,
                   ),
                 ),
               ],

@@ -1,7 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:reelpin/core/platform/app_notification.dart';
+import 'package:reelpin/data_models/notifications/app_notification.dart';
 
 void main() {
   test('parses schema version 1 reel-ready payload', () {
@@ -72,6 +72,7 @@ void main() {
       'map': AppNotificationTarget.map,
       'discover': AppNotificationTarget.discover,
       'profile': AppNotificationTarget.profile,
+      'app_update': AppNotificationTarget.appUpdate,
     };
 
     for (final entry in targets.entries) {

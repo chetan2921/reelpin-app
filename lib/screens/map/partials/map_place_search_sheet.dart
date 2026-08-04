@@ -1,4 +1,4 @@
-part of 'map_screen.dart';
+part of '../map_screen.dart';
 
 class _MapPlaceSearchSheet extends ConsumerStatefulWidget {
   const _MapPlaceSearchSheet({
@@ -117,11 +117,11 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
           content: Text(
             vm.mapPinActionError ?? 'COULD NOT SAVE THIS PIN',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.white,
+              color: AppColors.white,
               fontWeight: FontWeight.w700,
             ),
           ),
-          backgroundColor: AppTheme.destructive,
+          backgroundColor: AppColors.destructive,
         ),
       );
       return;
@@ -148,7 +148,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
       curve: Curves.easeOut,
       padding: EdgeInsets.only(bottom: keyboardInset),
       child: Material(
-        color: AppTheme.bg(context),
+        color: AppColors.bg(context),
         child: SafeArea(
           top: true,
           bottom: false,
@@ -171,7 +171,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
+                              color: AppColors.fg(context),
                               fontSize: layout.font(
                                 20,
                                 minFactor: 0.86,
@@ -190,13 +190,13 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
                             height: layout.inset(40),
                             decoration: AppTheme.brutalBox(
                               context,
-                              color: AppTheme.bg(context),
+                              color: AppColors.bg(context),
                               shadow: true,
                             ),
                             child: Icon(
                               Icons.close,
                               size: layout.inset(22),
-                              color: AppTheme.fg(context),
+                              color: AppColors.fg(context),
                             ),
                           ),
                         ),
@@ -236,23 +236,23 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
       child: TextField(
         controller: _controller,
         focusNode: _focusNode,
-        cursorColor: AppTheme.fg(context),
+        cursorColor: AppColors.fg(context),
         textInputAction: TextInputAction.search,
         onSubmitted: (_) => _runSearch(force: true),
         style: GoogleFonts.spaceMono(
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
           fontSize: layout.font(13),
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
           hintText: 'SEARCH A PLACE OR ADDRESS...',
           hintStyle: GoogleFonts.spaceMono(
-            color: AppTheme.textSec(context),
+            color: AppColors.textSec(context),
             fontSize: layout.font(12),
           ),
           prefixIcon: Icon(
             Icons.search,
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
             size: layout.inset(22),
           ),
           suffixIcon: _buildSearchFieldAction(context, vm),
@@ -279,7 +279,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
         },
         icon: Icon(
           Icons.close,
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
           size: layout.inset(20),
         ),
       );
@@ -296,7 +296,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
         height: layout.inset(16),
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: AppTheme.fg(context),
+          color: AppColors.fg(context),
         ),
       ),
     );
@@ -315,7 +315,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
       return _PlaceSearchMessage(
         icon: Icons.search,
         title: 'SEARCHING PLACES...',
-        accentColor: AppTheme.yellow,
+        accentColor: AppColors.yellow,
         isLoading: true,
       );
     }
@@ -325,7 +325,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
         icon: Icons.error_outline,
         title: 'SEARCH FAILED',
         body: vm.placeSearchError!.toUpperCase(),
-        accentColor: AppTheme.destructive,
+        accentColor: AppColors.destructive,
       );
     }
 
@@ -334,7 +334,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
         icon: Icons.search_off,
         title: 'NO PLACES FOUND',
         body: 'TRY A DIFFERENT PLACE NAME OR ADDRESS.',
-        accentColor: AppTheme.yellow,
+        accentColor: AppColors.yellow,
       );
     }
 
@@ -345,7 +345,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
         icon: Icons.bookmark_border,
         title: 'NO SAVED PLACES FOUND',
         body: 'SAVED PLACES THAT MATCH THIS SEARCH WILL SHOW HERE.',
-        accentColor: AppTheme.yellow,
+        accentColor: AppColors.yellow,
       );
     }
 
@@ -436,7 +436,7 @@ class _PlaceSearchTabs extends StatelessWidget {
           Container(
             width: AppTheme.borderWidth,
             height: layout.inset(42),
-            color: AppTheme.fg(context),
+            color: AppColors.fg(context),
           ),
           Expanded(
             child: _PlaceSearchTabButton(
@@ -474,7 +474,7 @@ class _PlaceSearchTabButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: layout.inset(42),
-        color: isSelected ? AppTheme.yellow : AppTheme.bg(context),
+        color: isSelected ? AppColors.yellow : AppColors.bg(context),
         alignment: Alignment.center,
         child: FittedBox(
           fit: BoxFit.scaleDown,
@@ -484,7 +484,7 @@ class _PlaceSearchTabButton extends StatelessWidget {
               Text(
                 label,
                 style: GoogleFonts.spaceMono(
-                  color: isSelected ? AppTheme.black : AppTheme.fg(context),
+                  color: isSelected ? AppColors.black : AppColors.fg(context),
                   fontSize: layout.font(11),
                   fontWeight: FontWeight.w700,
                 ),
@@ -493,16 +493,16 @@ class _PlaceSearchTabButton extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.black : AppTheme.yellow,
+                  color: isSelected ? AppColors.black : AppColors.yellow,
                   border: Border.all(
-                    color: isSelected ? AppTheme.black : AppTheme.fg(context),
+                    color: isSelected ? AppColors.black : AppColors.fg(context),
                     width: 2,
                   ),
                 ),
                 child: Text(
                   '$count',
                   style: GoogleFonts.spaceMono(
-                    color: isSelected ? AppTheme.white : AppTheme.black,
+                    color: isSelected ? AppColors.white : AppColors.black,
                     fontSize: layout.font(9),
                     fontWeight: FontWeight.w700,
                   ),
@@ -535,8 +535,8 @@ class _PlaceSearchMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final iconColor = accentColor.computeLuminance() > 0.5
-        ? AppTheme.black
-        : AppTheme.white;
+        ? AppColors.black
+        : AppColors.white;
 
     return Center(
       child: Padding(
@@ -573,7 +573,7 @@ class _PlaceSearchMessage extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.spaceMono(
-                  color: AppTheme.fg(context),
+                  color: AppColors.fg(context),
                   fontSize: layout.font(15),
                   fontWeight: FontWeight.w700,
                 ),
@@ -584,7 +584,7 @@ class _PlaceSearchMessage extends StatelessWidget {
                   body!,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceMono(
-                    color: AppTheme.textSec(context),
+                    color: AppColors.textSec(context),
                     fontSize: layout.font(11),
                     height: 1.45,
                   ),
@@ -619,13 +619,13 @@ class _PlaceSearchSummary extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: AppTheme.yellow,
-            border: Border.all(color: AppTheme.fg(context), width: 2),
+            color: AppColors.yellow,
+            border: Border.all(color: AppColors.fg(context), width: 2),
           ),
           child: Text(
             '$count',
             style: GoogleFonts.spaceMono(
-              color: AppTheme.black,
+              color: AppColors.black,
               fontSize: layout.font(12),
               fontWeight: FontWeight.w700,
             ),
@@ -638,7 +638,7 @@ class _PlaceSearchSummary extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(
-              color: AppTheme.textSec(context),
+              color: AppColors.textSec(context),
               fontSize: layout.font(11),
               fontWeight: FontWeight.w700,
             ),
@@ -683,7 +683,7 @@ class _MapPlaceResultTile extends StatelessWidget {
         padding: EdgeInsets.all(layout.inset(14)),
         decoration: AppTheme.brutalBox(
           context,
-          color: AppTheme.bg(context),
+          color: AppColors.bg(context),
           shadow: true,
         ),
         child: Row(
@@ -703,16 +703,16 @@ class _MapPlaceResultTile extends StatelessWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.neonGreen,
+                          color: AppColors.neonGreen,
                           border: Border.all(
-                            color: AppTheme.fg(context),
+                            color: AppColors.fg(context),
                             width: 2,
                           ),
                         ),
                         child: Text(
                           badgeText,
                           style: GoogleFonts.spaceMono(
-                            color: AppTheme.black,
+                            color: AppColors.black,
                             fontSize: layout.font(8),
                             fontWeight: FontWeight.w700,
                           ),
@@ -726,7 +726,7 @@ class _MapPlaceResultTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: layout.font(13),
                       fontWeight: FontWeight.w700,
                       height: 1.25,
@@ -739,7 +739,7 @@ class _MapPlaceResultTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.spaceMono(
-                        color: AppTheme.textSec(context),
+                        color: AppColors.textSec(context),
                         fontSize: layout.font(10),
                         height: 1.35,
                       ),
@@ -759,7 +759,7 @@ class _MapPlaceResultTile extends StatelessWidget {
                           width: layout.inset(18),
                           height: layout.inset(18),
                           child: CircularProgressIndicator(
-                            color: AppTheme.fg(context),
+                            color: AppColors.fg(context),
                             strokeWidth: 2,
                           ),
                         )

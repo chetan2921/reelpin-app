@@ -1,4 +1,4 @@
-import 'package:reelpin/features/map/domain/map_response.dart';
+import 'package:reelpin/data_models/map/map_response.dart';
 
 class MapPlaceSearchResponse {
   const MapPlaceSearchResponse({

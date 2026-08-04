@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:reelpin/features/reels/domain/processing_job.dart';
+import 'package:reelpin/data_models/reels/processing_job.dart';
 
 void main() {
   test('parses complete X processing-job metadata', () {

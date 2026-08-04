@@ -3,18 +3,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:reelpin/features/discover/domain/discover_response.dart';
-import 'package:reelpin/features/account/domain/library_stats.dart';
-import 'package:reelpin/features/map/domain/map_place_search_response.dart';
-import 'package:reelpin/features/map/domain/map_response.dart';
-import 'package:reelpin/features/reels/domain/processing_job.dart';
-import 'package:reelpin/features/reels/domain/reel.dart';
-import 'package:reelpin/features/reels/domain/reel_category_filters.dart';
-import 'package:reelpin/features/reels/domain/reel_page.dart';
-import 'package:reelpin/features/discover/domain/search_response.dart';
-import 'package:reelpin/features/account/domain/user_entitlement.dart';
-import 'package:reelpin/core/network/api_service.dart';
-import 'package:reelpin/features/auth/data/auth_service.dart';
+import 'package:reelpin/data_models/discover/discover_response.dart';
+import 'package:reelpin/data_models/account/library_stats.dart';
+import 'package:reelpin/data_models/map/map_place_search_response.dart';
+import 'package:reelpin/data_models/map/map_response.dart';
+import 'package:reelpin/data_models/reels/processing_job.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/data_models/reels/reel_category_filters.dart';
+import 'package:reelpin/data_models/reels/reel_page.dart';
+import 'package:reelpin/data_models/discover/search_response.dart';
+import 'package:reelpin/data_models/account/user_entitlement.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/services/auth/auth_service.dart';
 
 class SearchCancelledException implements Exception {
   const SearchCancelledException();
@@ -23,8 +25,9 @@ class SearchCancelledException implements Exception {
 class ReelRepository extends ChangeNotifier {
   static const _pageSize = 25;
 
-  final ApiService _apiService;
+  final ApiClient _apiService;
   final AuthService _authService;
+  final ContentCache _contentCache;
 
   List<Reel> _cachedReels = [];
   String? _cacheUserId;
@@ -33,13 +36,18 @@ class ReelRepository extends ChangeNotifier {
   bool _hasMoreReels = true;
   bool _hasHydratedCache = false;
   int _totalCount = 0;
+  Future<void>? _hydrationFuture;
   Future<void>? _initialLoadFuture;
   Future<void>? _loadMoreFuture;
   http.Client? _activeSearchClient;
   SearchMode? _lastSearchMode;
   int _lastSearchTotal = 0;
 
-  ReelRepository(this._apiService, this._authService);
+  ReelRepository(
+    this._apiService,
+    this._authService, {
+    ContentCache? contentCache,
+  }) : _contentCache = contentCache ?? ContentCache.instance;
 
   String get _currentUserId {
     final userId = _authService.currentUser?.id;
@@ -57,8 +65,62 @@ class ReelRepository extends ChangeNotifier {
   SearchMode? get lastSearchMode => _lastSearchMode;
   int get lastSearchTotal => _lastSearchTotal;
 
-  Future<void> hydrateCache() async {
+  /// Fills the in-memory list from the last saved snapshot so the first frame
+  /// after a cold start already has content. Runs at most once per session and
+  /// never overwrites data that a live request has already delivered.
+  Future<void> hydrateCache() {
+    if (_hasHydratedCache) {
+      return _hydrationFuture ?? Future<void>.value();
+    }
+
+    final existing = _hydrationFuture;
+    if (existing != null) return existing;
+
+    final future = _hydrateCache();
+    _hydrationFuture = future;
+    return future.whenComplete(() {
+      if (identical(_hydrationFuture, future)) {
+        _hydrationFuture = null;
+      }
+    });
+  }
+
+  Future<void> _hydrateCache() async {
+    if (_cachedReels.isNotEmpty) {
+      _hasHydratedCache = true;
+      return;
+    }
+
+    String? userId;
+    try {
+      userId = _currentUserId;
+    } catch (_) {
+      // Signed out — nothing user-scoped to restore.
+      _hasHydratedCache = true;
+      return;
+    }
+
+    final payload = await _contentCache.read(ContentCacheKeys.reelsFirstPage);
     _hasHydratedCache = true;
+    if (payload == null) return;
+    // A live response landed while we were reading from disk; it wins.
+    if (_cachedReels.isNotEmpty) return;
+
+    try {
+      final page = ReelPage.fromJson(payload);
+      if (page.reels.isEmpty) return;
+
+      _cachedReels = page.reels;
+      _nextOffset = page.nextOffset ?? page.offset;
+      _nextCursor = page.nextCursor;
+      _hasMoreReels = page.hasMore;
+      _totalCount = page.totalCount;
+      _cacheUserId = userId;
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Cached reels could not be restored: $e');
+      unawaited(_contentCache.invalidate(ContentCacheKeys.reelsFirstPage));
+    }
   }
 
   Future<void> loadInitialReels({
@@ -94,7 +156,11 @@ class ReelRepository extends ChangeNotifier {
     String? savedDate,
     String? sort,
   }) async {
-    await hydrateCache();
+    // The snapshot only ever holds the unfiltered first page, so restoring it
+    // under an active filter would flash the wrong content.
+    if (!_hasFilters(category, subcategory, savedDate, sort)) {
+      await hydrateCache();
+    }
 
     await _fetchAndStorePage(
       reset: true,
@@ -138,7 +204,9 @@ class ReelRepository extends ChangeNotifier {
     String? savedDate,
     String? sort,
   }) async {
-    await hydrateCache();
+    if (!_hasFilters(category, subcategory, savedDate, sort)) {
+      await hydrateCache();
+    }
     if (!_hasMoreReels) {
       return;
     }
@@ -232,6 +300,7 @@ class ReelRepository extends ChangeNotifier {
       userId: _currentUserId,
       onJobUpdate: onJobUpdate,
     );
+    await _contentCache.invalidateContent();
     await loadInitialReels(forceRefresh: true);
     return reel;
   }
@@ -295,6 +364,7 @@ class ReelRepository extends ChangeNotifier {
 
   Future<void> deleteReel(String reelId) async {
     await _apiService.deleteReel(reelId);
+    await _contentCache.invalidateContent();
     await loadInitialReels(forceRefresh: true);
   }
 
@@ -342,7 +412,7 @@ class ReelRepository extends ChangeNotifier {
 
   void clearCache() {
     cancelActiveSearch();
-    _cachedReels.clear();
+    _cachedReels = [];
     _cacheUserId = null;
     _nextOffset = 0;
     _nextCursor = null;
@@ -356,6 +426,22 @@ class ReelRepository extends ChangeNotifier {
 
   Future<void> clearUserCache() async {
     clearCache();
+    // The visible data was just dropped because it no longer applies to this
+    // user, so the snapshot behind it must go too.
+    await _contentCache.invalidateContent();
+  }
+
+  bool _hasFilters(
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    String? sort,
+  ) {
+    bool isSet(String? value) => value != null && value.trim().isNotEmpty;
+    return isSet(category) ||
+        isSet(subcategory) ||
+        isSet(savedDate) ||
+        isSet(sort);
   }
 
   void cancelActiveSearch() {

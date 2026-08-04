@@ -4,9 +4,9 @@ import 'package:crypto/crypto.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:reelpin/core/config/supabase_config.dart';
-import 'package:reelpin/features/auth/data/profile_service.dart';
-import 'package:reelpin/core/platform/supabase_client.dart';
+import 'package:reelpin/env.dart';
+import 'package:reelpin/services/auth/profile_service.dart';
+import 'package:reelpin/services/auth/supabase_client.dart';
 
 class AuthService {
   AuthService(this._profileService);

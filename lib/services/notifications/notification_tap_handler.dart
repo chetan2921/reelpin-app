@@ -1,4 +1,4 @@
-import 'package:reelpin/core/platform/app_notification.dart';
+import 'package:reelpin/data_models/notifications/app_notification.dart';
 
 typedef NotificationAction = Future<void> Function();
 typedef ReelNotificationAction = Future<void> Function(String reelId);
@@ -18,6 +18,7 @@ class NotificationTapHandler {
     required NotificationAction openMap,
     required NotificationAction openDiscover,
     required NotificationAction openProfile,
+    required NotificationAction openAppUpdate,
   }) async {
     final notification = opened.notification;
     final dedupeKey =
@@ -54,6 +55,9 @@ class NotificationTapHandler {
         break;
       case AppNotificationTarget.profile:
         await openProfile();
+        break;
+      case AppNotificationTarget.appUpdate:
+        await openAppUpdate();
         break;
     }
 

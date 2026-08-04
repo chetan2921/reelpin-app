@@ -1,4 +1,4 @@
-part of 'discover_screen.dart';
+part of '../discover_screen.dart';
 
 class _SavedDateCalendarSheet extends StatefulWidget {
   const _SavedDateCalendarSheet({
@@ -63,7 +63,7 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
                   child: Text(
                     'SAVED DATES',
                     style: GoogleFonts.spaceMono(
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       fontSize: layout.font(18),
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1,
@@ -78,7 +78,7 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
                     decoration: AppTheme.brutalBox(context, shadow: true),
                     child: Icon(
                       Icons.close,
-                      color: AppTheme.fg(context),
+                      color: AppColors.fg(context),
                       size: layout.inset(18),
                     ),
                   ),
@@ -104,7 +104,7 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
                             _monthLabel(_visibleMonth).toUpperCase(),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.spaceMono(
-                              color: AppTheme.fg(context),
+                              color: AppColors.fg(context),
                               fontSize: layout.font(13),
                               fontWeight: FontWeight.w700,
                             ),
@@ -121,7 +121,7 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
                   Divider(
                     height: AppTheme.thinBorderWidth,
                     thickness: AppTheme.thinBorderWidth,
-                    color: AppTheme.fg(context),
+                    color: AppColors.fg(context),
                   ),
                   Padding(
                     padding: EdgeInsets.fromLTRB(
@@ -186,7 +186,7 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
         width: layout.inset(32),
         height: layout.inset(32),
         decoration: AppTheme.brutalBox(context, shadow: false),
-        child: Icon(icon, color: AppTheme.fg(context), size: layout.inset(18)),
+        child: Icon(icon, color: AppColors.fg(context), size: layout.inset(18)),
       ),
     );
   }
@@ -208,15 +208,15 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
     final isCurrentMonth =
         day.year == _visibleMonth.year && day.month == _visibleMonth.month;
     final backgroundColor = isSelected
-        ? AppTheme.yellow
+        ? AppColors.yellow
         : hasSavedReels
-        ? AppTheme.hotPink
-        : AppTheme.bg(context);
+        ? AppColors.hotPink
+        : AppColors.bg(context);
     final textColor = isSelected || hasSavedReels
-        ? AppTheme.black
+        ? AppColors.black
         : isCurrentMonth
-        ? AppTheme.fg(context)
-        : AppTheme.textSec(context);
+        ? AppColors.fg(context)
+        : AppColors.textSec(context);
 
     return GestureDetector(
       onTap: hasSavedReels ? () => Navigator.pop(context, option) : null,
@@ -225,8 +225,8 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
           color: backgroundColor,
           border: Border.all(
             color: hasSavedReels || isSelected
-                ? AppTheme.fg(context)
-                : AppTheme.textSec(context),
+                ? AppColors.fg(context)
+                : AppColors.textSec(context),
             width: hasSavedReels || isSelected ? 2 : 1,
           ),
         ),
@@ -250,8 +250,8 @@ class _SavedDateCalendarSheetState extends State<_SavedDateCalendarSheet> {
                   width: 5,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: AppTheme.neonGreen,
-                    border: Border.all(color: AppTheme.fg(context), width: 1),
+                    color: AppColors.neonGreen,
+                    border: Border.all(color: AppColors.fg(context), width: 1),
                   ),
                 ),
               ),
@@ -340,7 +340,7 @@ class _WeekdayLabel extends StatelessWidget {
         label,
         textAlign: TextAlign.center,
         style: GoogleFonts.spaceMono(
-          color: AppTheme.textSec(context),
+          color: AppColors.textSec(context),
           fontSize: layout.font(10),
           fontWeight: FontWeight.w700,
         ),

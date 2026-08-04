@@ -1,3 +1,3 @@
-import 'package:reelpin/app/bootstrap.dart';
+import 'package:reelpin/bootstrap.dart';
 
 Future<void> main() => bootstrap();
