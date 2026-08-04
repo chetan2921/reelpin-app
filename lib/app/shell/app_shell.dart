@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:app_links/app_links.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,6 +23,8 @@ import 'package:reelpin/core/design/app_theme.dart';
 import 'package:reelpin/features/home/presentation/home_screen.dart';
 import 'package:reelpin/features/map/presentation/map_screen.dart';
 import 'package:reelpin/features/account/presentation/paywall_screen.dart';
+import 'package:reelpin/features/collections/presentation/collection_detail_screen.dart';
+import 'package:reelpin/features/collections/presentation/collections_screen.dart';
 import 'package:reelpin/features/discover/presentation/discover_screen.dart';
 
 const _navIconSize = 27.0;
@@ -47,6 +50,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
   int _currentIndex = 0;
   StreamSubscription? _mediaIntentSub;
+  AppLinks? _appLinks;
+  StreamSubscription? _deepLinkSub;
   bool _isQueueingSharedReel = false;
   String? _lastHandledSharedPayload;
   bool _isCheckingInitialPermissions = false;
@@ -58,6 +63,7 @@ class _AppShellState extends ConsumerState<AppShell>
     _NavItem(icon: HugeIcons.strokeRoundedHome04, label: 'HOME'),
     _NavItem(icon: HugeIcons.strokeRoundedLocation03, label: 'MAP'),
     _NavItem(icon: HugeIcons.strokeRoundedDiscoverSquare, label: 'DISCOVER'),
+    _NavItem(icon: HugeIcons.strokeRoundedBookmark02, label: 'SAVED'),
   ];
 
   @override
@@ -66,10 +72,62 @@ class _AppShellState extends ConsumerState<AppShell>
     widget.controller?._attach(_selectControlledTab);
     WidgetsBinding.instance.addObserver(this);
     _initSharingIntent();
+    unawaited(_initCollectionDeepLinks());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_maybePromptInitialPermissions());
       unawaited(_drainPendingNativeShares());
     });
+  }
+
+  Future<void> _initCollectionDeepLinks() async {
+    _appLinks = AppLinks();
+    try {
+      final initial = await _appLinks!.getInitialLink();
+      if (initial != null) _handleIncomingUri(initial);
+    } catch (_) {}
+    _deepLinkSub = _appLinks!.uriLinkStream.listen(
+      _handleIncomingUri,
+      onError: (_) {},
+    );
+  }
+
+  void _handleIncomingUri(Uri uri) {
+    // https://reelpin.in/c/{token}  or  /c/invite/{token}
+    final segments = uri.pathSegments;
+    if (segments.isEmpty || segments.first != 'c') return;
+    if (segments.length >= 3 && segments[1] == 'invite') {
+      unawaited(_acceptCollectionInvite(segments[2]));
+    } else if (segments.length >= 2) {
+      unawaited(_openSharedCollection(segments[1]));
+    }
+  }
+
+  Future<void> _openSharedCollection(String token) async {
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CollectionDetailScreen(collectionId: '', sharedToken: token),
+      ),
+    );
+  }
+
+  Future<void> _acceptCollectionInvite(String token) async {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final joined = await ref.read(collectionsViewModelProvider).acceptInvite(token);
+      if (joined != null && mounted) {
+        await Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CollectionDetailScreen(collectionId: joined.id),
+          ),
+        );
+      }
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('This invite is no longer valid.')),
+      );
+    }
   }
 
   void _initSharingIntent() {
@@ -263,6 +321,7 @@ class _AppShellState extends ConsumerState<AppShell>
     WidgetsBinding.instance.removeObserver(this);
     _homeScrollController.dispose();
     _mediaIntentSub?.cancel();
+    _deepLinkSub?.cancel();
     super.dispose();
   }
 
@@ -473,6 +532,7 @@ class _AppShellState extends ConsumerState<AppShell>
                     ),
                     const MapScreen(),
                     DiscoverScreen(focusRequestId: _searchFocusRequestId),
+                    const CollectionsScreen(),
                   ],
                 ),
               ),
@@ -508,7 +568,12 @@ class _AppShellState extends ConsumerState<AppShell>
               AnimatedAlign(
                 duration: const Duration(milliseconds: 260),
                 curve: Curves.easeOutCubic,
-                alignment: Alignment(-1.0 + _currentIndex, 0),
+                alignment: Alignment(
+                  _navItems.length > 1
+                      ? -1.0 + 2.0 * _currentIndex / (_navItems.length - 1)
+                      : 0,
+                  0,
+                ),
                 child: FractionallySizedBox(
                   widthFactor: 1 / _navItems.length,
                   heightFactor: 1,

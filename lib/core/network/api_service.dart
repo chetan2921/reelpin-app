@@ -12,6 +12,8 @@ import 'package:reelpin/core/network/api_exception.dart';
 import 'package:reelpin/features/account/data/account_api.dart';
 import 'package:reelpin/features/discover/domain/discover_response.dart';
 import 'package:reelpin/features/discover/data/discover_api.dart';
+import 'package:reelpin/features/collections/data/collections_api.dart';
+import 'package:reelpin/features/collections/domain/collection.dart';
 import 'package:reelpin/features/folders/data/folders_api.dart';
 import 'package:reelpin/features/folders/domain/folder.dart';
 import 'package:reelpin/features/reels/data/reels_api.dart';
@@ -35,6 +37,7 @@ class ApiService
         DiscoverApi,
         MapApi,
         FoldersApi,
+        CollectionsApi,
         AccountApi,
         SharingApi {
   String _baseUrl;
@@ -612,6 +615,358 @@ class ApiService
         fallbackMessage: 'Could not remove this reel from the folder.',
       );
     }
+  }
+
+  // ─── Collections ───
+
+  @override
+  Future<List<CollectionSummary>> getCollections() async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .get(_apiUri(baseUrl, '/api/v1/collections'), headers: _headers())
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load collections right now.',
+      );
+    }
+    final decoded = jsonDecode(res.body);
+    final list = decoded is Map<String, dynamic> ? decoded['collections'] : decoded;
+    if (list is! List) return const [];
+    return list
+        .whereType<Map>()
+        .map((item) => CollectionSummary.fromJson(Map<String, dynamic>.from(item)))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<CollectionDetail> getCollectionDetail(
+    String collectionId, {
+    int limit = 25,
+    int? offset,
+    String? cursor,
+  }) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final params = <String, String>{
+        'limit': limit.toString(),
+        if (offset != null) 'offset': offset.toString(),
+        if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
+      };
+      return _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId',
+                queryParameters: params),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
+    });
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load this collection right now.',
+      );
+    }
+    return CollectionDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<CollectionSummary> createCollection({
+    required String name,
+    String description = '',
+    List<String> reelIds = const [],
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/collections'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'name': name,
+              'description': description,
+              'reel_ids': reelIds,
+            }),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not create the collection right now.',
+      );
+    }
+    return _collectionFromMutation(res);
+  }
+
+  @override
+  Future<CollectionSummary> updateCollection({
+    required String collectionId,
+    String? name,
+    String? description,
+    String? coverReelId,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .patch(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              if (name != null) 'name': name,
+              if (description != null) 'description': description,
+              if (coverReelId != null) 'cover_reel_id': coverReelId,
+            }),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not update the collection right now.',
+      );
+    }
+    return _collectionFromMutation(res);
+  }
+
+  @override
+  Future<void> deleteCollection(String collectionId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not delete the collection right now.',
+      );
+    }
+  }
+
+  @override
+  Future<int> addReelsToCollection({
+    required String collectionId,
+    required List<String> reelIds,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId/items'),
+            headers: _headers(json: true),
+            body: jsonEncode({'reel_ids': reelIds}),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not add reels to this collection right now.',
+      );
+    }
+    final decoded = jsonDecode(res.body);
+    if (decoded is Map<String, dynamic>) {
+      return (decoded['added_count'] as num?)?.toInt() ?? 0;
+    }
+    return 0;
+  }
+
+  @override
+  Future<void> removeReelFromCollection({
+    required String collectionId,
+    required String reelId,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId/items/$reelId'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not remove this reel from the collection.',
+      );
+    }
+  }
+
+  @override
+  Future<CollectionLink> enableCollectionLink(String collectionId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId/link'),
+            headers: _headers(json: true),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not create a share link right now.',
+      );
+    }
+    return CollectionLink.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> disableCollectionLink(String collectionId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId/link'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not update the share link right now.',
+      );
+    }
+  }
+
+  @override
+  Future<CollectionMembers> getCollectionMembers(String collectionId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId/members'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load collaborators right now.',
+      );
+    }
+    return CollectionMembers.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> removeCollectionMember({
+    required String collectionId,
+    required String memberUserId,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .delete(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId/members/$memberUserId'),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not remove the collaborator right now.',
+      );
+    }
+  }
+
+  @override
+  Future<void> leaveCollection(String collectionId) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId/leave'),
+            headers: _headers(json: true),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not leave the collection right now.',
+      );
+    }
+  }
+
+  @override
+  Future<CollectionInvite> createCollectionInvite({
+    required String collectionId,
+    required String role,
+  }) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/collections/$collectionId/invites'),
+            headers: _headers(json: true),
+            body: jsonEncode({'role': role}),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not create an invite right now.',
+      );
+    }
+    return CollectionInvite.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<CollectionSummary> acceptCollectionInvite(String token) async {
+    final res = await _requestWithFailover(
+      (baseUrl) => _client
+          .post(
+            _apiUri(baseUrl, '/api/v1/collections/invites/$token/accept'),
+            headers: _headers(json: true),
+          )
+          .timeout(_requestTimeout),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not join this collection right now.',
+      );
+    }
+    return _collectionFromMutation(res);
+  }
+
+  @override
+  Future<CollectionDetail> getSharedCollection(
+    String token, {
+    int limit = 25,
+    int? offset,
+  }) async {
+    final res = await _requestWithFailover((baseUrl) {
+      final params = <String, String>{
+        'limit': limit.toString(),
+        if (offset != null) 'offset': offset.toString(),
+      };
+      return _client
+          .get(
+            _apiUri(baseUrl, '/api/v1/collections/shared/$token',
+                queryParameters: params),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout);
+    });
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not open this shared collection right now.',
+      );
+    }
+    return CollectionDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  CollectionSummary _collectionFromMutation(http.Response res) {
+    final decoded = jsonDecode(res.body);
+    final collection = decoded is Map<String, dynamic> ? decoded['collection'] : null;
+    return CollectionSummary.fromJson(
+      collection is Map<String, dynamic>
+          ? collection
+          : decoded as Map<String, dynamic>,
+    );
   }
 
   // ─── RAG Search ───

@@ -18,6 +18,8 @@ import 'package:reelpin/features/home/presentation/home_viewmodel.dart';
 import 'package:reelpin/features/map/presentation/map_viewmodel.dart';
 import 'package:reelpin/features/map/data/map_api.dart';
 import 'package:reelpin/features/folders/data/folders_api.dart';
+import 'package:reelpin/features/collections/data/collections_api.dart';
+import 'package:reelpin/features/collections/presentation/collections_viewmodel.dart';
 import 'package:reelpin/features/sharing/data/sharing_api.dart';
 import 'package:reelpin/features/discover/presentation/search_viewmodel.dart';
 import 'package:reelpin/features/auth/presentation/session_viewmodel.dart';
@@ -71,6 +73,15 @@ final mapApiProvider = Provider<MapApi>((ref) {
 
 final foldersApiProvider = Provider<FoldersApi>((ref) {
   return ref.read(apiServiceProvider);
+});
+
+final collectionsApiProvider = Provider<CollectionsApi>((ref) {
+  return ref.read(apiServiceProvider);
+});
+
+final collectionsViewModelProvider =
+    ChangeNotifierProvider<CollectionsViewModel>((ref) {
+  return CollectionsViewModel(ref.read(collectionsApiProvider));
 });
 
 final accountApiProvider = Provider<AccountApi>((ref) {
