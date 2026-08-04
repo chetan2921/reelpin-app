@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/screens/collections/add_to_collection_sheet.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/router.dart';
@@ -298,6 +299,29 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                   ),
                 ),
                 actions: [
+                  // Add to collection
+                  GestureDetector(
+                    onTap: () => showAddToCollectionSheet(context, _activeReel.id),
+                    child: Container(
+                      margin: EdgeInsets.only(right: layout.inset(8)),
+                      width: layout.inset(36),
+                      height: layout.inset(36),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevatedColor(context),
+                        border: Border.all(
+                          color: AppColors.fg(context),
+                          width: 2,
+                        ),
+                        boxShadow: AppTheme.brutalShadowSmall(context),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.playlist_add,
+                        size: layout.inset(18),
+                        color: AppColors.fg(context),
+                      ),
+                    ),
+                  ),
                   // Open source reel
                   GestureDetector(
                     onTap: hasOpenableReel ? _openReel : null,

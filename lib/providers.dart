@@ -22,6 +22,8 @@ import 'package:reelpin/http/sharing_http.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:reelpin/view_models/session_view_model.dart';
 import 'package:reelpin/view_models/theme_view_model.dart';
+import 'package:reelpin/http/collections_http.dart';
+import 'package:reelpin/view_models/collections_view_model.dart';
 
 final themeViewModelProvider = ChangeNotifierProvider<ThemeViewModel>((ref) {
   return ThemeViewModel()..loadPreference();
@@ -72,6 +74,15 @@ final mapHttpProvider = Provider<MapHttp>((ref) {
 final foldersHttpProvider = Provider<FoldersHttp>((ref) {
   return ref.read(apiClientProvider);
 });
+
+final collectionsHttpProvider = Provider<CollectionsHttp>((ref) {
+  return ref.read(apiClientProvider);
+});
+
+final collectionsViewModelProvider =
+    ChangeNotifierProvider<CollectionsViewModel>((ref) {
+      return CollectionsViewModel(ref.read(collectionsHttpProvider));
+    });
 
 final accountHttpProvider = Provider<AccountHttp>((ref) {
   return ref.read(apiClientProvider);
