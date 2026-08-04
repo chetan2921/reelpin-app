@@ -154,7 +154,10 @@ class CollectionsViewModel extends ChangeNotifier {
     });
   }
 
-  Future<int> addReels({required String collectionId, required List<String> reelIds}) async {
+  Future<int> addReels({
+    required String collectionId,
+    required List<String> reelIds,
+  }) async {
     var added = 0;
     await _mutate(() async {
       added = await _api.addReelsToCollection(
@@ -167,12 +170,20 @@ class CollectionsViewModel extends ChangeNotifier {
     return added;
   }
 
-  Future<void> removeReel({required String collectionId, required String reelId}) async {
+  Future<void> removeReel({
+    required String collectionId,
+    required String reelId,
+  }) async {
     await _mutate(() async {
-      await _api.removeReelFromCollection(collectionId: collectionId, reelId: reelId);
+      await _api.removeReelFromCollection(
+        collectionId: collectionId,
+        reelId: reelId,
+      );
       final detail = _details[collectionId];
       if (detail != null) {
-        final reels = detail.reels.where((r) => r.id != reelId).toList(growable: false);
+        final reels = detail.reels
+            .where((r) => r.id != reelId)
+            .toList(growable: false);
         _details[collectionId] = detail.copyWith(
           reels: reels,
           collection: detail.collection.copyWith(
@@ -207,7 +218,10 @@ class CollectionsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> removeMember({required String collectionId, required String memberUserId}) async {
+  Future<void> removeMember({
+    required String collectionId,
+    required String memberUserId,
+  }) async {
     await _mutate(() async {
       await _api.removeCollectionMember(
         collectionId: collectionId,
@@ -216,10 +230,16 @@ class CollectionsViewModel extends ChangeNotifier {
     });
   }
 
-  Future<CollectionInvite?> createInvite({required String collectionId, required String role}) async {
+  Future<CollectionInvite?> createInvite({
+    required String collectionId,
+    required String role,
+  }) async {
     CollectionInvite? invite;
     await _mutate(() async {
-      invite = await _api.createCollectionInvite(collectionId: collectionId, role: role);
+      invite = await _api.createCollectionInvite(
+        collectionId: collectionId,
+        role: role,
+      );
     });
     return invite;
   }
@@ -264,7 +284,9 @@ class CollectionsViewModel extends ChangeNotifier {
   void _setVisibility(String id, String visibility) {
     final index = _collections.indexWhere((c) => c.id == id);
     if (index >= 0) {
-      _collections[index] = _collections[index].copyWith(visibility: visibility);
+      _collections[index] = _collections[index].copyWith(
+        visibility: visibility,
+      );
     }
     final detail = _details[id];
     if (detail != null) {

@@ -111,7 +111,8 @@ class _AppShellState extends ConsumerState<AppShell>
     if (!mounted) return;
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
-        builder: (_) => CollectionDetailScreen(collectionId: '', sharedToken: token),
+        builder: (_) =>
+            CollectionDetailScreen(collectionId: '', sharedToken: token),
       ),
     );
   }
@@ -120,7 +121,9 @@ class _AppShellState extends ConsumerState<AppShell>
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final joined = await ref.read(collectionsViewModelProvider).acceptInvite(token);
+      final joined = await ref
+          .read(collectionsViewModelProvider)
+          .acceptInvite(token);
       if (joined != null && mounted) {
         await Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute<void>(

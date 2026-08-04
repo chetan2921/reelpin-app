@@ -15,11 +15,16 @@ class ReelCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onDelete;
 
+  /// Takes over the long press when set, so callers can offer more than the
+  /// built-in delete sheet. Falls back to that sheet when null.
+  final VoidCallback? onLongPress;
+
   const ReelCard({
     super.key,
     required this.reel,
     required this.onTap,
     this.onDelete,
+    this.onLongPress,
   });
 
   @override
@@ -72,9 +77,9 @@ class _ReelCardState extends State<ReelCard>
         _controller.reverse();
         setState(() => _isPressed = false);
       },
-      onLongPress: widget.onDelete != null
-          ? () => _showDeleteSheet(context)
-          : null,
+      onLongPress:
+          widget.onLongPress ??
+          (widget.onDelete != null ? () => _showDeleteSheet(context) : null),
       child: AnimatedBuilder(
         animation: _scaleAnim,
         builder: (context, child) {

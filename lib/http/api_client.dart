@@ -657,11 +657,15 @@ class ApiClient
       );
     }
     final decoded = jsonDecode(res.body);
-    final list = decoded is Map<String, dynamic> ? decoded['collections'] : decoded;
+    final list = decoded is Map<String, dynamic>
+        ? decoded['collections']
+        : decoded;
     if (list is! List) return const [];
     return list
         .whereType<Map>()
-        .map((item) => CollectionSummary.fromJson(Map<String, dynamic>.from(item)))
+        .map(
+          (item) => CollectionSummary.fromJson(Map<String, dynamic>.from(item)),
+        )
         .toList(growable: false);
   }
 
@@ -680,8 +684,11 @@ class ApiClient
       };
       return _client
           .get(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId',
-                queryParameters: params),
+            _apiUri(
+              baseUrl,
+              '/api/v1/collections/$collectionId',
+              queryParameters: params,
+            ),
             headers: _headers(),
           )
           .timeout(_requestTimeout);
@@ -692,7 +699,9 @@ class ApiClient
         fallbackMessage: 'Could not load this collection right now.',
       );
     }
-    return CollectionDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    return CollectionDetail.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
   }
 
   @override
@@ -834,7 +843,9 @@ class ApiClient
         fallbackMessage: 'Could not create a share link right now.',
       );
     }
-    return CollectionLink.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    return CollectionLink.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
   }
 
   @override
@@ -871,7 +882,9 @@ class ApiClient
         fallbackMessage: 'Could not load collaborators right now.',
       );
     }
-    return CollectionMembers.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    return CollectionMembers.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
   }
 
   @override
@@ -882,7 +895,10 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .delete(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId/members/$memberUserId'),
+            _apiUri(
+              baseUrl,
+              '/api/v1/collections/$collectionId/members/$memberUserId',
+            ),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
@@ -933,7 +949,9 @@ class ApiClient
         fallbackMessage: 'Could not create an invite right now.',
       );
     }
-    return CollectionInvite.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    return CollectionInvite.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
   }
 
   @override
@@ -968,8 +986,11 @@ class ApiClient
       };
       return _client
           .get(
-            _apiUri(baseUrl, '/api/v1/collections/shared/$token',
-                queryParameters: params),
+            _apiUri(
+              baseUrl,
+              '/api/v1/collections/shared/$token',
+              queryParameters: params,
+            ),
             headers: _headers(),
           )
           .timeout(_requestTimeout);
@@ -980,12 +1001,16 @@ class ApiClient
         fallbackMessage: 'Could not open this shared collection right now.',
       );
     }
-    return CollectionDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    return CollectionDetail.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
   }
 
   CollectionSummary _collectionFromMutation(http.Response res) {
     final decoded = jsonDecode(res.body);
-    final collection = decoded is Map<String, dynamic> ? decoded['collection'] : null;
+    final collection = decoded is Map<String, dynamic>
+        ? decoded['collection']
+        : null;
     return CollectionSummary.fromJson(
       collection is Map<String, dynamic>
           ? collection

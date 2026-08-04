@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import 'package:reelpin/providers.dart';
+import 'package:reelpin/components/collections/collection_folder_tile.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
+import 'package:reelpin/providers.dart';
 import 'package:reelpin/screens/collections/collection_detail_screen.dart';
+import 'package:reelpin/screens/collections/collection_form_sheet.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
 class CollectionsScreen extends ConsumerStatefulWidget {
@@ -22,258 +29,315 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     });
   }
 
+  /// AppShell floats its nav bar over this screen, so anything anchored to the
+  /// bottom has to clear it. Mirrors `_floatingNavHeight` +
+  /// `_floatingNavBottomInset` in app_shell.dart.
+  double _navBarClearance(BuildContext context) {
+    return MediaQuery.viewPaddingOf(context).bottom + 14 + 56 + 12;
+  }
+
   Future<void> _createCollection() async {
-    final name = await promptCollectionName(context);
-    if (name == null || name.trim().isEmpty) return;
-    final vm = ref.read(collectionsViewModelProvider);
-    final created = await vm.createCollection(name: name.trim());
-    if (created != null && mounted) {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => CollectionDetailScreen(collectionId: created.id),
-        ),
-      );
-    }
+    final created = await showCollectionFormSheet(context);
+    if (created == null || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CollectionDetailScreen(collectionId: created.id),
+      ),
+    );
+  }
+
+  Future<void> _refresh() {
+    return ref
+        .read(collectionsViewModelProvider)
+        .loadCollections(forceRefresh: true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
     final vm = ref.watch(collectionsViewModelProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Collections')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: vm.isMutating ? null : _createCollection,
-        icon: const Icon(Icons.add),
-        label: const Text('New'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () =>
-            ref.read(collectionsViewModelProvider).loadCollections(forceRefresh: true),
-        child: _buildBody(vm),
-      ),
-    );
-  }
-
-  Widget _buildBody(CollectionsViewModel vm) {
-    if (vm.isLoadingCollections && vm.collections.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (vm.collectionsError != null && vm.collections.isEmpty) {
-      return _ErrorState(
-        message: vm.collectionsError!,
-        onRetry: () =>
-            ref.read(collectionsViewModelProvider).loadCollections(forceRefresh: true),
-      );
-    }
-    if (vm.collections.isEmpty) {
-      return ListView(
-        children: const [
-          SizedBox(height: 120),
-          _EmptyState(),
-        ],
-      );
-    }
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-        childAspectRatio: 0.82,
-      ),
-      itemCount: vm.collections.length,
-      itemBuilder: (context, index) {
-        final collection = vm.collections[index];
-        return _CollectionCard(
-          collection: collection,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CollectionDetailScreen(collectionId: collection.id),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-Future<String?> promptCollectionName(BuildContext context, {String initial = ''}) {
-  final controller = TextEditingController(text: initial);
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('New collection'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'Name (e.g. South India 2026)'),
-        onSubmitted: (value) => Navigator.of(context).pop(value),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(controller.text),
-          child: const Text('Create'),
-        ),
-      ],
-    ),
-  );
-}
-
-class _CollectionCard extends StatelessWidget {
-  const _CollectionCard({required this.collection, required this.onTap});
-
-  final CollectionSummary collection;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    theme.colorScheme.primary.withValues(alpha: 0.85),
-                    theme.colorScheme.primary.withValues(alpha: 0.45),
-                  ],
+      backgroundColor: AppColors.bg(context),
+      body: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          color: AppColors.fg(context),
+          backgroundColor: AppColors.yellow,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    layout.inset(20),
+                    layout.gap(20),
+                    layout.inset(20),
+                    layout.gap(16),
+                  ),
+                  child: _buildHeader(context, vm),
                 ),
               ),
-              child: const Center(
-                child: Icon(Icons.collections_bookmark_outlined,
-                    color: Colors.white, size: 34),
+              ..._buildBody(context, vm),
+              SliverToBoxAdapter(
+                child: SizedBox(height: _navBarClearance(context) + 24),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            collection.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Row(
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, CollectionsViewModel vm) {
+    final layout = AppLayout.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _StateChip(collection: collection),
-              const Spacer(),
               Text(
-                '${collection.itemCount}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                'COLLECTIONS',
+                style: GoogleFonts.spaceMono(
+                  color: AppColors.fg(context),
+                  fontSize: layout.font(18, maxFactor: 1.05),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+              SizedBox(height: layout.gap(4)),
+              Text(
+                '${vm.collections.length} COLLECTION'
+                '${vm.collections.length == 1 ? '' : 'S'}',
+                style: GoogleFonts.spaceMono(
+                  color: AppColors.textSec(context),
+                  fontSize: layout.font(10),
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StateChip extends StatelessWidget {
-  const _StateChip({required this.collection});
-
-  final CollectionSummary collection;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    IconData icon;
-    String label;
-    if (collection.memberCount > 0) {
-      icon = Icons.group_outlined;
-      label = '${collection.memberCount}';
-    } else if (collection.hasLink) {
-      icon = Icons.link;
-      label = 'Link';
-    } else {
-      icon = Icons.lock_outline;
-      label = 'Private';
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
         ),
-      ],
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          children: [
-            Icon(Icons.collections_bookmark_outlined,
-                size: 48, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text('No collections yet', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(
-              'Group your saved reels into collections you can keep private, share by link, or build with others.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        GestureDetector(
+          onTap: vm.isMutating ? null : _createCollection,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: layout.inset(14),
+              vertical: layout.gap(10),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        const SizedBox(height: 140),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
+            decoration: AppTheme.brutalBox(context, color: AppColors.yellow),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(message, textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                FilledButton(onPressed: onRetry, child: const Text('Try again')),
+                Icon(Icons.add, color: AppColors.black, size: layout.inset(16)),
+                SizedBox(width: layout.inset(6)),
+                Text(
+                  'NEW',
+                  style: GoogleFonts.spaceMono(
+                    color: AppColors.black,
+                    fontSize: layout.font(11),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  List<Widget> _buildBody(BuildContext context, CollectionsViewModel vm) {
+    if (vm.isLoadingCollections && vm.collections.isEmpty) {
+      return [
+        SliverFillRemaining(hasScrollBody: false, child: _LoadingState()),
+      ];
+    }
+    if (vm.collectionsError != null && vm.collections.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _MessageCard(
+            title: 'COULD NOT LOAD COLLECTIONS',
+            body: vm.collectionsError!,
+            onRetry: _refresh,
+          ),
+        ),
+      ];
+    }
+    if (vm.collections.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _MessageCard(
+            icon: Icons.create_new_folder,
+            title: 'NO COLLECTIONS YET',
+            body:
+                'TAP NEW TO MAKE ONE. GIVE IT A NAME AND A STICKY NOTE, '
+                'THEN START ADDING REELS.',
+          ),
+        ),
+      ];
+    }
+    return [_buildGrid(context, vm.collections)];
+  }
+
+  Widget _buildGrid(BuildContext context, List<CollectionSummary> collections) {
+    final layout = AppLayout.of(context);
+    final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
+    final spacing = layout.inset(12);
+
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: layout.inset(14)),
+      sliver: AnimationLimiter(
+        child: SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            // The folder artwork was drawn at 158x130.
+            childAspectRatio: 1.2,
+          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final collection = collections[index];
+            return AnimationConfiguration.staggeredGrid(
+              position: index,
+              columnCount: columns,
+              duration: const Duration(milliseconds: 300),
+              child: ScaleAnimation(
+                scale: 0.96,
+                child: FadeInAnimation(
+                  child: CollectionFolderTile(
+                    collection: collection,
+                    index: index,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CollectionDetailScreen(
+                          collectionId: collection.id,
+                          initialName: collection.name,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }, childCount: collections.length),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Center(
+      child: SizedBox(
+        width: layout.inset(36),
+        height: layout.inset(36),
+        child: CircularProgressIndicator(
+          color: AppColors.fg(context),
+          strokeWidth: 3,
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared shell for the empty and error states.
+class _MessageCard extends StatelessWidget {
+  const _MessageCard({
+    required this.title,
+    required this.body,
+    this.icon,
+    this.onRetry,
+  });
+
+  final String title;
+  final String body;
+  final IconData? icon;
+  final Future<void> Function()? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Center(
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: layout.inset(28)),
+        padding: EdgeInsets.all(layout.inset(22)),
+        decoration: AppTheme.brutalCard(context),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Container(
+                width: layout.inset(52),
+                height: layout.inset(44),
+                decoration: AppTheme.brutalBox(
+                  context,
+                  color: AppColors.yellow,
+                  shadow: false,
+                ),
+                child: Icon(
+                  icon,
+                  color: AppColors.black,
+                  size: layout.inset(26),
+                ),
+              ),
+              SizedBox(height: layout.gap(14)),
+            ],
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.spaceMono(
+                color: AppColors.fg(context),
+                fontSize: layout.font(15),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: layout.gap(8)),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.spaceMono(
+                color: AppColors.textSec(context),
+                fontSize: layout.font(11),
+                height: 1.5,
+              ),
+            ),
+            if (onRetry != null) ...[
+              SizedBox(height: layout.gap(16)),
+              GestureDetector(
+                onTap: onRetry,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.inset(20),
+                    vertical: layout.gap(10),
+                  ),
+                  decoration: AppTheme.brutalBox(
+                    context,
+                    color: AppColors.yellow,
+                  ),
+                  child: Text(
+                    'RETRY',
+                    style: GoogleFonts.spaceMono(
+                      color: AppColors.black,
+                      fontSize: layout.font(11),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

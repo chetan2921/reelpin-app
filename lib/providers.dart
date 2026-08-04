@@ -23,6 +23,7 @@ import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:reelpin/view_models/session_view_model.dart';
 import 'package:reelpin/view_models/theme_view_model.dart';
 import 'package:reelpin/http/collections_http.dart';
+import 'package:reelpin/http/mock_collections_http.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
 final themeViewModelProvider = ChangeNotifierProvider<ThemeViewModel>((ref) {
@@ -76,6 +77,9 @@ final foldersHttpProvider = Provider<FoldersHttp>((ref) {
 });
 
 final collectionsHttpProvider = Provider<CollectionsHttp>((ref) {
+  // Debug-only: --dart-define=MOCK_COLLECTIONS=true swaps in in-memory data so
+  // the SAVED tab works before the backend ships the endpoints.
+  if (useMockCollections) return MockCollectionsHttp();
   return ref.read(apiClientProvider);
 });
 

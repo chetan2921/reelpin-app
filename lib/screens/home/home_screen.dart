@@ -16,6 +16,7 @@ import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/components/reels/category_badge.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
+import 'package:reelpin/screens/collections/reel_actions_sheet.dart';
 
 part 'partials/filter_option.dart';
 part 'partials/platform_filter_tile.dart';
@@ -481,6 +482,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Navigator.push(context, reelDetailSlideRoute(reel));
                     },
                     onDelete: () => vm.deleteReel(reel.id),
+                    onLongPress: () => showReelActionsSheet(
+                      context,
+                      reel,
+                      onDelete: () => vm.deleteReel(reel.id),
+                    ),
                   ),
                 ),
               ),

@@ -163,7 +163,11 @@ class CollectionDetail {
 }
 
 class CollectionMember {
-  const CollectionMember({required this.userId, required this.role, this.createdAt});
+  const CollectionMember({
+    required this.userId,
+    required this.role,
+    this.createdAt,
+  });
 
   final String userId;
   final String role;
@@ -191,7 +195,10 @@ class CollectionMembers {
       members: list is List
           ? list
                 .whereType<Map>()
-                .map((m) => CollectionMember.fromJson(Map<String, dynamic>.from(m)))
+                .map(
+                  (m) =>
+                      CollectionMember.fromJson(Map<String, dynamic>.from(m)),
+                )
                 .toList(growable: false)
           : const [],
     );

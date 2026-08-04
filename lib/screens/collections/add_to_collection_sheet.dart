@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import 'package:reelpin/components/collections/collection_folder_tile.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/providers.dart';
-import 'package:reelpin/screens/collections/collections_screen.dart'
-    show promptCollectionName;
+import 'package:reelpin/screens/collections/collection_form_sheet.dart';
+import 'package:reelpin/utils/error_message.dart';
 
 Future<void> showAddToCollectionSheet(BuildContext context, String reelId) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
+    backgroundColor: Colors.transparent,
     builder: (_) => AddToCollectionSheet(reelId: reelId),
   );
 }
@@ -20,7 +26,8 @@ class AddToCollectionSheet extends ConsumerStatefulWidget {
   final String reelId;
 
   @override
-  ConsumerState<AddToCollectionSheet> createState() => _AddToCollectionSheetState();
+  ConsumerState<AddToCollectionSheet> createState() =>
+      _AddToCollectionSheetState();
 }
 
 class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
@@ -39,15 +46,22 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     if (_busy.contains(collectionId) || _added.contains(collectionId)) return;
     setState(() => _busy.add(collectionId));
     try {
-      await ref.read(collectionsViewModelProvider).addReels(
-        collectionId: collectionId,
-        reelIds: [widget.reelId],
-      );
+      await ref
+          .read(collectionsViewModelProvider)
+          .addReels(collectionId: collectionId, reelIds: [widget.reelId]);
       if (mounted) setState(() => _added.add(collectionId));
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Could not add to that collection.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              userFacingErrorMessage(
+                e,
+                fallbackMessage: 'Could not add to that collection.',
+              ),
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy.remove(collectionId));
@@ -55,84 +69,195 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
   }
 
   Future<void> _createAndAdd() async {
-    final name = await promptCollectionName(context);
-    if (name == null || name.trim().isEmpty) return;
-    final created = await ref
-        .read(collectionsViewModelProvider)
-        .createCollection(name: name.trim(), reelIds: [widget.reelId]);
-    if (created != null && mounted) {
-      setState(() => _added.add(created.id));
-    }
+    final created = await showCollectionFormSheet(context);
+    if (created == null || !mounted) return;
+    // _addTo marks it added on success.
+    await _addTo(created.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final layout = AppLayout.of(context);
     final vm = ref.watch(collectionsViewModelProvider);
     final editable = vm.collections.where((c) => c.canEdit).toList();
+    final maxHeight = MediaQuery.of(context).size.height * 0.72;
 
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          layout.inset(24),
+          layout.gap(18),
+          layout.inset(24),
+          layout.gap(24),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
-              child: Text('Add to collection', style: theme.textTheme.titleLarge),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                'A reel can live in as many collections as you like.',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        decoration: AppTheme.brutalCard(context, color: AppColors.bg(context)),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: layout.inset(40),
+                  height: layout.gap(4),
+                  color: AppColors.fg(context),
+                ),
               ),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
+              SizedBox(height: layout.gap(18)),
+              Row(
                 children: [
-                  ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.add)),
-                    title: const Text('New collection'),
-                    onTap: _createAndAdd,
-                  ),
-                  if (vm.isLoadingCollections && editable.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  ...editable.map((c) {
-                    final added = _added.contains(c.id);
-                    final busy = _busy.contains(c.id);
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: const Icon(Icons.collections_bookmark_outlined, size: 18),
+                  Expanded(
+                    child: Text(
+                      'ADD TO COLLECTION',
+                      style: GoogleFonts.spaceMono(
+                        color: AppColors.fg(context),
+                        fontSize: layout.font(17),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
                       ),
-                      title: Text(c.name),
-                      subtitle: Text('${c.itemCount} reels'),
-                      trailing: busy
-                          ? const SizedBox(
-                              width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : Icon(
-                              added ? Icons.check_circle : Icons.add_circle_outline,
-                              color: added ? theme.colorScheme.primary : null,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: vm.isMutating ? null : _createAndAdd,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.inset(12),
+                        vertical: layout.gap(8),
+                      ),
+                      decoration: AppTheme.brutalBox(
+                        context,
+                        color: AppColors.yellow,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.add,
+                            color: AppColors.black,
+                            size: layout.inset(14),
+                          ),
+                          SizedBox(width: layout.inset(4)),
+                          Text(
+                            'NEW',
+                            style: GoogleFonts.spaceMono(
+                              color: AppColors.black,
+                              fontSize: layout.font(10),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
                             ),
-                      onTap: () => _addTo(c.id),
-                    );
-                  }),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
+              SizedBox(height: layout.gap(16)),
+              Flexible(
+                child: _buildBody(context, vm.isLoadingCollections, editable),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    bool isLoading,
+    List<CollectionSummary> editable,
+  ) {
+    final layout = AppLayout.of(context);
+
+    if (isLoading && editable.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: layout.gap(28)),
+        child: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.fg(context),
+            strokeWidth: 2.5,
+          ),
+        ),
+      );
+    }
+
+    if (editable.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(layout.inset(16)),
+        decoration: AppTheme.brutalBox(
+          context,
+          color: AppColors.surfaceElevatedColor(context),
+          shadow: false,
+        ),
+        child: Text(
+          'NO COLLECTIONS YET. TAP NEW TO MAKE ONE.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.spaceMono(
+            color: AppColors.textSec(context),
+            fontSize: layout.font(11),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      padding: EdgeInsets.only(top: layout.gap(4)),
+      itemCount: editable.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: layout.gap(12),
+        crossAxisSpacing: layout.inset(12),
+        childAspectRatio: 1.22,
+      ),
+      itemBuilder: (context, index) {
+        final collection = editable[index];
+        final isAdded = _added.contains(collection.id);
+        final isBusy = _busy.contains(collection.id);
+        return CollectionFolderTile(
+          collection: collection,
+          index: index,
+          compact: true,
+          onTap: isBusy || isAdded ? null : () => _addTo(collection.id),
+          overlay: isBusy || isAdded ? _TileOverlay(isAdded: isAdded) : null,
+        );
+      },
+    );
+  }
+}
+
+/// Covers the folder body while a add is in flight, or once it has landed.
+class _TileOverlay extends StatelessWidget {
+  const _TileOverlay({required this.isAdded});
+
+  final bool isAdded;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Container(
+      margin: const EdgeInsets.only(top: 15),
+      color: AppColors.bg(context).withAlpha(200),
+      alignment: Alignment.center,
+      child: isAdded
+          ? Icon(
+              Icons.check,
+              color: AppColors.fg(context),
+              size: layout.inset(28),
+            )
+          : SizedBox(
+              width: layout.inset(18),
+              height: layout.inset(18),
+              child: CircularProgressIndicator(
+                color: AppColors.fg(context),
+                strokeWidth: 2.5,
+              ),
+            ),
     );
   }
 }

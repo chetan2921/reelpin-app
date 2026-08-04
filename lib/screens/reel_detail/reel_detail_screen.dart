@@ -301,7 +301,8 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                 actions: [
                   // Add to collection
                   GestureDetector(
-                    onTap: () => showAddToCollectionSheet(context, _activeReel.id),
+                    onTap: () =>
+                        showAddToCollectionSheet(context, _activeReel.id),
                     child: Container(
                       margin: EdgeInsets.only(right: layout.inset(8)),
                       width: layout.inset(36),

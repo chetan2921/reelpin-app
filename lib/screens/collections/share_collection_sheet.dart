@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 
-Future<void> showShareCollectionSheet(BuildContext context, String collectionId) {
+Future<void> showShareCollectionSheet(
+  BuildContext context,
+  String collectionId,
+) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -20,7 +23,8 @@ class ShareCollectionSheet extends ConsumerStatefulWidget {
   final String collectionId;
 
   @override
-  ConsumerState<ShareCollectionSheet> createState() => _ShareCollectionSheetState();
+  ConsumerState<ShareCollectionSheet> createState() =>
+      _ShareCollectionSheetState();
 }
 
 class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
@@ -31,7 +35,9 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
   @override
   void initState() {
     super.initState();
-    final detail = ref.read(collectionsViewModelProvider).detailFor(widget.collectionId);
+    final detail = ref
+        .read(collectionsViewModelProvider)
+        .detailFor(widget.collectionId);
     if (detail != null && detail.collection.hasLink) {
       // The URL is only returned when (re)generated; show a placeholder until then.
       _linkUrl = null;
@@ -40,12 +46,16 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
   }
 
   Future<void> _loadMembers() async {
-    final members = await ref.read(collectionsViewModelProvider).loadMembers(widget.collectionId);
+    final members = await ref
+        .read(collectionsViewModelProvider)
+        .loadMembers(widget.collectionId);
     if (mounted) setState(() => _members = members);
   }
 
-  CollectionSummary? get _collection =>
-      ref.read(collectionsViewModelProvider).detailFor(widget.collectionId)?.collection;
+  CollectionSummary? get _collection => ref
+      .read(collectionsViewModelProvider)
+      .detailFor(widget.collectionId)
+      ?.collection;
 
   Future<void> _toggleLink(bool enabled) async {
     setState(() => _busy = true);
@@ -66,7 +76,9 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
   Future<void> _copy(String value, String label) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label copied')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$label copied')));
     }
   }
 
@@ -93,7 +105,10 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final collection = ref.watch(collectionsViewModelProvider).detailFor(widget.collectionId)?.collection;
+    final collection = ref
+        .watch(collectionsViewModelProvider)
+        .detailFor(widget.collectionId)
+        ?.collection;
     final hasLink = collection?.hasLink ?? false;
 
     return SafeArea(
@@ -105,9 +120,12 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
           children: [
             Text('Share collection', style: theme.textTheme.titleLarge),
             const SizedBox(height: 4),
-            Text('Choose how people reach this collection.',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            Text(
+              'Choose how people reach this collection.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
             const SizedBox(height: 12),
 
             _OptionRow(
@@ -135,7 +153,9 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
                 padding: const EdgeInsets.only(left: 50, bottom: 8),
                 child: _LinkChip(
                   url: _linkUrl,
-                  onCopy: _linkUrl == null ? null : () => _copy(_linkUrl!, 'Link'),
+                  onCopy: _linkUrl == null
+                      ? null
+                      : () => _copy(_linkUrl!, 'Link'),
                   onRegenerate: _busy ? null : () => _toggleLink(true),
                 ),
               ),
@@ -156,17 +176,21 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
                 padding: const EdgeInsets.only(left: 50, top: 4),
                 child: Column(
                   children: _members!.members
-                      .map((m) => _MemberRow(
-                            member: m,
-                            canManage: (collection?.isOwner ?? false),
-                            onRemove: () async {
-                              await ref.read(collectionsViewModelProvider).removeMember(
-                                    collectionId: widget.collectionId,
-                                    memberUserId: m.userId,
-                                  );
-                              _loadMembers();
-                            },
-                          ))
+                      .map(
+                        (m) => _MemberRow(
+                          member: m,
+                          canManage: (collection?.isOwner ?? false),
+                          onRemove: () async {
+                            await ref
+                                .read(collectionsViewModelProvider)
+                                .removeMember(
+                                  collectionId: widget.collectionId,
+                                  memberUserId: m.userId,
+                                );
+                            _loadMembers();
+                          },
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -212,9 +236,12 @@ class _OptionRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: theme.textTheme.titleSmall),
-                Text(subtitle,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -267,7 +294,11 @@ class _LinkChip extends StatelessWidget {
 }
 
 class _MemberRow extends StatelessWidget {
-  const _MemberRow({required this.member, required this.canManage, required this.onRemove});
+  const _MemberRow({
+    required this.member,
+    required this.canManage,
+    required this.onRemove,
+  });
 
   final CollectionMember member;
   final bool canManage;
@@ -283,12 +314,17 @@ class _MemberRow extends StatelessWidget {
           const CircleAvatar(radius: 12, child: Icon(Icons.person, size: 14)),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(member.userId, maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text(
+              member.userId,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           Text(
             member.role.toUpperCase(),
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           if (canManage)
             IconButton(
