@@ -25,6 +25,7 @@ class _AppEntryState extends ConsumerState<AppEntry>
   bool _hasCompletedSplash = false;
   bool _hasCompletedOnboarding = false;
   bool _isLoadingOnboardingState = true;
+  bool _hasStartedContentLoad = false;
 
   @override
   void initState() {
@@ -33,6 +34,34 @@ class _AppEntryState extends ConsumerState<AppEntry>
     unawaited(AppUpdateService.checkForImmediateUpdate());
     _holdSplash();
     _loadOnboardingState();
+    _startContentLoad();
+  }
+
+  /// Restores the cached library and starts the first refresh while the splash
+  /// is still up.
+  ///
+  /// The session is restored from local storage before `runApp`, so a returning
+  /// user is already known here — well before [AuthenticatedShell] mounts. Left
+  /// to the shell, none of this would begin until the splash had finished, and
+  /// the user would watch a loading screen that loads nothing followed by a
+  /// second wait for the cards.
+  ///
+  /// Both calls de-duplicate internally, so the shell repeating them on mount
+  /// costs nothing.
+  void _startContentLoad() {
+    if (_hasStartedContentLoad) return;
+    if (!ref.read(sessionViewModelProvider).isAuthenticated) return;
+    _hasStartedContentLoad = true;
+
+    // Deferred a frame: refresh() notifies its listeners synchronously, which
+    // must not happen while this widget is still building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ref.read(userStateCoordinatorProvider).hydrate());
+      unawaited(
+        ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
+      );
+    });
   }
 
   @override
@@ -77,6 +106,15 @@ class _AppEntryState extends ConsumerState<AppEntry>
   @override
   Widget build(BuildContext context) {
     final sessionVm = ref.watch(sessionViewModelProvider);
+
+    if (sessionVm.isAuthenticated) {
+      // Also covers signing in mid-session, when initState ran before there
+      // was a user to load anything for.
+      _startContentLoad();
+    } else {
+      // Signed out; let the next sign-in start its own load.
+      _hasStartedContentLoad = false;
+    }
 
     if (!_hasCompletedSplash ||
         sessionVm.isBootstrapping ||

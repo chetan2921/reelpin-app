@@ -56,6 +56,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isEmptyStateVisible(HomeViewModel vm) {
     if (vm.isLoading && vm.reels.isEmpty) return false;
     if (vm.error != null && vm.reels.isEmpty) return false;
+    // vm.isEmpty stays false until a load has actually settled, so this cannot
+    // claim the library is empty before anything has looked at it.
     return vm.isEmpty;
   }
 
@@ -206,10 +208,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // skeleton is only for a genuinely empty first load.
                 if (isEmptyState)
                   _buildEmptyState(context)
-                else if (vm.isLoading && vm.reels.isEmpty)
-                  _buildShimmerGrid(context)
                 else if (vm.error != null && vm.reels.isEmpty)
                   _buildErrorState(context, vm)
+                else if (vm.reels.isEmpty)
+                  // Covers "loading" and "not started yet" alike — both mean we
+                  // cannot show cards and must not claim the library is empty.
+                  _buildShimmerGrid(context)
                 else ...[
                   _buildReelGrid(context, vm),
                   _buildPaginationState(context, vm),

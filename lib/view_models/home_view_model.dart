@@ -18,6 +18,7 @@ class HomeViewModel extends ChangeNotifier {
 
   List<Reel> _reels = [];
   bool _isLoading = false;
+  bool _hasSettledFirstLoad = false;
   bool _isLoadingMore = false;
   String? _error;
   String? _selectedCategory;
@@ -32,7 +33,15 @@ class HomeViewModel extends ChangeNotifier {
   String? get selectedCategory => _selectedCategory;
   String? get selectedSubcategory => _selectedSubcategory;
   List<Reel> get allReels => List.unmodifiable(_reels);
-  bool get isEmpty => _reels.isEmpty && !_isLoading;
+
+  /// Whether a load has finished at least once this session.
+  ///
+  /// Before that, an empty list means "we have not looked yet", not "there is
+  /// nothing here" — telling the two apart is what keeps the empty state from
+  /// flashing on the first frame, before the initial load has even started.
+  bool get hasSettledFirstLoad => _hasSettledFirstLoad;
+
+  bool get isEmpty => _reels.isEmpty && !_isLoading && _hasSettledFirstLoad;
 
   void _syncFromRepository() {
     _reels = List<Reel>.from(_repository.cachedReels);
@@ -60,6 +69,7 @@ class HomeViewModel extends ChangeNotifier {
       );
     } finally {
       _isLoading = false;
+      _hasSettledFirstLoad = true;
       notifyListeners();
     }
   }
@@ -114,6 +124,9 @@ class HomeViewModel extends ChangeNotifier {
     _selectedSubcategory = null;
     _error = null;
     _isLoading = false;
+    // A new user has not been looked up yet, so their library is "unknown"
+    // again rather than "empty".
+    _hasSettledFirstLoad = false;
     _isLoadingMore = false;
     _reels = List<Reel>.from(_repository.cachedReels);
     notifyListeners();
