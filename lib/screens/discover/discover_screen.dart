@@ -716,7 +716,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       // Same reasoning as the home grid: keep a screenful of cards built past
       // each edge so scrolling back does not rebuild them.
-      scrollCacheExtent: MediaQuery.sizeOf(context).height,
+      // ignore: deprecated_member_use
+      cacheExtent: MediaQuery.sizeOf(context).height,
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
