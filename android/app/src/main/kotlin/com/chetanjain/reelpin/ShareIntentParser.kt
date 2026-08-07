@@ -163,6 +163,8 @@ object ShareIntentParser {
 enum class ShareRequestResult {
     SUCCESS,
     INVALID_SHARE_TOKEN,
+    UNSUPPORTED,
+    RATE_LIMITED,
     FAILURE,
 }
 
@@ -175,6 +177,8 @@ object ShareResponseClassifier {
         ) {
             return ShareRequestResult.INVALID_SHARE_TOKEN
         }
+        if (statusCode == 400) return ShareRequestResult.UNSUPPORTED
+        if (statusCode == 429) return ShareRequestResult.RATE_LIMITED
         return ShareRequestResult.FAILURE
     }
 }

@@ -42,13 +42,23 @@ class ShareReceiverActivity : Activity() {
         )
         val shareToken = prefs.getString(ShareEnqueueService.KEY_SHARE_TOKEN, null)?.trim()
         val baseUrl = prefs.getString(ShareEnqueueService.KEY_BASE_URL, null)?.trim()
-        val message =
-            if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
-                "Saved to ReelPin. Open the app to finish."
-            } else {
-                "Saved to ReelPin. Processing in background."
-            }
-        Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+        // Only acknowledge receipt here. The real outcome (saved / not supported /
+        // rate limited / offline) is unknown until the backend responds, so
+        // ShareEnqueueService shows the definitive result once it does. With no
+        // background credential yet there is no backend call, so this is terminal.
+        if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
+            Toast.makeText(
+                applicationContext,
+                "Saved to ReelPin. Open the app to finish.",
+                Toast.LENGTH_LONG
+            ).show()
+        } else {
+            Toast.makeText(
+                applicationContext,
+                "Sending to ReelPin…",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
 
         // ShareEnqueueService enqueues in the background with the device share
         // token, falling back to a pending list if it cannot enqueue.

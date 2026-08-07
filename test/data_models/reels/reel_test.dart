@@ -77,6 +77,21 @@ void main() {
     );
   });
 
+  test('normalizes parse_status and defaults to parsed', () {
+    expect(Reel.fromJson(_reelJson({})).parseStatus, 'parsed');
+    expect(Reel.fromJson(_reelJson({})).isUnparsed, false);
+
+    final unparsed = Reel.fromJson(_reelJson({'parse_status': 'unparsed'}));
+    expect(unparsed.parseStatus, 'unparsed');
+    expect(unparsed.isUnparsed, true);
+    expect(unparsed.toJson()['parse_status'], 'unparsed');
+
+    expect(
+      Reel.fromJson(_reelJson({'parse_status': 'garbage'})).parseStatus,
+      'parsed',
+    );
+  });
+
   test('preserves source platform metadata from backend', () {
     final reel = Reel.fromJson(
       _reelJson({'source_platform': 'YouTube', 'source_content_type': 'Short'}),

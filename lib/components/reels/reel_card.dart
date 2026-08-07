@@ -178,6 +178,7 @@ class _ReelCardState extends State<ReelCard>
                 padding: const EdgeInsets.only(right: 32),
                 child: _buildCategoryTag(context, reel.subCategory, catColor),
               ),
+              if (reel.isUnparsed) _buildUnparsedBadge(context),
               const Spacer(),
               Text(
                 reel.title.isNotEmpty ? reel.title : _untitledLabel(reel),
@@ -227,6 +228,7 @@ class _ReelCardState extends State<ReelCard>
                   padding: const EdgeInsets.only(right: 32),
                   child: _buildCategoryTag(context, reel.subCategory, catColor),
                 ),
+                if (reel.isUnparsed) _buildUnparsedBadge(context),
                 SizedBox(height: layout.gap(8)),
                 Text(
                   reel.title.isNotEmpty ? reel.title : _untitledLabel(reel),
@@ -303,6 +305,31 @@ class _ReelCardState extends State<ReelCard>
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnparsedBadge(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Container(
+      margin: EdgeInsets.only(top: layout.gap(4)),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      color: AppColors.black.withAlpha(130),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.link_off, size: layout.font(9), color: AppColors.white),
+          SizedBox(width: layout.inset(3)),
+          Text(
+            'LINK ONLY',
+            style: GoogleFonts.spaceMono(
+              color: AppColors.white,
+              fontSize: layout.font(8, minFactor: 0.9),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
             ),
           ),
         ],

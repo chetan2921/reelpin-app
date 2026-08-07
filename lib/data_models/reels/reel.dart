@@ -116,6 +116,7 @@ class Reel {
   final String categoryLabel;
   final String subCategoryLabel;
   final String contentType;
+  final String parseStatus;
   final String? sourcePlatform;
   final String? sourceContentType;
   final List<String> keyFacts;
@@ -152,6 +153,7 @@ class Reel {
     this.categoryLabel = '',
     this.subCategoryLabel = '',
     this.contentType = 'post',
+    this.parseStatus = 'parsed',
     this.sourcePlatform,
     this.sourceContentType,
     this.mappableLocations = const [],
@@ -220,6 +222,7 @@ class Reel {
           json['subcategory_label']?.toString() ??
           subCategory,
       contentType: _normalizedContentType(json['content_type']),
+      parseStatus: _normalizedParseStatus(json['parse_status']),
       sourcePlatform: _normalizedNullableString(json['source_platform']),
       sourceContentType: _normalizedNullableString(json['source_content_type']),
       keyFacts: _stringList(json['key_facts']),
@@ -254,6 +257,7 @@ class Reel {
     'category_label': categoryLabel,
     'sub_category_label': subCategoryLabel,
     'content_type': contentType,
+    'parse_status': parseStatus,
     if (sourcePlatform != null) 'source_platform': sourcePlatform,
     if (sourceContentType != null) 'source_content_type': sourceContentType,
     'key_facts': keyFacts,
@@ -366,6 +370,8 @@ class Reel {
     return raw.toString().trim();
   }
 
+  bool get isUnparsed => parseStatus == 'unparsed';
+
   static String _normalizedContentType(dynamic raw) {
     final value = raw?.toString().trim().toLowerCase();
     return switch (value) {
@@ -373,6 +379,11 @@ class Reel {
       'carousel' => 'carousel',
       _ => 'post',
     };
+  }
+
+  static String _normalizedParseStatus(dynamic raw) {
+    final value = raw?.toString().trim().toLowerCase();
+    return value == 'unparsed' ? 'unparsed' : 'parsed';
   }
 
   static String? _normalizedNullableString(dynamic raw) {
