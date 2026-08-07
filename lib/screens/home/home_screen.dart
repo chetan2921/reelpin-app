@@ -96,7 +96,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // Keep roughly a screenful of cards built past each edge. The
               // default 250px drops a row almost as soon as it leaves view, so
               // a small scroll back up rebuilds it from scratch.
-              cacheExtent: MediaQuery.sizeOf(context).height,
+              scrollCacheExtent: MediaQuery.sizeOf(context).height,
               slivers: [
                 // ── Header ──
                 SliverToBoxAdapter(

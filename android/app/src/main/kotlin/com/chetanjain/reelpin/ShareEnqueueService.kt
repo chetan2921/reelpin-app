@@ -46,7 +46,7 @@ class ShareEnqueueService : JobIntentService() {
             ShareRequestResult.UNSUPPORTED -> showToast("ReelPin can't save this link.")
             ShareRequestResult.RATE_LIMITED -> {
                 savePendingShare(prefs, sharedUrl)
-                showToast("You're saving too fast. We'll retry when you open ReelPin.")
+                showToast("You've hit your saving limit. We'll retry later.")
             }
             ShareRequestResult.FAILURE -> {
                 savePendingShare(prefs, sharedUrl)
