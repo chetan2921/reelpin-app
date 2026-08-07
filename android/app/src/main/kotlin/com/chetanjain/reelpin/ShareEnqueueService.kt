@@ -36,13 +36,22 @@ class ShareEnqueueService : JobIntentService() {
         when (result) {
             ShareRequestResult.SUCCESS -> {
                 runCatching { registerStoredPushToken(baseUrl, shareToken, pushToken, pushPlatform) }
+                showToast("Saved to ReelPin. Processing in background.")
             }
             ShareRequestResult.INVALID_SHARE_TOKEN -> {
                 prefs.edit().remove(KEY_SHARE_TOKEN).commit()
                 savePendingShare(prefs, sharedUrl)
                 showToast("Open ReelPin and sign in again.")
             }
-            ShareRequestResult.FAILURE -> savePendingShare(prefs, sharedUrl)
+            ShareRequestResult.UNSUPPORTED -> showToast("ReelPin can't save this link.")
+            ShareRequestResult.RATE_LIMITED -> {
+                savePendingShare(prefs, sharedUrl)
+                showToast("You've hit your saving limit. We'll retry later.")
+            }
+            ShareRequestResult.FAILURE -> {
+                savePendingShare(prefs, sharedUrl)
+                showToast("Couldn't reach ReelPin. We'll retry when you open the app.")
+            }
         }
     }
 
