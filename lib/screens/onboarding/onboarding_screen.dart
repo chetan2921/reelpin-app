@@ -31,7 +31,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       accent: AppColors.yellow,
       icon: Icons.bookmark_added_outlined,
       bullet: '',
-      highlights: ['SPOTS', 'PLACES TO GO', 'THINGS TO BUY'],
+      highlights: ['PLACES TO GO', 'THINGS TO BUY'],
       platforms: SourcePlatform.all,
     ),
     _OnboardingStep(
@@ -42,7 +42,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       accent: AppColors.hotPink,
       icon: Icons.auto_awesome,
       bullet: 'LESS REWATCHING, MORE USING',
-      highlights: ['IDEAS', 'TIPS', 'WHY YOU SAVED IT'],
+      highlights: ['TIPS', 'WHY YOU SAVED IT'],
     ),
     _OnboardingStep(
       label: 'USE IT OUTSIDE THE APP',
@@ -52,7 +52,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       accent: AppColors.blue,
       icon: Icons.map,
       bullet: 'SAVE NOW, USE IT WHEN YOU ARE OUT',
-      highlights: ['TRIPS', 'LOCAL SAVES', 'PLANS THAT STICK'],
+      highlights: ['LOCAL SAVES', 'PLANS THAT STICK'],
     ),
   ];
 
@@ -199,64 +199,63 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             context,
                             color: AppColors.bg(context),
                           ),
-                          child: Row(
-                            children: [
-                              if (step.platforms.isEmpty) ...[
-                                Container(
-                                  width: layout.inset(10),
-                                  height: layout.inset(10),
-                                  decoration: BoxDecoration(
-                                    color: step.accent,
-                                    border: Border.all(
-                                      color: AppColors.fg(context),
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: layout.inset(10)),
-                              ] else ...[
-                                // Icons only. Naming each platform beside its
-                                // icon stopped fitting once the list passed
-                                // three, and the card body already spells the
-                                // apps out.
-                                for (
-                                  var i = 0;
-                                  i < step.platforms.length;
-                                  i++
-                                ) ...[
-                                  if (i > 0) SizedBox(width: layout.inset(6)),
-                                  Semantics(
-                                    label:
-                                        '${step.platforms[i].name} source platform',
-                                    image: true,
-                                    child: ExcludeSemantics(
-                                      child: Image.asset(
-                                        step.platforms[i].assetPath,
-                                        width: layout.inset(22),
-                                        height: layout.inset(22),
+                          // Icons only. Naming each platform beside its icon
+                          // stopped fitting once the list passed three, and the
+                          // card body already spells the apps out.
+                          child: step.platforms.isNotEmpty
+                              ? Row(
+                                  // Spread across the full width rather than
+                                  // bunched at the left, so the six read as one
+                                  // even strip.
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    for (final platform in step.platforms)
+                                      Semantics(
+                                        label:
+                                            '${platform.name} source platform',
+                                        image: true,
+                                        child: ExcludeSemantics(
+                                          child: Image.asset(
+                                            platform.assetPath,
+                                            width: layout.inset(22),
+                                            height: layout.inset(22),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    Container(
+                                      width: layout.inset(10),
+                                      height: layout.inset(10),
+                                      decoration: BoxDecoration(
+                                        color: step.accent,
+                                        border: Border.all(
+                                          color: AppColors.fg(context),
+                                          width: 2,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                                SizedBox(width: layout.inset(10)),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  step.bullet,
-                                  style: GoogleFonts.spaceMono(
-                                    color: AppColors.fg(context),
-                                    fontSize: layout.font(
-                                      10.5,
-                                      minFactor: 0.9,
-                                      maxFactor: 1.05,
+                                    SizedBox(width: layout.inset(10)),
+                                    Expanded(
+                                      child: Text(
+                                        step.bullet,
+                                        style: GoogleFonts.spaceMono(
+                                          color: AppColors.fg(context),
+                                          fontSize: layout.font(
+                                            10.5,
+                                            minFactor: 0.9,
+                                            maxFactor: 1.05,
+                                          ),
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.7,
+                                        ),
+                                      ),
                                     ),
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.7,
-                                  ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ],

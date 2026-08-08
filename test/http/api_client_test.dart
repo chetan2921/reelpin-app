@@ -402,34 +402,96 @@ void main() {
     await service.recordNotificationOpened(notificationId: 'notification-123');
   });
 
-  test(
-    'getCategoryFilters sends auth header without user_id query param',
-    () async {
-      final service = ApiClient(
-        baseUrl: 'https://example.com',
-        accessTokenProvider: () => 'token-123',
-        client: MockClient((request) async {
-          expect(request.headers['Authorization'], 'Bearer token-123');
-          expect(
-            request.url.toString(),
-            'https://example.com/api/v1/reels/category-filters',
-          );
-          return http.Response(
-            jsonEncode({
-              'total_count': 0,
-              'categories': <Map<String, Object?>>[],
-              'selected_preview_count': 0,
-            }),
-            200,
-          );
-        }),
-      );
+  test('getReelFilters sends auth header without user_id query param', () async {
+    final service = ApiClient(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.headers['Authorization'], 'Bearer token-123');
+        expect(
+          request.url.toString(),
+          'https://example.com/api/v1/reels/filters',
+        );
+        return http.Response(
+          jsonEncode({
+            'total_count': 0,
+            'platforms': <Map<String, Object?>>[],
+            'categories': <Map<String, Object?>>[],
+            'selected_preview_count': 0,
+          }),
+          200,
+        );
+      }),
+    );
 
-      final response = await service.getReelCategoryFilters(userId: 'user-123');
+    final response = await service.getReelFilters(userId: 'user-123');
 
-      expect(response.totalCount, 0);
-    },
-  );
+    expect(response.totalCount, 0);
+  });
+
+  test('getReelFilters forwards the selection as query params', () async {
+    final service = ApiClient(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.url.queryParameters, {
+          'platform': 'instagram',
+          'category': 'Food',
+          'subcategory': 'Street Food',
+        });
+        return http.Response(
+          jsonEncode({
+            'total_count': 10,
+            'platforms': <Map<String, Object?>>[],
+            'categories': <Map<String, Object?>>[],
+            'selected_preview_count': 3,
+          }),
+          200,
+        );
+      }),
+    );
+
+    final response = await service.getReelFilters(
+      platform: 'instagram',
+      category: 'Food',
+      subcategory: 'Street Food',
+    );
+
+    expect(response.selectedPreviewCount, 3);
+  });
+
+  test('getReelsPage sends the platform filter', () async {
+    final service = ApiClient(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.url.path, '/api/v1/reels');
+        expect(request.url.queryParameters['platform'], 'youtube');
+        return http.Response(
+          jsonEncode({'reels': <Map<String, Object?>>[], 'total_count': 0}),
+          200,
+        );
+      }),
+    );
+
+    await service.getReelsPage(platform: 'youtube');
+  });
+
+  test('getReelsPage omits a blank platform filter', () async {
+    final service = ApiClient(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        expect(request.url.queryParameters.containsKey('platform'), isFalse);
+        return http.Response(
+          jsonEncode({'reels': <Map<String, Object?>>[], 'total_count': 0}),
+          200,
+        );
+      }),
+    );
+
+    await service.getReelsPage(platform: '   ');
+  });
 
   test('deleteReel sends auth header', () async {
     final service = ApiClient(

@@ -9,7 +9,7 @@ import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
-import 'package:reelpin/data_models/reels/reel_category_filters.dart';
+import 'package:reelpin/data_models/reels/reel_filters.dart';
 import 'package:reelpin/data_models/reels/reel_page.dart';
 import 'package:reelpin/data_models/discover/search_response.dart';
 import 'package:reelpin/data_models/account/user_entitlement.dart';
@@ -125,6 +125,7 @@ class ReelRepository extends ChangeNotifier {
 
   Future<void> loadInitialReels({
     bool forceRefresh = false,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -136,6 +137,7 @@ class ReelRepository extends ChangeNotifier {
 
     final future = _loadInitialReels(
       forceRefresh: forceRefresh,
+      platform: platform,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -151,6 +153,7 @@ class ReelRepository extends ChangeNotifier {
 
   Future<void> _loadInitialReels({
     required bool forceRefresh,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -158,12 +161,13 @@ class ReelRepository extends ChangeNotifier {
   }) async {
     // The snapshot only ever holds the unfiltered first page, so restoring it
     // under an active filter would flash the wrong content.
-    if (!_hasFilters(category, subcategory, savedDate, sort)) {
+    if (!_hasFilters(platform, category, subcategory, savedDate, sort)) {
       await hydrateCache();
     }
 
     await _fetchAndStorePage(
       reset: true,
+      platform: platform,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -172,6 +176,7 @@ class ReelRepository extends ChangeNotifier {
   }
 
   Future<void> loadMoreReels({
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -185,6 +190,7 @@ class ReelRepository extends ChangeNotifier {
     }
 
     final future = _loadMoreReelsInternal(
+      platform: platform,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -199,12 +205,13 @@ class ReelRepository extends ChangeNotifier {
   }
 
   Future<void> _loadMoreReelsInternal({
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
     String? sort,
   }) async {
-    if (!_hasFilters(category, subcategory, savedDate, sort)) {
+    if (!_hasFilters(platform, category, subcategory, savedDate, sort)) {
       await hydrateCache();
     }
     if (!_hasMoreReels) {
@@ -213,6 +220,7 @@ class ReelRepository extends ChangeNotifier {
 
     await _fetchAndStorePage(
       reset: false,
+      platform: platform,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -222,6 +230,7 @@ class ReelRepository extends ChangeNotifier {
 
   Future<void> _fetchAndStorePage({
     required bool reset,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -230,6 +239,7 @@ class ReelRepository extends ChangeNotifier {
     final requestUserId = _currentUserId;
     final page = await _apiService.getReelsPage(
       userId: requestUserId,
+      platform: platform,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -252,12 +262,14 @@ class ReelRepository extends ChangeNotifier {
 
   Future<List<Reel>> getReels({
     bool forceRefresh = false,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
   }) async {
     await loadInitialReels(
       forceRefresh: forceRefresh,
+      platform: platform,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -266,6 +278,7 @@ class ReelRepository extends ChangeNotifier {
   }
 
   Future<ReelPage> getReelsPage({
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -276,6 +289,7 @@ class ReelRepository extends ChangeNotifier {
   }) {
     return _apiService.getReelsPage(
       userId: _currentUserId,
+      platform: platform,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -309,12 +323,14 @@ class ReelRepository extends ChangeNotifier {
     return _apiService.enqueueReelProcessing(url, userId: _currentUserId);
   }
 
-  Future<ReelCategoryFiltersResponse> getCategoryFilters({
+  Future<ReelFiltersResponse> getFilters({
+    String? platform,
     String? category,
     String? subcategory,
   }) {
-    return _apiService.getReelCategoryFilters(
+    return _apiService.getReelFilters(
       userId: _currentUserId,
+      platform: platform,
       category: category,
       subcategory: subcategory,
     );
@@ -432,13 +448,15 @@ class ReelRepository extends ChangeNotifier {
   }
 
   bool _hasFilters(
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
     String? sort,
   ) {
     bool isSet(String? value) => value != null && value.trim().isNotEmpty;
-    return isSet(category) ||
+    return isSet(platform) ||
+        isSet(category) ||
         isSet(subcategory) ||
         isSet(savedDate) ||
         isSet(sort);

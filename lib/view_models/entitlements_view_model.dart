@@ -9,7 +9,7 @@ import 'package:reelpin/data_models/account/user_entitlement.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/auth/auth_service.dart';
-import 'package:reelpin/view_models/category_filters_view_model.dart';
+import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
@@ -22,7 +22,7 @@ class EntitlementsViewModel extends ChangeNotifier {
     this._repository,
     this._homeViewModel,
     this._mapViewModel,
-    this._categoryFiltersViewModel,
+    this._reelFiltersViewModel,
     this._discoverViewModel,
     this._searchViewModel,
   );
@@ -32,7 +32,7 @@ class EntitlementsViewModel extends ChangeNotifier {
   final ReelRepository _repository;
   final HomeViewModel _homeViewModel;
   final MapViewModel _mapViewModel;
-  final CategoryFiltersViewModel _categoryFiltersViewModel;
+  final ReelFiltersViewModel _reelFiltersViewModel;
   final DiscoverViewModel _discoverViewModel;
   final SearchViewModel _searchViewModel;
 
@@ -120,7 +120,7 @@ class EntitlementsViewModel extends ChangeNotifier {
         await _repository.clearUserCache();
         _homeViewModel.reset();
         _mapViewModel.reset();
-        _categoryFiltersViewModel.reset();
+        _reelFiltersViewModel.reset();
         _discoverViewModel.reset();
         _searchViewModel.clear();
       }
@@ -132,7 +132,7 @@ class EntitlementsViewModel extends ChangeNotifier {
         await _repository.clearUserCache();
         _homeViewModel.reset();
         _mapViewModel.reset();
-        _categoryFiltersViewModel.reset();
+        _reelFiltersViewModel.reset();
         _discoverViewModel.reset();
         _searchViewModel.clear();
       }
@@ -145,7 +145,7 @@ class EntitlementsViewModel extends ChangeNotifier {
           await Future.wait([
             _homeViewModel.loadReels(forceRefresh: true),
             _mapViewModel.loadMapReels(forceRefresh: true),
-            _categoryFiltersViewModel.loadCategoryFilters(forceRefresh: true),
+            _reelFiltersViewModel.loadFilters(forceRefresh: true),
             _discoverViewModel.loadDiscover(forceRefresh: true),
           ]);
         }

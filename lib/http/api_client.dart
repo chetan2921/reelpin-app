@@ -22,7 +22,7 @@ import 'package:reelpin/data_models/account/library_stats.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
-import 'package:reelpin/data_models/reels/reel_category_filters.dart';
+import 'package:reelpin/data_models/reels/reel_filters.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/data_models/reels/reel_page.dart';
 import 'package:reelpin/data_models/discover/search_response.dart';
@@ -357,6 +357,7 @@ class ApiClient
   @override
   Future<ReelPage> getReelsPage({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -368,6 +369,8 @@ class ApiClient
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
         'limit': limit.toString(),
+        if (platform != null && platform.trim().isNotEmpty)
+          'platform': platform,
         if (category != null && category.trim().isNotEmpty)
           'category': category,
         if (subcategory != null && subcategory.trim().isNotEmpty)
@@ -394,6 +397,7 @@ class ApiClient
     }
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
     final isUnfilteredFirstPage =
+        _isBlank(platform) &&
         _isBlank(category) &&
         _isBlank(subcategory) &&
         _isBlank(savedDate) &&
@@ -411,6 +415,7 @@ class ApiClient
   @override
   Future<List<Reel>> getReels({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -418,6 +423,7 @@ class ApiClient
   }) async {
     final page = await getReelsPage(
       userId: userId,
+      platform: platform,
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
@@ -635,13 +641,16 @@ class ApiClient
   // ─── RAG Search ───
 
   @override
-  Future<ReelCategoryFiltersResponse> getReelCategoryFilters({
+  Future<ReelFiltersResponse> getReelFilters({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
   }) async {
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
+        if (platform != null && platform.trim().isNotEmpty)
+          'platform': platform,
         if (category != null && category.trim().isNotEmpty)
           'category': category,
         if (subcategory != null && subcategory.trim().isNotEmpty)
@@ -649,11 +658,7 @@ class ApiClient
       };
       return _client
           .get(
-            _apiUri(
-              baseUrl,
-              '/api/v1/reels/category-filters',
-              queryParameters: params,
-            ),
+            _apiUri(baseUrl, '/api/v1/reels/filters', queryParameters: params),
             headers: _headers(),
           )
           .timeout(_requestTimeout);
@@ -662,17 +667,20 @@ class ApiClient
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
         res,
-        fallbackMessage: 'Could not load category filters right now.',
+        fallbackMessage: 'Could not load filters right now.',
       );
     }
 
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
-    if (_isBlank(category) && _isBlank(subcategory)) {
+    // Only the unscoped tree is worth restoring on a cold start; a scoped
+    // response carries a `selected_preview_count` for a selection the next
+    // session will not have.
+    if (_isBlank(platform) && _isBlank(category) && _isBlank(subcategory)) {
       unawaited(
-        ContentCache.instance.write(ContentCacheKeys.categoryFilters, decoded),
+        ContentCache.instance.write(ContentCacheKeys.reelFilters, decoded),
       );
     }
-    return ReelCategoryFiltersResponse.fromJson(decoded);
+    return ReelFiltersResponse.fromJson(decoded);
   }
 
   @override

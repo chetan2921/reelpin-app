@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
-import 'package:reelpin/data_models/reels/reel_category_filters.dart';
+import 'package:reelpin/data_models/reels/reel_filters.dart';
 import 'package:reelpin/data_models/reels/reel_page.dart';
 
 abstract interface class ReelsHttp {
@@ -25,6 +25,7 @@ abstract interface class ReelsHttp {
 
   Future<ReelPage> getReelsPage({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -36,6 +37,7 @@ abstract interface class ReelsHttp {
 
   Future<List<Reel>> getReels({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -46,8 +48,12 @@ abstract interface class ReelsHttp {
 
   Future<void> deleteReel(String reelId);
 
-  Future<ReelCategoryFiltersResponse> getReelCategoryFilters({
+  /// Returns the whole platform → category → subcategory facet tree. The
+  /// parameters do not prune the tree; they only resolve
+  /// `selected_preview_count` for the combination the user is about to apply.
+  Future<ReelFiltersResponse> getReelFilters({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
   });

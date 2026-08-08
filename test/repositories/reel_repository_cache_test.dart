@@ -99,6 +99,29 @@ void main() {
     await load;
   });
 
+  test('a platform-filtered load does not restore the snapshot', () async {
+    await seedCache();
+    final api = _PendingApiService();
+    final repository = ReelRepository(
+      api,
+      _FakeAuthService(),
+      contentCache: cache,
+    );
+
+    // The snapshot only ever holds the unfiltered first page, so restoring it
+    // here would flash reels from every platform under a YouTube filter.
+    final load = repository.loadInitialReels(
+      forceRefresh: true,
+      platform: 'youtube',
+    );
+    await pumpEventQueue();
+
+    expect(repository.cachedReels, isEmpty);
+
+    api.complete();
+    await load;
+  });
+
   test('hydrateCache leaves live data alone once it has arrived', () async {
     await seedCache();
     final api = _PendingApiService();
@@ -166,6 +189,7 @@ class _PendingApiService extends ApiClient {
   @override
   Future<ReelPage> getReelsPage({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,

@@ -156,6 +156,7 @@ class _FakeReelRepository extends ReelRepository {
 
   @override
   Future<ReelPage> getReelsPage({
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,

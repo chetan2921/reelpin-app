@@ -168,31 +168,6 @@ class _OnboardingCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              SizedBox(
-                                height: layout.gap(compactHeight ? 8 : 14),
-                              ),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: layout.inset(10),
-                                  vertical: layout.gap(7),
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.white,
-                                  border: Border.all(
-                                    color: AppColors.black,
-                                    width: 2,
-                                  ),
-                                  boxShadow: AppTheme.inkShadowSmall,
-                                ),
-                                child: Text(
-                                  step.highlights.first,
-                                  style: GoogleFonts.spaceMono(
-                                    color: AppColors.black,
-                                    fontSize: layout.font(10),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -301,38 +276,34 @@ class _OnboardingCard extends StatelessWidget {
                             ),
                           ),
                           SizedBox(height: layout.gap(10)),
-                          ...step.highlights
-                              .skip(1)
-                              .map(
-                                (highlight) => Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: layout.gap(8),
+                          ...step.highlights.map(
+                            (highlight) => Padding(
+                              padding: EdgeInsets.only(bottom: layout.gap(8)),
+                              child: Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: layout.inset(8),
+                                  vertical: layout.gap(7),
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.bg(context),
+                                  border: Border.all(
+                                    color: AppColors.black,
+                                    width: 2,
                                   ),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: layout.inset(8),
-                                      vertical: layout.gap(7),
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.bg(context),
-                                      border: Border.all(
-                                        color: AppColors.black,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      highlight,
-                                      style: GoogleFonts.spaceMono(
-                                        color: AppColors.fg(context),
-                                        fontSize: layout.font(9),
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.3,
-                                      ),
-                                    ),
+                                ),
+                                child: Text(
+                                  highlight,
+                                  style: GoogleFonts.spaceMono(
+                                    color: AppColors.fg(context),
+                                    fontSize: layout.font(9),
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.3,
                                   ),
                                 ),
                               ),
+                            ),
+                          ),
                         ],
                       ),
                     ),

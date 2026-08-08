@@ -10,7 +10,7 @@ import 'package:reelpin/services/notifications/notification_service.dart';
 import 'package:reelpin/services/auth/profile_service.dart';
 import 'package:reelpin/services/sharing/push_registration_service.dart';
 import 'package:reelpin/services/sharing/share_flow_analytics_service.dart';
-import 'package:reelpin/view_models/category_filters_view_model.dart';
+import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/entitlements_view_model.dart';
 import 'package:reelpin/view_models/folders_view_model.dart';
@@ -112,9 +112,9 @@ final mapViewModelProvider = ChangeNotifierProvider<MapViewModel>((ref) {
   return MapViewModel(ref.read(mapHttpProvider));
 });
 
-final categoryFiltersViewModelProvider =
-    ChangeNotifierProvider<CategoryFiltersViewModel>((ref) {
-      return CategoryFiltersViewModel(ref.read(reelRepositoryProvider));
+final reelFiltersViewModelProvider =
+    ChangeNotifierProvider<ReelFiltersViewModel>((ref) {
+      return ReelFiltersViewModel(ref.read(reelRepositoryProvider));
     });
 
 final discoverViewModelProvider = ChangeNotifierProvider<DiscoverViewModel>((
@@ -141,7 +141,7 @@ final entitlementsViewModelProvider =
         ref.read(reelRepositoryProvider),
         ref.read(homeViewModelProvider),
         ref.read(mapViewModelProvider),
-        ref.read(categoryFiltersViewModelProvider),
+        ref.read(reelFiltersViewModelProvider),
         ref.read(discoverViewModelProvider),
         ref.read(searchViewModelProvider),
       );
@@ -150,7 +150,7 @@ final entitlementsViewModelProvider =
 final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
   return UserStateCoordinator(
     searchViewModel: ref.read(searchViewModelProvider),
-    categoryFiltersViewModel: ref.read(categoryFiltersViewModelProvider),
+    reelFiltersViewModel: ref.read(reelFiltersViewModelProvider),
     mapViewModel: ref.read(mapViewModelProvider),
     homeViewModel: ref.read(homeViewModelProvider),
     discoverViewModel: ref.read(discoverViewModelProvider),

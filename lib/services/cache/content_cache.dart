@@ -15,7 +15,7 @@ class ContentCacheKeys {
   static const reelsFirstPage = 'reels_first_page';
   static const mapOverview = 'map_overview';
   static const discoverOverview = 'discover_overview';
-  static const categoryFilters = 'category_filters';
+  static const reelFilters = 'reel_filters';
   static const entitlements = 'entitlements';
 
   /// Saved-library payloads. These go stale together whenever the user adds or
@@ -24,7 +24,7 @@ class ContentCacheKeys {
     reelsFirstPage,
     mapOverview,
     discoverOverview,
-    categoryFilters,
+    reelFilters,
   ];
 
   static const all = <String>[...contentKeys, entitlements];

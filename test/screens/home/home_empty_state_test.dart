@@ -88,6 +88,7 @@ class _EmptyApiClient extends ApiClient {
   @override
   Future<ReelPage> getReelsPage({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,

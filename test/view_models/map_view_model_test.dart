@@ -217,6 +217,7 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
   @override
   Future<void> loadInitialReels({
     bool forceRefresh = false,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,

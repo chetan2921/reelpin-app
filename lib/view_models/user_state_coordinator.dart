@@ -5,7 +5,7 @@ import 'package:reelpin/view_models/entitlements_view_model.dart';
 import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
-import 'package:reelpin/view_models/category_filters_view_model.dart';
+import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 
@@ -14,14 +14,14 @@ import 'package:reelpin/view_models/map_view_model.dart';
 class UserStateCoordinator {
   UserStateCoordinator({
     required SearchViewModel searchViewModel,
-    required CategoryFiltersViewModel categoryFiltersViewModel,
+    required ReelFiltersViewModel reelFiltersViewModel,
     required MapViewModel mapViewModel,
     required HomeViewModel homeViewModel,
     required DiscoverViewModel discoverViewModel,
     required ReelRepository reelRepository,
     required EntitlementsViewModel entitlementsViewModel,
   }) : _searchViewModel = searchViewModel,
-       _categoryFiltersViewModel = categoryFiltersViewModel,
+       _reelFiltersViewModel = reelFiltersViewModel,
        _mapViewModel = mapViewModel,
        _homeViewModel = homeViewModel,
        _discoverViewModel = discoverViewModel,
@@ -29,7 +29,7 @@ class UserStateCoordinator {
        _entitlementsViewModel = entitlementsViewModel;
 
   final SearchViewModel _searchViewModel;
-  final CategoryFiltersViewModel _categoryFiltersViewModel;
+  final ReelFiltersViewModel _reelFiltersViewModel;
   final MapViewModel _mapViewModel;
   final HomeViewModel _homeViewModel;
   final DiscoverViewModel _discoverViewModel;
@@ -59,7 +59,7 @@ class UserStateCoordinator {
       await Future.wait<void>([
         _entitlementsViewModel.hydrateFromCache(),
         _reelRepository.hydrateCache(),
-        _categoryFiltersViewModel.hydrateFromCache(),
+        _reelFiltersViewModel.hydrateFromCache(),
         _mapViewModel.hydrateFromCache(),
         _discoverViewModel.hydrateFromCache(),
       ]);
@@ -73,7 +73,7 @@ class UserStateCoordinator {
   void reset() {
     _hydrationFuture = null;
     _searchViewModel.clear();
-    _categoryFiltersViewModel.reset();
+    _reelFiltersViewModel.reset();
     _mapViewModel.reset();
     _homeViewModel.reset();
     _discoverViewModel.reset();

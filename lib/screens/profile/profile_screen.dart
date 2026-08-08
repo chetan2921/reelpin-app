@@ -380,7 +380,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (!mounted || !success) return;
 
     ref.read(searchViewModelProvider).clear();
-    ref.read(categoryFiltersViewModelProvider).reset();
+    ref.read(reelFiltersViewModelProvider).reset();
     ref.read(mapViewModelProvider).reset();
     ref.read(homeViewModelProvider).reset();
     ref.read(discoverViewModelProvider).reset();

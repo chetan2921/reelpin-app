@@ -4,7 +4,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
-import 'package:reelpin/data_models/reels/reel_category_filters.dart';
+import 'package:reelpin/data_models/reels/reel_filters.dart';
 import 'package:reelpin/data_models/account/user_entitlement.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/constants/app_layout.dart';
@@ -12,18 +12,29 @@ import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/constants/source_platforms.dart';
 import 'package:reelpin/router.dart';
-import 'package:reelpin/view_models/category_filters_view_model.dart';
+import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/components/reels/category_badge.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
 
 part 'partials/filter_option.dart';
+part 'partials/platform_filter_tile.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key, this.onSearchTap, this.scrollController});
+  const HomeScreen({
+    super.key,
+    this.onSearchTap,
+    this.scrollController,
+    this.forceEmptyStatePreview = false,
+  });
 
   final VoidCallback? onSearchTap;
   final ScrollController? scrollController;
+
+  /// TEMP_PREVIEW: forces the empty state on regardless of how many reels are
+  /// saved, so it can be viewed on device without emptying the library. Only
+  /// the preview instance passes this — the real Home tab is unaffected.
+  final bool forceEmptyStatePreview;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -39,14 +50,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted || _didRequestInitialLoad) return;
       _didRequestInitialLoad = true;
       final vm = ref.read(homeViewModelProvider);
-      final categoryVm = ref.read(categoryFiltersViewModelProvider);
+      final filtersVm = ref.read(reelFiltersViewModelProvider);
       // Always revalidate, even when restored content is already on screen —
       // both calls no-op while a load is already in flight.
       if (!vm.isLoading) {
         vm.loadReels(forceRefresh: true);
       }
-      if (!categoryVm.isLoading) {
-        categoryVm.loadCategoryFilters(forceRefresh: true);
+      if (!filtersVm.isLoading) {
+        filtersVm.loadFilters(forceRefresh: true);
       }
     });
   }
@@ -54,6 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Single source of truth for "the library is empty", so the category row and
   /// the content branch below can never disagree about which one is showing.
   bool _isEmptyStateVisible(HomeViewModel vm) {
+    if (widget.forceEmptyStatePreview) return true; // TEMP_PREVIEW
     if (vm.isLoading && vm.reels.isEmpty) return false;
     if (vm.error != null && vm.reels.isEmpty) return false;
     // vm.isEmpty stays false until a load has actually settled, so this cannot
@@ -65,7 +77,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final vm = ref.watch(homeViewModelProvider);
-    final categoryVm = ref.watch(categoryFiltersViewModelProvider);
+    final filtersVm = ref.watch(reelFiltersViewModelProvider);
     final entitlementsVm = ref.watch(entitlementsViewModelProvider);
     final entitlements = entitlementsVm.entitlement;
     final entitlementResponse = entitlementsVm.response;
@@ -78,7 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: RefreshIndicator(
           onRefresh: () => Future.wait([
             vm.loadReels(forceRefresh: true),
-            categoryVm.loadCategoryFilters(forceRefresh: true),
+            filtersVm.loadFilters(forceRefresh: true),
           ]),
           color: AppColors.fg(context),
           backgroundColor: AppColors.yellow,
@@ -131,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             const Spacer(),
                             _buildSearchButton(context),
                             SizedBox(width: layout.inset(10)),
-                            _buildFilterButton(context, vm, categoryVm),
+                            _buildFilterButton(context, vm, filtersVm),
                           ],
                         ),
                       ],
@@ -158,30 +170,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   SliverToBoxAdapter(
                     child: SizedBox(
                       height: layout.gap(56),
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.fromLTRB(
-                          layout.inset(20),
-                          layout.gap(12),
-                          layout.inset(20),
-                          layout.gap(4),
-                        ),
-                        itemCount: categoryVm.categories.length + 1,
-                        separatorBuilder: (_, _) =>
-                            SizedBox(width: layout.inset(8)),
-                        itemBuilder: (_, i) {
-                          if (i == 0) {
-                            return CategoryBadge(
-                              category: 'All',
-                              isSelected: vm.selectedCategory == null,
-                              onTap: () => vm.filterByCategory(null),
-                            );
-                          }
-                          final cat = categoryVm.categories[i - 1];
-                          return CategoryBadge(
-                            category: cat,
-                            isSelected: vm.selectedCategory == cat,
-                            onTap: () => vm.filterByCategory(cat),
+                      child: Builder(
+                        builder: (context) {
+                          // The row refines whatever platform is active, so it
+                          // only ever offers categories that exist inside it.
+                          final categories = filtersVm
+                              .categoriesFor(vm.selectedPlatform)
+                              .map((group) => group.category)
+                              .toList(growable: false);
+                          return ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.fromLTRB(
+                              layout.inset(20),
+                              layout.gap(12),
+                              layout.inset(20),
+                              layout.gap(4),
+                            ),
+                            itemCount: categories.length + 1,
+                            separatorBuilder: (_, _) =>
+                                SizedBox(width: layout.inset(8)),
+                            itemBuilder: (_, i) {
+                              if (i == 0) {
+                                return CategoryBadge(
+                                  category: 'All',
+                                  isSelected: vm.selectedCategory == null,
+                                  onTap: () => vm.filterByCategory(null),
+                                );
+                              }
+                              final cat = categories[i - 1];
+                              return CategoryBadge(
+                                category: cat,
+                                isSelected: vm.selectedCategory == cat,
+                                onTap: () => vm.filterByCategory(cat),
+                              );
+                            },
                           );
                         },
                       ),
@@ -318,19 +340,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildFilterButton(
     BuildContext context,
     HomeViewModel vm,
-    CategoryFiltersViewModel categoryVm,
+    ReelFiltersViewModel filtersVm,
   ) {
     final layout = AppLayout.of(context);
-    return GestureDetector(
-      onTap: () => _showFilterSheet(context, vm, categoryVm),
-      child: Container(
-        width: layout.inset(40),
-        height: layout.inset(40),
-        decoration: AppTheme.brutalBox(context, shadow: true),
-        child: Icon(
-          Icons.tune,
-          color: AppColors.fg(context),
-          size: layout.inset(20),
+    // An active filter is otherwise invisible from the header, which reads as
+    // "where did my reels go?" after the sheet closes.
+    final isFiltered = vm.hasActiveFilters;
+    final accent = _platformAccentColor(vm.selectedPlatform);
+    return Semantics(
+      button: true,
+      label: isFiltered ? 'Filters, active' : 'Filters',
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTap: () => _showFilterSheet(context, vm, filtersVm),
+          child: Container(
+            width: layout.inset(40),
+            height: layout.inset(40),
+            decoration: AppTheme.brutalBox(
+              context,
+              color: isFiltered ? accent : AppColors.bg(context),
+              shadow: true,
+            ),
+            child: Icon(
+              Icons.tune,
+              color: isFiltered
+                  ? (accent.computeLuminance() > 0.5
+                        ? AppColors.black
+                        : AppColors.white)
+                  : AppColors.fg(context),
+              size: layout.inset(20),
+            ),
+          ),
         ),
       ),
     );
@@ -771,9 +811,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: layout.inset(5),
-            runSpacing: layout.inset(5),
+          // Spread across the full width rather than bunched at the left, so
+          // the six read as one even strip.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               for (final platform in SourcePlatform.all)
                 _platformIconBadge(context, platform),
@@ -906,70 +947,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── Filter sheet ──
+  //
+  // Platform first, then category, then subcategory — each level below the
+  // platform optional. The whole facet tree is already in memory, so every
+  // selection here resolves without a request; only APPLY hits the network.
   void _showFilterSheet(
     BuildContext context,
     HomeViewModel vm,
-    CategoryFiltersViewModel categoryVm,
+    ReelFiltersViewModel filtersVm,
   ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        String? selectedPlatform = vm.selectedPlatform;
         String? selectedCategory = vm.selectedCategory;
         String? selectedSubcategory = vm.selectedSubcategory;
 
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final categoryItems = categoryVm.groups;
-            ReelCategoryGroup? topCategory;
-            for (final item in categoryItems) {
-              if (item.category == categoryVm.topCategory) {
-                topCategory = item;
+            final layout = AppLayout.of(context);
+            final platforms = filtersVm.platforms;
+
+            // A refresh can retire the selected platform (its last reel was
+            // deleted). Dropping it here keeps the sheet from applying a filter
+            // that resolves to nothing.
+            if (selectedPlatform != null &&
+                filtersVm.platformNamed(selectedPlatform) == null) {
+              selectedPlatform = null;
+            }
+
+            final categories = filtersVm.categoriesFor(selectedPlatform);
+            ReelCategoryGroup? selectedGroup;
+            for (final group in categories) {
+              if (group.category == selectedCategory) {
+                selectedGroup = group;
                 break;
               }
             }
-            topCategory ??= categoryItems.isNotEmpty
-                ? categoryItems.first
-                : null;
-
-            ReelCategoryGroup? selectedItem;
-            for (final item in categoryItems) {
-              if (item.category == selectedCategory) {
-                selectedItem = item;
-                break;
-              }
-            }
-
-            final subcategories = selectedItem?.subcategories ?? const [];
-            if (selectedSubcategory != null &&
-                !subcategories.any(
-                  (item) => item.name == selectedSubcategory,
-                )) {
+            // Narrowing to a platform can drop the chosen category with it.
+            if (selectedCategory != null && selectedGroup == null) {
+              selectedCategory = null;
               selectedSubcategory = null;
             }
 
-            final previewCount = _previewCountForFilter(
-              categoryVm: categoryVm,
-              selectedCategory: selectedCategory,
-              selectedSubcategory: selectedSubcategory,
-              selectedItem: selectedItem,
+            final subcategories =
+                selectedGroup?.subcategories ?? const <ReelSubcategoryFilter>[];
+            if (selectedGroup?.subcategoryNamed(selectedSubcategory) == null) {
+              selectedSubcategory = null;
+            }
+
+            final previewCount = filtersVm.previewCountFor(
+              platform: selectedPlatform,
+              category: selectedCategory,
+              subcategory: selectedSubcategory,
             );
-            final activeFilterLabel = selectedSubcategory != null
-                ? '$selectedCategory / $selectedSubcategory'
-                : selectedCategory ?? 'ALL REELS';
-            final topCategoryAccentColor = topCategory != null
-                ? AppColors.getCategoryColor(topCategory.category)
-                : AppColors.yellow;
-            final currentAccentColor = selectedCategory != null
-                ? AppColors.getCategoryColor(selectedCategory!)
-                : topCategoryAccentColor;
-            final applyAccentColor = selectedCategory != null
-                ? currentAccentColor
-                : AppColors.yellow;
-            final applyTextColor = applyAccentColor.computeLuminance() > 0.5
+            final topPlatform = filtersVm.platformNamed(filtersVm.topPlatform);
+            final accentColor = _platformAccentColor(selectedPlatform);
+            final applyTextColor = accentColor.computeLuminance() > 0.5
                 ? AppColors.black
                 : AppColors.white;
+            final activeFilterLabel = _activeFilterLabel(
+              filtersVm: filtersVm,
+              platform: selectedPlatform,
+              category: selectedCategory,
+              subcategory: selectedSubcategory,
+            );
 
             return FractionallySizedBox(
               heightFactor: 0.82,
@@ -1017,7 +1061,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        'Use the dropdowns to jump straight to the category you want.',
+                                        'Pick a social, then narrow it down by category if you want.',
                                         style: GoogleFonts.spaceMono(
                                           color: AppColors.textSec(context),
                                           fontSize: 11,
@@ -1052,7 +1096,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(height: 18),
                       Expanded(
-                        child: categoryVm.isLoading && !categoryVm.hasGroups
+                        child: filtersVm.isLoading && !filtersVm.hasPlatforms
                             ? Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 24,
@@ -1062,26 +1106,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   label: 'LOADING FILTERS...',
                                 ),
                               )
-                            : categoryVm.error != null &&
-                                  !categoryVm.hasGroups &&
-                                  categoryItems.isEmpty
+                            : filtersVm.error != null && !filtersVm.hasPlatforms
                             ? Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 24,
                                 ),
                                 child: _buildFilterSheetError(
                                   context,
-                                  categoryVm,
+                                  filtersVm,
                                 ),
                               )
-                            : categoryItems.isEmpty
+                            : platforms.isEmpty
                             ? Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 24,
                                 ),
                                 child: _buildFilterSheetEmpty(context),
                               )
-                            : Padding(
+                            : SingleChildScrollView(
                                 padding: const EdgeInsets.fromLTRB(
                                   24,
                                   0,
@@ -1091,17 +1133,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    Text(
+                                      'SOCIAL',
+                                      style: GoogleFonts.spaceMono(
+                                        color: AppColors.textSec(context),
+                                        fontSize: layout.font(10),
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                    SizedBox(height: layout.gap(10)),
+                                    Wrap(
+                                      spacing: layout.inset(8),
+                                      runSpacing: layout.gap(8),
+                                      children: [
+                                        _PlatformFilterTile(
+                                          platformId: null,
+                                          label: 'ALL',
+                                          count: filtersVm.totalCount,
+                                          isSelected: selectedPlatform == null,
+                                          onTap: () => setSheetState(() {
+                                            selectedPlatform = null;
+                                            selectedCategory = null;
+                                            selectedSubcategory = null;
+                                          }),
+                                        ),
+                                        for (final platform in platforms)
+                                          _PlatformFilterTile(
+                                            platformId: platform.platform,
+                                            label: platform.displayLabel,
+                                            count: platform.count,
+                                            isSelected:
+                                                selectedPlatform ==
+                                                platform.platform,
+                                            onTap: () => setSheetState(() {
+                                              // Re-tapping the active social
+                                              // clears it rather than trapping
+                                              // the user in one platform.
+                                              final isActive =
+                                                  selectedPlatform ==
+                                                  platform.platform;
+                                              selectedPlatform = isActive
+                                                  ? null
+                                                  : platform.platform;
+                                              selectedCategory = null;
+                                              selectedSubcategory = null;
+                                            }),
+                                          ),
+                                      ],
+                                    ),
+                                    SizedBox(height: layout.gap(20)),
                                     _buildFilterDropdownField(
                                       context,
                                       label: 'CATEGORY',
                                       hint: 'ALL CATEGORIES',
                                       value: selectedCategory,
-                                      enabled: categoryItems.isNotEmpty,
-                                      accentColor: currentAccentColor,
-                                      items: categoryItems
+                                      enabled: categories.isNotEmpty,
+                                      accentColor: accentColor,
+                                      items: categories
                                           .map(
                                             (item) => _FilterOption(
-                                              label: item.category,
+                                              value: item.category,
+                                              label: item.displayLabel,
                                               count: item.count,
                                               accentColor:
                                                   AppColors.getCategoryColor(
@@ -1117,7 +1210,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         });
                                       },
                                     ),
-                                    const SizedBox(height: 16),
+                                    SizedBox(height: layout.gap(16)),
                                     _buildFilterDropdownField(
                                       context,
                                       label: 'SUBCATEGORY',
@@ -1128,13 +1221,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       enabled:
                                           selectedCategory != null &&
                                           subcategories.isNotEmpty,
-                                      accentColor: currentAccentColor,
+                                      accentColor: accentColor,
                                       items: subcategories
                                           .map(
                                             (subcategory) => _FilterOption(
-                                              label: subcategory.name,
+                                              value: subcategory.name,
+                                              label: subcategory.displayLabel,
                                               count: subcategory.count,
-                                              accentColor: currentAccentColor,
+                                              accentColor: accentColor,
                                             ),
                                           )
                                           .toList(),
@@ -1144,28 +1238,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         });
                                       },
                                     ),
-                                    const SizedBox(height: 12),
+                                    SizedBox(height: layout.gap(12)),
                                     Text(
-                                      selectedCategory == null
-                                          ? 'Pick a category to unlock subcategory filters.'
-                                          : subcategories.isEmpty
-                                          ? 'No saved subcategories in this category yet.'
-                                          : 'Choose a saved subcategory for ${selectedCategory!.toLowerCase()}.',
+                                      _filterHint(
+                                        platform: selectedPlatform,
+                                        category: selectedCategory,
+                                        hasSubcategories:
+                                            subcategories.isNotEmpty,
+                                      ),
                                       style: GoogleFonts.spaceMono(
                                         color: AppColors.textSec(context),
                                         fontSize: 10,
                                         height: 1.5,
                                       ),
                                     ),
-                                    const Spacer(),
+                                    SizedBox(height: layout.gap(20)),
                                     _buildCompactFilterSummary(
                                       context,
                                       activeFilterLabel: activeFilterLabel,
                                       previewCount: previewCount,
-                                      totalCount: categoryVm.totalCount,
-                                      currentAccentColor: currentAccentColor,
-                                      topCategory: topCategory,
-                                      topAccentColor: topCategoryAccentColor,
+                                      totalCount: filtersVm.totalCount,
+                                      currentAccentColor: accentColor,
+                                      topPlatform: topPlatform,
                                     ),
                                   ],
                                 ),
@@ -1188,6 +1282,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: GestureDetector(
                                 onTap: () {
                                   setSheetState(() {
+                                    selectedPlatform = null;
                                     selectedCategory = null;
                                     selectedSubcategory = null;
                                   });
@@ -1219,6 +1314,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: GestureDetector(
                                 onTap: () {
                                   vm.applyFilters(
+                                    platform: selectedPlatform,
                                     category: selectedCategory,
                                     subcategory: selectedSubcategory,
                                   );
@@ -1230,7 +1326,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   decoration: AppTheme.brutalBox(
                                     context,
-                                    color: applyAccentColor,
+                                    color: accentColor,
                                     shadow: true,
                                   ),
                                   alignment: Alignment.center,
@@ -1257,6 +1353,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
       },
     );
+  }
+
+  /// "INSTAGRAM / FOOD / STREET FOOD" — only the levels that are actually set.
+  String _activeFilterLabel({
+    required ReelFiltersViewModel filtersVm,
+    required String? platform,
+    required String? category,
+    required String? subcategory,
+  }) {
+    final parts = <String>[
+      if (platform != null)
+        filtersVm.platformNamed(platform)?.displayLabel ??
+            platform.toUpperCase(),
+      if (category != null) category.toUpperCase(),
+      if (subcategory != null) subcategory.toUpperCase(),
+    ];
+    return parts.isEmpty ? 'ALL REELS' : parts.join(' / ');
+  }
+
+  String _filterHint({
+    required String? platform,
+    required String? category,
+    required bool hasSubcategories,
+  }) {
+    if (category == null) {
+      return platform == null
+          ? 'Pick a social to narrow things down, or filter by category alone.'
+          : 'Pick a category to narrow this social down further.';
+    }
+    if (!hasSubcategories) {
+      return 'No saved subcategories in this category yet.';
+    }
+    return 'Choose a saved subcategory for ${category.toLowerCase()}.';
   }
 
   Widget _buildFilterSheetStatus(
@@ -1292,30 +1421,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  int _previewCountForFilter({
-    required CategoryFiltersViewModel categoryVm,
-    required String? selectedCategory,
-    required String? selectedSubcategory,
-    required ReelCategoryGroup? selectedItem,
-  }) {
-    if (selectedCategory == null) {
-      return categoryVm.totalCount;
-    }
-
-    if (selectedSubcategory != null && selectedItem != null) {
-      for (final subcategory in selectedItem.subcategories) {
-        if (subcategory.name == selectedSubcategory) {
-          return subcategory.count;
-        }
-      }
-    }
-
-    return selectedItem?.count ?? categoryVm.selectedPreviewCount;
-  }
-
   Widget _buildFilterSheetError(
     BuildContext context,
-    CategoryFiltersViewModel categoryVm,
+    ReelFiltersViewModel filtersVm,
   ) {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1337,7 +1445,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            categoryVm.error ?? '',
+            filtersVm.error ?? '',
             style: GoogleFonts.spaceMono(
               color: AppColors.textSec(context),
               fontSize: 11,
@@ -1346,7 +1454,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 14),
           GestureDetector(
-            onTap: () => categoryVm.loadCategoryFilters(forceRefresh: true),
+            onTap: () => filtersVm.loadFilters(forceRefresh: true),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: AppTheme.brutalBox(
@@ -1374,7 +1482,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.all(18),
       decoration: AppTheme.brutalBox(context, shadow: true),
       child: Text(
-        'NO CATEGORY FILTERS YET. SAVE A FEW REELS FIRST, THEN OPEN FILTERS AGAIN.',
+        'NO FILTERS YET. SAVE A FEW REELS FIRST, THEN OPEN FILTERS AGAIN.',
         style: GoogleFonts.spaceMono(
           color: AppColors.fg(context),
           fontSize: 11,
@@ -1391,35 +1499,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int previewCount,
     required int totalCount,
     required Color currentAccentColor,
-    required ReelCategoryGroup? topCategory,
-    required Color topAccentColor,
+    required ReelPlatformGroup? topPlatform,
   }) {
     final layout = AppLayout.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _buildFilterInfoCard(
-            context,
-            label: 'CURRENT FILTER',
-            title: activeFilterLabel,
-            subtitle: '$previewCount OF $totalCount REELS',
-            accentColor: currentAccentColor,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _buildFilterInfoCard(
+              context,
+              label: 'CURRENT FILTER',
+              title: activeFilterLabel,
+              subtitle: '$previewCount OF $totalCount REELS',
+              accentColor: currentAccentColor,
+            ),
           ),
-        ),
-        SizedBox(width: layout.inset(12)),
-        Expanded(
-          child: _buildFilterInfoCard(
-            context,
-            label: 'TOP CATEGORY',
-            title: topCategory?.category ?? 'NONE YET',
-            subtitle: topCategory == null
-                ? 'SAVE REELS TO BUILD FILTERS'
-                : '${topCategory.count} REELS SAVED',
-            accentColor: topAccentColor,
+          SizedBox(width: layout.inset(12)),
+          Expanded(
+            child: _buildFilterInfoCard(
+              context,
+              label: 'TOP SOCIAL',
+              title: topPlatform?.displayLabel ?? 'NONE YET',
+              subtitle: topPlatform == null
+                  ? 'SAVE REELS TO BUILD FILTERS'
+                  : '${topPlatform.count} REELS SAVED',
+              accentColor: _platformAccentColor(topPlatform?.platform),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1434,15 +1543,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final accentText = accentColor.computeLuminance() > 0.5
         ? AppColors.black
         : AppColors.white;
-    final fixedHeight = layout.gap(126);
+    // Only a floor: a filter label can run to two lines ("INSTAGRAM / MOVIES"),
+    // and clamping the height to fit one would clip it. The row stretches both
+    // cards to the taller of the two, so they still line up.
     return Container(
-      constraints: BoxConstraints(
-        minHeight: fixedHeight,
-        maxHeight: fixedHeight,
-      ),
+      constraints: BoxConstraints(minHeight: layout.gap(126)),
       padding: EdgeInsets.all(layout.inset(16)),
       decoration: AppTheme.brutalBox(context, shadow: true),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -1559,7 +1668,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           (item) => Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              item.label.toUpperCase(),
+                              item.label,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.spaceMono(
                                 color: AppColors.fg(context),
@@ -1573,12 +1682,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     items: items
                         .map(
                           (item) => DropdownMenuItem<String>(
-                            value: item.label,
+                            value: item.value,
                             child: Row(
                               children: [
                                 Expanded(
                                   child: Text(
-                                    item.label.toUpperCase(),
+                                    item.label,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),

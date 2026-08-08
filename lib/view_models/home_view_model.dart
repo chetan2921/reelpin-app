@@ -21,6 +21,7 @@ class HomeViewModel extends ChangeNotifier {
   bool _hasSettledFirstLoad = false;
   bool _isLoadingMore = false;
   String? _error;
+  String? _selectedPlatform;
   String? _selectedCategory;
   String? _selectedSubcategory;
 
@@ -30,8 +31,13 @@ class HomeViewModel extends ChangeNotifier {
   bool get hasMoreReels => _repository.hasMoreReels;
   int get totalCount => _repository.totalCount;
   String? get error => _error;
+  String? get selectedPlatform => _selectedPlatform;
   String? get selectedCategory => _selectedCategory;
   String? get selectedSubcategory => _selectedSubcategory;
+  bool get hasActiveFilters =>
+      _selectedPlatform != null ||
+      _selectedCategory != null ||
+      _selectedSubcategory != null;
   List<Reel> get allReels => List.unmodifiable(_reels);
 
   /// Whether a load has finished at least once this session.
@@ -58,6 +64,7 @@ class HomeViewModel extends ChangeNotifier {
     try {
       await _repository.loadInitialReels(
         forceRefresh: forceRefresh,
+        platform: _selectedPlatform,
         category: _selectedCategory,
         subcategory: _selectedSubcategory,
       );
@@ -85,6 +92,7 @@ class HomeViewModel extends ChangeNotifier {
 
     try {
       await _repository.loadMoreReels(
+        platform: _selectedPlatform,
         category: _selectedCategory,
         subcategory: _selectedSubcategory,
       );
@@ -100,12 +108,15 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
+  /// Tapping the category row. The platform stays put — the row is a
+  /// refinement inside the current platform, not a replacement for it.
   void filterByCategory(String? category) {
     final nextCategory = _selectedCategory == category ? null : category;
-    applyFilters(category: nextCategory);
+    applyFilters(platform: _selectedPlatform, category: nextCategory);
   }
 
-  void applyFilters({String? category, String? subcategory}) {
+  void applyFilters({String? platform, String? category, String? subcategory}) {
+    _selectedPlatform = platform;
     _selectedCategory = category;
     _selectedSubcategory = subcategory;
     unawaited(loadReels(forceRefresh: true));
@@ -113,6 +124,7 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   void clearFilters() {
+    _selectedPlatform = null;
     _selectedCategory = null;
     _selectedSubcategory = null;
     unawaited(loadReels(forceRefresh: true));
@@ -120,6 +132,7 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   void reset() {
+    _selectedPlatform = null;
     _selectedCategory = null;
     _selectedSubcategory = null;
     _error = null;

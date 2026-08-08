@@ -65,6 +65,7 @@ class _FakeApiService extends ApiClient {
   @override
   Future<ReelPage> getReelsPage({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
@@ -165,6 +166,7 @@ class _DelayedApiService extends ApiClient {
   @override
   Future<ReelPage> getReelsPage({
     String? userId,
+    String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
