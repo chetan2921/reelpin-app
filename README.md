@@ -52,7 +52,7 @@ You share a link into ReelPin, the backend processes it in the background, and t
 
 ## What The App Does
 
-- Save Instagram reels, posts, TikToks, and YouTube Shorts by sharing them into ReelPin.
+- Save reels, posts, and links by sharing them into ReelPin. The backend accepts many sources (Instagram, TikTok, YouTube, X, Reddit, LinkedIn, Pinterest, and plain links); which sources are supported is driven by the backend, not the app.
 - Queue background processing jobs instead of blocking the user in the foreground.
 - Show a share confirmation popup when a reel is accepted for background processing.
 - Register the device for push notifications and refresh the saved library when a reel is ready.
@@ -119,23 +119,28 @@ Profile shows:
 
 The app is built around the Android and iOS share flow.
 
-1. You share a supported reel or post into ReelPin.
+1. You share a supported reel, post, or link into ReelPin.
 2. ReelPin extracts the URL and queues a background processing job.
 3. The app shows a short confirmation popup that the reel was saved and is processing in the background.
-4. The backend worker processes the content asynchronously.
-5. When the backend sends a `reel_ready` notification, the app refreshes the saved library.
+4. The backend worker processes the content asynchronously: download, transcribe, extract structured data (title, summary, locations, key facts, people, action items), embed, and store.
+5. When the backend sends a `reel_ready` push notification, the app refreshes the saved library.
 
 The app does not wait for processing to finish in the foreground.
 
+### Native Share Handoff
+
+Android can enqueue a share in a background process that runs before Flutter is up, and that native code cannot read the DataStore where the Flutter `shared_preferences` plugin keeps its values. To bridge this, `lib/services/sharing/share_handoff_service.dart` mirrors the values the background enqueue needs (user id, access token, API base URL, push token and platform, share token) into a native-owned store through `MethodChannel('com.chetanjain.reelpin/share_handoff')`. When you change what the background share needs, update both the Flutter setters here and the matching native side.
+
 ## Tech Stack
 
-- Flutter
-- Provider
-- Supabase auth and profile storage
-- Firebase Cloud Messaging
-- flutter_local_notifications
-- google_maps_flutter
-- receive_sharing_intent
+- Flutter (Dart SDK 3.11+)
+- Riverpod (`flutter_riverpod`) for state
+- Supabase (`supabase_flutter`) for auth (Google and Apple sign-in) and profile storage
+- Firebase Cloud Messaging (`firebase_messaging`) and `flutter_local_notifications` for push
+- `google_maps_flutter` for the map, with `geolocator` and `geocoding`
+- `receive_sharing_intent` for the share intake
+- `in_app_update` for Android in-app updates
+- `webview_flutter`, `url_launcher`, `google_fonts`, `shimmer`, `hugeicons`
 
 ## Backend Contract
 
@@ -174,7 +179,7 @@ Example:
 ```text
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-API_BASE_URL=https://dev-api-64-227-168-119.nip.io
+API_BASE_URL=https://api-dev.reelpin.in
 MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
@@ -199,8 +204,37 @@ tool/reelpin.sh run-dev -d <device-id>
 tool/reelpin.sh run-production -d <device-id>
 ```
 
-`run-dev` uses `https://dev-api-64-227-168-119.nip.io`. `run-production` uses
+`run-dev` uses `https://api-dev.reelpin.in`. `run-production` uses
 `https://api.reelpin.in`.
+
+#### How Config Resolves
+
+`lib/env.dart` picks the API base URL. An `API_BASE_URL` Dart define always
+wins; otherwise release builds use production (`https://api.reelpin.in`) and
+every other build uses dev (`https://api-dev.reelpin.in`). Those are the only
+two hosts — point a build at a local server with the Dart define rather than
+adding a constant.
+
+`lib/env.dart` also reads `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` only from Dart defines (`String.fromEnvironment`); it does
+not read `assets/config/local.env` at runtime. The wrapper is what turns the
+values in `local.env` into `--dart-define` flags before Flutter starts. The
+Supabase OAuth redirect scheme is chosen per platform:
+`com.chetanjain.reelpin` on Android and `com.chetan.reelpin` elsewhere.
+
+To run the raw Flutter toolchain without the wrapper, pass the same defines
+yourself, for example:
+
+```bash
+flutter run \
+  --dart-define=API_BASE_URL=http://<your-lan-ip>:8000/api/v1 \
+  --dart-define=SUPABASE_URL=... \
+  --dart-define=SUPABASE_ANON_KEY=...
+```
+
+The usual `flutter pub get`, `flutter test`, `flutter analyze`, and
+`flutter build appbundle` / `flutter build apk` all work, but without the
+defines above Supabase and the backend URL will not be configured.
 
 Clean Flutter build output without deleting saved release artifacts:
 
@@ -399,20 +433,21 @@ tool/reelpin.sh doctor ios
 
 ## Code Organization
 
-The Flutter application uses a single package with three top-level ownership areas:
+The Flutter application uses a single package organized by layer rather than by feature. Each folder has one responsibility:
 
-- `lib/app` starts the application, registers providers, selects the authenticated entry point, and coordinates user-scoped state.
-- `lib/core` contains configuration, design primitives, logging, network implementation, and platform integrations.
-- `lib/features` groups each feature's data contracts, domain models, state, screens, and widgets.
+- `lib/screens/<screen_name>` holds one full page. Widgets used only by that page live in its `partials/` folder.
+- `lib/components` holds widgets reused by more than one screen, grouped by area (`components/reels`).
+- `lib/view_models` holds every `ChangeNotifier` state class, named `*_view_model.dart`.
+- `lib/http` holds the backend endpoint groups (`*_http.dart`), the shared `ApiClient`, and `ApiException`.
+- `lib/repositories` holds stateful caches layered over `http`, such as `ReelRepository`.
+- `lib/data_models` holds data-only classes grouped by area (`data_models/reels`, `data_models/map`).
+- `lib/services` holds platform and lifecycle integrations: authentication, location, notifications, sharing, caching, updates.
+- `lib/constants` holds colors, spacing, layout, and theme. `lib/utils` holds pure helpers.
+- The root files start and wire the app: `main.dart`, `bootstrap.dart`, `app_entry.dart`, `reelpin_app.dart`, `providers.dart`, `router.dart`, `env.dart`.
 
-Home and reel ownership are intentionally separate:
+Dependencies only point downward. `constants` and `data_models` import nothing else from the app; `utils`, `http`, `services`, `repositories`, and `view_models` never import `screens` or `components`; and a screen may only use its own `partials/`. A widget that a second screen needs moves to `components`. `tool/check_architecture.dart` enforces these boundaries and the file naming rules for every change targeting `dev`.
 
-- `lib/features/home` contains the Home screen, Home viewmodel, and category-filter state.
-- `lib/features/reels` contains reusable reel models, the reel repository, reel cards, and reel detail/share UI.
-
-Feature data and domain code cannot depend on presentation code. Core code does not depend on application composition. The architecture check enforces these boundaries for every change targeting `dev`.
-
-Tests mirror the application structure under `test/app`, `test/core`, and `test/features`. When you change a feature, its production code and tests stay in matching folders.
+Tests mirror the same folders under `test/`. When you change a layer, its production code and tests stay in matching folders.
 
 ## Notes
 
