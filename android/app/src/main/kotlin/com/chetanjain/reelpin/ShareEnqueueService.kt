@@ -15,8 +15,8 @@ import java.net.URL
 
 class ShareEnqueueService : JobIntentService() {
     override fun onHandleWork(intent: Intent) {
-        val sharedUrl = intent.getStringExtra(EXTRA_SHARED_URL)?.trim()
-        if (sharedUrl.isNullOrEmpty()) return
+        val sharedPayload = intent.getStringExtra(EXTRA_SHARED_PAYLOAD)?.trim()
+        if (sharedPayload.isNullOrEmpty()) return
 
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val shareToken = prefs.getString(KEY_SHARE_TOKEN, null)?.trim()
@@ -27,11 +27,11 @@ class ShareEnqueueService : JobIntentService() {
         // No background credential yet (first run before the app minted one, or
         // signed out): capture the URL for the app to enqueue on next open.
         if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
-            savePendingShare(prefs, sharedUrl)
+            savePendingShare(prefs, sharedPayload)
             return
         }
 
-        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedUrl) }
+        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedPayload) }
             .getOrDefault(ShareRequestResult.FAILURE)
         when (result) {
             ShareRequestResult.SUCCESS -> {
@@ -40,16 +40,16 @@ class ShareEnqueueService : JobIntentService() {
             }
             ShareRequestResult.INVALID_SHARE_TOKEN -> {
                 prefs.edit().remove(KEY_SHARE_TOKEN).commit()
-                savePendingShare(prefs, sharedUrl)
+                savePendingShare(prefs, sharedPayload)
                 showToast("Open ReelPin and sign in again.")
             }
             ShareRequestResult.UNSUPPORTED -> showToast("ReelPin can't save this link.")
             ShareRequestResult.RATE_LIMITED -> {
-                savePendingShare(prefs, sharedUrl)
+                savePendingShare(prefs, sharedPayload)
                 showToast("You've hit your saving limit. We'll retry later.")
             }
             ShareRequestResult.FAILURE -> {
-                savePendingShare(prefs, sharedUrl)
+                savePendingShare(prefs, sharedPayload)
                 showToast("Couldn't reach ReelPin. We'll retry when you open the app.")
             }
         }
@@ -58,7 +58,7 @@ class ShareEnqueueService : JobIntentService() {
     private fun enqueueJob(
         baseUrl: String,
         shareToken: String,
-        sharedUrl: String,
+        sharedPayload: String,
     ): ShareRequestResult {
         val connection = (URL(apiUrl(baseUrl, "processing-jobs/reels")).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -70,7 +70,7 @@ class ShareEnqueueService : JobIntentService() {
         }
         try {
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
-                it.write(JSONObject().put("url", sharedUrl).toString())
+                it.write(JSONObject().put("raw_payload_text", sharedPayload).toString())
             }
             val statusCode = connection.responseCode
             val responseBody = runCatching {
@@ -137,7 +137,7 @@ class ShareEnqueueService : JobIntentService() {
 
     companion object {
         private const val JOB_ID = 47231
-        private const val EXTRA_SHARED_URL = "extra_shared_url"
+        private const val EXTRA_SHARED_PAYLOAD = "extra_shared_payload"
         // Native-owned SharedPreferences file. The Flutter shared_preferences
         // plugin now stores values in a DataStore that native code cannot read,
         // so the app pushes these values here via a MethodChannel (see
@@ -149,9 +149,9 @@ class ShareEnqueueService : JobIntentService() {
         const val KEY_PUSH_PLATFORM = "push_platform"
         const val KEY_PENDING_URLS = "pending_urls"
 
-        fun enqueue(context: Context, sharedUrl: String) {
+        fun enqueue(context: Context, sharedPayload: String) {
             val intent = Intent(context, ShareEnqueueService::class.java).apply {
-                putExtra(EXTRA_SHARED_URL, sharedUrl)
+                putExtra(EXTRA_SHARED_PAYLOAD, sharedPayload)
             }
             enqueueWork(context, ShareEnqueueService::class.java, JOB_ID, intent)
         }

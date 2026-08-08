@@ -23,8 +23,8 @@ part 'partials/reel_share_card.dart';
 const String _appStoreUrl = appStoreUrl;
 const String _playStoreUrl = playStoreUrl;
 
-/// Mirrors `ShareUrlExtractor`: Pinterest serves per-country domains from
-/// regional subdomains, and anchoring both ends keeps lookalikes out.
+/// Pinterest serves per-country domains from regional subdomains, so anchoring
+/// both ends keeps lookalikes out.
 final RegExp _pinterestHostRegex = RegExp(
   r'^(?:[a-z0-9-]+\.)*pinterest\.(?:com|net|info|[a-z]{2}|(?:com|co)\.[a-z]{2})$',
 );
