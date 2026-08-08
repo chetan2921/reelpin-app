@@ -16,8 +16,6 @@ import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
 import 'package:reelpin/screens/discover/partials/search_result_tile.dart';
-// TEMP_PREVIEW: remove with the onboarding stub in build().
-import 'package:reelpin/screens/onboarding/onboarding_screen.dart';
 part 'partials/saved_date_calendar_sheet.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
@@ -85,27 +83,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     });
   }
 
-  /// TEMP_PREVIEW: shows the onboarding flow in place of Discover so it can be
-  /// walked through on device without reinstalling. Delete this field and the
-  /// `if` in [build] — plus the [OnboardingScreen] import — to restore Discover.
-  /// Not `const` on purpose — a const `true` would mark the real build body as
-  /// dead code and bury the analyzer in warnings.
-  static final bool _tempPreviewOnboarding = true;
-
-  /// TEMP_PREVIEW: bumping this rebuilds onboarding from page one.
-  int _tempPreviewRun = 0;
-
   @override
   Widget build(BuildContext context) {
-    if (_tempPreviewOnboarding) {
-      // Onboarding normally advances the app past this screen; here there is
-      // nothing to advance to, so the last step just restarts the flow.
-      return OnboardingScreen(
-        key: ValueKey(_tempPreviewRun),
-        onContinue: () => setState(() => _tempPreviewRun += 1),
-      );
-    }
-
     final layout = AppLayout.of(context);
     final vm = ref.watch(searchViewModelProvider);
     final discoverVm = ref.watch(discoverViewModelProvider);

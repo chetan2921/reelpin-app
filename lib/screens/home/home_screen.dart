@@ -21,20 +21,10 @@ part 'partials/filter_option.dart';
 part 'partials/platform_filter_tile.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({
-    super.key,
-    this.onSearchTap,
-    this.scrollController,
-    this.forceEmptyStatePreview = false,
-  });
+  const HomeScreen({super.key, this.onSearchTap, this.scrollController});
 
   final VoidCallback? onSearchTap;
   final ScrollController? scrollController;
-
-  /// TEMP_PREVIEW: forces the empty state on regardless of how many reels are
-  /// saved, so it can be viewed on device without emptying the library. Only
-  /// the preview instance passes this — the real Home tab is unaffected.
-  final bool forceEmptyStatePreview;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -65,7 +55,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Single source of truth for "the library is empty", so the category row and
   /// the content branch below can never disagree about which one is showing.
   bool _isEmptyStateVisible(HomeViewModel vm) {
-    if (widget.forceEmptyStatePreview) return true; // TEMP_PREVIEW
     if (vm.isLoading && vm.reels.isEmpty) return false;
     if (vm.error != null && vm.reels.isEmpty) return false;
     // vm.isEmpty stays false until a load has actually settled, so this cannot

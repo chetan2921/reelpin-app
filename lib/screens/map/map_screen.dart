@@ -18,8 +18,6 @@ import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/components/reels/category_badge.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
-// TEMP_PREVIEW: remove with the home-empty-state stub in build().
-import 'package:reelpin/screens/home/home_screen.dart';
 part 'partials/map_place_search_sheet.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -334,19 +332,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  /// TEMP_PREVIEW: shows the home screen's own empty state here instead of the
-  /// map, so it can be viewed on device without emptying the library. Delete
-  /// this field and the `if` in [build] to restore the map.
-  /// Not `const` on purpose — a const `true` would mark the real build body as
-  /// dead code and bury the analyzer in warnings.
-  static final bool _tempPreviewHomeEmptyState = true;
-
   @override
   Widget build(BuildContext context) {
-    if (_tempPreviewHomeEmptyState) {
-      return const HomeScreen(forceEmptyStatePreview: true);
-    }
-
     final layout = AppLayout.of(context);
     final vm = ref.watch(mapViewModelProvider);
     final themeVm = ref.watch(themeViewModelProvider);
