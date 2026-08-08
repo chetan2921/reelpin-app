@@ -19,7 +19,6 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
-import 'package:reelpin/utils/share_url_extractor.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/screens/home/home_screen.dart';
@@ -110,7 +109,10 @@ class _AppShellState extends ConsumerState<AppShell>
     unawaited(ReceiveSharingIntent.instance.reset());
   }
 
-  Future<void> _handleSharedPayload(String payload) async {
+  Future<void> _handleSharedPayload(
+    String payload, {
+    bool showConfirmation = true,
+  }) async {
     final normalizedPayload = payload.trim();
     if (normalizedPayload.isEmpty) return;
 
@@ -123,13 +125,12 @@ class _AppShellState extends ConsumerState<AppShell>
     _lastHandledSharedPayload = normalizedPayload;
 
     try {
-      final extractedUrl = ShareUrlExtractor.extractSupportedUrl(
-        normalizedPayload,
-      );
+      // Send the whole payload; the backend extracts the URL candidates and
+      // decides which is the intended, supported one.
       final resolved = await ref
           .read(sharingHttpProvider)
           .resolveSharePayload(
-            rawPayloadText: extractedUrl ?? normalizedPayload,
+            rawPayloadText: normalizedPayload,
             platform: Theme.of(context).platform.name,
           );
       if (!mounted || !resolved.supported) return;
@@ -138,7 +139,7 @@ class _AppShellState extends ConsumerState<AppShell>
       if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
         return;
       }
-      await _enqueueSharedReel(resolvedUrl, showConfirmation: true);
+      await _enqueueSharedReel(resolvedUrl, showConfirmation: showConfirmation);
     } catch (error) {
       unawaited(analytics.recordEnqueueFailed(normalizedPayload, error));
     }
@@ -306,11 +307,13 @@ class _AppShellState extends ConsumerState<AppShell>
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
       for (final entry in decoded) {
-        final url = entry?.toString().trim() ?? '';
-        if (url.isEmpty) continue;
-        // Reset the per-payload dedupe so each pending URL is processed.
+        final blob = entry?.toString().trim() ?? '';
+        if (blob.isEmpty) continue;
+        // Reset the per-payload dedupe so each pending share is processed.
         _lastHandledSharedPayload = null;
-        await _enqueueSharedReel(url, showConfirmation: false);
+        // Pending entries are raw share blobs, so route them through the same
+        // backend extraction path as a live share.
+        await _handleSharedPayload(blob, showConfirmation: false);
       }
     } catch (e) {
       AppLogger.error('Pending share drain skipped: $e');
