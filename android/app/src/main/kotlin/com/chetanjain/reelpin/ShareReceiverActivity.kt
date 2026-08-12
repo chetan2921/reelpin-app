@@ -104,31 +104,42 @@ class ShareReceiverActivity : Activity() {
             else -> "SAVE TO ${selected.size} COLLECTIONS"
         }
 
+        // Matches AddToCollectionSheet: brutalCard chrome, a drag handle, and
+        // 24dp gutters, so the share sheet reads as part of the same app.
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
-            setPadding(0, dp(18), 0, dp(14))
+            background = brutalCard()
+            setPadding(0, dp(18), 0, dp(24))
         }
+
+        // Drag handle: 40x4 solid, same as the sheets inside the app.
+        root.addView(View(this).apply {
+            setBackgroundColor(Color.BLACK)
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(4)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = dp(18)
+            }
+        })
 
         root.addView(TextView(this).apply {
             text = "SAVE TO A COLLECTION"
             setTextColor(Color.BLACK)
             typeface = spaceMono(bold = true)
-            textSize = 15f
+            textSize = 17f
             letterSpacing = 0.06f
-            setPadding(dp(20), 0, dp(20), dp(4))
+            setPadding(dp(24), 0, dp(24), dp(6))
         })
         root.addView(TextView(this).apply {
             text = "Tap the ones it belongs in. Skip to just save it."
             setTextColor(0xFF444444.toInt())
             typeface = spaceMono(bold = false)
-            textSize = 11.5f
-            setPadding(dp(20), 0, dp(20), dp(14))
+            textSize = 12f
+            setPadding(dp(24), 0, dp(24), dp(16))
         })
 
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(14), dp(2), dp(14), dp(6))
+            setPadding(dp(18), dp(2), dp(18), dp(6))
         }
         collections.forEach { collection ->
             row.addView(buildTile(collection, selected) { action.text = actionLabel() })
@@ -159,7 +170,7 @@ class ShareReceiverActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { setMargins(dp(20), dp(14), dp(20), dp(4)) }
+            ).apply { setMargins(dp(24), dp(16), dp(24), dp(4)) }
             setOnClickListener {
                 dialog.dismiss()
                 submit(sharedUrl, selected.toList())
@@ -169,7 +180,7 @@ class ShareReceiverActivity : Activity() {
 
         dialog.setContentView(root)
         dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.WHITE))
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
             setGravity(Gravity.BOTTOM)
         }
@@ -262,6 +273,13 @@ class ShareReceiverActivity : Activity() {
         // would silently leave older devices on the platform monospace.
         return runCatching { ResourcesCompat.getFont(this, id) }.getOrNull()
             ?: Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
+    }
+
+    /** AppTheme.brutalCard: flat fill with a 1dp black border, no rounding. */
+    private fun brutalCard(): Drawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor(Color.WHITE)
+        setStroke(dp(1), Color.BLACK)
     }
 
     private fun brutalBox(fill: Int): Drawable {

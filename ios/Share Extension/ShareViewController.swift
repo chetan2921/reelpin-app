@@ -304,9 +304,15 @@ class ShareViewController: UIViewController {
   private func presentCollectionPicker() {
     statusContainer.isHidden = true
 
+    // Drag handle: 40x4 solid, matching AddToCollectionSheet in the app.
+    let handle = UIView()
+    handle.backgroundColor = .black
+    handle.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(handle)
+
     let heading = UILabel()
     heading.text = "SAVE TO A COLLECTION"
-    heading.font = Self.spaceMono(size: 16, bold: true)
+    heading.font = Self.spaceMono(size: 17, bold: true)
     heading.textColor = .black
     heading.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(heading)
@@ -343,21 +349,26 @@ class ShareViewController: UIViewController {
     let bar = action
 
     NSLayoutConstraint.activate([
-      heading.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-      heading.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-      heading.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+      handle.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 14),
+      handle.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+      handle.widthAnchor.constraint(equalToConstant: 40),
+      handle.heightAnchor.constraint(equalToConstant: 4),
+
+      heading.topAnchor.constraint(equalTo: handle.bottomAnchor, constant: 18),
+      heading.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+      heading.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
 
       subtitle.topAnchor.constraint(equalTo: heading.bottomAnchor, constant: 4),
-      subtitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-      subtitle.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+      subtitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+      subtitle.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
 
       collectionGrid.topAnchor.constraint(equalTo: subtitle.bottomAnchor, constant: 14),
       collectionGrid.leadingAnchor.constraint(equalTo: view.leadingAnchor),
       collectionGrid.trailingAnchor.constraint(equalTo: view.trailingAnchor),
       collectionGrid.bottomAnchor.constraint(equalTo: bar.topAnchor, constant: -12),
 
-      bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-      bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+      bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+      bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
       // -18 rather than -14: the 4pt slab sits outside the button's bounds.
       bar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
       bar.heightAnchor.constraint(equalToConstant: 48),
