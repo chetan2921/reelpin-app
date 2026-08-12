@@ -1,10 +1,20 @@
 package com.chetanjain.reelpin
 
 import android.app.Activity
-import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.Window
+import android.view.WindowManager
+import android.widget.HorizontalScrollView
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONArray
 
@@ -61,33 +71,91 @@ class ShareReceiverActivity : Activity() {
         promptForCollections(payload, collections)
     }
 
-    private fun promptForCollections(
-        sharedPayload: String,
-        collections: List<ShareCollection>,
-    ) {
-        val names = collections.map { it.name }.toTypedArray()
-        val checked = BooleanArray(collections.size)
+    /**
+     * Bottom sheet mirroring the system share sheet: a short row of folder
+     * tiles scrolled horizontally, so picking a collection costs one tap and
+     * never covers the screen.
+     */
+    private fun promptForCollections(sharedPayload: String, collections: List<ShareCollection>) {
+        val selected = linkedSetOf<String>()
 
-        AlertDialog.Builder(this)
-            .setTitle("Save to a collection")
-            .setMultiChoiceItems(names, checked) { _, index, isChecked ->
-                checked[index] = isChecked
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
+            setPadding(0, dp(14), 0, dp(10))
+        }
+
+        root.addView(TextView(this).apply {
+            text = "Save to a collection"
+            setTextColor(Color.BLACK)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            textSize = 15f
+            setPadding(dp(20), 0, dp(20), dp(12))
+        })
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(16), dp(4), dp(16), dp(4))
+        }
+        collections.forEachIndexed { index, collection ->
+            val tile = CollectionFolderView(this).apply {
+                title = collection.name
+                accent = CollectionFolderView.accentFor(index)
+                layoutParams = LinearLayout.LayoutParams(dp(104), dp(112)).apply {
+                    marginEnd = dp(12)
+                }
+                setOnClickListener {
+                    if (!selected.remove(collection.id)) selected.add(collection.id)
+                    isChecked = selected.contains(collection.id)
+                }
             }
-            // Saving without picking anything is the fast path, so it stays the
-            // neutral button rather than a cancel.
-            .setNeutralButton("Just save") { _, _ ->
-                submit(sharedPayload, emptyList())
-            }
-            .setPositiveButton("Save") { _, _ ->
-                val selected = collections.filterIndexed { index, _ -> checked[index] }
-                submit(sharedPayload, selected.map { it.id })
-            }
-            .setOnCancelListener {
-                // Dismissing must not silently drop the link the user shared.
-                submit(sharedPayload, emptyList())
-            }
-            .show()
+            row.addView(tile)
+        }
+        root.addView(HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(row)
+        })
+
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(16), dp(12), dp(16), 0)
+        }
+        fun action(label: String, filled: Boolean, onClick: () -> Unit) = TextView(this).apply {
+            text = label
+            gravity = Gravity.CENTER
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            textSize = 13f
+            setTextColor(if (filled) Color.BLACK else Color.BLACK)
+            setBackgroundColor(if (filled) 0xFFFFD600.toInt() else Color.WHITE)
+            setPadding(0, dp(12), 0, dp(12))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                .apply { marginEnd = dp(10) }
+            setOnClickListener { dialog.dismiss(); onClick() }
+        }
+        // "Just save" stays a first-class choice: sharing without a collection
+        // is the fast path and must not feel like cancelling.
+        actions.addView(action("Just save", false) { submit(sharedPayload, emptyList()) })
+        actions.addView(action("Save", true) { submit(sharedPayload, selected.toList()) })
+        root.addView(actions)
+
+        dialog.setContentView(root)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.WHITE))
+            setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+            setGravity(Gravity.BOTTOM)
+        }
+        // Dismissing must not silently drop the link the user shared.
+        dialog.setOnCancelListener { submit(sharedPayload, emptyList()) }
+        dialog.show()
     }
+
+    private fun dp(value: Int): Int =
+        TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics
+        ).toInt()
 
     private fun submit(sharedPayload: String, collectionIds: List<String>) {
         val prefs = applicationContext.getSharedPreferences(

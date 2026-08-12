@@ -11,6 +11,7 @@
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		426B441B516691DE359413F8 /* CollectionFolderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66FE79DB4F99FF5FEEF97D2 /* CollectionFolderCell.swift */; };
 		4BFFF15CD1A0D6511B9E381B /* Pods_Share_Extension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 49E2F24B7B43F5CD33F69711 /* Pods_Share_Extension.framework */; };
 		5A1000012EE0000100000001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A10000A2EE000010000000A /* ShareViewController.swift */; };
 		5A1000022EE0000100000002 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 5A10000B2EE000010000000B /* MainInterface.storyboard */; };
@@ -108,6 +109,7 @@
 		A24A2C52417F7FA880BCE1A3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B14ECCE913EDA926419E6C0C /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		BEAB92B55D0C08946A835D55 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
+		E66FE79DB4F99FF5FEEF97D2 /* CollectionFolderCell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CollectionFolderCell.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +156,7 @@
 				5A1000202EE0000100000020 /* ShareUrlExtractor.swift */,
 				5A10000B2EE000010000000B /* MainInterface.storyboard */,
 				5A10000D2EE000010000000D /* Info.plist */,
+				E66FE79DB4F99FF5FEEF97D2 /* CollectionFolderCell.swift */,
 			);
 			path = "Share Extension";
 			sourceTree = "<group>";
@@ -549,6 +552,7 @@
 			files = (
 				5A1000012EE0000100000001 /* ShareViewController.swift in Sources */,
 				5A1000212EE0000100000021 /* ShareUrlExtractor.swift in Sources */,
+				426B441B516691DE359413F8 /* CollectionFolderCell.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

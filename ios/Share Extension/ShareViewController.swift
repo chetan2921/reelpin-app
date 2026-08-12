@@ -11,7 +11,13 @@ class ShareViewController: UIViewController {
   private var pendingSharedUrl: String?
   private var shareCollections: [ShareCollection] = []
   private var selectedCollectionIds: Set<String> = []
-  private let collectionTable = UITableView(frame: .zero, style: .plain)
+  private lazy var collectionGrid: UICollectionView = {
+    let layout = UICollectionViewFlowLayout()
+    layout.minimumInteritemSpacing = 12
+    layout.minimumLineSpacing = 14
+    layout.sectionInset = UIEdgeInsets(top: 4, left: 20, bottom: 4, right: 20)
+    return UICollectionView(frame: .zero, collectionViewLayout: layout)
+  }()
   private let statusContainer = UIView()
   private let statusIconContainer = UIView()
   private let statusIconView = UIImageView()
@@ -278,12 +284,23 @@ class ShareViewController: UIViewController {
   private func presentCollectionPicker() {
     statusContainer.isHidden = true
 
-    collectionTable.dataSource = self
-    collectionTable.delegate = self
-    collectionTable.allowsMultipleSelection = true
-    collectionTable.translatesAutoresizingMaskIntoConstraints = false
-    collectionTable.register(UITableViewCell.self, forCellReuseIdentifier: "collection")
-    view.addSubview(collectionTable)
+    let heading = UILabel()
+    heading.text = "Save to a collection"
+    heading.font = .monospacedSystemFont(ofSize: 17, weight: .bold)
+    heading.textColor = .label
+    heading.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(heading)
+
+    // A 2-up grid, matching the SAVED tab. The extension gets a full sheet on
+    // iOS, so there is room to show the artwork rather than a bare list.
+    collectionGrid.dataSource = self
+    collectionGrid.delegate = self
+    collectionGrid.backgroundColor = .clear
+    collectionGrid.alwaysBounceVertical = true
+    collectionGrid.translatesAutoresizingMaskIntoConstraints = false
+    collectionGrid.register(CollectionFolderCell.self,
+                            forCellWithReuseIdentifier: CollectionFolderCell.reuseId)
+    view.addSubview(collectionGrid)
 
     let bar = UIStackView()
     bar.axis = .horizontal
@@ -291,33 +308,46 @@ class ShareViewController: UIViewController {
     bar.spacing = 12
     bar.translatesAutoresizingMaskIntoConstraints = false
 
-    // "Just save" is the fast path, so it reads as an equal choice rather than
-    // a cancel — dismissing must never silently drop the shared link.
-    let skip = UIButton(type: .system)
-    skip.setTitle("Just save", for: .normal)
+    // "Just save" stays a first-class choice: sharing without a collection is
+    // the fast path and must not read as cancelling.
+    let skip = actionButton(title: "Just save", filled: false)
     skip.addTarget(self, action: #selector(saveWithoutCollections), for: .touchUpInside)
-
-    let save = UIButton(type: .system)
-    save.setTitle("Save", for: .normal)
-    save.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+    let save = actionButton(title: "Save", filled: true)
     save.addTarget(self, action: #selector(saveWithSelectedCollections), for: .touchUpInside)
-
     bar.addArrangedSubview(skip)
     bar.addArrangedSubview(save)
     view.addSubview(bar)
 
     NSLayoutConstraint.activate([
-      collectionTable.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-      collectionTable.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-      collectionTable.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-      collectionTable.bottomAnchor.constraint(equalTo: bar.topAnchor, constant: -8),
+      heading.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+      heading.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+      heading.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+
+      collectionGrid.topAnchor.constraint(equalTo: heading.bottomAnchor, constant: 12),
+      collectionGrid.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+      collectionGrid.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+      collectionGrid.bottomAnchor.constraint(equalTo: bar.topAnchor, constant: -12),
+
       bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
       bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-      bar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-      bar.heightAnchor.constraint(equalToConstant: 44),
+      bar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -14),
+      bar.heightAnchor.constraint(equalToConstant: 48),
     ])
 
-    preferredContentSize = CGSize(width: view.bounds.width, height: 420)
+    preferredContentSize = CGSize(width: view.bounds.width, height: 520)
+  }
+
+  private func actionButton(title: String, filled: Bool) -> UIButton {
+    let button = UIButton(type: .system)
+    button.setTitle(title, for: .normal)
+    button.titleLabel?.font = .monospacedSystemFont(ofSize: 14, weight: .bold)
+    button.setTitleColor(.black, for: .normal)
+    button.backgroundColor = filled
+      ? UIColor(red: 1.0, green: 0xD6 / 255, blue: 0.0, alpha: 1)
+      : .white
+    button.layer.borderWidth = 2
+    button.layer.borderColor = UIColor.black.cgColor
+    return button
   }
 
   @objc private func saveWithoutCollections() {
@@ -333,7 +363,7 @@ class ShareViewController: UIViewController {
       showStatusAndComplete("Unsupported link.", isError: true)
       return
     }
-    collectionTable.isHidden = true
+    collectionGrid.isHidden = true
     statusContainer.isHidden = false
     showStatus("Saving to ReelPin", isLoading: true)
     enqueueSharedUrl(sharedUrl, collectionIds: collectionIds)
@@ -471,27 +501,46 @@ struct ShareCollection {
   let name: String
 }
 
-extension ShareViewController: UITableViewDataSource, UITableViewDelegate {
-  func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+extension ShareViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+  func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
     shareCollections.count
   }
 
-  func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCell(withIdentifier: "collection", for: indexPath)
-    let collection = shareCollections[indexPath.row]
-    cell.textLabel?.text = collection.name
-    cell.accessoryType = selectedCollectionIds.contains(collection.id) ? .checkmark : .none
-    cell.backgroundColor = .clear
+  func collectionView(
+    _ collectionView: UICollectionView,
+    cellForItemAt indexPath: IndexPath
+  ) -> UICollectionViewCell {
+    let cell = collectionView.dequeueReusableCell(
+      withReuseIdentifier: CollectionFolderCell.reuseId, for: indexPath
+    ) as! CollectionFolderCell
+    let collection = shareCollections[indexPath.item]
+    cell.configure(
+      name: collection.name,
+      index: indexPath.item,
+      isChecked: selectedCollectionIds.contains(collection.id)
+    )
     return cell
   }
 
-  func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-    let collection = shareCollections[indexPath.row]
+  func collectionView(
+    _ collectionView: UICollectionView,
+    layout collectionViewLayout: UICollectionViewLayout,
+    sizeForItemAt indexPath: IndexPath
+  ) -> CGSize {
+    let columns: CGFloat = 2
+    let insets: CGFloat = 40
+    let gap: CGFloat = 12
+    let width = (collectionView.bounds.width - insets - gap * (columns - 1)) / columns
+    return CGSize(width: floor(width), height: floor(width * 0.92))
+  }
+
+  func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+    let collection = shareCollections[indexPath.item]
     if selectedCollectionIds.contains(collection.id) {
       selectedCollectionIds.remove(collection.id)
     } else {
       selectedCollectionIds.insert(collection.id)
     }
-    tableView.reloadRows(at: [indexPath], with: .none)
+    collectionView.reloadItems(at: [indexPath])
   }
 }
