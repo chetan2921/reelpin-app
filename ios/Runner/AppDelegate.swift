@@ -17,6 +17,8 @@ import receive_sharing_intent
   private let pushTokenKey = "push_token"
   private let pushPlatformKey = "push_platform"
   private let pendingSharesKey = "pending_urls"
+  private let collectionsKey = "collections"
+  private let collectionsDirKey = "collections_dir"
   private var shareHandoffChannel: FlutterMethodChannel?
   private let reelShareChannelName = "com.chetanjain.reelpin/reel_share"
   private var reelShareChannel: FlutterMethodChannel?
@@ -125,6 +127,10 @@ import receive_sharing_intent
       case "clear":
         self.clearShareHandoffValues()
         result(true)
+      case "shareAssetsDir":
+        // The Share Extension is a separate sandbox, so rendered artwork has to
+        // live in the App Group container for it to be readable at all.
+        result(self.shareAssetsDirectory())
       case "drainPending":
         result(self.drainPendingShares())
       default:
@@ -272,6 +278,8 @@ import receive_sharing_intent
     set(defaults: defaults, key: baseUrlKey, value: values["baseUrl"])
     set(defaults: defaults, key: pushTokenKey, value: values["pushToken"])
     set(defaults: defaults, key: pushPlatformKey, value: values["pushPlatform"])
+    set(defaults: defaults, key: collectionsKey, value: values["collections"])
+    set(defaults: defaults, key: collectionsDirKey, value: values["collectionsDir"])
     defaults.synchronize()
   }
 
@@ -281,7 +289,21 @@ import receive_sharing_intent
     defaults.removeObject(forKey: baseUrlKey)
     defaults.removeObject(forKey: pushTokenKey)
     defaults.removeObject(forKey: pushPlatformKey)
+    defaults.removeObject(forKey: collectionsKey)
+    defaults.removeObject(forKey: collectionsDirKey)
     defaults.synchronize()
+  }
+
+  private func shareAssetsDirectory() -> String? {
+    guard
+      let appGroupId = Bundle.main.object(forInfoDictionaryKey: "AppGroupId") as? String,
+      let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId)
+    else {
+      return nil
+    }
+    let dir = container.appendingPathComponent("share_assets", isDirectory: true)
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    return dir.path
   }
 
   private func drainPendingShares() -> String? {

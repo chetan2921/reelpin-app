@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reelpin/data_models/collections/collection_models.dart';
+import 'package:reelpin/services/sharing/collection_tile_renderer.dart';
 import 'package:reelpin/env.dart';
 import 'package:reelpin/utils/app_logger.dart';
 
@@ -26,6 +27,7 @@ class ShareHandoffService {
   static const _pushPlatformKey = 'share_handoff_push_platform';
   static const _shareTokenKey = 'share_handoff_share_token';
   static const _collectionsKey = 'share_handoff_collections';
+  static const _collectionsDirKey = 'share_handoff_collections_dir';
 
   bool get _supportsNativeHandoff =>
       !kIsWeb &&
@@ -81,18 +83,43 @@ class ShareHandoffService {
   ///
   /// Only id and name are stored — it is a picker, not a detail view.
   Future<void> syncCollections(List<CollectionSummary> collections) async {
-    final editable = collections
-        .where((c) => c.canEdit)
-        .map((c) => {'id': c.id, 'name': c.name})
+    final editable = collections.where((c) => c.canEdit).toList(growable: false);
+
+    // Render the real folder tile to PNG so the native sheets show the same
+    // artwork as the SAVED tab rather than a native approximation.
+    var artwork = <String, String>{};
+    String? assetsDir;
+    if (editable.isNotEmpty) {
+      assetsDir = await _shareAssetsDirectory();
+      if (assetsDir != null) {
+        artwork = await CollectionTileRenderer.writeTiles(
+          directory: assetsDir,
+          collections: editable,
+        );
+      }
+    }
+
+    final payload = editable
+        .map(
+          (c) => {
+            'id': c.id,
+            'name': c.name,
+            if (artwork[c.id] != null) 'image': artwork[c.id],
+          },
+        )
         .toList(growable: false);
-    final encoded = editable.isEmpty ? '' : jsonEncode(editable);
+    final encoded = payload.isEmpty ? '' : jsonEncode(payload);
 
     try {
       final prefs = await SharedPreferences.getInstance();
       if (encoded.isEmpty) {
         await prefs.remove(_collectionsKey);
+        await prefs.remove(_collectionsDirKey);
       } else {
         await prefs.setString(_collectionsKey, encoded);
+        if (assetsDir != null) {
+          await prefs.setString(_collectionsDirKey, assetsDir);
+        }
       }
       await _syncNative();
     } catch (e) {
@@ -154,6 +181,21 @@ class ShareHandoffService {
     }
   }
 
+  /// Where native wants rendered artwork written. On iOS this must be the App
+  /// Group container — the Share Extension is a separate sandbox and cannot
+  /// read the app's own documents directory.
+  Future<String?> _shareAssetsDirectory() async {
+    if (!_supportsNativeHandoff) return null;
+    try {
+      final dir = await _channel.invokeMethod<String>('shareAssetsDir');
+      final cleaned = dir?.trim();
+      return (cleaned == null || cleaned.isEmpty) ? null : cleaned;
+    } catch (e) {
+      AppLogger.error('Share assets dir lookup skipped: $e');
+      return null;
+    }
+  }
+
   Future<void> _syncNative() async {
     if (!_supportsNativeHandoff) return;
     try {
@@ -164,6 +206,7 @@ class ShareHandoffService {
         'pushToken': prefs.getString(_pushTokenKey) ?? '',
         'pushPlatform': prefs.getString(_pushPlatformKey) ?? '',
         'collections': prefs.getString(_collectionsKey) ?? '',
+        'collectionsDir': prefs.getString(_collectionsDirKey) ?? '',
       });
     } catch (e) {
       AppLogger.error('Share handoff native sync skipped: $e');

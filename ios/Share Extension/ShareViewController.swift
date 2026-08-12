@@ -7,10 +7,13 @@ class ShareViewController: UIViewController {
   private let pushTokenKey = "push_token"
   private let pushPlatformKey = "push_platform"
   private let collectionsKey = "collections"
+  private let collectionsDirKey = "collections_dir"
   private var hasStartedProcessing = false
   private var pendingSharedUrl: String?
   private var shareCollections: [ShareCollection] = []
   private var selectedCollectionIds: Set<String> = []
+  private weak var primaryAction: UIButton?
+
   private lazy var collectionGrid: UICollectionView = {
     let layout = UICollectionViewFlowLayout()
     layout.minimumInteritemSpacing = 12
@@ -277,19 +280,46 @@ class ShareViewController: UIViewController {
         return nil
       }
       let name = (item["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-      return ShareCollection(id: id, name: name.isEmpty ? "Untitled" : name)
+      let image = (item["image"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+      return ShareCollection(
+        id: id,
+        name: name.isEmpty ? "Untitled" : name,
+        image: (image?.isEmpty == false) ? image : nil
+      )
     }
+  }
+
+  /// Artwork lives in the App Group container the app wrote it to.
+  private func loadTileImage(named fileName: String?) -> UIImage? {
+    guard
+      let fileName,
+      let defaults = appGroupDefaults(),
+      let dir = cleanedString(defaults.string(forKey: collectionsDirKey))
+    else {
+      return nil
+    }
+    return UIImage(contentsOfFile: (dir as NSString).appendingPathComponent(fileName))
   }
 
   private func presentCollectionPicker() {
     statusContainer.isHidden = true
 
     let heading = UILabel()
-    heading.text = "Save to a collection"
-    heading.font = .monospacedSystemFont(ofSize: 17, weight: .bold)
-    heading.textColor = .label
+    heading.text = "SAVE TO A COLLECTION"
+    heading.font = .monospacedSystemFont(ofSize: 16, weight: .bold)
+    heading.textColor = .black
     heading.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(heading)
+
+    let subtitle = UILabel()
+    subtitle.text = "Tap the ones it belongs in. Skip to just save it."
+    subtitle.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+    subtitle.textColor = UIColor(white: 0.27, alpha: 1)
+    subtitle.numberOfLines = 2
+    subtitle.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(subtitle)
+
+    view.backgroundColor = .white
 
     // A 2-up grid, matching the SAVED tab. The extension gets a full sheet on
     // iOS, so there is room to show the artwork rather than a bare list.
@@ -302,28 +332,26 @@ class ShareViewController: UIViewController {
                             forCellWithReuseIdentifier: CollectionFolderCell.reuseId)
     view.addSubview(collectionGrid)
 
-    let bar = UIStackView()
-    bar.axis = .horizontal
-    bar.distribution = .fillEqually
-    bar.spacing = 12
-    bar.translatesAutoresizingMaskIntoConstraints = false
+    // One button whose label states exactly what will happen. A "Save" /
+    // "Just save" pair read as the same action twice.
+    let action = actionButton(title: actionTitle(), filled: true)
+    action.addTarget(self, action: #selector(saveWithSelectedCollections), for: .touchUpInside)
+    action.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(action)
+    primaryAction = action
 
-    // "Just save" stays a first-class choice: sharing without a collection is
-    // the fast path and must not read as cancelling.
-    let skip = actionButton(title: "Just save", filled: false)
-    skip.addTarget(self, action: #selector(saveWithoutCollections), for: .touchUpInside)
-    let save = actionButton(title: "Save", filled: true)
-    save.addTarget(self, action: #selector(saveWithSelectedCollections), for: .touchUpInside)
-    bar.addArrangedSubview(skip)
-    bar.addArrangedSubview(save)
-    view.addSubview(bar)
+    let bar = action
 
     NSLayoutConstraint.activate([
       heading.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
       heading.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
       heading.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
 
-      collectionGrid.topAnchor.constraint(equalTo: heading.bottomAnchor, constant: 12),
+      subtitle.topAnchor.constraint(equalTo: heading.bottomAnchor, constant: 4),
+      subtitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+      subtitle.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+
+      collectionGrid.topAnchor.constraint(equalTo: subtitle.bottomAnchor, constant: 14),
       collectionGrid.leadingAnchor.constraint(equalTo: view.leadingAnchor),
       collectionGrid.trailingAnchor.constraint(equalTo: view.trailingAnchor),
       collectionGrid.bottomAnchor.constraint(equalTo: bar.topAnchor, constant: -12),
@@ -337,6 +365,14 @@ class ShareViewController: UIViewController {
     preferredContentSize = CGSize(width: view.bounds.width, height: 520)
   }
 
+  private func actionTitle() -> String {
+    switch selectedCollectionIds.count {
+    case 0: return "SAVE TO REELPIN"
+    case 1: return "SAVE TO 1 COLLECTION"
+    default: return "SAVE TO \(selectedCollectionIds.count) COLLECTIONS"
+    }
+  }
+
   private func actionButton(title: String, filled: Bool) -> UIButton {
     let button = UIButton(type: .system)
     button.setTitle(title, for: .normal)
@@ -348,10 +384,6 @@ class ShareViewController: UIViewController {
     button.layer.borderWidth = 2
     button.layer.borderColor = UIColor.black.cgColor
     return button
-  }
-
-  @objc private func saveWithoutCollections() {
-    submitPendingShare(collectionIds: [])
   }
 
   @objc private func saveWithSelectedCollections() {
@@ -499,6 +531,7 @@ class ShareViewController: UIViewController {
 struct ShareCollection {
   let id: String
   let name: String
+  let image: String?
 }
 
 extension ShareViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
@@ -516,7 +549,7 @@ extension ShareViewController: UICollectionViewDataSource, UICollectionViewDeleg
     let collection = shareCollections[indexPath.item]
     cell.configure(
       name: collection.name,
-      index: indexPath.item,
+      image: loadTileImage(named: collection.image),
       isChecked: selectedCollectionIds.contains(collection.id)
     )
     return cell
@@ -542,5 +575,6 @@ extension ShareViewController: UICollectionViewDataSource, UICollectionViewDeleg
       selectedCollectionIds.insert(collection.id)
     }
     collectionView.reloadItems(at: [indexPath])
+    primaryAction?.setTitle(actionTitle(), for: .normal)
   }
 }

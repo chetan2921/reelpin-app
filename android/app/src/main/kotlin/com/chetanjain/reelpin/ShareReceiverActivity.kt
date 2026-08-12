@@ -4,18 +4,23 @@ import android.app.Activity
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.View
 import android.view.Window
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import java.io.File
 import org.json.JSONArray
 
 /**
@@ -31,7 +36,7 @@ import org.json.JSONArray
  * moment the user leaves the share sheet.
  */
 class ShareReceiverActivity : Activity() {
-    private data class ShareCollection(val id: String, val name: String)
+    private data class ShareCollection(val id: String, val name: String, val image: String?)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,74 +77,83 @@ class ShareReceiverActivity : Activity() {
     }
 
     /**
-     * Bottom sheet mirroring the system share sheet: a short row of folder
-     * tiles scrolled horizontally, so picking a collection costs one tap and
-     * never covers the screen.
+     * Bottom sheet mirroring the system share sheet it replaces: a short row of
+     * folder tiles scrolled horizontally, so filing a reel costs one tap and
+     * never takes over the screen.
+     *
+     * Tiles are PNGs rendered by the app from the real CollectionFolderTile, so
+     * the artwork is identical to the SAVED tab rather than a native lookalike.
      */
     private fun promptForCollections(sharedPayload: String, collections: List<ShareCollection>) {
         val selected = linkedSetOf<String>()
+        lateinit var action: TextView
+
+        fun actionLabel(): String = when (selected.size) {
+            0 -> "SAVE TO REELPIN"
+            1 -> "SAVE TO 1 COLLECTION"
+            else -> "SAVE TO ${selected.size} COLLECTIONS"
+        }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.WHITE)
-            setPadding(0, dp(14), 0, dp(10))
+            setPadding(0, dp(18), 0, dp(14))
         }
 
         root.addView(TextView(this).apply {
-            text = "Save to a collection"
+            text = "SAVE TO A COLLECTION"
             setTextColor(Color.BLACK)
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             textSize = 15f
-            setPadding(dp(20), 0, dp(20), dp(12))
+            letterSpacing = 0.06f
+            setPadding(dp(20), 0, dp(20), dp(4))
+        })
+        root.addView(TextView(this).apply {
+            text = "Tap the ones it belongs in. Skip to just save it."
+            setTextColor(0xFF444444.toInt())
+            typeface = Typeface.MONOSPACE
+            textSize = 11.5f
+            setPadding(dp(20), 0, dp(20), dp(14))
         })
 
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(16), dp(4), dp(16), dp(4))
+            setPadding(dp(14), dp(2), dp(14), dp(6))
         }
-        collections.forEachIndexed { index, collection ->
-            val tile = CollectionFolderView(this).apply {
-                title = collection.name
-                accent = CollectionFolderView.accentFor(index)
-                layoutParams = LinearLayout.LayoutParams(dp(104), dp(112)).apply {
-                    marginEnd = dp(12)
-                }
-                setOnClickListener {
-                    if (!selected.remove(collection.id)) selected.add(collection.id)
-                    isChecked = selected.contains(collection.id)
-                }
-            }
-            row.addView(tile)
+        collections.forEach { collection ->
+            row.addView(buildTile(collection, selected) { action.text = actionLabel() })
         }
         root.addView(HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
+            clipChildren = false
+            clipToPadding = false
             addView(row)
         })
 
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(16), dp(12), dp(16), 0)
-        }
-        fun action(label: String, filled: Boolean, onClick: () -> Unit) = TextView(this).apply {
-            text = label
+        // One button whose label states exactly what will happen. A pair of
+        // "Save" / "Just save" buttons read as the same action twice.
+        action = TextView(this).apply {
+            text = actionLabel()
             gravity = Gravity.CENTER
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            textSize = 13f
-            setTextColor(if (filled) Color.BLACK else Color.BLACK)
-            setBackgroundColor(if (filled) 0xFFFFD600.toInt() else Color.WHITE)
-            setPadding(0, dp(12), 0, dp(12))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                .apply { marginEnd = dp(10) }
-            setOnClickListener { dialog.dismiss(); onClick() }
+            textSize = 13.5f
+            letterSpacing = 0.05f
+            setTextColor(Color.BLACK)
+            setBackgroundColor(0xFFFFD600.toInt())
+            setPadding(0, dp(15), 0, dp(15))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { setMargins(dp(20), dp(12), dp(20), 0) }
+            setOnClickListener {
+                dialog.dismiss()
+                submit(sharedUrl, selected.toList())
+            }
         }
-        // "Just save" stays a first-class choice: sharing without a collection
-        // is the fast path and must not feel like cancelling.
-        actions.addView(action("Just save", false) { submit(sharedPayload, emptyList()) })
-        actions.addView(action("Save", true) { submit(sharedPayload, selected.toList()) })
-        root.addView(actions)
+        root.addView(action)
 
         dialog.setContentView(root)
         dialog.window?.apply {
@@ -151,6 +165,77 @@ class ShareReceiverActivity : Activity() {
         dialog.setOnCancelListener { submit(sharedPayload, emptyList()) }
         dialog.show()
     }
+
+    /** Rendered tile plus a selection tint; falls back to a plain chip if the
+     *  artwork is missing so a render failure never hides a collection. */
+    private fun buildTile(
+        collection: ShareCollection,
+        selected: MutableSet<String>,
+        onToggle: () -> Unit,
+    ): View {
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(112), dp(104))
+                .apply { marginEnd = dp(6) }
+        }
+
+        val bitmap = collection.image?.let { name ->
+            runCatching { BitmapFactory.decodeFile(File(collectionsDir(), name).absolutePath) }
+                .getOrNull()
+        }
+
+        if (bitmap != null) {
+            container.addView(ImageView(this).apply {
+                setImageBitmap(bitmap)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                )
+            })
+        } else {
+            container.addView(TextView(this).apply {
+                text = collection.name.uppercase()
+                setTextColor(Color.BLACK)
+                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setBackgroundColor(0xFF7DB5FF.toInt())
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                )
+            })
+        }
+
+        val check = TextView(this).apply {
+            text = "✓"
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            textSize = 15f
+            setBackgroundColor(Color.BLACK)
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(dp(26), dp(26)).apply {
+                gravity = Gravity.END or Gravity.BOTTOM
+                setMargins(0, 0, dp(10), dp(8))
+            }
+        }
+        container.addView(check)
+
+        container.setOnClickListener {
+            if (!selected.remove(collection.id)) selected.add(collection.id)
+            check.visibility = if (selected.contains(collection.id)) View.VISIBLE else View.GONE
+            onToggle()
+        }
+        return container
+    }
+
+    private fun collectionsDir(): String =
+        applicationContext
+            .getSharedPreferences(ShareEnqueueService.PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(ShareEnqueueService.KEY_COLLECTIONS_DIR, null)
+            ?.trim()
+            .orEmpty()
 
     private fun dp(value: Int): Int =
         TypedValue.applyDimension(
@@ -195,7 +280,8 @@ class ShareReceiverActivity : Activity() {
                 val item = array.optJSONObject(index) ?: return@mapNotNull null
                 val id = item.optString("id").trim()
                 val name = item.optString("name").trim()
-                if (id.isEmpty()) null else ShareCollection(id, name.ifEmpty { "Untitled" })
+                val image = item.optString("image").trim().ifEmpty { null }
+                if (id.isEmpty()) null else ShareCollection(id, name.ifEmpty { "Untitled" }, image)
             }
         }.getOrDefault(emptyList())
     }

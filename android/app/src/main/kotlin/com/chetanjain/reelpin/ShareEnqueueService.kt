@@ -156,6 +156,7 @@ class ShareEnqueueService : JobIntentService() {
         const val KEY_PUSH_PLATFORM = "push_platform"
         const val KEY_PENDING_URLS = "pending_urls"
         const val KEY_COLLECTIONS = "collections"
+        const val KEY_COLLECTIONS_DIR = "collections_dir"
 
         fun enqueue(
             context: Context,

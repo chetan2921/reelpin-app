@@ -29,6 +29,7 @@ class MainActivity : FlutterActivity() {
                             .putString(ShareEnqueueService.KEY_PUSH_TOKEN, arg(call, "pushToken"))
                             .putString(ShareEnqueueService.KEY_PUSH_PLATFORM, arg(call, "pushPlatform"))
                             .putString(ShareEnqueueService.KEY_COLLECTIONS, arg(call, "collections"))
+                            .putString(ShareEnqueueService.KEY_COLLECTIONS_DIR, arg(call, "collectionsDir"))
                             .commit()
                         result.success(true)
                     }
@@ -39,8 +40,14 @@ class MainActivity : FlutterActivity() {
                             .remove(ShareEnqueueService.KEY_PUSH_TOKEN)
                             .remove(ShareEnqueueService.KEY_PUSH_PLATFORM)
                             .remove(ShareEnqueueService.KEY_COLLECTIONS)
+                            .remove(ShareEnqueueService.KEY_COLLECTIONS_DIR)
                             .commit()
                         result.success(true)
+                    }
+                    "shareAssetsDir" -> {
+                        val dir = File(applicationContext.filesDir, "share_assets")
+                        dir.mkdirs()
+                        result.success(dir.absolutePath)
                     }
                     "drainPending" -> {
                         val pending = prefs.getString(ShareEnqueueService.KEY_PENDING_URLS, null)
