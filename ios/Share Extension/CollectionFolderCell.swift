@@ -19,7 +19,8 @@ final class CollectionFolderCell: UICollectionViewCell {
 
         // Shown only if a tile failed to render: a missing image must never
         // hide a collection the user is trying to file into.
-        fallback.font = .monospacedSystemFont(ofSize: 11, weight: .bold)
+        fallback.font = UIFont(name: "SpaceMono-Bold", size: 11)
+            ?? .monospacedSystemFont(ofSize: 11, weight: .bold)
         fallback.textColor = .black
         fallback.numberOfLines = 2
         fallback.textAlignment = .center
@@ -31,7 +32,8 @@ final class CollectionFolderCell: UICollectionViewCell {
         contentView.addSubview(fallback)
 
         check.text = "✓"
-        check.font = .monospacedSystemFont(ofSize: 15, weight: .bold)
+        check.font = UIFont(name: "SpaceMono-Bold", size: 15)
+            ?? .monospacedSystemFont(ofSize: 15, weight: .bold)
         check.textColor = .white
         check.textAlignment = .center
         check.backgroundColor = .black

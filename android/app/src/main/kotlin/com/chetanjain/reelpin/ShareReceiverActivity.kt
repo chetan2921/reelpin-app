@@ -8,6 +8,9 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
@@ -20,6 +23,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.res.ResourcesCompat
 import java.io.File
 import org.json.JSONArray
 
@@ -36,6 +40,12 @@ import org.json.JSONArray
  * moment the user leaves the share sheet.
  */
 class ShareReceiverActivity : Activity() {
+    private companion object {
+        /** AppTheme.shadowOffset — 4dp, zero blur. */
+        const val SHADOW_DP = 4
+        const val ACCENT_YELLOW = 0xFFFFD600.toInt()
+    }
+
     private data class ShareCollection(val id: String, val name: String, val image: String?)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -103,7 +113,7 @@ class ShareReceiverActivity : Activity() {
         root.addView(TextView(this).apply {
             text = "SAVE TO A COLLECTION"
             setTextColor(Color.BLACK)
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            typeface = spaceMono(bold = true)
             textSize = 15f
             letterSpacing = 0.06f
             setPadding(dp(20), 0, dp(20), dp(4))
@@ -111,7 +121,7 @@ class ShareReceiverActivity : Activity() {
         root.addView(TextView(this).apply {
             text = "Tap the ones it belongs in. Skip to just save it."
             setTextColor(0xFF444444.toInt())
-            typeface = Typeface.MONOSPACE
+            typeface = spaceMono(bold = false)
             textSize = 11.5f
             setPadding(dp(20), 0, dp(20), dp(14))
         })
@@ -138,16 +148,18 @@ class ShareReceiverActivity : Activity() {
         action = TextView(this).apply {
             text = actionLabel()
             gravity = Gravity.CENTER
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            typeface = spaceMono(bold = true)
             textSize = 13.5f
             letterSpacing = 0.05f
             setTextColor(Color.BLACK)
-            setBackgroundColor(0xFFFFD600.toInt())
-            setPadding(0, dp(15), 0, dp(15))
+            background = brutalBox(ACCENT_YELLOW)
+            // Bottom padding absorbs the shadow slab so the label stays centred
+            // on the face rather than on the whole box.
+            setPadding(0, dp(15), 0, dp(15) + SHADOW_DP)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { setMargins(dp(20), dp(12), dp(20), 0) }
+            ).apply { setMargins(dp(20), dp(14), dp(20), dp(4)) }
             setOnClickListener {
                 dialog.dismiss()
                 submit(sharedUrl, selected.toList())
@@ -196,7 +208,7 @@ class ShareReceiverActivity : Activity() {
             container.addView(TextView(this).apply {
                 text = collection.name.uppercase()
                 setTextColor(Color.BLACK)
-                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                typeface = spaceMono(bold = true)
                 textSize = 11f
                 gravity = Gravity.CENTER
                 setBackgroundColor(0xFF7DB5FF.toInt())
@@ -211,7 +223,7 @@ class ShareReceiverActivity : Activity() {
             text = "✓"
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            typeface = spaceMono(bold = true)
             textSize = 15f
             setBackgroundColor(Color.BLACK)
             visibility = View.GONE
@@ -236,6 +248,38 @@ class ShareReceiverActivity : Activity() {
             .getString(ShareEnqueueService.KEY_COLLECTIONS_DIR, null)
             ?.trim()
             .orEmpty()
+
+    /**
+     * Port of AppTheme.brutalBox: flat fill, 1dp black border and a solid black
+     * slab offset down-right with no blur. Built as a LayerDrawable because a
+     * real Android elevation shadow is soft and would read as a different
+     * design language entirely.
+     */
+    /** The app's Space Mono, so native copy matches the rendered tiles. */
+    private fun spaceMono(bold: Boolean): Typeface {
+        val id = if (bold) R.font.space_mono_bold else R.font.space_mono_regular
+        // ResourcesCompat rather than Resources.getFont, which is API 26+ and
+        // would silently leave older devices on the platform monospace.
+        return runCatching { ResourcesCompat.getFont(this, id) }.getOrNull()
+            ?: Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
+    }
+
+    private fun brutalBox(fill: Int): Drawable {
+        val slab = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(Color.BLACK)
+        }
+        val face = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(fill)
+            setStroke(dp(1), Color.BLACK)
+        }
+        return LayerDrawable(arrayOf(slab, face)).apply {
+            val offset = dp(SHADOW_DP)
+            setLayerInset(0, offset, offset, 0, 0)
+            setLayerInset(1, 0, 0, offset, offset)
+        }
+    }
 
     private fun dp(value: Int): Int =
         TypedValue.applyDimension(

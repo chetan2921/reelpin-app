@@ -306,14 +306,14 @@ class ShareViewController: UIViewController {
 
     let heading = UILabel()
     heading.text = "SAVE TO A COLLECTION"
-    heading.font = .monospacedSystemFont(ofSize: 16, weight: .bold)
+    heading.font = Self.spaceMono(size: 16, bold: true)
     heading.textColor = .black
     heading.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(heading)
 
     let subtitle = UILabel()
     subtitle.text = "Tap the ones it belongs in. Skip to just save it."
-    subtitle.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+    subtitle.font = Self.spaceMono(size: 12, bold: false)
     subtitle.textColor = UIColor(white: 0.27, alpha: 1)
     subtitle.numberOfLines = 2
     subtitle.translatesAutoresizingMaskIntoConstraints = false
@@ -357,8 +357,9 @@ class ShareViewController: UIViewController {
       collectionGrid.bottomAnchor.constraint(equalTo: bar.topAnchor, constant: -12),
 
       bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-      bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-      bar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -14),
+      bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+      // -18 rather than -14: the 4pt slab sits outside the button's bounds.
+      bar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
       bar.heightAnchor.constraint(equalToConstant: 48),
     ])
 
@@ -373,18 +374,35 @@ class ShareViewController: UIViewController {
     }
   }
 
+  /// Port of AppTheme.brutalBox: flat fill, 1pt black border, and a solid black
+  /// slab offset down-right. shadowRadius 0 with full opacity is what turns
+  /// CALayer's normally-soft shadow into the hard slab the app uses.
   private func actionButton(title: String, filled: Bool) -> UIButton {
     let button = UIButton(type: .system)
     button.setTitle(title, for: .normal)
-    button.titleLabel?.font = .monospacedSystemFont(ofSize: 14, weight: .bold)
+    button.titleLabel?.font = Self.spaceMono(size: 14, bold: true)
     button.setTitleColor(.black, for: .normal)
-    button.backgroundColor = filled
-      ? UIColor(red: 1.0, green: 0xD6 / 255, blue: 0.0, alpha: 1)
-      : .white
-    button.layer.borderWidth = 2
+    button.backgroundColor = filled ? Self.accentYellow : .white
+    button.layer.borderWidth = 1
     button.layer.borderColor = UIColor.black.cgColor
+    button.layer.cornerRadius = 0
+    button.layer.shadowColor = UIColor.black.cgColor
+    button.layer.shadowOffset = CGSize(width: 4, height: 4)
+    button.layer.shadowRadius = 0
+    button.layer.shadowOpacity = 1
+    button.layer.masksToBounds = false
     return button
   }
+
+  /// The app's Space Mono, so native copy matches the rendered tiles. Falls
+  /// back to the system monospace if the bundled face fails to load.
+  private static func spaceMono(size: CGFloat, bold: Bool) -> UIFont {
+    let name = bold ? "SpaceMono-Bold" : "SpaceMono-Regular"
+    return UIFont(name: name, size: size)
+      ?? .monospacedSystemFont(ofSize: size, weight: bold ? .bold : .regular)
+  }
+
+  private static let accentYellow = UIColor(red: 1.0, green: 0xD6 / 255, blue: 0, alpha: 1)
 
   @objc private func saveWithSelectedCollections() {
     submitPendingShare(collectionIds: Array(selectedCollectionIds))
