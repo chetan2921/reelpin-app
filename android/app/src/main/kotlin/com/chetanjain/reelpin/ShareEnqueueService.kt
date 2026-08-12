@@ -17,6 +17,7 @@ class ShareEnqueueService : JobIntentService() {
     override fun onHandleWork(intent: Intent) {
         val sharedPayload = intent.getStringExtra(EXTRA_SHARED_PAYLOAD)?.trim()
         if (sharedPayload.isNullOrEmpty()) return
+        val collectionIds = intent.getStringArrayListExtra(EXTRA_COLLECTION_IDS) ?: arrayListOf()
 
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val shareToken = prefs.getString(KEY_SHARE_TOKEN, null)?.trim()
@@ -31,7 +32,7 @@ class ShareEnqueueService : JobIntentService() {
             return
         }
 
-        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedPayload) }
+        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedPayload, collectionIds) }
             .getOrDefault(ShareRequestResult.FAILURE)
         when (result) {
             ShareRequestResult.SUCCESS -> {
@@ -59,6 +60,7 @@ class ShareEnqueueService : JobIntentService() {
         baseUrl: String,
         shareToken: String,
         sharedPayload: String,
+        collectionIds: List<String>,
     ): ShareRequestResult {
         val connection = (URL(apiUrl(baseUrl, "processing-jobs/reels")).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -70,7 +72,11 @@ class ShareEnqueueService : JobIntentService() {
         }
         try {
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
-                it.write(JSONObject().put("raw_payload_text", sharedPayload).toString())
+                val body = JSONObject().put("raw_payload_text", sharedPayload)
+                if (collectionIds.isNotEmpty()) {
+                    body.put("collection_ids", JSONArray(collectionIds))
+                }
+                it.write(body.toString())
             }
             val statusCode = connection.responseCode
             val responseBody = runCatching {
@@ -138,6 +144,7 @@ class ShareEnqueueService : JobIntentService() {
     companion object {
         private const val JOB_ID = 47231
         private const val EXTRA_SHARED_PAYLOAD = "extra_shared_payload"
+        private const val EXTRA_COLLECTION_IDS = "extra_collection_ids"
         // Native-owned SharedPreferences file. The Flutter shared_preferences
         // plugin now stores values in a DataStore that native code cannot read,
         // so the app pushes these values here via a MethodChannel (see
@@ -148,10 +155,18 @@ class ShareEnqueueService : JobIntentService() {
         const val KEY_PUSH_TOKEN = "push_token"
         const val KEY_PUSH_PLATFORM = "push_platform"
         const val KEY_PENDING_URLS = "pending_urls"
+        const val KEY_COLLECTIONS = "collections"
 
-        fun enqueue(context: Context, sharedPayload: String) {
+        fun enqueue(
+            context: Context,
+            sharedPayload: String,
+            collectionIds: List<String> = emptyList(),
+        ) {
             val intent = Intent(context, ShareEnqueueService::class.java).apply {
                 putExtra(EXTRA_SHARED_PAYLOAD, sharedPayload)
+                if (collectionIds.isNotEmpty()) {
+                    putStringArrayListExtra(EXTRA_COLLECTION_IDS, ArrayList(collectionIds))
+                }
             }
             enqueueWork(context, ShareEnqueueService::class.java, JOB_ID, intent)
         }

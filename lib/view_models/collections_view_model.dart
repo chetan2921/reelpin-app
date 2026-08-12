@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/http/collections_http.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
+import 'package:reelpin/services/sharing/share_handoff_service.dart';
 
 class CollectionsViewModel extends ChangeNotifier {
   CollectionsViewModel(this._api);
@@ -51,6 +54,7 @@ class CollectionsViewModel extends ChangeNotifier {
         ..clear()
         ..addAll(result);
       _collectionsLoaded = true;
+      unawaited(_syncShareTargets());
     } catch (e) {
       _collectionsError = userFacingErrorMessage(
         e,
@@ -269,7 +273,15 @@ class CollectionsViewModel extends ChangeNotifier {
     } finally {
       _isMutating = false;
       notifyListeners();
+      unawaited(_syncShareTargets());
     }
+  }
+
+  /// Keeps the native share sheet's collection list current. Fire-and-forget:
+  /// the picker is a convenience, and a stale list only means one fewer
+  /// shortcut, never a lost reel.
+  Future<void> _syncShareTargets() {
+    return ShareHandoffService.instance.syncCollections(_collections);
   }
 
   void _upsert(CollectionSummary collection) {

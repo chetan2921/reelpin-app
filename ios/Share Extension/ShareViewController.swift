@@ -6,7 +6,12 @@ class ShareViewController: UIViewController {
   private let baseUrlKey = "base_url"
   private let pushTokenKey = "push_token"
   private let pushPlatformKey = "push_platform"
+  private let collectionsKey = "collections"
   private var hasStartedProcessing = false
+  private var pendingSharedUrl: String?
+  private var shareCollections: [ShareCollection] = []
+  private var selectedCollectionIds: Set<String> = []
+  private let collectionTable = UITableView(frame: .zero, style: .plain)
   private let statusContainer = UIView()
   private let statusIconContainer = UIView()
   private let statusIconView = UIImageView()
@@ -49,7 +54,15 @@ class ShareViewController: UIViewController {
         return
       }
 
-      self.enqueueSharedUrl(sharedUrl)
+      let collections = self.loadShareCollections()
+      if collections.isEmpty {
+        // No collections: keep the one-tap save this extension has always had.
+        self.enqueueSharedUrl(sharedUrl, collectionIds: [])
+      } else {
+        self.pendingSharedUrl = sharedUrl
+        self.shareCollections = collections
+        self.presentCollectionPicker()
+      }
     }
   }
 
@@ -117,7 +130,7 @@ class ShareViewController: UIViewController {
     }
   }
 
-  private func enqueueSharedUrl(_ sharedUrl: String) {
+  private func enqueueSharedUrl(_ sharedUrl: String, collectionIds: [String]) {
     guard
       let defaults = appGroupDefaults(),
       let shareToken = cleanedString(defaults.string(forKey: shareTokenKey)),
@@ -132,7 +145,9 @@ class ShareViewController: UIViewController {
       baseUrl: baseUrl,
       path: "processing-jobs/reels",
       shareToken: shareToken,
-      body: ["url": sharedUrl]
+      body: collectionIds.isEmpty
+        ? ["url": sharedUrl]
+        : ["url": sharedUrl, "collection_ids": collectionIds]
     ) { [weak self] result in
       guard let self else {
         return
@@ -175,7 +190,8 @@ class ShareViewController: UIViewController {
     baseUrl: String,
     path: String,
     shareToken: String,
-    body: [String: String],
+    // [String: Any] rather than [String: String]: collection_ids is an array.
+    body: [String: Any],
     completion: @escaping (ShareRequestResult) -> Void
   ) {
     guard let url = URL(string: apiUrl(baseUrl: baseUrl, path: path)) else {
@@ -231,6 +247,96 @@ class ShareViewController: UIViewController {
         }
       )
     }
+  }
+
+  // MARK: - Collection picker
+
+  /// Reads the snapshot the app syncs into the App Group. Deliberately local:
+  /// an extension has a tiny time budget and can be killed mid-request, so the
+  /// picker must appear instantly rather than wait on the network.
+  private func loadShareCollections() -> [ShareCollection] {
+    guard
+      let defaults = appGroupDefaults(),
+      let raw = cleanedString(defaults.string(forKey: collectionsKey)),
+      let data = raw.data(using: .utf8),
+      let parsed = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+    else {
+      return []
+    }
+    return parsed.compactMap { item in
+      guard
+        let id = (item["id"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+        !id.isEmpty
+      else {
+        return nil
+      }
+      let name = (item["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      return ShareCollection(id: id, name: name.isEmpty ? "Untitled" : name)
+    }
+  }
+
+  private func presentCollectionPicker() {
+    statusContainer.isHidden = true
+
+    collectionTable.dataSource = self
+    collectionTable.delegate = self
+    collectionTable.allowsMultipleSelection = true
+    collectionTable.translatesAutoresizingMaskIntoConstraints = false
+    collectionTable.register(UITableViewCell.self, forCellReuseIdentifier: "collection")
+    view.addSubview(collectionTable)
+
+    let bar = UIStackView()
+    bar.axis = .horizontal
+    bar.distribution = .fillEqually
+    bar.spacing = 12
+    bar.translatesAutoresizingMaskIntoConstraints = false
+
+    // "Just save" is the fast path, so it reads as an equal choice rather than
+    // a cancel — dismissing must never silently drop the shared link.
+    let skip = UIButton(type: .system)
+    skip.setTitle("Just save", for: .normal)
+    skip.addTarget(self, action: #selector(saveWithoutCollections), for: .touchUpInside)
+
+    let save = UIButton(type: .system)
+    save.setTitle("Save", for: .normal)
+    save.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+    save.addTarget(self, action: #selector(saveWithSelectedCollections), for: .touchUpInside)
+
+    bar.addArrangedSubview(skip)
+    bar.addArrangedSubview(save)
+    view.addSubview(bar)
+
+    NSLayoutConstraint.activate([
+      collectionTable.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+      collectionTable.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+      collectionTable.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+      collectionTable.bottomAnchor.constraint(equalTo: bar.topAnchor, constant: -8),
+      bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+      bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+      bar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+      bar.heightAnchor.constraint(equalToConstant: 44),
+    ])
+
+    preferredContentSize = CGSize(width: view.bounds.width, height: 420)
+  }
+
+  @objc private func saveWithoutCollections() {
+    submitPendingShare(collectionIds: [])
+  }
+
+  @objc private func saveWithSelectedCollections() {
+    submitPendingShare(collectionIds: Array(selectedCollectionIds))
+  }
+
+  private func submitPendingShare(collectionIds: [String]) {
+    guard let sharedUrl = pendingSharedUrl else {
+      showStatusAndComplete("Unsupported link.", isError: true)
+      return
+    }
+    collectionTable.isHidden = true
+    statusContainer.isHidden = false
+    showStatus("Saving to ReelPin", isLoading: true)
+    enqueueSharedUrl(sharedUrl, collectionIds: collectionIds)
   }
 
   private func appGroupDefaults() -> UserDefaults? {
@@ -357,5 +463,35 @@ class ShareViewController: UIViewController {
     view.backgroundColor = .clear
     view.superview?.isOpaque = false
     view.superview?.backgroundColor = .clear
+  }
+}
+
+struct ShareCollection {
+  let id: String
+  let name: String
+}
+
+extension ShareViewController: UITableViewDataSource, UITableViewDelegate {
+  func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    shareCollections.count
+  }
+
+  func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "collection", for: indexPath)
+    let collection = shareCollections[indexPath.row]
+    cell.textLabel?.text = collection.name
+    cell.accessoryType = selectedCollectionIds.contains(collection.id) ? .checkmark : .none
+    cell.backgroundColor = .clear
+    return cell
+  }
+
+  func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    let collection = shareCollections[indexPath.row]
+    if selectedCollectionIds.contains(collection.id) {
+      selectedCollectionIds.remove(collection.id)
+    } else {
+      selectedCollectionIds.insert(collection.id)
+    }
+    tableView.reloadRows(at: [indexPath], with: .none)
   }
 }

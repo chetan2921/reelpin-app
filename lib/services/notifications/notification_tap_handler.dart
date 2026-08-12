@@ -2,6 +2,8 @@ import 'package:reelpin/data_models/notifications/app_notification.dart';
 
 typedef NotificationAction = Future<void> Function();
 typedef ReelNotificationAction = Future<void> Function(String reelId);
+typedef CollectionNotificationAction =
+    Future<void> Function(String collectionId);
 typedef AnnouncementNotificationAction =
     Future<void> Function(AppNotification notification);
 typedef NotificationOpenTracker = Future<void> Function(String notificationId);
@@ -19,11 +21,12 @@ class NotificationTapHandler {
     required NotificationAction openDiscover,
     required NotificationAction openProfile,
     required NotificationAction openAppUpdate,
+    required CollectionNotificationAction openCollection,
   }) async {
     final notification = opened.notification;
     final dedupeKey =
         notification.notificationId ??
-        '${notification.target.name}:${notification.reelId ?? notification.announcementId ?? notification.title}';
+        '${notification.target.name}:${notification.reelId ?? notification.announcementId ?? notification.collectionId ?? notification.title}';
     if (!_handledNotificationOpens.add(dedupeKey)) return false;
 
     final notificationId = notification.notificationId;
@@ -58,6 +61,14 @@ class NotificationTapHandler {
         break;
       case AppNotificationTarget.appUpdate:
         await openAppUpdate();
+        break;
+      case AppNotificationTarget.collection:
+        final collectionId = notification.collectionId;
+        if (collectionId == null || collectionId.isEmpty) {
+          await openHome();
+        } else {
+          await openCollection(collectionId);
+        }
         break;
     }
 

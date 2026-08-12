@@ -745,9 +745,9 @@ class ApiClient
             _apiUri(baseUrl, '/api/v1/collections/$collectionId'),
             headers: _headers(json: true),
             body: jsonEncode({
-              if (name != null) 'name': name,
-              if (description != null) 'description': description,
-              if (coverReelId != null) 'cover_reel_id': coverReelId,
+              'name': ?name,
+              'description': ?description,
+              'cover_reel_id': ?coverReelId,
             }),
           )
           .timeout(_requestTimeout),

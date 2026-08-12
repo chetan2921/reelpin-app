@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Linkrunner attribution: network state for delivery, AD_ID to match an
+         install back to the share link that produced it. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
 
     <application
         android:label="ReelPin"
@@ -50,9 +54,13 @@
                     android:host="login-callback" />
             </intent-filter>
 
-            <!-- Collections share and invite links (App Links).
-                 Requires assetlinks.json at https://reelpin.in/.well-known/ for
-                 autoVerify to succeed. Covers both /c/{token} and /c/invite/{token}. -->
+            <!-- Collections share and invite links (App Links), covering
+                 /c/{token} and /c/invite/{token}.
+
+                 Apex only. www.reelpin.in 308-redirects here, and App Links
+                 verification does not follow redirects — claiming www would
+                 fail to verify, and on Android 11 and below one failing host
+                 fails verification for every host in the app. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

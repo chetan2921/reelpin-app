@@ -20,6 +20,33 @@ class ApiConfig {
   }
 }
 
+/// Linkrunner drives deferred deep links: a share link opens the app when it is
+/// installed and the store otherwise, then routes to the right collection once
+/// the install completes.
+///
+/// Every value is build-time only. With no token the SDK is never initialised
+/// and link handling falls back to parsing the incoming URL directly, which is
+/// exactly how the app behaved before Linkrunner was added.
+class LinkrunnerConfig {
+  LinkrunnerConfig._();
+
+  static const String _token = String.fromEnvironment('LINKRUNNER_TOKEN');
+  static const String _secretKey = String.fromEnvironment(
+    'LINKRUNNER_SECRET_KEY',
+  );
+  static const String _keyId = String.fromEnvironment('LINKRUNNER_KEY_ID');
+
+  static String get token => _token.trim();
+
+  /// Optional — only needed when the project enforces signed attribution.
+  static String? get secretKey =>
+      _secretKey.trim().isEmpty ? null : _secretKey.trim();
+
+  static String? get keyId => _keyId.trim().isEmpty ? null : _keyId.trim();
+
+  static bool get isConfigured => token.isNotEmpty;
+}
+
 class SupabaseConfig {
   SupabaseConfig._();
 

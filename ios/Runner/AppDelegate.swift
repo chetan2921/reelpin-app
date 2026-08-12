@@ -159,32 +159,57 @@ import receive_sharing_intent
         let text = (values["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let subject = (values["subject"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let items: [Any] = text.isEmpty ? [image] : [image, text]
-        let activity = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        if !subject.isEmpty {
-          activity.setValue(subject, forKey: "subject")
-        }
-        guard let rootViewController = self.currentRootViewController() else {
-          result(FlutterError(code: "no_presenter", message: "No view controller available", details: nil))
+        self.presentShareSheet(items: items, subject: subject, result: result)
+
+      case "shareText":
+        guard
+          let values = call.arguments as? [String: Any],
+          let text = (values["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !text.isEmpty
+        else {
+          result(FlutterError(code: "bad_args", message: "Missing share text", details: nil))
           return
         }
-        let presenter = self.topViewController(from: rootViewController)
-        if let popover = activity.popoverPresentationController {
-          popover.sourceView = presenter.view
-          popover.sourceRect = CGRect(
-            x: presenter.view.bounds.midX,
-            y: presenter.view.bounds.midY,
-            width: 1,
-            height: 1
-          )
-          popover.permittedArrowDirections = []
-        }
-        presenter.present(activity, animated: true)
-        result(true)
+
+        let subject = (values["subject"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.presentShareSheet(items: [text], subject: subject, result: result)
+
       default:
         result(FlutterMethodNotImplemented)
       }
     }
     reelShareChannel = channel
+  }
+
+  /// Shared by shareReelCard and shareText: presents UIActivityViewController
+  /// from the top-most controller, with the iPad popover anchored so it does
+  /// not crash on a nil source view.
+  private func presentShareSheet(
+    items: [Any],
+    subject: String,
+    result: @escaping FlutterResult
+  ) {
+    let activity = UIActivityViewController(activityItems: items, applicationActivities: nil)
+    if !subject.isEmpty {
+      activity.setValue(subject, forKey: "subject")
+    }
+    guard let rootViewController = currentRootViewController() else {
+      result(FlutterError(code: "no_presenter", message: "No view controller available", details: nil))
+      return
+    }
+    let presenter = topViewController(from: rootViewController)
+    if let popover = activity.popoverPresentationController {
+      popover.sourceView = presenter.view
+      popover.sourceRect = CGRect(
+        x: presenter.view.bounds.midX,
+        y: presenter.view.bounds.midY,
+        width: 1,
+        height: 1
+      )
+      popover.permittedArrowDirections = []
+    }
+    presenter.present(activity, animated: true)
+    result(true)
   }
 
   func configureDeviceMetadataChannel(binaryMessenger: FlutterBinaryMessenger) {

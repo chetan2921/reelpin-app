@@ -55,6 +55,7 @@ dependencies:
   sign_in_with_apple: ^8.1.0
   crypto: ^3.0.7
   hugeicons: ^1.1.7
+  linkrunner: ^4.1.1
 
 dev_dependencies:
   flutter_test:

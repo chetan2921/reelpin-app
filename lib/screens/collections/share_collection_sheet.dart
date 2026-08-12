@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
+import 'package:reelpin/services/sharing/collection_link_cache.dart';
+import 'package:reelpin/services/sharing/collection_share_message.dart';
+import 'package:reelpin/services/sharing/reel_share_service.dart';
+import 'package:reelpin/utils/app_logger.dart';
 
 Future<void> showShareCollectionSheet(
   BuildContext context,
@@ -32,17 +38,32 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
   bool _busy = false;
   CollectionMembers? _members;
 
+  /// What was last copied, shown inline for a couple of seconds. A
+  /// ScaffoldMessenger snackbar is useless here — it renders *behind* the modal
+  /// sheet, so the copy looked like it silently failed.
+  String? _copiedLabel;
+  Timer? _copiedResetTimer;
+
   @override
   void initState() {
     super.initState();
-    final detail = ref
-        .read(collectionsViewModelProvider)
-        .detailFor(widget.collectionId);
-    if (detail != null && detail.collection.hasLink) {
-      // The URL is only returned when (re)generated; show a placeholder until then.
-      _linkUrl = null;
-    }
+    // Restore unconditionally: the sheet can open before the detail has loaded,
+    // and gating on it meant a cached url was silently skipped, leaving the
+    // owner with no copy button. Safe because the chip only renders when the
+    // collection actually reports hasLink.
+    unawaited(_restoreCachedLink());
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadMembers());
+  }
+
+  @override
+  void dispose() {
+    _copiedResetTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _restoreCachedLink() async {
+    final cached = await CollectionLinkCache.instance.read(widget.collectionId);
+    if (cached != null && mounted) setState(() => _linkUrl = cached);
   }
 
   Future<void> _loadMembers() async {
@@ -63,23 +84,82 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
     try {
       if (enabled) {
         final link = await vm.enableLink(widget.collectionId);
-        setState(() => _linkUrl = link?.url);
+        final url = link?.url;
+        if (url != null && url.isNotEmpty) {
+          await CollectionLinkCache.instance.write(widget.collectionId, url);
+        }
+        if (mounted) setState(() => _linkUrl = url);
       } else {
         await vm.disableLink(widget.collectionId);
-        setState(() => _linkUrl = null);
+        await CollectionLinkCache.instance.clear(widget.collectionId);
+        if (mounted) setState(() => _linkUrl = null);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  /// Regenerating mints a new token and invalidates the old one server-side, so
+  /// anyone already holding the previous link loses access. Confirm first.
+  Future<void> _regenerateLink() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Generate a new link?'),
+        content: const Text(
+          'The current link will stop working straight away. Anyone you already '
+          'sent it to will not be able to open this collection.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Generate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await _toggleLink(true);
+  }
+
+  /// Hands the link to the OS share sheet with a message that also explains
+  /// what ReelPin is, so a recipient without the app has some context.
+  Future<void> _shareLink() async {
+    final url = _linkUrl;
+    if (url == null || url.isEmpty) return;
+    final collection = _collection;
+    final message = CollectionShareMessage.forLink(
+      collectionName: collection?.name ?? '',
+      url: url,
+      itemCount: collection?.itemCount ?? 0,
+    );
+    await _presentShare(message);
+  }
+
+  Future<void> _presentShare(CollectionShareMessage message) async {
+    try {
+      await ReelShareService.shareText(
+        text: message.body,
+        subject: message.subject,
+      );
+    } catch (e) {
+      // The link is already on screen and copyable, so a failed share sheet is
+      // not worth blocking on.
+      AppLogger.error('Collection share sheet failed: $e');
+    }
+  }
+
   Future<void> _copy(String value, String label) async {
     await Clipboard.setData(ClipboardData(text: value));
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$label copied')));
-    }
+    if (!mounted) return;
+    setState(() => _copiedLabel = label);
+    _copiedResetTimer?.cancel();
+    _copiedResetTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _copiedLabel = null);
+    });
   }
 
   Future<void> _invite() async {
@@ -95,7 +175,15 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
           .read(collectionsViewModelProvider)
           .createInvite(collectionId: widget.collectionId, role: role);
       if (invite != null && mounted) {
+        // Copy first so the link is never lost if the share sheet is dismissed.
         await _copy(invite.url, 'Invite link');
+        await _presentShare(
+          CollectionShareMessage.forInvite(
+            collectionName: _collection?.name ?? '',
+            url: invite.url,
+            role: invite.role,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -118,7 +206,35 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Share collection', style: theme.textTheme.titleLarge),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Share collection',
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ),
+                if (_copiedLabel != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$_copiedLabel copied',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
             const SizedBox(height: 4),
             Text(
               'Choose how people reach this collection.',
@@ -128,14 +244,17 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
             ),
             const SizedBox(height: 12),
 
-            _OptionRow(
-              icon: Icons.lock_outline,
-              title: 'Private',
-              subtitle: 'Only you',
-              trailing: Radio<bool>(
-                value: true,
-                groupValue: !hasLink,
-                onChanged: _busy ? null : (_) => _toggleLink(false),
+            RadioGroup<bool>(
+              groupValue: !hasLink,
+              onChanged: (selected) {
+                if (_busy || selected != true) return;
+                _toggleLink(false);
+              },
+              child: const _OptionRow(
+                icon: Icons.lock_outline,
+                title: 'Private',
+                subtitle: 'Only you',
+                trailing: Radio<bool>(value: true),
               ),
             ),
 
@@ -153,10 +272,15 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
                 padding: const EdgeInsets.only(left: 50, bottom: 8),
                 child: _LinkChip(
                   url: _linkUrl,
+                  justCopied: _copiedLabel == 'Link',
                   onCopy: _linkUrl == null
                       ? null
                       : () => _copy(_linkUrl!, 'Link'),
-                  onRegenerate: _busy ? null : () => _toggleLink(true),
+                  onShare: _linkUrl == null ? null : _shareLink,
+                  // Both paths rotate the token. Even the cache-miss "get a
+                  // link" case kills a link that may already be circulating,
+                  // so neither is allowed to fire without the warning.
+                  onRegenerate: _busy ? null : _regenerateLink,
                 ),
               ),
 
@@ -253,10 +377,18 @@ class _OptionRow extends StatelessWidget {
 }
 
 class _LinkChip extends StatelessWidget {
-  const _LinkChip({required this.url, this.onCopy, this.onRegenerate});
+  const _LinkChip({
+    required this.url,
+    this.justCopied = false,
+    this.onCopy,
+    this.onShare,
+    this.onRegenerate,
+  });
 
   final String? url;
+  final bool justCopied;
   final VoidCallback? onCopy;
+  final VoidCallback? onShare;
   final VoidCallback? onRegenerate;
 
   @override
@@ -272,21 +404,37 @@ class _LinkChip extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              url ?? 'Link is active. Regenerate to copy it.',
+              url ?? 'Link is active, but not saved on this device.',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall,
             ),
           ),
-          if (onCopy != null)
+          if (onCopy != null) ...[
             IconButton(
               iconSize: 18,
-              icon: const Icon(Icons.copy),
+              icon: Icon(justCopied ? Icons.check : Icons.copy),
+              color: justCopied ? theme.colorScheme.primary : null,
               tooltip: 'Copy',
               onPressed: onCopy,
-            )
-          else
-            TextButton(onPressed: onRegenerate, child: const Text('Get link')),
+            ),
+            IconButton(
+              iconSize: 18,
+              icon: const Icon(Icons.ios_share),
+              tooltip: 'Share',
+              onPressed: onShare,
+            ),
+            IconButton(
+              iconSize: 18,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Generate a new link',
+              onPressed: onRegenerate,
+            ),
+          ] else
+            TextButton(
+              onPressed: onRegenerate,
+              child: const Text('New link'),
+            ),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/screens/collections/collection_detail_screen.dart';
 import 'package:reelpin/screens/feature_announcement/feature_announcement_screen.dart';
 import 'package:reelpin/screens/how_to/how_to_use_screen.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
@@ -57,6 +58,20 @@ Route<void> howToUseRoute({bool isFirstRun = false}) {
 
 Route<void> profileRoute() {
   return MaterialPageRoute<void>(builder: (_) => const ProfileScreen());
+}
+
+Route<void> collectionDetailRoute(String collectionId) {
+  return MaterialPageRoute<void>(
+    builder: (_) => CollectionDetailScreen(collectionId: collectionId),
+  );
+}
+
+/// Read-only view of a collection opened from a share link. The token is the
+/// capability, so there is no collection id to pass.
+Route<void> sharedCollectionRoute(String token) {
+  return MaterialPageRoute<void>(
+    builder: (_) => CollectionDetailScreen(collectionId: '', sharedToken: token),
+  );
 }
 
 Route<void> paywallRoute({

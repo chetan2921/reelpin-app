@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/env.dart';
 import 'package:reelpin/utils/app_logger.dart';
 
@@ -22,6 +25,7 @@ class ShareHandoffService {
   static const _pushTokenKey = 'share_handoff_push_token';
   static const _pushPlatformKey = 'share_handoff_push_platform';
   static const _shareTokenKey = 'share_handoff_share_token';
+  static const _collectionsKey = 'share_handoff_collections';
 
   bool get _supportsNativeHandoff =>
       !kIsWeb &&
@@ -68,6 +72,34 @@ class ShareHandoffService {
     }
     await prefs.setString(_baseUrlKey, nextBaseUrl);
     await _syncNative();
+  }
+
+  /// Mirrors the user's editable collections to native so the share sheet can
+  /// offer them with no network call. A share extension has a tiny time budget
+  /// and can be killed mid-request, so the picker reads this cached snapshot
+  /// rather than hitting the API.
+  ///
+  /// Only id and name are stored — it is a picker, not a detail view.
+  Future<void> syncCollections(List<CollectionSummary> collections) async {
+    final editable = collections
+        .where((c) => c.canEdit)
+        .map((c) => {'id': c.id, 'name': c.name})
+        .toList(growable: false);
+    final encoded = editable.isEmpty ? '' : jsonEncode(editable);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (encoded.isEmpty) {
+        await prefs.remove(_collectionsKey);
+      } else {
+        await prefs.setString(_collectionsKey, encoded);
+      }
+      await _syncNative();
+    } catch (e) {
+      // The picker degrades to "save without a collection", which is the
+      // pre-existing behaviour. Never worth surfacing.
+      AppLogger.error('Collection share-target sync skipped: $e');
+    }
   }
 
   Future<void> syncPushToken({
@@ -131,6 +163,7 @@ class ShareHandoffService {
         'baseUrl': prefs.getString(_baseUrlKey) ?? '',
         'pushToken': prefs.getString(_pushTokenKey) ?? '',
         'pushPlatform': prefs.getString(_pushPlatformKey) ?? '',
+        'collections': prefs.getString(_collectionsKey) ?? '',
       });
     } catch (e) {
       AppLogger.error('Share handoff native sync skipped: $e');

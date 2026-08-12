@@ -19,6 +19,7 @@ import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
+import 'package:reelpin/services/sharing/linkrunner_service.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
@@ -26,7 +27,6 @@ import 'package:reelpin/screens/home/home_screen.dart';
 import 'package:reelpin/screens/map/map_screen.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/screens/discover/discover_screen.dart';
-import 'package:reelpin/screens/collections/collection_detail_screen.dart';
 import 'package:reelpin/screens/collections/collections_screen.dart';
 
 part 'partials/app_shell_controller.dart';
@@ -85,18 +85,37 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   Future<void> _initCollectionDeepLinks() async {
+    // Init first: a link arriving before this completes resolves as a plain
+    // URL, which is correct for direct /c/ links but loses Linkrunner ones.
+    await LinkrunnerService.instance.init();
+
     _appLinks = AppLinks();
     try {
       final initial = await _appLinks!.getInitialLink();
-      if (initial != null) _handleIncomingUri(initial);
+      if (initial != null) {
+        unawaited(_handleIncomingUri(initial));
+      } else {
+        // No launch URL. This may still be the first open after installing
+        // from a share link, where the destination only exists as attribution.
+        unawaited(_handleDeferredLink());
+      }
     } catch (_) {}
     _deepLinkSub = _appLinks!.uriLinkStream.listen(
-      _handleIncomingUri,
+      (uri) => unawaited(_handleIncomingUri(uri)),
       onError: (_) {},
     );
   }
 
-  void _handleIncomingUri(Uri uri) {
+  Future<void> _handleDeferredLink() async {
+    final deferred = await LinkrunnerService.instance.deferredLink();
+    if (deferred != null) _routeCollectionUri(deferred);
+  }
+
+  Future<void> _handleIncomingUri(Uri uri) async {
+    _routeCollectionUri(await LinkrunnerService.instance.resolve(uri));
+  }
+
+  void _routeCollectionUri(Uri uri) {
     // https://reelpin.in/c/{token}  or  /c/invite/{token}
     final segments = uri.pathSegments;
     if (segments.isEmpty || segments.first != 'c') return;
@@ -109,12 +128,10 @@ class _AppShellState extends ConsumerState<AppShell>
 
   Future<void> _openSharedCollection(String token) async {
     if (!mounted) return;
-    await Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            CollectionDetailScreen(collectionId: '', sharedToken: token),
-      ),
-    );
+    await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push(sharedCollectionRoute(token));
   }
 
   Future<void> _acceptCollectionInvite(String token) async {
@@ -125,11 +142,10 @@ class _AppShellState extends ConsumerState<AppShell>
           .read(collectionsViewModelProvider)
           .acceptInvite(token);
       if (joined != null && mounted) {
-        await Navigator.of(context, rootNavigator: true).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CollectionDetailScreen(collectionId: joined.id),
-          ),
-        );
+        await Navigator.of(
+          context,
+          rootNavigator: true,
+        ).push(collectionDetailRoute(joined.id));
       }
     } catch (_) {
       messenger.showSnackBar(
