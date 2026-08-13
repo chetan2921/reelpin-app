@@ -16,6 +16,7 @@ import 'package:reelpin/providers.dart';
 import 'package:reelpin/screens/collections/collection_form_sheet.dart';
 import 'package:reelpin/screens/collections/share_collection_sheet.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_loader_screen.dart';
+import 'package:reelpin/services/sharing/shared_collection_prefetch.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
@@ -72,9 +73,13 @@ class _CollectionDetailScreenState
       _sharedError = null;
     });
     try {
-      final detail = await ref
-          .read(collectionsHttpProvider)
-          .getSharedCollection(widget.sharedToken!);
+      // Started while the splash was still up when the app was launched from
+      // this link, so on that path there is usually nothing left to wait for.
+      final detail =
+          await (SharedCollectionPrefetch.take(widget.sharedToken!) ??
+              ref
+                  .read(collectionsHttpProvider)
+                  .getSharedCollection(widget.sharedToken!));
       if (mounted) setState(() => _shared = detail);
     } catch (e) {
       if (mounted) {

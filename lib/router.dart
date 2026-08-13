@@ -68,9 +68,18 @@ Route<void> collectionDetailRoute(String collectionId) {
 
 /// Read-only view of a collection opened from a share link. The token is the
 /// capability, so there is no collection id to pass.
-Route<void> sharedCollectionRoute(String token) {
-  return MaterialPageRoute<void>(
-    builder: (_) => CollectionDetailScreen(collectionId: '', sharedToken: token),
+///
+/// [animate] is false for the link the app was launched with. Sliding the
+/// collection in leaves Home on screen for the length of the transition, which
+/// on a cold start reads as the app opening Home and then moving somewhere else;
+/// the collection is the destination, so it should simply be what appears.
+Route<void> sharedCollectionRoute(String token, {bool animate = true}) {
+  final screen = CollectionDetailScreen(collectionId: '', sharedToken: token);
+  if (animate) return MaterialPageRoute<void>(builder: (_) => screen);
+  return PageRouteBuilder<void>(
+    pageBuilder: (_, _, _) => screen,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
   );
 }
 

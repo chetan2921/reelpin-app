@@ -19,6 +19,7 @@ import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
+import 'package:reelpin/services/sharing/collection_link.dart';
 import 'package:reelpin/services/sharing/linkrunner_service.dart';
 import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
@@ -27,6 +28,7 @@ import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/screens/home/home_screen.dart';
 import 'package:reelpin/screens/map/map_screen.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
+import 'package:reelpin/screens/splash/splash_screen.dart';
 import 'package:reelpin/screens/discover/discover_screen.dart';
 import 'package:reelpin/screens/collections/collections_screen.dart';
 
@@ -58,6 +60,9 @@ class _AppShellState extends ConsumerState<AppShell>
   StreamSubscription? _mediaIntentSub;
   AppLinks? _appLinks;
   StreamSubscription? _deepLinkSub;
+  CollectionLink? _launchLink;
+  bool _hasRoutedLaunchLink = false;
+  Uri? _launchUriReplayGuard;
   bool _isQueueingSharedReel = false;
   String? _lastHandledSharedPayload;
   bool _isCheckingInitialPermissions = false;
@@ -78,8 +83,25 @@ class _AppShellState extends ConsumerState<AppShell>
     widget.controller?._attach(_selectControlledTab);
     WidgetsBinding.instance.addObserver(this);
     _initSharingIntent();
+    // Claimed before anything awaits: the Linkrunner-gated path below resumes
+    // on a microtask, which is still ahead of this frame, and would otherwise
+    // take the link and open it with a transition.
+    final launchUri = PendingDeepLink.pendingUri;
+    _launchLink = PendingDeepLink.takeCollectionLink();
+    if (_launchLink != null) {
+      _hasRoutedLaunchLink = true;
+      _launchUriReplayGuard = launchUri;
+    }
     unawaited(_initCollectionDeepLinks());
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Opened at the end of the shell's first frame. Pushing any earlier would
+      // mark the root navigator dirty while it is still building.
+      final launchLink = _launchLink;
+      if (launchLink != null) {
+        _routeCollectionLink(launchLink, animate: false);
+        // The route is on the navigator now, so the tabs can build behind it.
+        setState(() => _launchLink = null);
+      }
       unawaited(_runFirstRunFlow());
       unawaited(_drainPendingNativeShares());
     });
@@ -92,15 +114,20 @@ class _AppShellState extends ConsumerState<AppShell>
 
     _appLinks = AppLinks();
     try {
-      // Taken from bootstrap, which captured it before auth gating could
-      // consume it. Falls back to asking directly for warm-start safety.
-      final initial = PendingDeepLink.take() ?? await _appLinks!.getInitialLink();
-      if (initial != null) {
-        unawaited(_handleIncomingUri(initial));
-      } else {
-        // No launch URL. This may still be the first open after installing
-        // from a share link, where the destination only exists as attribution.
-        unawaited(_handleDeferredLink());
+      // Skipped entirely when the launch link was already claimed above, or
+      // asking again would open the same collection a second time.
+      if (!_hasRoutedLaunchLink) {
+        // Taken from bootstrap, which captured it before auth gating could
+        // consume it. Falls back to asking directly for warm-start safety.
+        final initial =
+            PendingDeepLink.take() ?? await _appLinks!.getInitialLink();
+        if (initial != null) {
+          unawaited(_handleIncomingUri(initial));
+        } else {
+          // No launch URL. This may still be the first open after installing
+          // from a share link, where the destination only exists as attribution.
+          unawaited(_handleDeferredLink());
+        }
       }
     } catch (_) {}
     _deepLinkSub = _appLinks!.uriLinkStream.listen(
@@ -115,26 +142,42 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   Future<void> _handleIncomingUri(Uri uri) async {
+    // Android hands the launch intent to the link stream once it starts
+    // listening, so the URL the app opened with arrives here a second time and
+    // would stack another copy of the collection on the one already open. Only
+    // the replay is dropped: tapping the same link again later is a real
+    // request to reopen it.
+    if (_launchUriReplayGuard == uri) {
+      _launchUriReplayGuard = null;
+      return;
+    }
     _routeCollectionUri(await LinkrunnerService.instance.resolve(uri));
   }
 
   void _routeCollectionUri(Uri uri) {
-    // https://reelpin.in/c/{token}  or  /c/invite/{token}
-    final segments = uri.pathSegments;
-    if (segments.isEmpty || segments.first != 'c') return;
-    if (segments.length >= 3 && segments[1] == 'invite') {
-      unawaited(_acceptCollectionInvite(segments[2]));
-    } else if (segments.length >= 2) {
-      unawaited(_openSharedCollection(segments[1]));
+    final link = CollectionLink.parse(uri);
+    if (link != null) _routeCollectionLink(link);
+  }
+
+  /// An invite ignores [animate]: it has to be redeemed over the network first,
+  /// so there is no frame it could have been shown in.
+  void _routeCollectionLink(CollectionLink link, {bool animate = true}) {
+    if (link.isInvite) {
+      unawaited(_acceptCollectionInvite(link.token));
+    } else {
+      unawaited(_openSharedCollection(link.token, animate: animate));
     }
   }
 
-  Future<void> _openSharedCollection(String token) async {
+  Future<void> _openSharedCollection(
+    String token, {
+    bool animate = true,
+  }) async {
     if (!mounted) return;
     await Navigator.of(
       context,
       rootNavigator: true,
-    ).push(sharedCollectionRoute(token));
+    ).push(sharedCollectionRoute(token, animate: animate));
   }
 
   Future<void> _acceptCollectionInvite(String token) async {
@@ -573,6 +616,12 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
+    // A launch link is opened at the end of this first frame, so until then the
+    // shell holds nothing the user asked for. Painting Home in that gap is what
+    // made a tapped link look like it opened the wrong screen and then moved;
+    // staying on the splash instead makes the collection the first thing shown.
+    if (_launchLink != null) return const SplashScreen();
+
     return PopScope(
       canPop: _currentIndex == 0 && !_isHomeScrolledDown(),
       onPopInvokedWithResult: (didPop, result) {

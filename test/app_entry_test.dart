@@ -9,11 +9,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reelpin/app_entry.dart';
+import 'package:reelpin/data_models/collections/collection_models.dart';
+import 'package:reelpin/http/mock_collections_http.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/reelpin_app.dart';
 import 'package:reelpin/http/api_client.dart';
 import 'package:reelpin/services/auth/auth_service.dart';
 import 'package:reelpin/services/auth/profile_service.dart';
+import 'package:reelpin/services/sharing/pending_deep_link.dart';
+import 'package:reelpin/services/sharing/shared_collection_prefetch.dart';
 import 'package:reelpin/view_models/session_view_model.dart';
 
 void main() {
@@ -57,6 +61,48 @@ void main() {
       find.text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.'),
       findsNothing,
     );
+  });
+
+  testWidgets('holds the splash when the app was not opened from a link', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    _sizeView(tester);
+
+    await tester.pumpWidget(_appEntry());
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('SYNCING YOUR SAVED WORLD'), findsOneWidget);
+
+    await _drainStartupTimers(tester);
+  });
+
+  testWidgets('a collection link skips the splash hold and prefetches', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    _sizeView(tester);
+    await _capturePendingLink(tester, 'https://reelpin.in/c/splash-token');
+    addTearDown(() {
+      SharedCollectionPrefetch.take('splash-token');
+    });
+
+    var fetchedToken = '';
+    await tester.pumpWidget(
+      _appEntry(
+        collectionsHttp: _RecordingCollectionsHttp((token) {
+          fetchedToken = token;
+        }),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Past the splash long before the 1600ms branding hold would have ended.
+    expect(find.text('SYNCING YOUR SAVED WORLD'), findsNothing);
+    // And the fetch is already in flight, rather than waiting for the shell.
+    expect(fetchedToken, 'splash-token');
+
+    await _drainStartupTimers(tester);
   });
 
   testWidgets('checks for an Android update on startup and resume', (
@@ -116,17 +162,54 @@ Future<void> _pumpPageTransition(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 350));
 }
 
-Future<void> _pumpAppEntry(WidgetTester tester) async {
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        sessionViewModelProvider.overrideWith(
-          (ref) => _FakeSessionViewModel(_FakeAuthService()),
-        ),
-      ],
-      child: const MaterialApp(home: AppEntry()),
-    ),
+/// Startup schedules timers the widget tree outlives in a test — the splash
+/// hold and the session bootstrap — and a pending timer fails the test on its
+/// own. Let them fire before the assertions are done.
+Future<void> _drainStartupTimers(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 1600));
+  await tester.pump();
+}
+
+void _sizeView(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(1170, 2532);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+}
+
+/// Puts a launch URL where [PendingDeepLink] reads it, through the same channel
+/// the plugin uses on a real cold start.
+Future<void> _capturePendingLink(WidgetTester tester, String url) async {
+  const channel = MethodChannel('com.llfbandit.app_links/messages');
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    channel,
+    (call) async => call.method == 'getInitialLink' ? url : null,
   );
+  addTearDown(() {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      null,
+    );
+    PendingDeepLink.take();
+  });
+  await PendingDeepLink.capture();
+}
+
+Widget _appEntry({MockCollectionsHttp? collectionsHttp}) {
+  return ProviderScope(
+    overrides: [
+      sessionViewModelProvider.overrideWith(
+        (ref) => _FakeSessionViewModel(_FakeAuthService()),
+      ),
+      if (collectionsHttp != null)
+        collectionsHttpProvider.overrideWithValue(collectionsHttp),
+    ],
+    child: const MaterialApp(home: AppEntry()),
+  );
+}
+
+Future<void> _pumpAppEntry(WidgetTester tester) async {
+  await tester.pumpWidget(_appEntry());
   for (var attempt = 0; attempt < 40; attempt++) {
     await tester.pump(const Duration(milliseconds: 100));
     final hasOnboarding = find
@@ -167,4 +250,24 @@ class _FakeAuthService extends AuthService {
 
   @override
   Future<void> ensureProfile() async {}
+}
+
+class _RecordingCollectionsHttp extends MockCollectionsHttp {
+  _RecordingCollectionsHttp(this.onFetch);
+
+  final void Function(String token) onFetch;
+
+  @override
+  Future<CollectionDetail> getSharedCollection(
+    String token, {
+    int limit = 25,
+    int? offset,
+  }) async {
+    onFetch(token);
+    return CollectionDetail(
+      collection: CollectionSummary(id: 'id', name: token),
+      reels: const [],
+      pagination: const CollectionPagination(),
+    );
+  }
 }
