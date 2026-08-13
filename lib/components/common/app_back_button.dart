@@ -29,10 +29,14 @@ class AppBackButton extends StatelessWidget {
       child: SizedBox(
         width: layout.inset(40),
         height: layout.inset(40),
+        // A chevron rather than a shafted arrow: it reads cleaner next to the
+        // screen title and matches the platform convention. Sized up slightly
+        // because a chevron carries less visual weight than an arrow at the
+        // same nominal size.
         child: Icon(
-          Icons.arrow_back,
+          Icons.chevron_left,
           color: AppColors.fg(context),
-          size: layout.inset(22),
+          size: layout.inset(28),
         ),
       ),
     );
