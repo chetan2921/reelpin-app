@@ -154,7 +154,7 @@ class _FolderShape extends StatelessWidget {
                 name.toUpperCase(),
                 style: GoogleFonts.spaceMono(
                   color: AppColors.black,
-                  fontSize: 10.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   height: 1.15,
                 ),
@@ -223,7 +223,7 @@ class _PinnedNote extends StatelessWidget {
                     note.toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: AppColors.black,
-                      fontSize: 6.5,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                       height: 1.2,
                     ),
@@ -271,7 +271,7 @@ class _CountLabel extends StatelessWidget {
         '$count REEL${count == 1 ? '' : 'S'}',
         style: GoogleFonts.spaceMono(
           color: AppColors.fg(context),
-          fontSize: 7.5,
+          fontSize: 10,
           fontWeight: FontWeight.w700,
         ),
       ),

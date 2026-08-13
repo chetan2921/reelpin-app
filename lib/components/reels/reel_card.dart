@@ -304,7 +304,7 @@ class _ReelCardState extends State<ReelCard>
               textAlign: TextAlign.right,
               style: GoogleFonts.spaceMono(
                 color: textColor,
-                fontSize: layout.font(9),
+                fontSize: layout.font(10),
                 fontWeight: FontWeight.w700,
                 shadows: shadows,
               ),
@@ -393,7 +393,7 @@ class _ReelCardState extends State<ReelCard>
                         label.toUpperCase(),
                         style: GoogleFonts.spaceMono(
                           color: AppColors.white,
-                          fontSize: layout.font(8, minFactor: 0.9),
+                          fontSize: layout.font(10, minFactor: 0.9),
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),

@@ -200,7 +200,7 @@ class _CollectionFormSheetState extends ConsumerState<CollectionFormSheet> {
               border: InputBorder.none,
               counterStyle: GoogleFonts.spaceMono(
                 color: AppColors.textSec(context),
-                fontSize: layout.font(9),
+                fontSize: layout.font(10),
                 fontWeight: FontWeight.w700,
               ),
               contentPadding: EdgeInsets.symmetric(

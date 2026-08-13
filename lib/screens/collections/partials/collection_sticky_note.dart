@@ -83,13 +83,16 @@ class _CollectionStickyNote extends StatelessWidget {
               ),
             ),
           ),
+          // The pin is rotated -0.28rad about its centre and its needle points
+          // down-left, so the tip lands ~13px left and ~35px below the image
+          // centre — not where an untransformed dot would sit.
           Positioned(
-            top: layout.gap(27),
+            top: layout.gap(32),
             left: 0,
             right: 0,
             child: Center(
               child: Transform.translate(
-                offset: Offset(-layout.inset(2), 0),
+                offset: Offset(-layout.inset(13), 0),
                 child: Container(
                   width: layout.inset(5),
                   height: layout.inset(5),

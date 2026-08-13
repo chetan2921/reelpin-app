@@ -1155,7 +1155,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                     'SHARE',
                     style: GoogleFonts.spaceMono(
                       color: AppColors.white,
-                      fontSize: layout.font(9),
+                      fontSize: layout.font(10),
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
                     ),

@@ -688,7 +688,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(
               color: resolvedTextColor.withAlpha(190),
-              fontSize: layout.font(9),
+              fontSize: layout.font(10),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1730,7 +1730,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         '$count',
         style: GoogleFonts.spaceMono(
           color: textColor,
-          fontSize: layout.font(9),
+          fontSize: layout.font(10),
           fontWeight: FontWeight.w700,
         ),
       ),

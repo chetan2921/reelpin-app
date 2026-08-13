@@ -102,9 +102,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 'COLLECTIONS',
                 style: GoogleFonts.spaceMono(
                   color: AppColors.fg(context),
-                  fontSize: layout.font(18, maxFactor: 1.05),
+                  fontSize: layout.font(28, minFactor: 0.9, maxFactor: 1.08),
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
+                  letterSpacing: 2,
                 ),
               ),
               SizedBox(height: layout.gap(4)),

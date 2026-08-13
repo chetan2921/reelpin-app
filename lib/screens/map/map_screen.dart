@@ -759,7 +759,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         color: catColor.computeLuminance() > 0.5
                             ? AppColors.black
                             : AppColors.white,
-                        fontSize: 9,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
