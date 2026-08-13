@@ -3,6 +3,9 @@ part of '../collection_detail_screen.dart';
 /// The pinned sticky note above a collection's reels, carrying its note text.
 /// Ported from the folders design; the pin, the crease dot and the tape strip
 /// are all part of the drawing.
+/// Rotation applied to the pin artwork; the hole position is solved from it.
+const double _pinAngle = -0.28;
+
 class _CollectionStickyNote extends StatelessWidget {
   const _CollectionStickyNote({
     required this.note,
@@ -20,6 +23,16 @@ class _CollectionStickyNote extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final text = note.trim();
+
+    // Everything about the pin scales from this one value.
+    final pinSize = layout.inset(30);
+    final pinTop = -layout.gap(6);
+    final holeSize = layout.inset(4);
+    // The needle tip sits at roughly (0.04, 0.96) of the asset, so after
+    // rotating about the centre it lands at these fractions of the pin's size.
+    // Solving it here keeps the hole on the point at any pin size.
+    final pinTipDx = -0.315 * pinSize;
+    final pinTipY = pinTop + pinSize / 2 + 0.569 * pinSize;
     return GestureDetector(
       onTap: onEdit,
       behavior: HitTestBehavior.opaque,
@@ -83,34 +96,35 @@ class _CollectionStickyNote extends StatelessWidget {
                 ),
               ),
             ),
+            // Pin, its hole, and the tape are all derived from `pinSize` and
+            // `pinTop` below rather than hand-placed, so they stay aligned at
+            // every text scale and screen density instead of only at the size
+            // they were eyeballed on.
             Positioned(
-              top: -layout.gap(10),
+              top: pinTop,
               left: 0,
               right: 0,
               child: Center(
                 child: Transform.rotate(
-                  angle: -0.28,
+                  angle: _pinAngle,
                   child: Image.asset(
                     'assets/images/pin.png',
-                    width: layout.inset(42),
-                    height: layout.inset(42),
+                    width: pinSize,
+                    height: pinSize,
                   ),
                 ),
               ),
             ),
-            // The pin is rotated -0.28rad about its centre and its needle points
-            // down-left, so the tip lands ~13px left and ~35px below the image
-            // centre — not where an untransformed dot would sit.
             Positioned(
-              top: layout.gap(32),
+              top: pinTipY - holeSize / 2,
               left: 0,
               right: 0,
               child: Center(
                 child: Transform.translate(
-                  offset: Offset(-layout.inset(13), 0),
+                  offset: Offset(pinTipDx, 0),
                   child: Container(
-                    width: layout.inset(5),
-                    height: layout.inset(5),
+                    width: holeSize,
+                    height: holeSize,
                     decoration: BoxDecoration(
                       color: AppColors.black.withAlpha(180),
                       shape: BoxShape.circle,
@@ -123,47 +137,22 @@ class _CollectionStickyNote extends StatelessWidget {
                 ),
               ),
             ),
-            // Only rendered when onEdit is non-null, i.e. owners and editors.
-            // Viewers and shared-link visitors get no write affordance at all,
-            // since offering one they cannot use is worse than offering none.
-            //
-            // Pinned to the paper's top-right corner rather than floating near
-            // the text, where it read as part of the note.
-            if (onEdit != null)
-              Positioned(
-                top: layout.gap(14),
-                // The paper's right edge sits at inset(8), so this leaves a
-                // ~4px gutter inside its border without touching the clip.
-                right: layout.inset(12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.edit,
-                      size: layout.inset(12),
-                      color: AppColors.black.withAlpha(190),
-                    ),
-                    SizedBox(width: layout.inset(4)),
-                    Text(
-                      'EDIT',
-                      style: GoogleFonts.spaceMono(
-                        color: AppColors.black.withAlpha(190),
-                        fontSize: layout.font(10),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // The tape strip doubles as the edit control for owners and
+            // editors. Viewers still see the tape, just without the label, so
+            // the artwork is unchanged for people who cannot act on it.
             Positioned(
-              right: layout.inset(20),
-              bottom: layout.gap(4),
+              right: layout.inset(18),
+              bottom: layout.gap(6),
               child: Transform.rotate(
                 angle: -0.08,
                 child: Container(
-                  width: layout.inset(48),
-                  height: layout.gap(18),
+                  // Sized by its content, not fixed, so the label never clips
+                  // when the user scales text up.
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.inset(10),
+                    vertical: layout.gap(5),
+                  ),
+                  constraints: BoxConstraints(minWidth: layout.inset(48)),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFD94A),
                     border: Border.all(
@@ -171,6 +160,28 @@ class _CollectionStickyNote extends StatelessWidget {
                       width: 1.5,
                     ),
                   ),
+                  child: onEdit == null
+                      ? SizedBox(height: layout.gap(12))
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.edit,
+                              size: layout.inset(11),
+                              color: AppColors.black,
+                            ),
+                            SizedBox(width: layout.inset(4)),
+                            Text(
+                              'EDIT',
+                              style: GoogleFonts.spaceMono(
+                                color: AppColors.black,
+                                fontSize: layout.font(10),
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
             ),
