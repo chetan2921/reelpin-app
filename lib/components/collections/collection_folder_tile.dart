@@ -228,7 +228,11 @@ class _PinnedNote extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: GoogleFonts.spaceMono(
                       color: AppColors.black,
-                      fontSize: 10,
+                      // Deliberate exception to the app's 10pt floor. This note
+                      // is ~120px wide inside a grid tile, and 10pt crowded it
+                      // to the edges. Do not raise it without shrinking the
+                      // surrounding folder artwork too.
+                      fontSize: 9,
                       fontWeight: FontWeight.w700,
                       height: 1.15,
                     ),

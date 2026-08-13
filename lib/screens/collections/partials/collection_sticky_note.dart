@@ -123,16 +123,30 @@ class _CollectionStickyNote extends StatelessWidget {
                 ),
               ),
             ),
-            // Small pencil in the note's corner so the tap target is
-            // discoverable now that the header no longer carries an edit action.
+            // Only rendered when onEdit is non-null, i.e. owners and editors.
+            // Viewers and shared-link visitors get no write affordance at all,
+            // since offering one they cannot use is worse than offering none.
+            //
+            // Pinned to the paper's top-right corner rather than floating near
+            // the text, where it read as part of the note.
             if (onEdit != null)
               Positioned(
-                top: layout.gap(24),
-                right: layout.inset(26),
-                child: Icon(
-                  Icons.edit,
-                  size: layout.inset(15),
-                  color: AppColors.black.withAlpha(130),
+                top: layout.gap(14),
+                right: layout.inset(14),
+                child: Container(
+                  padding: EdgeInsets.all(layout.inset(5)),
+                  decoration: BoxDecoration(
+                    color: AppColors.black.withAlpha(20),
+                    border: Border.all(
+                      color: AppColors.black.withAlpha(90),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.edit,
+                    size: layout.inset(13),
+                    color: AppColors.black.withAlpha(190),
+                  ),
                 ),
               ),
             Positioned(
