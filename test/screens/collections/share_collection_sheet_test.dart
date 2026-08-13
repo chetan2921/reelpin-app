@@ -80,21 +80,21 @@ void main() {
     );
 
     await pumpSheet(tester);
-    expect(find.text('Link copied'), findsNothing);
+    expect(find.text('COPIED'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.copy));
     await tester.pump();
 
     expect(copied, [cachedUrl]);
-    expect(find.text('Link copied'), findsOneWidget);
-    expect(find.byIcon(Icons.check), findsWidgets);
+    expect(find.text('COPIED'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle), findsWidgets);
     // The whole point of the fix: a SnackBar renders behind the modal sheet,
     // so the confirmation has to live in the sheet's own subtree.
     expect(find.byType(SnackBar), findsNothing);
     expect(
       find.descendant(
         of: find.byType(ShareCollectionSheet),
-        matching: find.text('Link copied'),
+        matching: find.text('COPIED'),
       ),
       findsOneWidget,
     );
@@ -149,10 +149,10 @@ void main() {
     await pumpSheet(tester);
     await tester.tap(find.byIcon(Icons.copy));
     await tester.pump();
-    expect(find.text('Link copied'), findsOneWidget);
+    expect(find.text('COPIED'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
-    expect(find.text('Link copied'), findsNothing);
+    expect(find.text('COPIED'), findsNothing);
   });
 }
 

@@ -9,6 +9,7 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/components/common/app_back_button.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 part 'partials/location_preference_card.dart';
@@ -84,9 +85,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             letterSpacing: 1.2,
           ),
         ),
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back, color: AppColors.fg(context)),
+        leading: const Padding(
+          padding: EdgeInsets.all(8),
+          child: AppBackButton(),
         ),
       ),
       body: SafeArea(

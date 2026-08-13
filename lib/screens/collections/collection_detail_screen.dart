@@ -6,6 +6,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/components/reels/reel_card.dart';
+import 'package:reelpin/components/common/app_back_button.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
@@ -286,19 +287,7 @@ class _CollectionDetailScreenState
 
     return Row(
       children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            width: layout.inset(40),
-            height: layout.inset(40),
-            decoration: AppTheme.brutalBox(context),
-            child: Icon(
-              Icons.arrow_back,
-              color: AppColors.fg(context),
-              size: layout.inset(20),
-            ),
-          ),
-        ),
+        const AppBackButton(),
         SizedBox(width: layout.inset(12)),
         Expanded(
           child: Column(

@@ -14,6 +14,7 @@ import 'package:reelpin/router.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/sharing/reel_share_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/components/common/app_back_button.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/constants/source_platforms.dart';
@@ -274,22 +275,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                 pinned: true,
                 backgroundColor: AppColors.bg(context),
                 surfaceTintColor: Colors.transparent,
-                leading: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: AppColors.fg(context),
-                        width: 2,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back,
-                      color: AppColors.fg(context),
-                      size: 20,
-                    ),
-                  ),
+                leading: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: AppBackButton(),
                 ),
                 bottom: PreferredSize(
                   preferredSize: const Size.fromHeight(3),

@@ -4,6 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:google_fonts/google_fonts.dart';
+
+import 'package:reelpin/components/common/app_bottom_sheet.dart';
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/services/sharing/collection_link_cache.dart';
@@ -15,10 +21,8 @@ Future<void> showShareCollectionSheet(
   BuildContext context,
   String collectionId,
 ) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (_) => ShareCollectionSheet(collectionId: collectionId),
   );
 }
@@ -163,9 +167,8 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
   }
 
   Future<void> _invite() async {
-    final role = await showModalBottomSheet<String>(
+    final role = await showAppBottomSheet<String>(
       context: context,
-      showDragHandle: true,
       builder: (_) => const _InviteRoleSheet(),
     );
     if (role == null) return;
@@ -192,132 +195,117 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final layout = AppLayout.of(context);
     final collection = ref
         .watch(collectionsViewModelProvider)
         .detailFor(widget.collectionId)
         ?.collection;
     final hasLink = collection?.hasLink ?? false;
+    final isOwner = collection?.isOwner ?? false;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+    return AppBottomSheet(
+      title: 'Share collection',
+      subtitle: hasLink
+          ? 'Anyone with this link can view the collection.'
+          : 'Turn on a link to let anyone view this collection.',
+      trailing: _copiedLabel == null
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  size: layout.inset(15),
+                  color: AppColors.fg(context),
+                ),
+                SizedBox(width: layout.inset(5)),
+                Text(
+                  'COPIED',
+                  style: GoogleFonts.spaceMono(
+                    color: AppColors.fg(context),
+                    fontSize: layout.font(10),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Share collection',
-                    style: theme.textTheme.titleLarge,
-                  ),
-                ),
-                if (_copiedLabel != null)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$_copiedLabel copied',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Choose how people reach this collection.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            RadioGroup<bool>(
-              groupValue: !hasLink,
-              onChanged: (selected) {
-                if (_busy || selected != true) return;
-                _toggleLink(false);
-              },
-              child: const _OptionRow(
-                icon: Icons.lock_outline,
-                title: 'Private',
-                subtitle: 'Only you',
-                trailing: Radio<bool>(value: true),
-              ),
-            ),
-
-            _OptionRow(
-              icon: Icons.link,
-              title: 'Share link',
-              subtitle: 'Anyone with the link can view',
+            // One control for one decision. There used to be a "Private" radio
+            // beside this switch, two widgets fighting over the same boolean.
+            _SheetRow(
+              label: 'SHARE LINK',
+              hint: hasLink ? 'On' : 'Off',
               trailing: Switch(
                 value: hasLink,
                 onChanged: _busy ? null : _toggleLink,
+                activeThumbColor: AppColors.black,
+                activeTrackColor: AppColors.yellow,
               ),
             ),
-            if (hasLink)
-              Padding(
-                padding: const EdgeInsets.only(left: 50, bottom: 8),
-                child: _LinkChip(
-                  url: _linkUrl,
-                  justCopied: _copiedLabel == 'Link',
-                  onCopy: _linkUrl == null
-                      ? null
-                      : () => _copy(_linkUrl!, 'Link'),
-                  onShare: _linkUrl == null ? null : _shareLink,
-                  // Both paths rotate the token. Even the cache-miss "get a
-                  // link" case kills a link that may already be circulating,
-                  // so neither is allowed to fire without the warning.
-                  onRegenerate: _busy ? null : _regenerateLink,
-                ),
+            if (hasLink) ...[
+              SizedBox(height: layout.gap(10)),
+              _LinkChip(
+                url: _linkUrl,
+                onCopy: _linkUrl == null
+                    ? null
+                    : () => _copy(_linkUrl!, 'Link'),
+                onShare: _linkUrl == null ? null : _shareLink,
+                // Both paths rotate the token, killing a link that may already
+                // be circulating, so neither fires without the warning.
+                onRegenerate: _busy ? null : _regenerateLink,
               ),
-
-            const Divider(height: 24),
-            _OptionRow(
-              icon: Icons.group_outlined,
-              title: 'Collaborators',
-              subtitle: 'Invite people to add reels',
-              trailing: TextButton.icon(
-                onPressed: _busy ? null : _invite,
-                icon: const Icon(Icons.person_add_alt),
-                label: const Text('Invite'),
+            ],
+            SizedBox(height: layout.gap(20)),
+            Container(height: 1, color: AppColors.fg(context)),
+            SizedBox(height: layout.gap(20)),
+            _SheetRow(
+              label: 'COLLABORATORS',
+              hint: 'They can add reels too',
+              trailing: GestureDetector(
+                onTap: _busy ? null : _invite,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.inset(12),
+                    vertical: layout.gap(8),
+                  ),
+                  decoration: AppTheme.brutalBox(
+                    context,
+                    color: AppColors.yellow,
+                  ),
+                  child: Text(
+                    'INVITE',
+                    style: GoogleFonts.spaceMono(
+                      color: AppColors.black,
+                      fontSize: layout.font(11),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
               ),
             ),
-            if (_members != null && _members!.members.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 50, top: 4),
-                child: Column(
-                  children: _members!.members
-                      .map(
-                        (m) => _MemberRow(
-                          member: m,
-                          canManage: (collection?.isOwner ?? false),
-                          onRemove: () async {
-                            await ref
-                                .read(collectionsViewModelProvider)
-                                .removeMember(
-                                  collectionId: widget.collectionId,
-                                  memberUserId: m.userId,
-                                );
-                            _loadMembers();
-                          },
-                        ),
-                      )
-                      .toList(),
+            if (_members != null && _members!.members.isNotEmpty) ...[
+              SizedBox(height: layout.gap(12)),
+              ..._members!.members.map(
+                (m) => _MemberRow(
+                  member: m,
+                  canManage: isOwner,
+                  onRemove: () async {
+                    await ref
+                        .read(collectionsViewModelProvider)
+                        .removeMember(
+                          collectionId: widget.collectionId,
+                          memberUserId: m.userId,
+                        );
+                    _loadMembers();
+                  },
                 ),
               ),
+            ],
           ],
         ),
       ),
@@ -325,53 +313,50 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
   }
 }
 
-class _OptionRow extends StatelessWidget {
-  const _OptionRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
+/// Label + hint on the left, control on the right. Used by every row in the
+/// sheet so they line up and read the same.
+class _SheetRow extends StatelessWidget {
+  const _SheetRow({
+    required this.label,
+    required this.hint,
     required this.trailing,
   });
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
+  final String label;
+  final String hint;
   final Widget trailing;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(icon, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: theme.textTheme.titleSmall),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+    final layout = AppLayout.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.spaceMono(
+                  color: AppColors.fg(context),
+                  fontSize: layout.font(13),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
                 ),
-              ],
-            ),
+              ),
+              SizedBox(height: layout.gap(2)),
+              Text(
+                hint,
+                style: GoogleFonts.spaceMono(
+                  color: AppColors.textSec(context),
+                  fontSize: layout.font(10),
+                ),
+              ),
+            ],
           ),
-          trailing,
-        ],
-      ),
+        ),
+        trailing,
+      ],
     );
   }
 }
@@ -379,64 +364,83 @@ class _OptionRow extends StatelessWidget {
 class _LinkChip extends StatelessWidget {
   const _LinkChip({
     required this.url,
-    this.justCopied = false,
     this.onCopy,
     this.onShare,
     this.onRegenerate,
   });
 
   final String? url;
-  final bool justCopied;
   final VoidCallback? onCopy;
   final VoidCallback? onShare;
   final VoidCallback? onRegenerate;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final layout = AppLayout.of(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+      padding: EdgeInsets.fromLTRB(
+        layout.inset(12),
+        layout.gap(6),
+        layout.inset(4),
+        layout.gap(6),
       ),
+      decoration: AppTheme.brutalBox(context, shadow: false),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              url ?? 'Link is active, but not saved on this device.',
+              url ?? 'Link is on, but not saved on this device.',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall,
+              style: GoogleFonts.spaceMono(
+                color: AppColors.fg(context),
+                fontSize: layout.font(10),
+              ),
             ),
           ),
           if (onCopy != null) ...[
-            IconButton(
-              iconSize: 18,
-              icon: Icon(justCopied ? Icons.check : Icons.copy),
-              color: justCopied ? theme.colorScheme.primary : null,
-              tooltip: 'Copy',
-              onPressed: onCopy,
-            ),
-            IconButton(
-              iconSize: 18,
-              icon: const Icon(Icons.ios_share),
+            _ChipAction(icon: Icons.copy, tooltip: 'Copy', onTap: onCopy),
+            _ChipAction(
+              icon: Icons.ios_share,
               tooltip: 'Share',
-              onPressed: onShare,
+              onTap: onShare,
             ),
-            IconButton(
-              iconSize: 18,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Generate a new link',
-              onPressed: onRegenerate,
-            ),
-          ] else
-            TextButton(
-              onPressed: onRegenerate,
-              child: const Text('New link'),
-            ),
+          ],
+          _ChipAction(
+            icon: Icons.refresh,
+            tooltip: 'New link',
+            onTap: onRegenerate,
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _ChipAction extends StatelessWidget {
+  const _ChipAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return IconButton(
+      iconSize: layout.inset(18),
+      icon: Icon(icon, color: AppColors.fg(context)),
+      tooltip: tooltip,
+      onPressed: onTap,
+      constraints: BoxConstraints.tightFor(
+        width: layout.inset(34),
+        height: layout.inset(34),
+      ),
+      padding: EdgeInsets.zero,
     );
   }
 }
@@ -492,28 +496,83 @@ class _InviteRoleSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return AppBottomSheet(
+      title: 'Invite collaborators',
+      subtitle: 'Pick what they are allowed to do.',
+      maxHeightFactor: 0.4,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Invite collaborators'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.edit_outlined),
-            title: const Text('Can edit'),
-            subtitle: const Text('Add and remove reels'),
+          _RoleTile(
+            icon: Icons.edit_outlined,
+            label: 'CAN EDIT',
+            hint: 'Add and remove reels',
             onTap: () => Navigator.of(context).pop('editor'),
           ),
-          ListTile(
-            leading: const Icon(Icons.visibility_outlined),
-            title: const Text('Can view'),
-            subtitle: const Text('Look only'),
+          _RoleTile(
+            icon: Icons.visibility_outlined,
+            label: 'CAN VIEW',
+            hint: 'Look only',
             onTap: () => Navigator.of(context).pop('viewer'),
           ),
-          const SizedBox(height: 8),
         ],
+      ),
+    );
+  }
+}
+
+class _RoleTile extends StatelessWidget {
+  const _RoleTile({
+    required this.icon,
+    required this.label,
+    required this.hint,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String hint;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: EdgeInsets.only(bottom: layout.gap(10)),
+        padding: EdgeInsets.all(layout.inset(14)),
+        decoration: AppTheme.brutalBox(context),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.fg(context), size: layout.inset(18)),
+            SizedBox(width: layout.inset(12)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.spaceMono(
+                      color: AppColors.fg(context),
+                      fontSize: layout.font(12),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  Text(
+                    hint,
+                    style: GoogleFonts.spaceMono(
+                      color: AppColors.textSec(context),
+                      fontSize: layout.font(10),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
