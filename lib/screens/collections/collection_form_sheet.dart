@@ -198,14 +198,27 @@ class _CollectionFormSheetState extends ConsumerState<CollectionFormSheet> {
             cursorColor: AppColors.fg(context),
             decoration: InputDecoration(
               border: InputBorder.none,
-              counterStyle: GoogleFonts.spaceMono(
-                color: AppColors.textSec(context),
-                fontSize: layout.font(10),
-                fontWeight: FontWeight.w700,
-              ),
+              // The built-in counter renders inside the field's own box, so the
+              // bordered container looked like it held a second stacked box
+              // under the text. Drawn below the field instead.
+              counterText: '',
               contentPadding: EdgeInsets.symmetric(
                 horizontal: layout.inset(12),
                 vertical: layout.gap(10),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: layout.gap(4)),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (_, value, _) => Text(
+              '${value.text.characters.length}/$maxLength',
+              style: GoogleFonts.spaceMono(
+                color: AppColors.textSec(context),
+                fontSize: layout.font(10),
               ),
             ),
           ),

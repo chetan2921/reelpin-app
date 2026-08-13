@@ -255,6 +255,10 @@ class _CollectionDetailScreenState
                       child: _CollectionStickyNote(
                         note: collection.description,
                         canEdit: canEdit,
+                        // Editing lives on the note now, not in the app bar:
+                        // the note is what you are editing, and the header was
+                        // carrying four actions.
+                        onEdit: canEdit ? () => _edit(collection!) : null,
                       ),
                     ),
                   ),
@@ -283,7 +287,6 @@ class _CollectionDetailScreenState
     final title = collection?.name ?? widget.initialName ?? 'COLLECTION';
     final count = collection?.itemCount ?? 0;
     final isOwner = !widget.isShared && (collection?.isOwner ?? false);
-    final canEdit = !widget.isShared && (collection?.canEdit ?? false);
 
     return Row(
       children: [
@@ -322,13 +325,6 @@ class _CollectionDetailScreenState
             onTap: vm.isMutating
                 ? null
                 : () => showShareCollectionSheet(context, collection!.id),
-          ),
-          SizedBox(width: layout.inset(10)),
-        ],
-        if (canEdit) ...[
-          _HeaderAction(
-            icon: Icons.edit,
-            onTap: vm.isMutating ? null : () => _edit(collection!),
           ),
           SizedBox(width: layout.inset(10)),
         ],

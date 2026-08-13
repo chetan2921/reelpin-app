@@ -211,7 +211,11 @@ class _PinnedNote extends StatelessWidget {
               child: ClipPath(
                 clipper: _NoteClipper(),
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(9, 9, 9, 6),
+                  // Tight padding and a centred child: the note is small enough
+                  // that generous insets pushed a wrapped second line into the
+                  // bottom-right corner instead of reading as a block of text.
+                  padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFEA75),
                     border: Border.all(
@@ -221,11 +225,12 @@ class _PinnedNote extends StatelessWidget {
                   ),
                   child: Text(
                     note.toUpperCase(),
+                    textAlign: TextAlign.center,
                     style: GoogleFonts.spaceMono(
                       color: AppColors.black,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      height: 1.2,
+                      height: 1.15,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
