@@ -60,9 +60,16 @@ Route<void> profileRoute() {
   return MaterialPageRoute<void>(builder: (_) => const ProfileScreen());
 }
 
-Route<void> collectionDetailRoute(String collectionId) {
-  return MaterialPageRoute<void>(
-    builder: (_) => CollectionDetailScreen(collectionId: collectionId),
+/// [animate] is false when this is where a launch link landed, for the same
+/// reason as [sharedCollectionRoute]: the collection is the destination, so it
+/// should appear rather than slide in over whatever was behind it.
+Route<void> collectionDetailRoute(String collectionId, {bool animate = true}) {
+  final screen = CollectionDetailScreen(collectionId: collectionId);
+  if (animate) return MaterialPageRoute<void>(builder: (_) => screen);
+  return PageRouteBuilder<void>(
+    pageBuilder: (_, _, _) => screen,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
   );
 }
 

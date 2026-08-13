@@ -97,11 +97,7 @@ class _AppShellState extends ConsumerState<AppShell>
       // Opened at the end of the shell's first frame. Pushing any earlier would
       // mark the root navigator dirty while it is still building.
       final launchLink = _launchLink;
-      if (launchLink != null) {
-        _routeCollectionLink(launchLink, animate: false);
-        // The route is on the navigator now, so the tabs can build behind it.
-        setState(() => _launchLink = null);
-      }
+      if (launchLink != null) unawaited(_openLaunchLink(launchLink));
       unawaited(_runFirstRunFlow());
       unawaited(_drainPendingNativeShares());
     });
@@ -159,8 +155,26 @@ class _AppShellState extends ConsumerState<AppShell>
     if (link != null) _routeCollectionLink(link);
   }
 
-  /// An invite ignores [animate]: it has to be redeemed over the network first,
-  /// so there is no frame it could have been shown in.
+  /// Holds the splash until the launch link has somewhere to send the user.
+  ///
+  /// A share link can be opened straight away. An invite has to be redeemed
+  /// over the network first, and releasing the shell for the length of that
+  /// round trip is what made a tapped invite look like it opened Home and then
+  /// moved somewhere else seconds later. Whether it succeeds or fails, the
+  /// shell is released at the end: on failure the user lands on Home with the
+  /// snackbar, which is where they would have been anyway.
+  Future<void> _openLaunchLink(CollectionLink link) async {
+    try {
+      if (link.isInvite) {
+        await _acceptCollectionInvite(link.token, animate: false);
+      } else {
+        unawaited(_openSharedCollection(link.token, animate: false));
+      }
+    } finally {
+      if (mounted) setState(() => _launchLink = null);
+    }
+  }
+
   void _routeCollectionLink(CollectionLink link, {bool animate = true}) {
     if (link.isInvite) {
       unawaited(_acceptCollectionInvite(link.token));
@@ -180,7 +194,10 @@ class _AppShellState extends ConsumerState<AppShell>
     ).push(sharedCollectionRoute(token, animate: animate));
   }
 
-  Future<void> _acceptCollectionInvite(String token) async {
+  Future<void> _acceptCollectionInvite(
+    String token, {
+    bool animate = true,
+  }) async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -188,10 +205,14 @@ class _AppShellState extends ConsumerState<AppShell>
           .read(collectionsViewModelProvider)
           .acceptInvite(token);
       if (joined != null && mounted) {
-        await Navigator.of(
-          context,
-          rootNavigator: true,
-        ).push(collectionDetailRoute(joined.id));
+        // Not awaited: pushing settles the destination, but the future only
+        // completes when the user pops back out of it.
+        unawaited(
+          Navigator.of(
+            context,
+            rootNavigator: true,
+          ).push(collectionDetailRoute(joined.id, animate: animate)),
+        );
       }
     } catch (_) {
       messenger.showSnackBar(
