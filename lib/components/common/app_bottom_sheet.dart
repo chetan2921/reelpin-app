@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
-import 'package:reelpin/constants/app_theme.dart';
 
 /// The app's one bottom sheet: brutal card chrome, a solid drag handle and a
 /// monospace title.
@@ -49,7 +48,9 @@ class AppBottomSheet extends StatelessWidget {
           layout.inset(24),
           layout.gap(24),
         ),
-        decoration: AppTheme.brutalCard(context, color: AppColors.bg(context)),
+        // No border: brutalCard outlines in AppColors.fg, which is white in
+        // dark mode and drew a hard white frame around every sheet.
+        decoration: BoxDecoration(color: AppColors.bg(context)),
         child: SafeArea(
           top: false,
           child: Column(

@@ -73,7 +73,7 @@ class _CollectionFormSheetState extends ConsumerState<CollectionFormSheet> {
           layout.inset(24),
           layout.gap(24),
         ),
-        decoration: AppTheme.brutalCard(context, color: AppColors.bg(context)),
+        decoration: BoxDecoration(color: AppColors.bg(context)),
         child: SafeArea(
           top: false,
           child: Column(
