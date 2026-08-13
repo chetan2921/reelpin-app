@@ -132,21 +132,26 @@ class _CollectionStickyNote extends StatelessWidget {
             if (onEdit != null)
               Positioned(
                 top: layout.gap(14),
-                right: layout.inset(14),
-                child: Container(
-                  padding: EdgeInsets.all(layout.inset(5)),
-                  decoration: BoxDecoration(
-                    color: AppColors.black.withAlpha(20),
-                    border: Border.all(
-                      color: AppColors.black.withAlpha(90),
-                      width: 1,
+                right: layout.inset(16),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.edit,
+                      size: layout.inset(12),
+                      color: AppColors.black.withAlpha(190),
                     ),
-                  ),
-                  child: Icon(
-                    Icons.edit,
-                    size: layout.inset(13),
-                    color: AppColors.black.withAlpha(190),
-                  ),
+                    SizedBox(width: layout.inset(4)),
+                    Text(
+                      'EDIT',
+                      style: GoogleFonts.spaceMono(
+                        color: AppColors.black.withAlpha(190),
+                        fontSize: layout.font(10),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             Positioned(
