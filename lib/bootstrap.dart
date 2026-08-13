@@ -8,6 +8,7 @@ import 'package:reelpin/reelpin_app.dart';
 import 'package:reelpin/env.dart';
 import 'package:reelpin/utils/app_logger.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
+import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> bootstrap() async {
@@ -25,6 +26,10 @@ Future<void> bootstrap() async {
       AppLogger.error('Firebase initialization skipped: $e');
     }
   }
+
+  // Before anything can gate on auth: a launch URL is reported once, and the
+  // shell that knows how to route it does not exist yet.
+  await PendingDeepLink.capture();
 
   final isSupabaseConfigured = SupabaseConfig.isConfigured;
   if (isSupabaseConfigured) {

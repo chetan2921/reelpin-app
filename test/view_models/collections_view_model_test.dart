@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:io';
+
+import 'package:reelpin/services/cache/content_cache.dart';
 
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
@@ -7,6 +10,8 @@ import 'package:reelpin/http/collections_http.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('loading', () {
     test('loadCollections populates and clears the loading flag', () async {
       final api = _FakeCollectionsHttp(collections: [_summary('a'), _summary('b')]);
@@ -67,6 +72,54 @@ void main() {
 
       await vm.loadCollectionDetail('a', forceRefresh: true);
       expect(api.detailCalls, 2);
+    });
+  });
+
+  group('cache', () {
+    test('hydrate paints the cached grid before any network call', () async {
+      final cache = _testCache();
+      final api = _FakeCollectionsHttp(collections: [_summary('a')]);
+      final vm = CollectionsViewModel(api, cache: cache);
+
+      await cache.write(ContentCacheKeys.collections, {
+        'collections': [_summary('cached', name: 'From cache').toJson()],
+      });
+      await vm.hydrateFromCache();
+
+      expect(vm.collections.single.id, 'cached');
+      expect(api.getCollectionsCalls, 0);
+    });
+
+    test('a refresh over cached rows never shows the spinner', () async {
+      final cache = _testCache();
+      final api = _FakeCollectionsHttp(collections: [_summary('fresh')]);
+      final vm = CollectionsViewModel(api, cache: cache);
+
+      await cache.write(ContentCacheKeys.collections, {
+        'collections': [_summary('cached').toJson()],
+      });
+      await vm.hydrateFromCache();
+
+      final future = vm.loadCollections();
+      // The grid is already populated, so replacing it with a spinner would be
+      // a visible regression.
+      expect(vm.isLoadingCollections, isFalse);
+      await future;
+      expect(vm.collections.single.id, 'fresh');
+    });
+
+    test('hydrate does not clobber rows already loaded', () async {
+      final cache = _testCache();
+      final api = _FakeCollectionsHttp(collections: [_summary('live')]);
+      final vm = CollectionsViewModel(api, cache: cache);
+      await vm.loadCollections();
+
+      await cache.write(ContentCacheKeys.collections, {
+        'collections': [_summary('stale').toJson()],
+      });
+      await vm.hydrateFromCache();
+
+      expect(vm.collections.single.id, 'live');
     });
   });
 
@@ -244,14 +297,24 @@ void main() {
 
 // ─── Fixtures ───
 
+ContentCache _testCache() {
+  final dir = Directory.systemTemp.createTempSync('collections_cache_test');
+  addTearDown(() => dir.deleteSync(recursive: true));
+  return ContentCache.forTesting(
+    directory: dir,
+    userIdProvider: () => 'user-1',
+  );
+}
+
 CollectionSummary _summary(
   String id, {
   String visibility = 'private',
   int itemCount = 0,
+  String? name,
 }) {
   return CollectionSummary(
     id: id,
-    name: 'Collection $id',
+    name: name ?? 'Collection $id',
     visibility: visibility,
     itemCount: itemCount,
   );

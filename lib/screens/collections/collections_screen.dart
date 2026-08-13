@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -24,8 +26,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
   @override
   void initState() {
     super.initState();
+    // Paint the cached grid first, then refresh over it, so SAVED opens
+    // instantly instead of showing a spinner on every visit.
+    final vm = ref.read(collectionsViewModelProvider);
+    unawaited(vm.hydrateFromCache());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(collectionsViewModelProvider).loadCollections();
+      vm.loadCollections();
     });
   }
 

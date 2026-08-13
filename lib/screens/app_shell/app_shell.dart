@@ -20,6 +20,7 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/sharing/linkrunner_service.dart';
+import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
@@ -91,7 +92,9 @@ class _AppShellState extends ConsumerState<AppShell>
 
     _appLinks = AppLinks();
     try {
-      final initial = await _appLinks!.getInitialLink();
+      // Taken from bootstrap, which captured it before auth gating could
+      // consume it. Falls back to asking directly for warm-start safety.
+      final initial = PendingDeepLink.take() ?? await _appLinks!.getInitialLink();
       if (initial != null) {
         unawaited(_handleIncomingUri(initial));
       } else {
@@ -540,6 +543,15 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _selectTab(int index) {
+    // Detail screens are pushed onto the root navigator, above the shell, so
+    // switching tabs used to change the tab underneath while the pushed screen
+    // stayed on top — tapping SAVED appeared to reopen the last collection.
+    // Tapping any tab returns to that tab's root, including when it is already
+    // selected, which is also the expected "tap again to go back" behaviour.
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.popUntil((route) => route.isFirst);
+    }
     setState(() {
       _currentIndex = index;
     });

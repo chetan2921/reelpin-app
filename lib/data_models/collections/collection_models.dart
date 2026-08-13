@@ -47,6 +47,20 @@ class CollectionSummary {
     );
   }
 
+  /// Mirrors [fromJson] so a cached grid restores exactly as it arrived.
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'description': description,
+    'cover_reel_id': coverReelId,
+    'visibility': visibility,
+    'role': role,
+    'item_count': itemCount,
+    'member_count': memberCount,
+    'created_at': createdAt,
+    'updated_at': updatedAt,
+  };
+
   CollectionSummary copyWith({
     String? name,
     String? description,

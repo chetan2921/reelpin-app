@@ -2,15 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/utils/app_logger.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/http/collections_http.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
 
 class CollectionsViewModel extends ChangeNotifier {
-  CollectionsViewModel(this._api);
+  CollectionsViewModel(this._api, {ContentCache? cache})
+    : _cache = cache ?? ContentCache.instance;
 
   final CollectionsHttp _api;
+  final ContentCache _cache;
 
   final List<CollectionSummary> _collections = [];
   bool _isLoadingCollections = false;
@@ -34,6 +38,30 @@ class CollectionsViewModel extends ChangeNotifier {
 
   CollectionDetail? detailFor(String id) => _details[id];
 
+  /// Paints the last known grid immediately so opening SAVED never shows a
+  /// spinner on a warm start. The network refresh still runs and overwrites
+  /// this, exactly like Discover and Home.
+  Future<void> hydrateFromCache() async {
+    if (_collections.isNotEmpty) return;
+    final payload = await _cache.read(ContentCacheKeys.collections);
+    if (payload == null || _collections.isNotEmpty) return;
+    try {
+      final raw = payload['collections'];
+      if (raw is! List) return;
+      _collections
+        ..clear()
+        ..addAll(
+          raw.whereType<Map>().map(
+            (item) => CollectionSummary.fromJson(Map<String, dynamic>.from(item)),
+          ),
+        );
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Cached collections could not be restored: $e');
+      unawaited(_cache.invalidate(ContentCacheKeys.collections));
+    }
+  }
+
   Future<void> loadCollections({bool forceRefresh = false}) {
     if (_loadCollectionsFuture != null) return _loadCollectionsFuture!;
     if (_collectionsLoaded && !forceRefresh) return Future.value();
@@ -45,7 +73,9 @@ class CollectionsViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadCollections() async {
-    _isLoadingCollections = true;
+    // With cached rows on screen this stays false, so a refresh never replaces
+    // a populated grid with a spinner.
+    _isLoadingCollections = _collections.isEmpty;
     _collectionsError = null;
     notifyListeners();
     try {
@@ -55,6 +85,11 @@ class CollectionsViewModel extends ChangeNotifier {
         ..addAll(result);
       _collectionsLoaded = true;
       unawaited(_syncShareTargets());
+      unawaited(
+        _cache.write(ContentCacheKeys.collections, {
+          'collections': result.map((c) => c.toJson()).toList(),
+        }),
+      );
     } catch (e) {
       _collectionsError = userFacingErrorMessage(
         e,
