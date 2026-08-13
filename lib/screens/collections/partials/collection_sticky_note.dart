@@ -132,7 +132,9 @@ class _CollectionStickyNote extends StatelessWidget {
             if (onEdit != null)
               Positioned(
                 top: layout.gap(14),
-                right: layout.inset(16),
+                // The paper's right edge sits at inset(8), so this leaves a
+                // ~4px gutter inside its border without touching the clip.
+                right: layout.inset(12),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
