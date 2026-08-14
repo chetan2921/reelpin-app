@@ -34,9 +34,15 @@ final class CollectionFolderCell: UICollectionViewCell {
         check.text = "✓"
         check.font = UIFont(name: "SpaceMono-Bold", size: 15)
             ?? .monospacedSystemFont(ofSize: 15, weight: .bold)
-        check.textColor = .white
+        // Inverts with the device theme, matching the app: black box with a
+        // white tick in light mode, white box with a black tick in dark.
+        check.textColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(white: 0.10, alpha: 1) : .white
+        }
         check.textAlignment = .center
-        check.backgroundColor = .black
+        check.backgroundColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? .white : .black
+        }
         check.isHidden = true
         check.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(check)

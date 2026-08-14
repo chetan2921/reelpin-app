@@ -17,6 +17,10 @@ class ContentCacheKeys {
   static const discoverOverview = 'discover_overview';
   static const reelFilters = 'reel_filters';
   static const collections = 'collections';
+
+  /// One slot per collection. Opening a collection used to wait on the network
+  /// every time, even when nothing in it had changed.
+  static String collectionDetail(String id) => 'collection_detail_$id';
   static const entitlements = 'entitlements';
 
   /// Saved-library payloads. These go stale together whenever the user adds or

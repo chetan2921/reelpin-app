@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
@@ -104,17 +105,17 @@ class ShareReceiverActivity : Activity() {
             else -> "SAVE TO ${selected.size} COLLECTIONS"
         }
 
-        // Matches AddToCollectionSheet: brutalCard chrome, a drag handle, and
+        // Matches AddToCollectionSheet: a frameless surface, a drag handle and
         // 24dp gutters, so the share sheet reads as part of the same app.
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = brutalCard()
+            background = sheetSurface()
             setPadding(0, dp(18), 0, dp(24))
         }
 
         // Drag handle: 40x4 solid, same as the sheets inside the app.
         root.addView(View(this).apply {
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(fgColor())
             layoutParams = LinearLayout.LayoutParams(dp(40), dp(4)).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
                 bottomMargin = dp(18)
@@ -123,7 +124,7 @@ class ShareReceiverActivity : Activity() {
 
         root.addView(TextView(this).apply {
             text = "SAVE TO A COLLECTION"
-            setTextColor(Color.BLACK)
+            setTextColor(fgColor())
             typeface = spaceMono(bold = true)
             textSize = 17f
             letterSpacing = 0.06f
@@ -131,7 +132,7 @@ class ShareReceiverActivity : Activity() {
         })
         root.addView(TextView(this).apply {
             text = "Tap the ones it belongs in. Skip to just save it."
-            setTextColor(0xFF444444.toInt())
+            setTextColor(secondaryTextColor())
             typeface = spaceMono(bold = false)
             textSize = 12f
             setPadding(dp(24), 0, dp(24), dp(16))
@@ -201,9 +202,19 @@ class ShareReceiverActivity : Activity() {
                 .apply { marginEnd = dp(6) }
         }
 
+        // The app writes a light and a dark render of every tile; fall back to
+        // the light one if the dark file is not there yet.
         val bitmap = collection.image?.let { name ->
-            runCatching { BitmapFactory.decodeFile(File(collectionsDir(), name).absolutePath) }
-                .getOrNull()
+            val candidates = if (isDarkMode()) {
+                listOf(name.removeSuffix(".png") + "_dark.png", name)
+            } else {
+                listOf(name)
+            }
+            candidates.firstNotNullOfOrNull { candidate ->
+                runCatching {
+                    BitmapFactory.decodeFile(File(collectionsDir(), candidate).absolutePath)
+                }.getOrNull()
+            }
         }
 
         if (bitmap != null) {
@@ -233,10 +244,10 @@ class ShareReceiverActivity : Activity() {
         val check = TextView(this).apply {
             text = "✓"
             gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
+            setTextColor(bgColor())
             typeface = spaceMono(bold = true)
             textSize = 15f
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(fgColor())
             visibility = View.GONE
             layoutParams = FrameLayout.LayoutParams(dp(26), dp(26)).apply {
                 gravity = Gravity.END or Gravity.BOTTOM
@@ -275,22 +286,40 @@ class ShareReceiverActivity : Activity() {
             ?: Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
     }
 
-    /** AppTheme.brutalCard: flat fill with a 1dp black border, no rounding. */
-    private fun brutalCard(): Drawable = GradientDrawable().apply {
+    /** True when the OS is in dark mode, which the sheet follows exactly as
+     *  the app's own AppColors.bg/fg pair does. */
+    private fun isDarkMode(): Boolean =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+
+    /** AppColors.bg: the sheet's own surface. Dark is #1A1A1A, not black —
+     *  the app's own surface, so rendered artwork sits on the same colour. */
+    private fun bgColor(): Int =
+        if (isDarkMode()) 0xFF1A1A1A.toInt() else Color.WHITE
+
+    /** AppColors.fg: borders, the handle and primary type. */
+    private fun fgColor(): Int = if (isDarkMode()) Color.WHITE else Color.BLACK
+
+    /** AppColors.textSec. */
+    private fun secondaryTextColor(): Int =
+        if (isDarkMode()) 0xFFBBBBBB.toInt() else 0xFF444444.toInt()
+
+    /** The sheet surface. No border: the app's AppBottomSheet has none either,
+     *  and an fg-coloured stroke drew a hard white frame in dark mode. */
+    private fun sheetSurface(): Drawable = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
-        setColor(Color.WHITE)
-        setStroke(dp(1), Color.BLACK)
+        setColor(bgColor())
     }
 
     private fun brutalBox(fill: Int): Drawable {
         val slab = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(Color.BLACK)
+            setColor(fgColor())
         }
         val face = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(fill)
-            setStroke(dp(1), Color.BLACK)
+            setStroke(dp(1), fgColor())
         }
         return LayerDrawable(arrayOf(slab, face)).apply {
             val offset = dp(SHADOW_DP)

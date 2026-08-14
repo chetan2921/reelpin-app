@@ -103,9 +103,14 @@ class ApiClient
   Future<ProcessingJob> enqueueReelProcessing(
     String url, {
     String userId = 'default-user',
+    List<String> collectionIds = const [],
   }) async {
     try {
-      return await _enqueueReelProcessing(url, userId: userId);
+      return await _enqueueReelProcessing(
+        url,
+        userId: userId,
+        collectionIds: collectionIds,
+      );
     } on ApiException catch (e) {
       if (e.statusCode == 404 || e.statusCode == 405) {
         return _startProcessReelJob(url, userId: userId);
@@ -140,13 +145,19 @@ class ApiClient
   Future<ProcessingJob> _enqueueReelProcessing(
     String url, {
     String userId = 'default-user',
+    List<String> collectionIds = const [],
   }) async {
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
             _apiUri(baseUrl, '/api/v1/processing-jobs/reels'),
             headers: _headers(json: true),
-            body: jsonEncode({'url': url}),
+            // Same field the native share extensions post, so a share that
+            // falls back to the app files itself the same way.
+            body: jsonEncode({
+              'url': url,
+              if (collectionIds.isNotEmpty) 'collection_ids': collectionIds,
+            }),
           )
           .timeout(_requestTimeout),
     );

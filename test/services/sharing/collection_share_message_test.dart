@@ -4,7 +4,7 @@ import 'package:reelpin/services/sharing/collection_share_message.dart';
 
 void main() {
   group('forLink', () {
-    test('names the collection, counts the reels, and carries the url', () {
+    test('names the collection, counts the pins, and carries the url', () {
       final message = CollectionShareMessage.forLink(
         collectionName: 'Tokyo Food Crawl',
         url: 'https://reelpin.in/c/tok',
@@ -13,19 +13,19 @@ void main() {
 
       expect(message.subject, 'Tokyo Food Crawl on ReelPin');
       expect(message.body, contains('"Tokyo Food Crawl"'));
-      expect(message.body, contains('12 saved reels'));
+      expect(message.body, contains('12 saved pins'));
       expect(message.body, contains('https://reelpin.in/c/tok'));
     });
 
-    test('says reel, not reels, for a single item', () {
+    test('says pin, not pins, for a single item', () {
       final message = CollectionShareMessage.forLink(
         collectionName: 'Solo',
         url: 'https://reelpin.in/c/tok',
         itemCount: 1,
       );
 
-      expect(message.body, contains('1 saved reel'));
-      expect(message.body, isNot(contains('1 saved reels')));
+      expect(message.body, contains('1 saved pin'));
+      expect(message.body, isNot(contains('1 saved pins')));
     });
 
     test('omits the count entirely when the collection is empty', () {

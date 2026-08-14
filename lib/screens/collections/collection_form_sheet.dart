@@ -110,7 +110,7 @@ class _CollectionFormSheetState extends ConsumerState<CollectionFormSheet> {
               _buildField(
                 context,
                 controller: _noteController,
-                label: 'STICKY NOTE',
+                label: 'STICKY NOTE (OPTIONAL)',
                 maxLength: 80,
                 maxLines: 3,
               ),

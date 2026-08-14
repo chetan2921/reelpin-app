@@ -10,6 +10,7 @@ import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/components/common/app_back_button.dart';
+import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 part 'partials/location_preference_card.dart';
@@ -398,65 +399,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required String message,
     required String actionLabel,
   }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.bg(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: BorderSide(
-            color: AppColors.fg(context),
-            width: AppTheme.borderWidth,
-          ),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.spaceMono(
-            color: AppColors.fg(context),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.spaceMono(
-            color: AppColors.textSec(context),
-            fontSize: 12,
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'CANCEL',
-              style: GoogleFonts.spaceMono(
-                color: AppColors.textSec(context),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => Navigator.pop(context, true),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.destructive,
-                border: Border.all(color: AppColors.fg(context), width: 2),
-                boxShadow: AppTheme.brutalShadowSmall(context),
-              ),
-              child: Text(
-                actionLabel,
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return showConfirmDialog(
+      context,
+      title: title,
+      message: message,
+      confirmLabel: actionLabel,
     );
   }
 

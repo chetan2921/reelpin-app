@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import 'package:reelpin/components/collections/collection_folder_tile.dart';
-import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/utils/app_logger.dart';
 
@@ -28,6 +27,7 @@ class CollectionTileRenderer {
   static Future<Uint8List?> renderTile({
     required CollectionSummary collection,
     required int index,
+    Brightness brightness = Brightness.light,
   }) async {
     try {
       final boundary = RenderRepaintBoundary();
@@ -50,11 +50,14 @@ class CollectionTileRenderer {
       final buildOwner = BuildOwner(focusManager: FocusManager());
       renderView.prepareInitialFrame();
 
-      final element =
-          RenderObjectToWidgetAdapter<RenderBox>(
-            container: boundary,
-            child: _tileFrame(collection: collection, index: index),
-          ).attachToRenderTree(buildOwner);
+      final element = RenderObjectToWidgetAdapter<RenderBox>(
+        container: boundary,
+        child: _tileFrame(
+          collection: collection,
+          index: index,
+          brightness: brightness,
+        ),
+      ).attachToRenderTree(buildOwner);
 
       buildOwner
         ..buildScope(element)
@@ -75,28 +78,34 @@ class CollectionTileRenderer {
     }
   }
 
-  /// Wraps the tile in the minimum the widget needs: a Directionality, the
-  /// light theme the share sheets are drawn in, and the app background so the
-  /// hard shadow reads correctly.
+  /// Wraps the tile in the minimum the widget needs: a Directionality and the
+  /// theme being rendered for. The background stays transparent so the sheet
+  /// showing the tile provides its own surface.
   static Widget _tileFrame({
     required CollectionSummary collection,
     required int index,
+    required Brightness brightness,
   }) {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: MediaQuery(
         data: const MediaQueryData(),
         child: Theme(
-          data: ThemeData(brightness: Brightness.light),
-          child: Container(
-            width: tileSize.width,
-            height: tileSize.height,
-            color: AppColors.white,
-            padding: const EdgeInsets.all(6),
-            child: CollectionFolderTile(
-              collection: collection,
-              index: index,
-              onTap: null,
+          data: ThemeData(brightness: brightness),
+          child: Builder(
+            builder: (context) => Container(
+              width: tileSize.width,
+              height: tileSize.height,
+              // Transparent, not the app background: an opaque fill is baked
+              // into the PNG and shows as a box around every folder wherever
+              // the sheet's own surface is even slightly different.
+              color: Colors.transparent,
+              padding: const EdgeInsets.all(6),
+              child: CollectionFolderTile(
+                collection: collection,
+                index: index,
+                onTap: null,
+              ),
             ),
           ),
         ),
@@ -127,14 +136,23 @@ class CollectionTileRenderer {
     final names = <String, String>{};
     for (var index = 0; index < collections.length; index++) {
       final collection = collections[index];
-      final bytes = await renderTile(collection: collection, index: index);
-      if (bytes == null) continue;
-      final fileName = 'collection_${collection.id}.png';
-      try {
-        await File('$directory/$fileName').writeAsBytes(bytes, flush: true);
-        names[collection.id] = fileName;
-      } catch (e) {
-        AppLogger.error('Collection tile write skipped: $e');
+      // Both themes: the native sheet picks by the device's mode, and it has
+      // no Flutter engine to render one on demand.
+      for (final brightness in Brightness.values) {
+        final bytes = await renderTile(
+          collection: collection,
+          index: index,
+          brightness: brightness,
+        );
+        if (bytes == null) continue;
+        final suffix = brightness == Brightness.dark ? '_dark' : '';
+        final fileName = 'collection_${collection.id}$suffix.png';
+        try {
+          await File('$directory/$fileName').writeAsBytes(bytes, flush: true);
+          if (brightness == Brightness.light) names[collection.id] = fileName;
+        } catch (e) {
+          AppLogger.error('Collection tile write skipped: $e');
+        }
       }
     }
     return names;

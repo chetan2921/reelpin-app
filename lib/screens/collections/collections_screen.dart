@@ -183,7 +183,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
             title: 'NO COLLECTIONS YET',
             body:
                 'TAP NEW TO MAKE ONE. GIVE IT A NAME AND A STICKY NOTE, '
-                'THEN START ADDING REELS.',
+                'THEN START ADDING PINS.',
           ),
         ),
       ];

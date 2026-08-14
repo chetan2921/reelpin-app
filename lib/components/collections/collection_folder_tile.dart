@@ -166,7 +166,7 @@ class _FolderShape extends StatelessWidget {
         ),
         if (note.isNotEmpty)
           Positioned(
-            left: 22,
+            left: 12,
             right: 12,
             bottom: 9,
             child: _PinnedNote(note: note),
@@ -187,7 +187,7 @@ class _PinnedNote extends StatelessWidget {
     return Transform.rotate(
       angle: -0.025,
       child: SizedBox(
-        height: 48,
+        height: 54,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -277,7 +277,7 @@ class _CountLabel extends StatelessWidget {
     return Transform.rotate(
       angle: -0.025,
       child: Text(
-        '$count REEL${count == 1 ? '' : 'S'}',
+        '$count PIN${count == 1 ? '' : 'S'}',
         style: GoogleFonts.spaceMono(
           color: AppColors.fg(context),
           fontSize: 10,

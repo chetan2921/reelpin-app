@@ -80,8 +80,16 @@ Route<void> collectionDetailRoute(String collectionId, {bool animate = true}) {
 /// collection in leaves Home on screen for the length of the transition, which
 /// on a cold start reads as the app opening Home and then moving somewhere else;
 /// the collection is the destination, so it should simply be what appears.
-Route<void> sharedCollectionRoute(String token, {bool animate = true}) {
-  final screen = CollectionDetailScreen(collectionId: '', sharedToken: token);
+Route<void> sharedCollectionRoute(
+  String token, {
+  bool animate = true,
+  String? url,
+}) {
+  final screen = CollectionDetailScreen(
+    collectionId: '',
+    sharedToken: token,
+    sharedUrl: url,
+  );
   if (animate) return MaterialPageRoute<void>(builder: (_) => screen);
   return PageRouteBuilder<void>(
     pageBuilder: (_, _, _) => screen,

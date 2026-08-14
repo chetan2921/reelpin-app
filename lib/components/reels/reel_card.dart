@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/components/collections/selection_tick.dart';
+import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/constants/source_platforms.dart';
@@ -19,12 +21,17 @@ class ReelCard extends StatefulWidget {
   /// built-in delete sheet. Falls back to that sheet when null.
   final VoidCallback? onLongPress;
 
+  /// Null outside selection mode. True or false puts a checkbox on the card,
+  /// so an unpicked card still reads as selectable.
+  final bool? selected;
+
   const ReelCard({
     super.key,
     required this.reel,
     required this.onTap,
     this.onDelete,
     this.onLongPress,
+    this.selected,
   });
 
   @override
@@ -125,6 +132,12 @@ class _ReelCardState extends State<ReelCard>
                 height: layout.inset(26),
               ),
             ),
+            if (widget.selected != null)
+              Positioned.fill(
+                child: widget.selected == true
+                    ? const SelectionTick()
+                    : const _UnselectedTick(),
+              ),
           ],
         ),
       ),
@@ -304,7 +317,7 @@ class _ReelCardState extends State<ReelCard>
               textAlign: TextAlign.right,
               style: GoogleFonts.spaceMono(
                 color: textColor,
-                fontSize: layout.font(10),
+                fontSize: layout.font(9),
                 fontWeight: FontWeight.w700,
                 shadows: shadows,
               ),
@@ -393,7 +406,7 @@ class _ReelCardState extends State<ReelCard>
                         label.toUpperCase(),
                         style: GoogleFonts.spaceMono(
                           color: AppColors.white,
-                          fontSize: layout.font(10, minFactor: 0.9),
+                          fontSize: layout.font(8, minFactor: 0.9),
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),
@@ -417,7 +430,7 @@ class _ReelCardState extends State<ReelCard>
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
-        decoration: AppTheme.brutalCard(ctx, color: AppColors.bg(ctx)),
+        decoration: BoxDecoration(color: AppColors.bg(ctx)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -490,69 +503,13 @@ class _ReelCardState extends State<ReelCard>
     );
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bg(ctx),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: BorderSide(
-            color: AppColors.fg(ctx),
-            width: AppTheme.borderWidth,
-          ),
-        ),
-        title: Text(
-          'DELETE THIS ${_savedItemLabel(widget.reel)}?',
-          style: GoogleFonts.spaceMono(
-            color: AppColors.fg(ctx),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Text(
-          'This action cannot be undone.',
-          style: GoogleFonts.spaceMono(
-            color: AppColors.textSec(ctx),
-            fontSize: 13,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'CANCEL',
-              style: GoogleFonts.spaceMono(
-                color: AppColors.textSec(ctx),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () {
-              Navigator.pop(ctx);
-              widget.onDelete?.call();
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.destructive,
-                border: Border.all(color: AppColors.fg(ctx), width: 2),
-                boxShadow: AppTheme.brutalShadowSmall(ctx),
-              ),
-              child: Text(
-                'DELETE',
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete this ${_savedItemLabel(widget.reel)}?',
+      message: 'This action cannot be undone.',
     );
+    if (confirmed == true) widget.onDelete?.call();
   }
 }
 
@@ -602,6 +559,28 @@ class _ReelThumbnail extends StatelessWidget {
           errorWidget: (_, _, _) => ColoredBox(color: fallbackColor),
         );
       },
+    );
+  }
+}
+
+/// The empty box in the same corner, so an unpicked card still reads as
+/// something that can be picked.
+class _UnselectedTick extends StatelessWidget {
+  const _UnselectedTick();
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Container(
+        width: layout.inset(26),
+        height: layout.inset(26),
+        decoration: BoxDecoration(
+          color: AppColors.bg(context).withAlpha(120),
+          border: Border.all(color: AppColors.fg(context), width: 2),
+        ),
+      ),
     );
   }
 }

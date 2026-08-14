@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/components/reels/reel_card.dart';
 import 'package:reelpin/components/common/app_back_button.dart';
+import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
@@ -16,6 +17,8 @@ import 'package:reelpin/providers.dart';
 import 'package:reelpin/screens/collections/collection_form_sheet.dart';
 import 'package:reelpin/screens/collections/share_collection_sheet.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_loader_screen.dart';
+import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
+import 'package:reelpin/services/sharing/collection_link_cache.dart';
 import 'package:reelpin/services/sharing/shared_collection_prefetch.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
@@ -27,6 +30,7 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
     super.key,
     required this.collectionId,
     this.sharedToken,
+    this.sharedUrl,
     this.initialName,
   });
 
@@ -35,6 +39,10 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
   /// When set, the screen renders a read-only shared collection fetched with
   /// the capability token (the viewer may not be a member).
   final String? sharedToken;
+
+  /// The share link this view was opened with, passed on when a viewer shares
+  /// a reel from inside it.
+  final String? sharedUrl;
   final String? initialName;
 
   bool get isShared => sharedToken != null;
@@ -50,6 +58,10 @@ class _CollectionDetailScreenState
   bool _loadingShared = false;
   String? _sharedError;
 
+  /// This collection's own share link, when the owner minted one on this
+  /// device. Null is normal — a link may be off, or was created elsewhere.
+  String? _ownLinkUrl;
+
   @override
   void initState() {
     super.initState();
@@ -58,13 +70,40 @@ class _CollectionDetailScreenState
       if (widget.isShared) {
         unawaited(_loadShared());
       } else {
+        // Paint the cached reels first, then refetch over the top: a reel
+        // shared into this collection from outside the app lands server-side,
+        // so a cached detail alone would never show it — but waiting on that
+        // request before showing anything is what made every open feel slow.
+        final vm = ref.read(collectionsViewModelProvider);
         unawaited(
-          ref
-              .read(collectionsViewModelProvider)
-              .loadCollectionDetail(widget.collectionId),
+          vm
+              .hydrateDetailFromCache(widget.collectionId)
+              .then(
+                (_) => vm.loadCollectionDetail(
+                  widget.collectionId,
+                  forceRefresh: true,
+                ),
+              ),
         );
+        unawaited(_loadOwnLink());
       }
     });
+  }
+
+  Future<void> _loadOwnLink() async {
+    final url = await CollectionLinkCache.instance.read(widget.collectionId);
+    if (mounted) setState(() => _ownLinkUrl = url);
+  }
+
+  /// The link to hand on when a reel is shared from in here. Nothing to pass
+  /// when the collection has no link — a dead URL is worse than none.
+  String? get _collectionShareUrl {
+    if (widget.isShared) return widget.sharedUrl;
+    final collection = ref
+        .read(collectionsViewModelProvider)
+        .detailFor(widget.collectionId)
+        ?.collection;
+    return (collection?.hasLink ?? false) ? _ownLinkUrl : null;
   }
 
   Future<void> _loadShared() async {
@@ -101,30 +140,17 @@ class _CollectionDetailScreenState
         .loadCollectionDetail(widget.collectionId, forceRefresh: true);
   }
 
-  Future<void> _saveToLibrary(Reel reel) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(reelRepositoryProvider).enqueueReelProcessing(reel.url);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Saving to your library...')),
-      );
-    } catch (_) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Could not save this reel.')),
-      );
-    }
-  }
-
   Future<void> _edit(CollectionSummary collection) async {
     await showCollectionFormSheet(context, collection: collection);
   }
 
   Future<void> _confirmDelete(CollectionSummary collection) async {
-    final ok = await _confirm(
+    final ok = await showConfirmDialog(
       context,
-      'DELETE COLLECTION?',
-      'THIS REMOVES THE COLLECTION FOR EVERYONE. SAVED REELS STAY IN YOUR '
-          'LIBRARY.',
+      title: 'Delete collection?',
+      message:
+          'This removes the collection for everyone. Your pins stay in your '
+          'library.',
     );
     if (ok != true) return;
     await _runGuarded(
@@ -137,10 +163,11 @@ class _CollectionDetailScreenState
   }
 
   Future<void> _confirmLeave(CollectionSummary collection) async {
-    final ok = await _confirm(
+    final ok = await showConfirmDialog(
       context,
-      'LEAVE COLLECTION?',
-      'YOU WILL LOSE ACCESS TO IT.',
+      title: 'Leave collection?',
+      message: 'You will lose access to it.',
+      confirmLabel: 'LEAVE',
     );
     if (ok != true) return;
     await _runGuarded(
@@ -151,10 +178,11 @@ class _CollectionDetailScreenState
   }
 
   Future<void> _confirmRemoveReel(Reel reel) async {
-    final ok = await _confirm(
+    final ok = await showConfirmDialog(
       context,
-      'REMOVE FROM COLLECTION?',
-      'THE REEL STAYS IN YOUR LIBRARY.',
+      title: 'Remove from collection?',
+      message: 'It stays in your library.',
+      confirmLabel: 'REMOVE',
     );
     if (ok != true) return;
     await _runGuarded(
@@ -204,6 +232,12 @@ class _CollectionDetailScreenState
     final isLoading = widget.isShared ? _loadingShared : vm.isLoadingDetail;
     final error = widget.isShared ? _sharedError : vm.detailError;
     final canEdit = !widget.isShared && (detail?.canEdit ?? false);
+    // A link visitor and an invited viewer are in the same position, so both
+    // get the strip. Keyed off the role rather than the detail's can_edit
+    // flag, since role defaults to owner when the API omits it and a missing
+    // flag must never label an owner's own collection view-only.
+    final isViewOnly =
+        widget.isShared || (collection != null && !collection.canEdit);
 
     return Scaffold(
       backgroundColor: AppColors.bg(context),
@@ -233,10 +267,15 @@ class _CollectionDetailScreenState
                       layout.inset(20),
                       layout.gap(16),
                     ),
-                    child: _buildHeader(context, vm, collection),
+                    child: _buildHeader(
+                      context,
+                      vm,
+                      collection,
+                      canEdit: canEdit,
+                    ),
                   ),
                 ),
-                if (widget.isShared && detail != null)
+                if (detail != null && isViewOnly)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -248,7 +287,8 @@ class _CollectionDetailScreenState
                       child: _SharedBanner(ownerName: detail.ownerName),
                     ),
                   ),
-                if (collection != null)
+                if (collection != null &&
+                    collection.description.trim().isNotEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -260,9 +300,9 @@ class _CollectionDetailScreenState
                       child: _CollectionStickyNote(
                         note: collection.description,
                         canEdit: canEdit,
-                        // Editing lives on the note now, not in the app bar:
-                        // the note is what you are editing, and the header was
-                        // carrying four actions.
+                        // Editing lives on the note when there is one — the
+                        // note is what you are editing. With no note the
+                        // header carries the pencil instead.
                         onEdit: canEdit ? () => _edit(collection!) : null,
                       ),
                     ),
@@ -286,8 +326,9 @@ class _CollectionDetailScreenState
   Widget _buildHeader(
     BuildContext context,
     CollectionsViewModel vm,
-    CollectionSummary? collection,
-  ) {
+    CollectionSummary? collection, {
+    required bool canEdit,
+  }) {
     final layout = AppLayout.of(context);
     final title = collection?.name ?? widget.initialName ?? 'COLLECTION';
     final count = collection?.itemCount ?? 0;
@@ -314,7 +355,7 @@ class _CollectionDetailScreenState
               ),
               SizedBox(height: layout.gap(4)),
               Text(
-                '$count REEL${count == 1 ? '' : 'S'}',
+                '$count PIN${count == 1 ? '' : 'S'}',
                 style: GoogleFonts.spaceMono(
                   color: AppColors.textSec(context),
                   fontSize: layout.font(10),
@@ -324,6 +365,17 @@ class _CollectionDetailScreenState
             ],
           ),
         ),
+        // Only when there is no note to hang it off, so the header never
+        // carries an action the note already offers.
+        if (canEdit &&
+            collection != null &&
+            collection.description.trim().isEmpty) ...[
+          _HeaderAction(
+            icon: Icons.edit,
+            onTap: vm.isMutating ? null : () => _edit(collection),
+          ),
+          SizedBox(width: layout.inset(10)),
+        ],
         if (isOwner) ...[
           _HeaderAction(
             icon: Icons.ios_share,
@@ -384,7 +436,7 @@ class _CollectionDetailScreenState
             icon: Icons.folder_open,
             title: 'THIS COLLECTION IS EMPTY',
             body: canEdit
-                ? 'ADD REELS FROM ANY REEL SCREEN, OR SHARE SOMETHING INTO IT.'
+                ? 'ADD PINS FROM ANY SAVED ITEM, OR SHARE SOMETHING INTO IT.'
                 : 'NOTHING HAS BEEN ADDED HERE YET.',
           ),
         ),
@@ -433,15 +485,19 @@ class _CollectionDetailScreenState
                   child: ReelCard(
                     reel: reel,
                     onTap: () {
-                      if (widget.isShared) {
-                        unawaited(_saveToLibrary(reel));
-                        return;
-                      }
                       Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) =>
-                              ReelDetailLoaderScreen(reelId: reel.id),
+                          builder: (_) => widget.isShared
+                              ? ReelDetailScreen(
+                                  reel: reel,
+                                  readOnly: true,
+                                  collectionUrl: _collectionShareUrl,
+                                )
+                              : ReelDetailLoaderScreen(
+                                  reelId: reel.id,
+                                  collectionUrl: _collectionShareUrl,
+                                ),
                         ),
                       );
                     },
@@ -540,10 +596,10 @@ class _SharedBanner extends StatelessWidget {
         horizontal: layout.inset(14),
         vertical: layout.gap(10),
       ),
-      decoration: AppTheme.brutalBox(context, color: AppColors.yellow),
+      decoration: AppTheme.brutalBox(context, color: AppColors.blue),
       child: Row(
         children: [
-          Icon(Icons.link, size: layout.inset(16), color: AppColors.black),
+          Icon(Icons.link, size: layout.inset(16), color: AppColors.white),
           SizedBox(width: layout.inset(8)),
           Expanded(
             child: Text(
@@ -551,7 +607,7 @@ class _SharedBanner extends StatelessWidget {
                   ? 'SHARED BY ${ownerName!.toUpperCase()} · VIEW ONLY'
                   : 'SHARED COLLECTION · VIEW ONLY',
               style: GoogleFonts.spaceMono(
-                color: AppColors.black,
+                color: AppColors.white,
                 fontSize: layout.font(10),
                 fontWeight: FontWeight.w700,
                 height: 1.4,
@@ -655,89 +711,4 @@ class _MessageCard extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<bool?> _confirm(BuildContext context, String title, String body) {
-  return showDialog<bool>(
-    context: context,
-    builder: (context) {
-      final layout = AppLayout.of(context);
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.all(layout.inset(22)),
-          decoration: AppTheme.brutalCard(context),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.fg(context),
-                  fontSize: layout.font(15),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                ),
-              ),
-              SizedBox(height: layout.gap(10)),
-              Text(
-                body,
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.textSec(context),
-                  fontSize: layout.font(11),
-                  height: 1.5,
-                ),
-              ),
-              SizedBox(height: layout.gap(20)),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).pop(false),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(vertical: layout.gap(12)),
-                        decoration: AppTheme.brutalBox(context, shadow: false),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'CANCEL',
-                          style: GoogleFonts.spaceMono(
-                            color: AppColors.fg(context),
-                            fontSize: layout.font(11),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: layout.inset(10)),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).pop(true),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(vertical: layout.gap(12)),
-                        decoration: AppTheme.brutalBox(
-                          context,
-                          color: AppColors.destructive,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'CONFIRM',
-                          style: GoogleFonts.spaceMono(
-                            color: AppColors.white,
-                            fontSize: layout.font(11),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
 }

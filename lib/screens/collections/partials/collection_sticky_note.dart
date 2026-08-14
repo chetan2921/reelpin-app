@@ -146,13 +146,11 @@ class _CollectionStickyNote extends StatelessWidget {
               child: Transform.rotate(
                 angle: -0.08,
                 child: Container(
-                  // Sized by its content, not fixed, so the label never clips
-                  // when the user scales text up.
-                  padding: EdgeInsets.symmetric(
-                    horizontal: layout.inset(10),
-                    vertical: layout.gap(5),
-                  ),
-                  constraints: BoxConstraints(minWidth: layout.inset(48)),
+                  // The strip keeps the size it has always had; the label is
+                  // scaled down to fit it rather than the other way round, so
+                  // a large text scale cannot grow the artwork.
+                  width: layout.inset(48),
+                  height: layout.gap(18),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFD94A),
                     border: Border.all(
@@ -161,26 +159,29 @@ class _CollectionStickyNote extends StatelessWidget {
                     ),
                   ),
                   child: onEdit == null
-                      ? SizedBox(height: layout.gap(12))
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.edit,
-                              size: layout.inset(11),
-                              color: AppColors.black,
-                            ),
-                            SizedBox(width: layout.inset(4)),
-                            Text(
-                              'EDIT',
-                              style: GoogleFonts.spaceMono(
+                      ? null
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.edit,
+                                size: layout.inset(9),
                                 color: AppColors.black,
-                                fontSize: layout.font(10),
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: layout.inset(3)),
+                              Text(
+                                'EDIT',
+                                style: GoogleFonts.spaceMono(
+                                  color: AppColors.black,
+                                  fontSize: layout.font(10),
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                 ),
               ),

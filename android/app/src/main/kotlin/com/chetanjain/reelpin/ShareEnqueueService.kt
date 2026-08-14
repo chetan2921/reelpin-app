@@ -28,7 +28,7 @@ class ShareEnqueueService : JobIntentService() {
         // No background credential yet (first run before the app minted one, or
         // signed out): capture the URL for the app to enqueue on next open.
         if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
-            savePendingShare(prefs, sharedPayload)
+            savePendingShare(prefs, sharedPayload, collectionIds)
             return
         }
 
@@ -41,16 +41,16 @@ class ShareEnqueueService : JobIntentService() {
             }
             ShareRequestResult.INVALID_SHARE_TOKEN -> {
                 prefs.edit().remove(KEY_SHARE_TOKEN).commit()
-                savePendingShare(prefs, sharedPayload)
+                savePendingShare(prefs, sharedPayload, collectionIds)
                 showToast("Open ReelPin and sign in again.")
             }
             ShareRequestResult.UNSUPPORTED -> showToast("ReelPin can't save this link.")
             ShareRequestResult.RATE_LIMITED -> {
-                savePendingShare(prefs, sharedPayload)
+                savePendingShare(prefs, sharedPayload, collectionIds)
                 showToast("You've hit your saving limit. We'll retry later.")
             }
             ShareRequestResult.FAILURE -> {
-                savePendingShare(prefs, sharedPayload)
+                savePendingShare(prefs, sharedPayload, collectionIds)
                 showToast("Couldn't reach ReelPin. We'll retry when you open the app.")
             }
         }
@@ -115,14 +115,25 @@ class ShareEnqueueService : JobIntentService() {
         }
     }
 
-    private fun savePendingShare(prefs: SharedPreferences, url: String) {
+    /** Stores the collections with the URL. Dropping them here filed the reel
+     *  into the library only, with no sign anything was lost, whenever the
+     *  service could not post the share itself. */
+    private fun savePendingShare(
+        prefs: SharedPreferences,
+        sharedPayload: String,
+        collectionIds: List<String> = emptyList(),
+    ) {
         val existing = prefs.getString(KEY_PENDING_URLS, "[]") ?: "[]"
         val array = try {
             JSONArray(existing)
         } catch (e: Exception) {
             JSONArray()
         }
-        array.put(url)
+        val entry = JSONObject().put("raw_payload_text", sharedPayload)
+        if (collectionIds.isNotEmpty()) {
+            entry.put("collection_ids", JSONArray(collectionIds))
+        }
+        array.put(entry)
         // commit() (not apply()) so the value is on disk before the Flutter app
         // reads it back to drain pending shares.
         prefs.edit().putString(KEY_PENDING_URLS, array.toString()).commit()

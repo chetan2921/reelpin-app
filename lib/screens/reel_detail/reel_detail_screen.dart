@@ -15,12 +15,20 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/sharing/reel_share_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/components/common/app_back_button.dart';
+import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/constants/source_platforms.dart';
 import 'package:reelpin/utils/app_store_links.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
-part 'partials/reel_share_card.dart';
+import 'package:reelpin/components/sharing/share_card.dart';
+
+class _ShareLocationLink {
+  final String label;
+  final String url;
+
+  const _ShareLocationLink(this.label, this.url);
+}
 
 const String _appStoreUrl = appStoreUrl;
 const String _playStoreUrl = playStoreUrl;
@@ -96,7 +104,30 @@ String? _firstNonEmpty(List<String?> values) {
 class ReelDetailScreen extends ConsumerStatefulWidget {
   final Reel reel;
 
-  const ReelDetailScreen({super.key, required this.reel});
+  /// Set for a reel opened from a shared collection. Those viewers hold the
+  /// whole reel already and have no library access, so the screen neither
+  /// re-fetches it nor offers anything that would change someone else's
+  /// library: no delete, no add-to-collection. Opening the source and sharing
+  /// both stay — neither changes anything, and a share only spreads the app.
+  final bool readOnly;
+
+  /// The collection this reel was opened from, when it has a share link. It
+  /// rides along in the shared text so a recipient can open the whole
+  /// collection rather than just the one reel.
+  final String? collectionUrl;
+
+  /// False when the caller has just fetched this reel itself. The screen
+  /// otherwise re-requests it immediately, which was a second identical call
+  /// on every open of a reel opened through the loader.
+  final bool refreshOnOpen;
+
+  const ReelDetailScreen({
+    super.key,
+    required this.reel,
+    this.readOnly = false,
+    this.collectionUrl,
+    this.refreshOnOpen = true,
+  });
 
   @override
   ConsumerState<ReelDetailScreen> createState() => _ReelDetailScreenState();
@@ -106,7 +137,6 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   final GlobalKey _shareCardKey = GlobalKey();
   bool _transcriptExpanded = false;
   late Reel _activeReel;
-  bool _isRefreshingReel = false;
   bool _isSharingReel = false;
   ApiException? _reelAccessError;
   String? _reelLoadError;
@@ -252,9 +282,11 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   void initState() {
     super.initState();
     _activeReel = widget.reel;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshReel();
-    });
+    if (!widget.readOnly && widget.refreshOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshReel();
+      });
+    }
   }
 
   @override
@@ -288,29 +320,30 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                 ),
                 actions: [
                   // Add to collection
-                  GestureDetector(
-                    onTap: () =>
-                        showAddToCollectionSheet(context, _activeReel.id),
-                    child: Container(
-                      margin: EdgeInsets.only(right: layout.inset(8)),
-                      width: layout.inset(36),
-                      height: layout.inset(36),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevatedColor(context),
-                        border: Border.all(
-                          color: AppColors.fg(context),
-                          width: 2,
+                  if (!widget.readOnly)
+                    GestureDetector(
+                      onTap: () =>
+                          showAddToCollectionSheet(context, [_activeReel.id]),
+                      child: Container(
+                        margin: EdgeInsets.only(right: layout.inset(8)),
+                        width: layout.inset(36),
+                        height: layout.inset(36),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceElevatedColor(context),
+                          border: Border.all(
+                            color: AppColors.fg(context),
+                            width: 2,
+                          ),
+                          boxShadow: AppTheme.brutalShadowSmall(context),
                         ),
-                        boxShadow: AppTheme.brutalShadowSmall(context),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.playlist_add,
-                        size: layout.inset(18),
-                        color: AppColors.fg(context),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.playlist_add,
+                          size: layout.inset(18),
+                          color: AppColors.fg(context),
+                        ),
                       ),
                     ),
-                  ),
                   // Open source reel
                   GestureDetector(
                     onTap: hasOpenableReel ? _openReel : null,
@@ -346,27 +379,28 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                   ),
 
                   // Delete
-                  GestureDetector(
-                    onTap: () => _confirmDelete(context),
-                    child: Container(
-                      margin: EdgeInsets.only(right: layout.inset(12)),
-                      width: layout.inset(36),
-                      height: layout.inset(36),
-                      decoration: BoxDecoration(
-                        color: AppColors.destructive,
-                        border: Border.all(
-                          color: AppColors.fg(context),
-                          width: 2,
+                  if (!widget.readOnly)
+                    GestureDetector(
+                      onTap: () => _confirmDelete(context),
+                      child: Container(
+                        margin: EdgeInsets.only(right: layout.inset(12)),
+                        width: layout.inset(36),
+                        height: layout.inset(36),
+                        decoration: BoxDecoration(
+                          color: AppColors.destructive,
+                          border: Border.all(
+                            color: AppColors.fg(context),
+                            width: 2,
+                          ),
+                          boxShadow: AppTheme.brutalShadowSmall(context),
                         ),
-                        boxShadow: AppTheme.brutalShadowSmall(context),
-                      ),
-                      child: const Icon(
-                        Icons.delete,
-                        color: AppColors.white,
-                        size: 18,
+                        child: const Icon(
+                          Icons.delete,
+                          color: AppColors.white,
+                          size: 18,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
 
@@ -382,43 +416,6 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (_isRefreshingReel) ...[
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: layout.inset(10),
-                            vertical: layout.gap(8),
-                          ),
-                          decoration: AppTheme.brutalBox(
-                            context,
-                            color: AppColors.bg(context),
-                            shadow: true,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: layout.inset(14),
-                                height: layout.inset(14),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.fg(context),
-                                ),
-                              ),
-                              SizedBox(width: layout.inset(8)),
-                              Text(
-                                'CHECKING ACCESS...',
-                                style: GoogleFonts.spaceMono(
-                                  color: AppColors.fg(context),
-                                  fontSize: layout.font(10),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: layout.gap(16)),
-                      ],
-
                       if (_reelAccessError?.isHistoryUpgradeRequired ==
                           true) ...[
                         _buildLockedHistoryState(context),
@@ -1061,6 +1058,14 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         ..writeln(reelUrl);
     }
 
+    final collectionUrl = widget.collectionUrl?.trim();
+    if (collectionUrl != null && collectionUrl.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('The whole collection:')
+        ..writeln(collectionUrl);
+    }
+
     buffer
       ..writeln()
       ..writeln()
@@ -1154,102 +1159,49 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
     );
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bg(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: BorderSide(
-            color: AppColors.fg(context),
-            width: AppTheme.borderWidth,
-          ),
-        ),
-        title: Text(
-          'DELETE THIS $_savedItemNoun?',
-          style: GoogleFonts.spaceMono(
-            color: AppColors.fg(context),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Text(
-          'This action cannot be undone.',
-          style: GoogleFonts.spaceMono(color: _detailTextColor, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'CANCEL',
-              style: GoogleFonts.spaceMono(
-                color: _detailTextColor,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ref.read(reelRepositoryProvider).deleteReel(reel.id);
-                if (context.mounted) {
-                  _maybeRead(homeViewModelProvider)?.removeReel(reel.id);
-                  _maybeRead(mapViewModelProvider)?.removeReel(reel.id);
-                  _maybeRead(discoverViewModelProvider)?.removeReel(reel.id);
-                  _maybeRead(searchViewModelProvider)?.removeReel(reel.id);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '$_savedItemNoun DELETED',
-                        style: GoogleFonts.spaceMono(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      backgroundColor: AppColors.black,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'FAILED TO DELETE: $e',
-                        style: GoogleFonts.spaceMono(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      backgroundColor: AppColors.destructive,
-                    ),
-                  );
-                }
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.destructive,
-                border: Border.all(color: AppColors.fg(context), width: 2),
-                boxShadow: AppTheme.brutalShadowSmall(context),
-              ),
-              child: Text(
-                'DELETE',
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete this $_savedItemNoun?',
+      message: 'This action cannot be undone.',
     );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(reelRepositoryProvider).deleteReel(reel.id);
+      if (!context.mounted) return;
+      _maybeRead(homeViewModelProvider)?.removeReel(reel.id);
+      _maybeRead(mapViewModelProvider)?.removeReel(reel.id);
+      _maybeRead(discoverViewModelProvider)?.removeReel(reel.id);
+      _maybeRead(searchViewModelProvider)?.removeReel(reel.id);
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$_savedItemNoun DELETED',
+            style: GoogleFonts.spaceMono(
+              color: AppColors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppColors.black,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'FAILED TO DELETE: $e',
+            style: GoogleFonts.spaceMono(
+              color: AppColors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: AppColors.destructive,
+        ),
+      );
+    }
   }
 
   T? _maybeRead<T>(ProviderListenable<T> provider) {
@@ -1329,7 +1281,6 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
 
   Future<void> _refreshReel() async {
     setState(() {
-      _isRefreshingReel = true;
       _reelAccessError = null;
       _reelLoadError = null;
     });
@@ -1370,12 +1321,6 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
               'Could not load this ${_savedItemNoun.toLowerCase()} right now.',
         );
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRefreshingReel = false;
-        });
-      }
     }
   }
 }

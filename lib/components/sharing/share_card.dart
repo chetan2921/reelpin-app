@@ -1,4 +1,9 @@
-part of '../reel_detail_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/data_models/reels/reel.dart';
 
 class ReelShareCard extends StatelessWidget {
   final Reel reel;
@@ -18,6 +23,7 @@ class ReelShareCard extends StatelessWidget {
         .where((item) => item.trim().isNotEmpty)
         .take(3)
         .toList();
+    final typeLabel = _typeLabel(reel);
     final hasSummary = summary.isNotEmpty;
     final hasFacts = facts.isNotEmpty;
     final hasActions = actions.isNotEmpty;
@@ -97,8 +103,8 @@ class ReelShareCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _ShareHeader(
-                          contentType: reel.contentType,
-                          sourcePlatform: reel.sourcePlatform,
+                          kicker: 'Pinned ${typeLabel.toLowerCase()} brief',
+                          badge: typeLabel,
                         ),
                         const SizedBox(height: 5),
                         Container(height: 4, color: AppColors.black),
@@ -192,6 +198,15 @@ class ReelShareCard extends StatelessWidget {
     );
   }
 
+  static String _typeLabel(Reel reel) {
+    final contentType = switch (reel.contentType) {
+      'reel' => 'REEL',
+      'carousel' => 'CAROUSEL',
+      _ => 'POST',
+    };
+    return reel.sourcePlatform == 'x' ? 'X $contentType' : contentType;
+  }
+
   static List<String> _shareItems(List<String> values, int limit) {
     return values
         .map((item) => item.trim())
@@ -217,11 +232,257 @@ class ReelShareCard extends StatelessWidget {
   }
 }
 
-class _ShareLocationLink {
-  final String label;
-  final String url;
+/// The same poster for a collection link or a collaborator invite: the header,
+/// the pinned note and the footer are the reel card's, only the middle differs.
+class CollectionShareCard extends StatelessWidget {
+  const CollectionShareCard({
+    super.key,
+    required this.name,
+    required this.note,
+    required this.itemCount,
+    required this.role,
+  });
 
-  const _ShareLocationLink(this.label, this.url);
+  final String name;
+  final String note;
+  final int itemCount;
+
+  /// 'editor' or 'viewer' for an invite; null for a plain view link. It only
+  /// changes the badge and the line under the count.
+  final String? role;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = name.trim().isEmpty ? 'Untitled collection' : name.trim();
+    final noteText = note.trim().isEmpty
+        ? 'Reels, posts and videos saved in one place.'
+        : note.trim();
+    final promise = switch (role) {
+      'editor' => 'YOU CAN ADD AND REMOVE PINS',
+      'viewer' => 'YOU CAN BROWSE EVERYTHING INSIDE',
+      _ => 'OPEN THE LINK TO BROWSE IT ALL',
+    };
+
+    return Material(
+      color: Colors.transparent,
+      child: SizedBox(
+        width: 540,
+        height: 540,
+        child: Container(
+          color: const Color(0xFFFFDF36),
+          padding: const EdgeInsets.all(12),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                right: -10,
+                top: 20,
+                child: Transform.rotate(
+                  angle: 0.08,
+                  child: Container(
+                    width: 92,
+                    height: 116,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16D7C8),
+                      border: Border.all(color: AppColors.black, width: 3),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: -18,
+                bottom: 78,
+                child: Transform.rotate(
+                  angle: -0.12,
+                  child: Container(
+                    width: 92,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF4AA4),
+                      border: Border.all(color: AppColors.black, width: 3),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    border: Border.all(color: AppColors.black, width: 4),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppColors.black,
+                        offset: Offset(7, 7),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ShareHeader(
+                          kicker: role == null
+                              ? 'Shared collection'
+                              : 'Collection invite',
+                          badge: role == null ? 'COLLECTION' : 'INVITE',
+                        ),
+                        const SizedBox(height: 5),
+                        Container(height: 4, color: AppColors.black),
+                        const SizedBox(height: 12),
+                        // Not Flexible: two lines is already a fixed height,
+                        // and flexing it would split the free space with the
+                        // note instead of leaving it all to the paper.
+                        Text(
+                          title.toUpperCase(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                          textWidthBasis: TextWidthBasis.parent,
+                          style: GoogleFonts.spaceMono(
+                            color: AppColors.black,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            height: 1.05,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(width: 84, height: 5, color: AppColors.red),
+                        const SizedBox(height: 14),
+                        Expanded(
+                          child: _PinnedNote(
+                            color: const Color(0xFFFFF2A8),
+                            angle: 0.012,
+                            pinAlignment: Alignment.topRight,
+                            childPadding: const EdgeInsets.fromLTRB(
+                              14,
+                              16,
+                              14,
+                              12,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _NoteTitle(
+                                  label: 'NOTE',
+                                  color: AppColors.black,
+                                  fontSize: 10,
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: Text(
+                                    noteText,
+                                    maxLines: 5,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                    textWidthBasis: TextWidthBasis.parent,
+                                    style: GoogleFonts.spaceMono(
+                                      color: const Color(0xFF242424),
+                                      fontSize: 12.5,
+                                      height: 1.25,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _CollectionStats(itemCount: itemCount, line: promise),
+                        const SizedBox(height: 10),
+                        _ShareFooter(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The reel count beside the one line that says what the recipient can do.
+class _CollectionStats extends StatelessWidget {
+  const _CollectionStats({required this.itemCount, required this.line});
+
+  final int itemCount;
+  final String line;
+
+  @override
+  Widget build(BuildContext context) {
+    // Fixed height: a stretch alone cannot size these against each other
+    // inside a column with no bounded height of its own.
+    return SizedBox(
+      height: 62,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.black,
+              boxShadow: AppTheme.inkShadowSmall,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$itemCount',
+                  style: GoogleFonts.spaceMono(
+                    color: const Color(0xFF39FF14),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  itemCount == 1 ? 'PIN' : 'PINS',
+                  style: GoogleFonts.spaceMono(
+                    color: AppColors.white,
+                    fontSize: 9.6,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.centerLeft,
+              decoration: BoxDecoration(
+                color: const Color(0xFF19D6C8),
+                border: Border.all(color: AppColors.black, width: 3),
+              ),
+              child: Text(
+                line,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                softWrap: true,
+                textWidthBasis: TextWidthBasis.parent,
+                style: GoogleFonts.spaceMono(
+                  color: AppColors.black,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ShareBadge extends StatelessWidget {
@@ -259,22 +520,13 @@ class _ShareBadge extends StatelessWidget {
 }
 
 class _ShareHeader extends StatelessWidget {
-  final String contentType;
-  final String? sourcePlatform;
+  final String kicker;
+  final String badge;
 
-  const _ShareHeader({required this.contentType, this.sourcePlatform});
+  const _ShareHeader({required this.kicker, required this.badge});
 
   @override
   Widget build(BuildContext context) {
-    final contentTypeLabel = switch (contentType) {
-      'reel' => 'REEL',
-      'carousel' => 'CAROUSEL',
-      _ => 'POST',
-    };
-    final typeLabel = sourcePlatform == 'x'
-        ? 'X $contentTypeLabel'
-        : contentTypeLabel;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -311,7 +563,7 @@ class _ShareHeader extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Pinned ${typeLabel.toLowerCase()} brief',
+                kicker,
                 style: GoogleFonts.spaceMono(
                   color: AppColors.textSecondary,
                   fontSize: 8,
@@ -323,7 +575,7 @@ class _ShareHeader extends StatelessWidget {
           ),
         ),
         _ShareBadge(
-          label: typeLabel,
+          label: badge,
           color: AppColors.hotPink,
           textColor: AppColors.white,
         ),

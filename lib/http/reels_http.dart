@@ -15,6 +15,7 @@ abstract interface class ReelsHttp {
   Future<ProcessingJob> enqueueReelProcessing(
     String url, {
     String userId = 'default-user',
+    List<String> collectionIds = const [],
   });
 
   Future<Reel> processVideo(

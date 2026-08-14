@@ -24,7 +24,7 @@ class CollectionShareMessage {
   }) {
     final name = _cleanName(collectionName);
     final count = itemCount > 0
-        ? ' — $itemCount saved ${itemCount == 1 ? 'reel' : 'reels'}'
+        ? ' — $itemCount saved ${itemCount == 1 ? 'pin' : 'pins'}'
         : '';
     return CollectionShareMessage(
       subject: '$name on ReelPin',

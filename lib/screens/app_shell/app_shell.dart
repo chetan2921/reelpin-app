@@ -56,7 +56,7 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _floatingNavBottomInset = 14.0;
   static const _floatingNavHorizontalInset = 60.0;
 
-  int _currentIndex = 0;
+  int _currentIndex = _AppTab.home;
   StreamSubscription? _mediaIntentSub;
   AppLinks? _appLinks;
   StreamSubscription? _deepLinkSub;
@@ -73,8 +73,8 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _navItems = [
     _NavItem(icon: HugeIcons.strokeRoundedHome04, label: 'HOME'),
     _NavItem(icon: HugeIcons.strokeRoundedLocation03, label: 'MAP'),
-    _NavItem(icon: HugeIcons.strokeRoundedDiscoverSquare, label: 'DISCOVER'),
     _NavItem(icon: HugeIcons.strokeRoundedBookmark02, label: 'SAVED'),
+    _NavItem(icon: HugeIcons.strokeRoundedDiscoverSquare, label: 'DISCOVER'),
   ];
 
   @override
@@ -168,7 +168,9 @@ class _AppShellState extends ConsumerState<AppShell>
       if (link.isInvite) {
         await _acceptCollectionInvite(link.token, animate: false);
       } else {
-        unawaited(_openSharedCollection(link.token, animate: false));
+        unawaited(
+          _openSharedCollection(link.token, animate: false, url: link.url),
+        );
       }
     } finally {
       if (mounted) setState(() => _launchLink = null);
@@ -179,19 +181,22 @@ class _AppShellState extends ConsumerState<AppShell>
     if (link.isInvite) {
       unawaited(_acceptCollectionInvite(link.token));
     } else {
-      unawaited(_openSharedCollection(link.token, animate: animate));
+      unawaited(
+        _openSharedCollection(link.token, animate: animate, url: link.url),
+      );
     }
   }
 
   Future<void> _openSharedCollection(
     String token, {
     bool animate = true,
+    String? url,
   }) async {
     if (!mounted) return;
     await Navigator.of(
       context,
       rootNavigator: true,
-    ).push(sharedCollectionRoute(token, animate: animate));
+    ).push(sharedCollectionRoute(token, animate: animate, url: url));
   }
 
   Future<void> _acceptCollectionInvite(
@@ -256,6 +261,7 @@ class _AppShellState extends ConsumerState<AppShell>
   Future<void> _handleSharedPayload(
     String payload, {
     bool showConfirmation = true,
+    List<String> collectionIds = const [],
   }) async {
     final normalizedPayload = payload.trim();
     if (normalizedPayload.isEmpty) return;
@@ -283,7 +289,11 @@ class _AppShellState extends ConsumerState<AppShell>
       if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
         return;
       }
-      await _enqueueSharedReel(resolvedUrl, showConfirmation: showConfirmation);
+      await _enqueueSharedReel(
+        resolvedUrl,
+        showConfirmation: showConfirmation,
+        collectionIds: collectionIds,
+      );
     } catch (error) {
       unawaited(analytics.recordEnqueueFailed(normalizedPayload, error));
     }
@@ -292,6 +302,7 @@ class _AppShellState extends ConsumerState<AppShell>
   Future<void> _enqueueSharedReel(
     String url, {
     required bool showConfirmation,
+    List<String> collectionIds = const [],
   }) async {
     if (_isQueueingSharedReel) return;
 
@@ -306,7 +317,7 @@ class _AppShellState extends ConsumerState<AppShell>
     try {
       await _syncPushTokenRegistrationIfPossible();
       unawaited(analytics.recordEnqueueStarted(url));
-      await homeVm.enqueueReelProcessing(url);
+      await homeVm.enqueueReelProcessing(url, collectionIds: collectionIds);
       unawaited(_refreshSavedContent());
 
       if (!mounted) return;
@@ -452,13 +463,30 @@ class _AppShellState extends ConsumerState<AppShell>
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
       for (final entry in decoded) {
-        final blob = entry?.toString().trim() ?? '';
+        // Native stashes {raw_payload_text, collection_ids}. Anything already
+        // on disk from an older build is a bare string, and still has to drain.
+        final blob =
+            (entry is Map ? entry['raw_payload_text'] : entry)
+                ?.toString()
+                .trim() ??
+            '';
         if (blob.isEmpty) continue;
+        final collectionIds = entry is Map
+            ? (entry['collection_ids'] as List?)
+                      ?.map((id) => id.toString())
+                      .where((id) => id.isNotEmpty)
+                      .toList(growable: false) ??
+                  const <String>[]
+            : const <String>[];
         // Reset the per-payload dedupe so each pending share is processed.
         _lastHandledSharedPayload = null;
         // Pending entries are raw share blobs, so route them through the same
         // backend extraction path as a live share.
-        await _handleSharedPayload(blob, showConfirmation: false);
+        await _handleSharedPayload(
+          blob,
+          showConfirmation: false,
+          collectionIds: collectionIds,
+        );
       }
     } catch (e) {
       AppLogger.error('Pending share drain skipped: $e');
@@ -565,10 +593,10 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _openSearchFromHome() {
     setState(() {
-      _currentIndex = 2;
+      _currentIndex = _AppTab.discover;
       _searchFocusRequestId += 1;
     });
-    _refreshSelectedContent(2);
+    _refreshSelectedContent(_AppTab.discover);
   }
 
   Future<void> _scrollHomeToTop() async {
@@ -582,7 +610,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _showHomeAtTop() {
     setState(() {
-      _currentIndex = 0;
+      _currentIndex = _AppTab.home;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_scrollHomeToTop());
@@ -590,7 +618,7 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _selectControlledTab(int index) {
-    if (index == 0) {
+    if (index == _AppTab.home) {
       _showHomeAtTop();
       return;
     }
@@ -623,12 +651,12 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _refreshSelectedContent(int index) {
-    if (index == 1) {
+    if (index == _AppTab.map) {
       unawaited(
         ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true),
       );
     }
-    if (index == 2) {
+    if (index == _AppTab.discover) {
       unawaited(
         ref.read(discoverViewModelProvider).loadDiscover(forceRefresh: true),
       );
@@ -671,8 +699,8 @@ class _AppShellState extends ConsumerState<AppShell>
                       scrollController: _homeScrollController,
                     ),
                     const MapScreen(),
-                    DiscoverScreen(focusRequestId: _searchFocusRequestId),
                     const CollectionsScreen(),
+                    DiscoverScreen(focusRequestId: _searchFocusRequestId),
                   ],
                 ),
               ),

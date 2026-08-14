@@ -168,6 +168,37 @@ void main() {
   );
 
   test(
+    'enqueueReelProcessing files the reel into the given collections',
+    () async {
+      Map<String, dynamic>? body;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          body = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({'id': 'job-1', 'status': 'queued'}),
+            202,
+          );
+        }),
+      );
+
+      await service.enqueueReelProcessing(
+        'https://instagram.com/reel/abc',
+        userId: 'user-123',
+        collectionIds: const ['col-1', 'col-2'],
+      );
+
+      // Without this the reel is saved to the library only, which is what a
+      // share that fell back to the app used to do.
+      expect(body, {
+        'url': 'https://instagram.com/reel/abc',
+        'collection_ids': ['col-1', 'col-2'],
+      });
+    },
+  );
+
+  test(
     'processReel returns an existing X saved item without another poll',
     () async {
       final requests = <Uri>[];

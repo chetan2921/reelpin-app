@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -16,16 +18,11 @@ Future<void> bootstrap() async {
   GoogleFonts.config.allowRuntimeFetching = false;
   _configureImageCache();
   await SupabaseConfig.loadLocalConfig();
-  if (!kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS)) {
-    try {
-      await Firebase.initializeApp();
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    } catch (e) {
-      AppLogger.error('Firebase initialization skipped: $e');
-    }
-  }
+  // Deliberately not awaited. Everything before runApp() runs under the OS
+  // launch screen — the icon on a blank window — so each await there is time
+  // the user spends looking at nothing. Messaging is not needed to draw the
+  // first frame, and the background handler registers a moment later.
+  unawaited(_initializeMessaging());
 
   // Before anything can gate on auth: a launch URL is reported once, and the
   // shell that knows how to route it does not exist yet.
@@ -47,6 +44,20 @@ Future<void> bootstrap() async {
       child: ReelPinApp(isSupabaseConfigured: isSupabaseConfigured),
     ),
   );
+}
+
+Future<void> _initializeMessaging() async {
+  if (kIsWeb ||
+      (defaultTargetPlatform != TargetPlatform.android &&
+          defaultTargetPlatform != TargetPlatform.iOS)) {
+    return;
+  }
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (e) {
+    AppLogger.error('Firebase initialization skipped: $e');
+  }
 }
 
 /// Gives the grid enough room to hold a few screens of thumbnails in memory.

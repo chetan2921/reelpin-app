@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/components/collections/collection_folder_tile.dart';
+import 'package:reelpin/components/collections/selection_tick.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
@@ -11,19 +12,23 @@ import 'package:reelpin/providers.dart';
 import 'package:reelpin/screens/collections/collection_form_sheet.dart';
 import 'package:reelpin/utils/error_message.dart';
 
-Future<void> showAddToCollectionSheet(BuildContext context, String reelId) {
+Future<void> showAddToCollectionSheet(
+  BuildContext context,
+  List<String> reelIds,
+) {
+  if (reelIds.isEmpty) return Future<void>.value();
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => AddToCollectionSheet(reelId: reelId),
+    builder: (_) => AddToCollectionSheet(reelIds: reelIds),
   );
 }
 
 class AddToCollectionSheet extends ConsumerStatefulWidget {
-  const AddToCollectionSheet({super.key, required this.reelId});
+  const AddToCollectionSheet({super.key, required this.reelIds});
 
-  final String reelId;
+  final List<String> reelIds;
 
   @override
   ConsumerState<AddToCollectionSheet> createState() =>
@@ -31,8 +36,8 @@ class AddToCollectionSheet extends ConsumerStatefulWidget {
 }
 
 class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
-  final Set<String> _added = {};
-  final Set<String> _busy = {};
+  final Set<String> _selected = {};
+  bool _saving = false;
 
   @override
   void initState() {
@@ -42,37 +47,41 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     });
   }
 
-  Future<void> _addTo(String collectionId) async {
-    if (_busy.contains(collectionId) || _added.contains(collectionId)) return;
-    setState(() => _busy.add(collectionId));
+  void _toggle(String collectionId) {
+    setState(() {
+      if (!_selected.remove(collectionId)) _selected.add(collectionId);
+    });
+  }
+
+  Future<void> _save() async {
+    if (_selected.isEmpty || _saving) return;
+    setState(() => _saving = true);
+    final vm = ref.read(collectionsViewModelProvider);
     try {
-      await ref
-          .read(collectionsViewModelProvider)
-          .addReels(collectionId: collectionId, reelIds: [widget.reelId]);
-      if (mounted) setState(() => _added.add(collectionId));
+      for (final collectionId in _selected) {
+        await vm.addReels(collectionId: collectionId, reelIds: widget.reelIds);
+      }
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              userFacingErrorMessage(
-                e,
-                fallbackMessage: 'Could not add to that collection.',
-              ),
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            userFacingErrorMessage(
+              e,
+              fallbackMessage: 'Could not add to that collection.',
             ),
           ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy.remove(collectionId));
+        ),
+      );
     }
   }
 
   Future<void> _createAndAdd() async {
     final created = await showCollectionFormSheet(context);
     if (created == null || !mounted) return;
-    // _addTo marks it added on success.
-    await _addTo(created.id);
+    setState(() => _selected.add(created.id));
   }
 
   @override
@@ -110,7 +119,9 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      'ADD TO COLLECTION',
+                      widget.reelIds.length == 1
+                          ? 'ADD TO COLLECTION'
+                          : 'ADD ${widget.reelIds.length} TO COLLECTION',
                       style: GoogleFonts.spaceMono(
                         color: AppColors.fg(context),
                         fontSize: layout.font(17),
@@ -158,6 +169,14 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
               Flexible(
                 child: _buildBody(context, vm.isLoadingCollections, editable),
               ),
+              if (editable.isNotEmpty) ...[
+                SizedBox(height: layout.gap(16)),
+                _SaveButton(
+                  count: _selected.length,
+                  saving: _saving,
+                  onTap: _selected.isEmpty || _saving ? null : _save,
+                ),
+              ],
             ],
           ),
         ),
@@ -213,51 +232,74 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
         crossAxisCount: 2,
         mainAxisSpacing: layout.gap(12),
         crossAxisSpacing: layout.inset(12),
-        childAspectRatio: 1.22,
+        childAspectRatio: 1.2,
       ),
       itemBuilder: (context, index) {
         final collection = editable[index];
-        final isAdded = _added.contains(collection.id);
-        final isBusy = _busy.contains(collection.id);
         return CollectionFolderTile(
           collection: collection,
           index: index,
-          compact: true,
-          onTap: isBusy || isAdded ? null : () => _addTo(collection.id),
-          overlay: isBusy || isAdded ? _TileOverlay(isAdded: isAdded) : null,
+          onTap: () => _toggle(collection.id),
+          overlay: _selected.contains(collection.id)
+              ? const SelectionTick()
+              : null,
         );
       },
     );
   }
 }
 
-/// Covers the folder body while a add is in flight, or once it has landed.
-class _TileOverlay extends StatelessWidget {
-  const _TileOverlay({required this.isAdded});
+/// The confirm step. Nothing is written until this is tapped, so a mis-tap on
+/// a folder costs nothing.
+class _SaveButton extends StatelessWidget {
+  const _SaveButton({
+    required this.count,
+    required this.saving,
+    required this.onTap,
+  });
 
-  final bool isAdded;
+  final int count;
+  final bool saving;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
-    return Container(
-      margin: const EdgeInsets.only(top: 15),
-      color: AppColors.bg(context).withAlpha(200),
-      alignment: Alignment.center,
-      child: isAdded
-          ? Icon(
-              Icons.check,
-              color: AppColors.fg(context),
-              size: layout.inset(28),
-            )
-          : SizedBox(
-              width: layout.inset(18),
-              height: layout.inset(18),
-              child: CircularProgressIndicator(
-                color: AppColors.fg(context),
-                strokeWidth: 2.5,
-              ),
-            ),
+    final label = switch (count) {
+      0 => 'SELECT A COLLECTION',
+      1 => 'SAVE TO 1 COLLECTION',
+      _ => 'SAVE TO $count COLLECTIONS',
+    };
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Opacity(
+        opacity: onTap == null ? 0.5 : 1,
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(vertical: layout.gap(14)),
+          alignment: Alignment.center,
+          decoration: AppTheme.brutalBox(context, color: AppColors.yellow),
+          child: saving
+              ? SizedBox(
+                  width: layout.inset(16),
+                  height: layout.inset(16),
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.black,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: GoogleFonts.spaceMono(
+                    color: AppColors.black,
+                    fontSize: layout.font(13),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+        ),
+      ),
     );
   }
 }

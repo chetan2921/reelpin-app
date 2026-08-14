@@ -119,8 +119,12 @@ void main() {
     );
 
     await pumpSheet(tester);
-    await tester.tap(find.byIcon(Icons.ios_share));
-    await tester.pump();
+    // The invite buttons carry the same icon, so target the link chip's own
+    // share action by its tooltip.
+    await tester.tap(find.byTooltip('Share'));
+    // The share card cannot be rendered under the test binding, so this waits
+    // out the capture timeout and lands on the text-only fallback.
+    await tester.pump(const Duration(seconds: 5));
 
     expect(calls, hasLength(1));
     expect(calls.single.method, 'shareText');

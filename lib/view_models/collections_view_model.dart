@@ -52,7 +52,8 @@ class CollectionsViewModel extends ChangeNotifier {
         ..clear()
         ..addAll(
           raw.whereType<Map>().map(
-            (item) => CollectionSummary.fromJson(Map<String, dynamic>.from(item)),
+            (item) =>
+                CollectionSummary.fromJson(Map<String, dynamic>.from(item)),
           ),
         );
       notifyListeners();
@@ -101,6 +102,22 @@ class CollectionsViewModel extends ChangeNotifier {
     }
   }
 
+  /// Paints the last known reels for [id] immediately, so opening a collection
+  /// never waits on the network to show what the user already had. The refresh
+  /// still runs over the top.
+  Future<void> hydrateDetailFromCache(String id) async {
+    if (_details.containsKey(id)) return;
+    final payload = await _cache.read(ContentCacheKeys.collectionDetail(id));
+    if (payload == null || _details.containsKey(id)) return;
+    try {
+      _details[id] = CollectionDetail.fromJson(payload);
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Cached collection detail could not be restored: $e');
+      unawaited(_cache.invalidate(ContentCacheKeys.collectionDetail(id)));
+    }
+  }
+
   Future<void> loadCollectionDetail(String id, {bool forceRefresh = false}) {
     final existing = _loadDetailFutures[id];
     if (existing != null) return existing;
@@ -113,11 +130,17 @@ class CollectionsViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadCollectionDetail(String id) async {
-    _isLoadingDetail = true;
+    // Same rule as the grid: with a cached detail on screen this stays false,
+    // so refreshing never replaces the reels with a spinner.
+    _isLoadingDetail = !_details.containsKey(id);
     _detailError = null;
     notifyListeners();
     try {
-      _details[id] = await _api.getCollectionDetail(id);
+      final detail = await _api.getCollectionDetail(id);
+      _details[id] = detail;
+      unawaited(
+        _cache.write(ContentCacheKeys.collectionDetail(id), detail.toJson()),
+      );
     } catch (e) {
       _detailError = userFacingErrorMessage(
         e,

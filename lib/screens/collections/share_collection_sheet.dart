@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/components/common/app_bottom_sheet.dart';
+import 'package:reelpin/components/common/confirm_dialog.dart';
+import 'package:reelpin/components/sharing/share_card.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
@@ -106,25 +110,13 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
   /// Regenerating mints a new token and invalidates the old one server-side, so
   /// anyone already holding the previous link loses access. Confirm first.
   Future<void> _regenerateLink() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Generate a new link?'),
-        content: const Text(
-          'The current link will stop working straight away. Anyone you already '
-          'sent it to will not be able to open this collection.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Generate'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Generate a new link?',
+      message:
+          'The current link will stop working straight away. Anyone you '
+          'already sent it to will not be able to open this collection.',
+      confirmLabel: 'GENERATE',
     );
     if (confirmed == true) await _toggleLink(true);
   }
@@ -140,11 +132,25 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
       url: url,
       itemCount: collection?.itemCount ?? 0,
     );
-    await _presentShare(message);
+    await _presentShare(message, role: null);
   }
 
-  Future<void> _presentShare(CollectionShareMessage message) async {
+  /// Sends the square share card along with the message. Without an image the
+  /// chat apps fall back to the link preview the web page carries.
+  Future<void> _presentShare(
+    CollectionShareMessage message, {
+    required String? role,
+  }) async {
+    final card = await _renderShareCard(role);
     try {
+      if (card != null) {
+        await ReelShareService.shareReelCard(
+          pngBytes: card,
+          text: message.body,
+          subject: message.subject,
+        );
+        return;
+      }
       await ReelShareService.shareText(
         text: message.body,
         subject: message.subject,
@@ -154,6 +160,65 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
       // not worth blocking on.
       AppLogger.error('Collection share sheet failed: $e');
     }
+  }
+
+  /// Draws the card in the overlay, off the side of the screen, and reads its
+  /// pixels back. Null means the share goes out as text, which is still a
+  /// working link — the image is the nice-to-have.
+  Future<Uint8List?> _renderShareCard(String? role) async {
+    final collection = _collection;
+    final boundaryKey = GlobalKey();
+    final entry = OverlayEntry(
+      builder: (_) => Positioned(
+        left: -2000,
+        top: 0,
+        child: RepaintBoundary(
+          key: boundaryKey,
+          child: CollectionShareCard(
+            name: collection?.name ?? '',
+            note: collection?.description ?? '',
+            itemCount: collection?.itemCount ?? 0,
+            role: role,
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context, rootOverlay: true).insert(entry);
+    try {
+      return await _captureCard(boundaryKey).timeout(
+        const Duration(seconds: 4),
+        // A share that hangs on a decode is worse than one without artwork.
+        onTimeout: () => null,
+      );
+    } catch (e) {
+      AppLogger.error('Collection share card render failed: $e');
+      return null;
+    } finally {
+      entry.remove();
+    }
+  }
+
+  Future<Uint8List?> _captureCard(GlobalKey boundaryKey) async {
+    // The pin and the app icon have to be decoded before the capture, or the
+    // card is grabbed with holes where they belong.
+    await precacheImage(
+      const AssetImage('assets/images/app_icon.png'),
+      context,
+    );
+    if (!mounted) return null;
+    await precacheImage(const AssetImage('assets/images/pin.png'), context);
+    if (!mounted) return null;
+    await WidgetsBinding.instance.endOfFrame;
+    await WidgetsBinding.instance.endOfFrame;
+
+    final boundary =
+        boundaryKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+    if (boundary == null) return null;
+    final image = await boundary.toImage(pixelRatio: 2);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    return data?.buffer.asUint8List();
   }
 
   Future<void> _copy(String value, String label) async {
@@ -166,12 +231,7 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
     });
   }
 
-  Future<void> _invite() async {
-    final role = await showAppBottomSheet<String>(
-      context: context,
-      builder: (_) => const _InviteRoleSheet(),
-    );
-    if (role == null) return;
+  Future<void> _invite(String role) async {
     setState(() => _busy = true);
     try {
       final invite = await ref
@@ -186,6 +246,7 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
             url: invite.url,
             role: invite.role,
           ),
+          role: invite.role,
         );
       }
     } finally {
@@ -205,9 +266,7 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
 
     return AppBottomSheet(
       title: 'Share collection',
-      subtitle: hasLink
-          ? 'Anyone with this link can view the collection.'
-          : 'Turn on a link to let anyone view this collection.',
+      subtitle: 'Pick what the person you send this to is allowed to do.',
       trailing: _copiedLabel == null
           ? null
           : Row(
@@ -234,11 +293,59 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // One control for one decision. There used to be a "Private" radio
-            // beside this switch, two widgets fighting over the same boolean.
+            // The whole sheet leads with the only decision most people are
+            // here to make. Each button mints its own link and opens the OS
+            // share sheet — no role picker in between.
+            _InviteButton(
+              icon: Icons.edit_outlined,
+              label: 'INVITE TO EDIT',
+              hint: 'They can add and remove pins',
+              color: AppColors.yellow,
+              onTap: _busy ? null : () => _invite('editor'),
+            ),
+            SizedBox(height: layout.gap(12)),
+            _InviteButton(
+              icon: Icons.visibility_outlined,
+              label: 'INVITE TO VIEW',
+              hint: 'They can look, not change anything',
+              color: AppColors.blue,
+              onTap: _busy ? null : () => _invite('viewer'),
+            ),
+            if (_members != null && _members!.members.isNotEmpty) ...[
+              SizedBox(height: layout.gap(20)),
+              Text(
+                'COLLABORATORS',
+                style: GoogleFonts.spaceMono(
+                  color: AppColors.textSec(context),
+                  fontSize: layout.font(10),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+              SizedBox(height: layout.gap(8)),
+              ..._members!.members.map(
+                (m) => _MemberRow(
+                  member: m,
+                  canManage: isOwner,
+                  onRemove: () async {
+                    await ref
+                        .read(collectionsViewModelProvider)
+                        .removeMember(
+                          collectionId: widget.collectionId,
+                          memberUserId: m.userId,
+                        );
+                    _loadMembers();
+                  },
+                ),
+              ),
+            ],
+            SizedBox(height: layout.gap(20)),
+            Container(height: 1, color: AppColors.fg(context)),
+            SizedBox(height: layout.gap(16)),
+            // Secondary: a public link anyone can open, no invite involved.
             _SheetRow(
-              label: 'SHARE LINK',
-              hint: hasLink ? 'On' : 'Off',
+              label: 'PUBLIC VIEW LINK',
+              hint: hasLink ? 'Anyone with the link can view' : 'Off',
               trailing: Switch(
                 value: hasLink,
                 onChanged: _busy ? null : _toggleLink,
@@ -259,54 +366,80 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
                 onRegenerate: _busy ? null : _regenerateLink,
               ),
             ],
-            SizedBox(height: layout.gap(20)),
-            Container(height: 1, color: AppColors.fg(context)),
-            SizedBox(height: layout.gap(20)),
-            _SheetRow(
-              label: 'COLLABORATORS',
-              hint: 'They can add reels too',
-              trailing: GestureDetector(
-                onTap: _busy ? null : _invite,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: layout.inset(12),
-                    vertical: layout.gap(8),
-                  ),
-                  decoration: AppTheme.brutalBox(
-                    context,
-                    color: AppColors.yellow,
-                  ),
-                  child: Text(
-                    'INVITE',
-                    style: GoogleFonts.spaceMono(
-                      color: AppColors.black,
-                      fontSize: layout.font(11),
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (_members != null && _members!.members.isNotEmpty) ...[
-              SizedBox(height: layout.gap(12)),
-              ..._members!.members.map(
-                (m) => _MemberRow(
-                  member: m,
-                  canManage: isOwner,
-                  onRemove: () async {
-                    await ref
-                        .read(collectionsViewModelProvider)
-                        .removeMember(
-                          collectionId: widget.collectionId,
-                          memberUserId: m.userId,
-                        );
-                    _loadMembers();
-                  },
-                ),
-              ),
-            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One of the two choices the sheet is built around: a full-width button that
+/// says what the recipient will be able to do.
+class _InviteButton extends StatelessWidget {
+  const _InviteButton({
+    required this.icon,
+    required this.label,
+    required this.hint,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String hint;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    final textColor = color == AppColors.yellow
+        ? AppColors.black
+        : AppColors.white;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Opacity(
+        opacity: onTap == null ? 0.5 : 1,
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: layout.inset(16),
+            vertical: layout.gap(14),
+          ),
+          decoration: AppTheme.brutalBox(context, color: color),
+          child: Row(
+            children: [
+              Icon(icon, color: textColor, size: layout.inset(20)),
+              SizedBox(width: layout.inset(12)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.spaceMono(
+                        color: textColor,
+                        fontSize: layout.font(13),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    SizedBox(height: layout.gap(2)),
+                    Text(
+                      hint,
+                      style: GoogleFonts.spaceMono(
+                        color: textColor,
+                        fontSize: layout.font(10),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.ios_share, color: textColor, size: layout.inset(18)),
+            ],
+          ),
         ),
       ),
     );
@@ -486,93 +619,6 @@ class _MemberRow extends StatelessWidget {
               onPressed: onRemove,
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _InviteRoleSheet extends StatelessWidget {
-  const _InviteRoleSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBottomSheet(
-      title: 'Invite collaborators',
-      subtitle: 'Pick what they are allowed to do.',
-      maxHeightFactor: 0.4,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _RoleTile(
-            icon: Icons.edit_outlined,
-            label: 'CAN EDIT',
-            hint: 'Add and remove reels',
-            onTap: () => Navigator.of(context).pop('editor'),
-          ),
-          _RoleTile(
-            icon: Icons.visibility_outlined,
-            label: 'CAN VIEW',
-            hint: 'Look only',
-            onTap: () => Navigator.of(context).pop('viewer'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoleTile extends StatelessWidget {
-  const _RoleTile({
-    required this.icon,
-    required this.label,
-    required this.hint,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final String hint;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = AppLayout.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: EdgeInsets.only(bottom: layout.gap(10)),
-        padding: EdgeInsets.all(layout.inset(14)),
-        decoration: AppTheme.brutalBox(context),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.fg(context), size: layout.inset(18)),
-            SizedBox(width: layout.inset(12)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.spaceMono(
-                      color: AppColors.fg(context),
-                      fontSize: layout.font(12),
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  Text(
-                    hint,
-                    style: GoogleFonts.spaceMono(
-                      color: AppColors.textSec(context),
-                      fontSize: layout.font(10),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

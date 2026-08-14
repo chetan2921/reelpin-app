@@ -78,7 +78,7 @@ Future<void> showReelActionsSheet(
                 SizedBox(height: layout.gap(12)),
                 _ActionButton(
                   label: 'DELETE FROM LIBRARY',
-                  color: AppColors.yellow,
+                  color: AppColors.destructive,
                   icon: Icons.delete_outline,
                   onTap: () => Navigator.pop(context, _ReelAction.delete),
                 ),
@@ -93,7 +93,7 @@ Future<void> showReelActionsSheet(
   if (!context.mounted) return;
   switch (action) {
     case _ReelAction.addToCollection:
-      await showAddToCollectionSheet(context, reel.id);
+      await showAddToCollectionSheet(context, [reel.id]);
     case _ReelAction.delete:
       onDelete?.call();
     case null:
@@ -117,9 +117,10 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
-    final textColor = color == AppColors.blue
-        ? AppColors.white
-        : AppColors.black;
+    // Dark fills carry white type; the yellow-family fills carry black.
+    final textColor = color == AppColors.yellow
+        ? AppColors.black
+        : AppColors.white;
     return GestureDetector(
       onTap: onTap,
       child: Container(

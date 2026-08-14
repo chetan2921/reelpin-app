@@ -145,7 +145,7 @@ class ShareViewController: UIViewController {
       let shareToken = cleanedString(defaults.string(forKey: shareTokenKey)),
       let baseUrl = cleanedString(defaults.string(forKey: baseUrlKey))
     else {
-      savePendingShare(sharedUrl)
+      savePendingShare(sharedUrl, collectionIds: collectionIds)
       showStatusAndComplete("Open ReelPin to sync.")
       return
     }
@@ -169,10 +169,10 @@ class ShareViewController: UIViewController {
       case .invalidShareToken:
         defaults.removeObject(forKey: self.shareTokenKey)
         defaults.synchronize()
-        self.savePendingShare(sharedUrl)
+        self.savePendingShare(sharedUrl, collectionIds: collectionIds)
         self.showStatusAndComplete("Open ReelPin and sign in again.", isError: true)
       case .failure:
-        self.savePendingShare(sharedUrl)
+        self.savePendingShare(sharedUrl, collectionIds: collectionIds)
         self.showStatusAndComplete("Open ReelPin to sync.")
       }
     }
@@ -224,7 +224,10 @@ class ShareViewController: UIViewController {
     }.resume()
   }
 
-  private func savePendingShare(_ url: String) {
+  /// Stores the collections with the URL. Dropping them here filed the reel
+  /// into the library only, with no sign anything was lost, whenever the
+  /// extension could not post the share itself.
+  private func savePendingShare(_ url: String, collectionIds: [String] = []) {
     guard let defaults = appGroupDefaults() else {
       return
     }
@@ -234,7 +237,11 @@ class ShareViewController: UIViewController {
       try? JSONSerialization.jsonObject(with: $0)
     } as? [Any]
     var pending = decoded ?? []
-    pending.append(url)
+    var entry: [String: Any] = ["url": url]
+    if !collectionIds.isEmpty {
+      entry["collection_ids"] = collectionIds
+    }
+    pending.append(entry)
 
     if let data = try? JSONSerialization.data(withJSONObject: pending),
        let value = String(data: data, encoding: .utf8) {
@@ -298,7 +305,38 @@ class ShareViewController: UIViewController {
     else {
       return nil
     }
-    return UIImage(contentsOfFile: (dir as NSString).appendingPathComponent(fileName))
+    // The app writes a light and a dark render of every tile; fall back to the
+    // light one when the dark file is not there yet.
+    var candidates = [fileName]
+    if traitCollection.userInterfaceStyle == .dark {
+      let darkName = (fileName as NSString).deletingPathExtension + "_dark.png"
+      candidates.insert(darkName, at: 0)
+    }
+    for candidate in candidates {
+      let path = (dir as NSString).appendingPathComponent(candidate)
+      if let image = UIImage(contentsOfFile: path) {
+        return image
+      }
+    }
+    return nil
+  }
+
+  /// AppColors.bg / .fg / .textSec, resolved against the device's mode. The
+  /// sheet was pinned to a white surface, which is wrong in dark mode.
+  private var bgColor: UIColor {
+    traitCollection.userInterfaceStyle == .dark
+      ? UIColor(white: 0.10, alpha: 1)
+      : .white
+  }
+
+  private var fgColor: UIColor {
+    traitCollection.userInterfaceStyle == .dark ? .white : .black
+  }
+
+  private var secondaryTextColor: UIColor {
+    traitCollection.userInterfaceStyle == .dark
+      ? UIColor(white: 0.80, alpha: 1)
+      : UIColor(white: 0.27, alpha: 1)
   }
 
   private func presentCollectionPicker() {
@@ -306,26 +344,26 @@ class ShareViewController: UIViewController {
 
     // Drag handle: 40x4 solid, matching AddToCollectionSheet in the app.
     let handle = UIView()
-    handle.backgroundColor = .black
+    handle.backgroundColor = fgColor
     handle.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(handle)
 
     let heading = UILabel()
     heading.text = "SAVE TO A COLLECTION"
     heading.font = Self.spaceMono(size: 17, bold: true)
-    heading.textColor = .black
+    heading.textColor = fgColor
     heading.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(heading)
 
     let subtitle = UILabel()
     subtitle.text = "Tap the ones it belongs in. Skip to just save it."
     subtitle.font = Self.spaceMono(size: 12, bold: false)
-    subtitle.textColor = UIColor(white: 0.27, alpha: 1)
+    subtitle.textColor = secondaryTextColor
     subtitle.numberOfLines = 2
     subtitle.translatesAutoresizingMaskIntoConstraints = false
     view.addSubview(subtitle)
 
-    view.backgroundColor = .white
+    view.backgroundColor = bgColor
 
     // A 2-up grid, matching the SAVED tab. The extension gets a full sheet on
     // iOS, so there is room to show the artwork rather than a bare list.
@@ -392,12 +430,12 @@ class ShareViewController: UIViewController {
     let button = UIButton(type: .system)
     button.setTitle(title, for: .normal)
     button.titleLabel?.font = Self.spaceMono(size: 14, bold: true)
-    button.setTitleColor(.black, for: .normal)
-    button.backgroundColor = filled ? Self.accentYellow : .white
+    button.setTitleColor(filled ? .black : fgColor, for: .normal)
+    button.backgroundColor = filled ? Self.accentYellow : bgColor
     button.layer.borderWidth = 1
-    button.layer.borderColor = UIColor.black.cgColor
+    button.layer.borderColor = fgColor.cgColor
     button.layer.cornerRadius = 0
-    button.layer.shadowColor = UIColor.black.cgColor
+    button.layer.shadowColor = fgColor.cgColor
     button.layer.shadowOffset = CGSize(width: 4, height: 4)
     button.layer.shadowRadius = 0
     button.layer.shadowOpacity = 1

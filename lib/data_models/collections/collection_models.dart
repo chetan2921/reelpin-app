@@ -102,6 +102,16 @@ class CollectionPagination {
   final int offset;
   final int totalCount;
 
+  /// Mirrors [fromJson] so a cached detail restores exactly as it arrived.
+  Map<String, dynamic> toJson() => {
+    'next_cursor': nextCursor,
+    'next_offset': nextOffset,
+    'has_more': hasMore,
+    'limit': limit,
+    'offset': offset,
+    'total_count': totalCount,
+  };
+
   factory CollectionPagination.fromJson(Map<String, dynamic> json) {
     return CollectionPagination(
       nextCursor: json['next_cursor']?.toString(),
@@ -128,6 +138,15 @@ class CollectionDetail {
   final CollectionPagination pagination;
   final bool canEdit;
   final String? ownerName;
+
+  /// Mirrors [fromJson] so a cached detail restores exactly as it arrived.
+  Map<String, dynamic> toJson() => {
+    'collection': collection.toJson(),
+    'reels': reels.map((reel) => reel.toJson()).toList(),
+    'pagination': pagination.toJson(),
+    'can_edit': canEdit,
+    'owner_name': ownerName,
+  };
 
   factory CollectionDetail.fromJson(Map<String, dynamic> json) {
     final collectionPayload = json['collection'];
