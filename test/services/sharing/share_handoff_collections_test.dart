@@ -77,11 +77,14 @@ void main() {
     );
   });
 
-  test('a viewer-only account clears rather than sending an empty array', () async {
-    await ShareHandoffService.instance.syncCollections([
-      c('b', 'Someone elses', role: 'viewer'),
-    ]);
+  test(
+    'a viewer-only account clears rather than sending an empty array',
+    () async {
+      await ShareHandoffService.instance.syncCollections([
+        c('b', 'Someone elses', role: 'viewer'),
+      ]);
 
-    expect(syncedCollections(), isNull);
-  });
+      expect(syncedCollections(), isNull);
+    },
+  );
 }

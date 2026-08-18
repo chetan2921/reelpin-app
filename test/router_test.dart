@@ -12,7 +12,10 @@ void main() {
       collectionDetailRoute('id', animate: false),
     ]) {
       expect(route, isA<TransitionRoute<void>>());
-      expect((route as TransitionRoute<void>).transitionDuration, Duration.zero);
+      expect(
+        (route as TransitionRoute<void>).transitionDuration,
+        Duration.zero,
+      );
       expect(route.reverseTransitionDuration, Duration.zero);
     }
   });

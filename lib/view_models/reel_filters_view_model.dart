@@ -31,9 +31,8 @@ class ReelFiltersViewModel extends ChangeNotifier {
   List<ReelCategoryGroup> get categoryGroups =>
       List.unmodifiable(_response?.categories ?? const <ReelCategoryGroup>[]);
 
-  List<String> get categories => categoryGroups
-      .map((group) => group.category)
-      .toList(growable: false);
+  List<String> get categories =>
+      categoryGroups.map((group) => group.category).toList(growable: false);
 
   int get totalCount => _response?.totalCount ?? 0;
   int get selectedPreviewCount => _response?.selectedPreviewCount ?? 0;

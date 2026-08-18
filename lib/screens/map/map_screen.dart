@@ -979,7 +979,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-
   @override
   void dispose() {
     _trackedMapViewModel?.removeListener(_handleMapViewModelChanged);

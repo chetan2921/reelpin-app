@@ -43,10 +43,11 @@ void main() {
     expect(calls, 1);
   });
 
-  test('a failed prefetch surfaces to the caller, not as an unawaited error', () async {
-    final failures = <Object>[];
-    await runZonedGuarded(
-      () async {
+  test(
+    'a failed prefetch surfaces to the caller, not as an unawaited error',
+    () async {
+      final failures = <Object>[];
+      await runZonedGuarded(() async {
         SharedCollectionPrefetch.start(
           'token-a',
           () async => throw StateError('offline'),
@@ -58,12 +59,11 @@ void main() {
           SharedCollectionPrefetch.take('token-a'),
           throwsStateError,
         );
-      },
-      (error, _) => failures.add(error),
-    );
+      }, (error, _) => failures.add(error));
 
-    expect(failures, isEmpty);
-  });
+      expect(failures, isEmpty);
+    },
+  );
 }
 
 CollectionDetail _detail(String name) {

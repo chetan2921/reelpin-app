@@ -461,29 +461,36 @@ void main() {
       );
     });
 
-    test('a 404 on a shared token throws rather than returning empty', () async {
-      final service = clientFor(
-        MockClient(
-          (_) async => http.Response(
-            jsonEncode({
-              'success': false,
-              'error_code': 'collection_not_found',
-              'message': 'That collection was not found.',
-            }),
-            404,
+    test(
+      'a 404 on a shared token throws rather than returning empty',
+      () async {
+        final service = clientFor(
+          MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'success': false,
+                'error_code': 'collection_not_found',
+                'message': 'That collection was not found.',
+              }),
+              404,
+            ),
           ),
-        ),
-      );
+        );
 
-      await expectLater(
-        service.getSharedCollection('bad-token'),
-        throwsA(
-          isA<ApiException>()
-              .having((e) => e.statusCode, 'statusCode', 404)
-              .having((e) => e.errorCode, 'errorCode', 'collection_not_found'),
-        ),
-      );
-    });
+        await expectLater(
+          service.getSharedCollection('bad-token'),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.statusCode, 'statusCode', 404)
+                .having(
+                  (e) => e.errorCode,
+                  'errorCode',
+                  'collection_not_found',
+                ),
+          ),
+        );
+      },
+    );
 
     test('an invite gone 410 keeps its error code', () async {
       final service = clientFor(

@@ -14,7 +14,9 @@ void main() {
 
   group('loading', () {
     test('loadCollections populates and clears the loading flag', () async {
-      final api = _FakeCollectionsHttp(collections: [_summary('a'), _summary('b')]);
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a'), _summary('b')],
+      );
       final vm = CollectionsViewModel(api);
 
       final future = vm.loadCollections();
@@ -48,18 +50,24 @@ void main() {
       expect(api.getCollectionsCalls, 1);
     });
 
-    test('a failure surfaces a user-facing message, not an exception', () async {
-      final api = _FakeCollectionsHttp(
-        error: const ApiException('Could not load collections right now.', 500),
-      );
-      final vm = CollectionsViewModel(api);
+    test(
+      'a failure surfaces a user-facing message, not an exception',
+      () async {
+        final api = _FakeCollectionsHttp(
+          error: const ApiException(
+            'Could not load collections right now.',
+            500,
+          ),
+        );
+        final vm = CollectionsViewModel(api);
 
-      await vm.loadCollections();
+        await vm.loadCollections();
 
-      expect(vm.collectionsError, isNotNull);
-      expect(vm.isLoadingCollections, isFalse);
-      expect(vm.collections, isEmpty);
-    });
+        expect(vm.collectionsError, isNotNull);
+        expect(vm.isLoadingCollections, isFalse);
+        expect(vm.collections, isEmpty);
+      },
+    );
 
     test('detail is cached per id and refetched on force', () async {
       final api = _FakeCollectionsHttp(collections: [_summary('a')]);
@@ -167,23 +175,28 @@ void main() {
       expect(vm.collections.map((c) => c.id), ['created', 'a']);
     });
 
-    test('deleteCollection drops it from the list and the detail cache', () async {
-      final api = _FakeCollectionsHttp(collections: [_summary('a'), _summary('b')]);
-      final vm = CollectionsViewModel(api);
-      await vm.loadCollections();
-      await vm.loadCollectionDetail('a');
+    test(
+      'deleteCollection drops it from the list and the detail cache',
+      () async {
+        final api = _FakeCollectionsHttp(
+          collections: [_summary('a'), _summary('b')],
+        );
+        final vm = CollectionsViewModel(api);
+        await vm.loadCollections();
+        await vm.loadCollectionDetail('a');
 
-      await vm.deleteCollection('a');
+        await vm.deleteCollection('a');
 
-      expect(vm.collections.map((c) => c.id), ['b']);
-      expect(vm.detailFor('a'), isNull);
-    });
+        expect(vm.collections.map((c) => c.id), ['b']);
+        expect(vm.detailFor('a'), isNull);
+      },
+    );
 
     test('removeReel drops the reel and decrements the count', () async {
-      final api = _FakeCollectionsHttp(collections: [_summary('a', itemCount: 2)]);
-      api.detailQueue.add(
-        _detail('a', reelIds: ['r1', 'r2'], itemCount: 2),
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a', itemCount: 2)],
       );
+      api.detailQueue.add(_detail('a', reelIds: ['r1', 'r2'], itemCount: 2));
       final vm = CollectionsViewModel(api);
       await vm.loadCollectionDetail('a');
 
@@ -212,10 +225,7 @@ void main() {
       final detailBefore = api.detailCalls;
       final listBefore = api.getCollectionsCalls;
 
-      final added = await vm.addReels(
-        collectionId: 'a',
-        reelIds: const ['r9'],
-      );
+      final added = await vm.addReels(collectionId: 'a', reelIds: const ['r9']);
 
       expect(added, 1);
       expect(api.detailCalls, greaterThan(detailBefore));
@@ -274,7 +284,9 @@ void main() {
     });
 
     test('leave removes it from the list and the detail cache', () async {
-      final api = _FakeCollectionsHttp(collections: [_summary('a'), _summary('b')]);
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a'), _summary('b')],
+      );
       final vm = CollectionsViewModel(api);
       await vm.loadCollections();
       await vm.loadCollectionDetail('a');
@@ -474,13 +486,21 @@ class _FakeCollectionsHttp implements CollectionsHttp {
     required String role,
   }) async {
     if (mutationError != null) throw mutationError!;
-    return CollectionInvite(url: 'https://reelpin.in/c/invite/x', token: 'x', role: role);
+    return CollectionInvite(
+      url: 'https://reelpin.in/c/invite/x',
+      token: 'x',
+      role: role,
+    );
   }
 
   @override
   Future<CollectionSummary> acceptCollectionInvite(String token) async {
     if (mutationError != null) throw mutationError!;
-    return const CollectionSummary(id: 'joined', name: 'Joined', role: 'editor');
+    return const CollectionSummary(
+      id: 'joined',
+      name: 'Joined',
+      role: 'editor',
+    );
   }
 
   @override
