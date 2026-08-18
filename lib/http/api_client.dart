@@ -79,24 +79,22 @@ class ApiClient
     String userId = 'default-user',
     void Function(ProcessingJob job)? onJobUpdate,
   }) async {
+    // Only the enqueue is guarded: the 404/405 fallback exists because older
+    // backends lack the endpoint, and polling has nothing to do with that.
+    // Returning the poll from inside the try also left its errors uncaught,
+    // which is what the analyzer flags.
+    ProcessingJob job;
     try {
-      final job = await _enqueueReelProcessing(url, userId: userId);
-      return _waitForProcessingJob(
-        job.id,
-        initialJob: job,
-        onJobUpdate: onJobUpdate,
-      );
+      job = await _enqueueReelProcessing(url, userId: userId);
     } on ApiException catch (e) {
-      if (e.statusCode == 404 || e.statusCode == 405) {
-        final job = await _startProcessReelJob(url, userId: userId);
-        return _waitForProcessingJob(
-          job.id,
-          initialJob: job,
-          onJobUpdate: onJobUpdate,
-        );
-      }
-      rethrow;
+      if (e.statusCode != 404 && e.statusCode != 405) rethrow;
+      job = await _startProcessReelJob(url, userId: userId);
     }
+    return _waitForProcessingJob(
+      job.id,
+      initialJob: job,
+      onJobUpdate: onJobUpdate,
+    );
   }
 
   @override
