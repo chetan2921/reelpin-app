@@ -174,7 +174,7 @@ class ShareReceiverActivity : Activity() {
             ).apply { setMargins(dp(24), dp(16), dp(24), dp(4)) }
             setOnClickListener {
                 dialog.dismiss()
-                submit(sharedUrl, selected.toList())
+                submit(sharedPayload, selected.toList())
             }
         }
         root.addView(action)
