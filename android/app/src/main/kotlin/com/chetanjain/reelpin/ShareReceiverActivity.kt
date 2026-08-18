@@ -44,13 +44,28 @@ class ShareReceiverActivity : Activity() {
     private companion object {
         /** AppTheme.shadowOffset — 4dp, zero blur. */
         const val SHADOW_DP = 4
+        const val EXTRA_ALREADY_HANDLED = "extra_already_handled"
         const val ACCENT_YELLOW = 0xFFFFD600.toInt()
     }
 
     private data class ShareCollection(val id: String, val name: String, val image: String?)
 
+    /** One share, one enqueue: the dialog can reach submit() from its action
+     *  and from its cancel listener, and each enqueue toasts. */
+    private var submitted = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A recreated activity is handed the same share intent again. This
+        // has no android:configChanges, so anything that recreates it — a
+        // rotation, a theme or font-scale change, the system reclaiming it
+        // behind the sharing app — used to enqueue the share a second time
+        // and toast twice. The share was already dealt with by the instance
+        // that was recreated, so there is nothing left to do.
+        if (savedInstanceState != null) {
+            finishQuietly()
+            return
+        }
         handleIntent(intent)
     }
 
@@ -65,6 +80,15 @@ class ShareReceiverActivity : Activity() {
     }
 
     private fun handleIntent(intent: Intent) {
+        // singleTask can re-deliver an intent this instance has already acted
+        // on. The flag rides on the intent itself, so it survives the
+        // redelivery that a field on the activity would not.
+        if (intent.getBooleanExtra(EXTRA_ALREADY_HANDLED, false)) {
+            finishQuietly()
+            return
+        }
+        intent.putExtra(EXTRA_ALREADY_HANDLED, true)
+
         // Forward the whole share payload; the backend extracts the URL and
         // decides what is supported, so there is no host gate here.
         val payload = ShareIntentParser.extractPayload(this, intent)
@@ -334,6 +358,12 @@ class ShareReceiverActivity : Activity() {
         ).toInt()
 
     private fun submit(sharedPayload: String, collectionIds: List<String>) {
+        if (submitted) {
+            finishQuietly()
+            return
+        }
+        submitted = true
+
         val prefs = applicationContext.getSharedPreferences(
             ShareEnqueueService.PREFS_NAME,
             Context.MODE_PRIVATE
