@@ -1,24 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class ThemeViewModel extends ChangeNotifier with WidgetsBindingObserver {
+/// Light unless the user has picked dark.
+///
+/// The app used to fall back to the system setting, so it opened dark for
+/// anyone whose phone was dark — including people who had never expressed a
+/// preference about the app itself. Light is now the default and dark is a
+/// choice, which is why nothing here watches platform brightness any more.
+class ThemeViewModel extends ChangeNotifier {
   static const _themeKey = 'theme_mode_is_dark';
-  static const _themeOverrideKey = 'theme_mode_has_explicit_override';
 
-  bool? _savedIsDarkMode;
-  bool _hasExplicitOverride = false;
+  bool _isDarkMode = false;
 
-  ThemeViewModel() {
-    WidgetsBinding.instance.addObserver(this);
-  }
+  bool get isDarkMode => _isDarkMode;
 
-  bool get isDarkMode => _hasExplicitOverride
-      ? (_savedIsDarkMode ?? _platformBrightness == Brightness.dark)
-      : _platformBrightness == Brightness.dark;
-
-  ThemeMode get themeMode => _hasExplicitOverride
-      ? ((_savedIsDarkMode ?? false) ? ThemeMode.dark : ThemeMode.light)
-      : ThemeMode.system;
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
   IconData get themeIcon => isDarkMode ? Icons.dark_mode : Icons.light_mode;
 
@@ -27,13 +23,11 @@ class ThemeViewModel extends ChangeNotifier with WidgetsBindingObserver {
   String get nextThemeLabel =>
       isDarkMode ? 'SWITCH TO LIGHT' : 'SWITCH TO DARK';
 
-  Brightness get _platformBrightness =>
-      WidgetsBinding.instance.platformDispatcher.platformBrightness;
-
+  /// A stored `true` is someone who chose dark before this change, so their
+  /// choice survives; everyone else lands on light.
   Future<void> loadPreference() async {
     final prefs = await SharedPreferences.getInstance();
-    _hasExplicitOverride = prefs.getBool(_themeOverrideKey) ?? false;
-    _savedIsDarkMode = _hasExplicitOverride ? prefs.getBool(_themeKey) : null;
+    _isDarkMode = prefs.getBool(_themeKey) ?? false;
     notifyListeners();
   }
 
@@ -42,25 +36,10 @@ class ThemeViewModel extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> setDarkMode(bool value) async {
-    _hasExplicitOverride = true;
-    _savedIsDarkMode = value;
+    _isDarkMode = value;
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_themeKey, value);
-    await prefs.setBool(_themeOverrideKey, true);
-  }
-
-  @override
-  void didChangePlatformBrightness() {
-    if (!_hasExplicitOverride) {
-      notifyListeners();
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
   }
 }

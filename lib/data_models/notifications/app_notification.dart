@@ -10,6 +10,7 @@ enum AppNotificationTarget {
   discover,
   profile,
   appUpdate,
+  collection,
 }
 
 enum AppNotificationOpenSource {
@@ -31,6 +32,7 @@ class AppNotification {
     this.jobId,
     this.announcementId,
     this.campaignId,
+    this.collectionId,
   });
 
   final String title;
@@ -43,6 +45,7 @@ class AppNotification {
   final String? jobId;
   final String? announcementId;
   final String? campaignId;
+  final String? collectionId;
 
   bool get isReelReady => target == AppNotificationTarget.reelDetail;
 
@@ -84,6 +87,23 @@ class AppNotification {
           notificationId: notificationId,
           reelId: reelId,
           jobId: jobId,
+        );
+      }
+    }
+
+    if (schemaVersion == '1' &&
+        type == 'collection_update' &&
+        target == 'collection') {
+      final collectionId = _nonEmpty(normalized['collection_id']);
+      if (notificationId != null && collectionId != null) {
+        return AppNotification(
+          title: resolvedTitle,
+          body: resolvedBody,
+          target: AppNotificationTarget.collection,
+          isMalformed: false,
+          data: normalized,
+          notificationId: notificationId,
+          collectionId: collectionId,
         );
       }
     }

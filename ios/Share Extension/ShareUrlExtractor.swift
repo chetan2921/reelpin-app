@@ -2,14 +2,6 @@ import Foundation
 
 struct ShareUrlExtractor {
   private static let urlCandidatePattern = #"https?://[^\s<>"']+"#
-  private static let videoIdPattern = #"^[A-Za-z0-9_-]+$"#
-  private static let tiktokPathPattern = #"^[A-Za-z0-9@._/\-]+$"#
-  /// Pinterest runs a per-country domain (pinterest.ca, pinterest.co.uk,
-  /// pinterest.com.au) and serves them from regional subdomains such as
-  /// in.pinterest.com. Anchoring both ends keeps lookalikes like
-  /// pinterest.com.example.com out.
-  private static let pinterestHostPattern =
-    #"^(?:[a-z0-9-]+\.)*pinterest\.(?:com|net|info|[a-z]{2}|(?:com|co)\.[a-z]{2})$"#
   private static let trailingPunctuation = Set<Character>([".", ",", "!", "?", ";", ":", ")", "]", "}", "\""])
 
   static func extractSupportedUrl(from text: String) -> String? {
@@ -35,107 +27,20 @@ struct ShareUrlExtractor {
     return nil
   }
 
+  /// Which platforms are supported is the backend's decision: the enqueue
+  /// endpoint rejects unsupported URLs with a specific message. Keeping an
+  /// allowlist here too only meant a new platform needed an app release.
   private static func isSupportedUrl(_ value: String) -> Bool {
     guard
       let components = URLComponents(string: value),
       let host = components.host?.lowercased(),
-      !host.isEmpty
+      !host.isEmpty,
+      let scheme = components.scheme?.lowercased()
     else {
       return false
     }
 
-    return isInstagramUrl(components, host: host) ||
-      isTikTokUrl(components, host: host) ||
-      isYoutubeUrl(components, host: host) ||
-      isXUrl(host: host) ||
-      isPinterestUrl(host: host) ||
-      isRedditUrl(host: host) ||
-      isLinkedInUrl(host: host)
-  }
-
-  private static func isInstagramUrl(_ components: URLComponents, host: String) -> Bool {
-    guard host == "instagram.com" || host == "www.instagram.com" else {
-      return false
-    }
-    let segments = pathSegments(components)
-    guard segments.count >= 2 else {
-      return false
-    }
-
-    let contentType = segments[0].lowercased()
-    return (contentType == "reel" || contentType == "p" || contentType == "tv") &&
-      matches(segments[1], pattern: videoIdPattern)
-  }
-
-  private static func isTikTokUrl(_ components: URLComponents, host: String) -> Bool {
-    guard host == "tiktok.com" || host == "vt.tiktok.com" || host == "vm.tiktok.com" else {
-      return false
-    }
-    let path = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-    return !path.isEmpty && matches(path, pattern: tiktokPathPattern)
-  }
-
-  private static func isYoutubeUrl(_ components: URLComponents, host: String) -> Bool {
-    let segments = pathSegments(components)
-    if host == "youtu.be" {
-      return segments.first.map { matches($0, pattern: videoIdPattern) } == true
-    }
-    guard host == "youtube.com" || host == "www.youtube.com" || host == "m.youtube.com" else {
-      return false
-    }
-    if segments.count >= 2 &&
-      segments[0].lowercased() == "shorts" &&
-      matches(segments[1], pattern: videoIdPattern) {
-      return true
-    }
-    return components.path.lowercased() == "/watch" &&
-      components.queryItems?.first { $0.name.lowercased() == "v" }
-        .flatMap(\.value)
-        .map { matches($0, pattern: videoIdPattern) } == true
-  }
-
-  private static func isXUrl(host: String) -> Bool {
-    let normalizedHost = withoutMobileOrWebPrefix(host)
-    return normalizedHost == "x.com" ||
-      normalizedHost == "twitter.com" ||
-      normalizedHost == "t.co"
-  }
-
-  // Pinterest, Reddit, and LinkedIn are matched on host alone, the way X is:
-  // the backend owns the path rules and returns a far better message than a
-  // silent "no supported link found" from the share sheet.
-  private static func isPinterestUrl(host: String) -> Bool {
-    host == "pin.it" || matches(host, pattern: pinterestHostPattern)
-  }
-
-  private static func isRedditUrl(host: String) -> Bool {
-    host == "redd.it" || isHostOrSubdomain(host, of: "reddit.com")
-  }
-
-  private static func isLinkedInUrl(host: String) -> Bool {
-    isHostOrSubdomain(host, of: "linkedin.com")
-  }
-
-  private static func isHostOrSubdomain(_ host: String, of domain: String) -> Bool {
-    host == domain || host.hasSuffix(".\(domain)")
-  }
-
-  private static func withoutMobileOrWebPrefix(_ host: String) -> String {
-    for prefix in ["www.", "mobile.", "m."] where host.hasPrefix(prefix) {
-      return String(host.dropFirst(prefix.count))
-    }
-    return host
-  }
-
-  private static func pathSegments(_ components: URLComponents) -> [String] {
-    components.path
-      .split(separator: "/")
-      .map(String.init)
-      .filter { !$0.isEmpty }
-  }
-
-  private static func matches(_ value: String, pattern: String) -> Bool {
-    value.range(of: pattern, options: .regularExpression) != nil
+    return scheme == "http" || scheme == "https"
   }
 
   private static func trimTrailingPunctuation(_ value: String) -> String {

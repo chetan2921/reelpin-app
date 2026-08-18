@@ -28,6 +28,8 @@ class MainActivity : FlutterActivity() {
                             .putString(ShareEnqueueService.KEY_BASE_URL, arg(call, "baseUrl"))
                             .putString(ShareEnqueueService.KEY_PUSH_TOKEN, arg(call, "pushToken"))
                             .putString(ShareEnqueueService.KEY_PUSH_PLATFORM, arg(call, "pushPlatform"))
+                            .putString(ShareEnqueueService.KEY_COLLECTIONS, arg(call, "collections"))
+                            .putString(ShareEnqueueService.KEY_COLLECTIONS_DIR, arg(call, "collectionsDir"))
                             .commit()
                         result.success(true)
                     }
@@ -37,8 +39,15 @@ class MainActivity : FlutterActivity() {
                             .remove(ShareEnqueueService.KEY_BASE_URL)
                             .remove(ShareEnqueueService.KEY_PUSH_TOKEN)
                             .remove(ShareEnqueueService.KEY_PUSH_PLATFORM)
+                            .remove(ShareEnqueueService.KEY_COLLECTIONS)
+                            .remove(ShareEnqueueService.KEY_COLLECTIONS_DIR)
                             .commit()
                         result.success(true)
+                    }
+                    "shareAssetsDir" -> {
+                        val dir = File(applicationContext.filesDir, "share_assets")
+                        dir.mkdirs()
+                        result.success(dir.absolutePath)
                     }
                     "drainPending" -> {
                         val pending = prefs.getString(ShareEnqueueService.KEY_PENDING_URLS, null)
@@ -52,6 +61,7 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "shareReelCard" -> shareReelCard(call, result)
+                    "shareText" -> shareText(call, result)
                     else -> result.notImplemented()
                 }
             }
@@ -66,6 +76,29 @@ class MainActivity : FlutterActivity() {
 
     private fun arg(call: MethodCall, key: String): String {
         return call.argument<String>(key)?.trim() ?: ""
+    }
+
+    /** Text-only share for collection links, which have no card image. */
+    private fun shareText(call: MethodCall, result: MethodChannel.Result) {
+        val text = arg(call, "text")
+        val subject = arg(call, "subject")
+
+        if (text.isEmpty()) {
+            result.error("bad_args", "Missing share text", null)
+            return
+        }
+
+        try {
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                if (subject.isNotEmpty()) putExtra(Intent.EXTRA_SUBJECT, subject)
+            }
+            startActivity(Intent.createChooser(sendIntent, "Share collection"))
+            result.success(true)
+        } catch (error: Exception) {
+            result.error("share_failed", error.message, null)
+        }
     }
 
     private fun shareReelCard(call: MethodCall, result: MethodChannel.Result) {

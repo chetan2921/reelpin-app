@@ -74,7 +74,10 @@ class _PlatformFilterTile extends StatelessWidget {
                     color: isSelected
                         ? AppColors.bg(context)
                         : AppColors.surfaceElevatedColor(context),
-                    border: Border.all(color: AppColors.fg(context), width: 1.5),
+                    border: Border.all(
+                      color: AppColors.fg(context),
+                      width: 1.5,
+                    ),
                   ),
                   child: Text(
                     '$count',

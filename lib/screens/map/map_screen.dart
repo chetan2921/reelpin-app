@@ -13,6 +13,7 @@ import 'package:reelpin/providers.dart';
 import 'package:reelpin/router.dart';
 import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
@@ -759,7 +760,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         color: catColor.computeLuminance() > 0.5
                             ? AppColors.black
                             : AppColors.white,
-                        fontSize: 9,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -949,83 +950,34 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  void _confirmRemoveMapItem(BuildContext context, MapItem item) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bg(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: BorderSide(
-            color: AppColors.fg(context),
-            width: AppTheme.borderWidth,
-          ),
-        ),
-        title: Text(
-          'REMOVE THIS PIN?',
+  Future<void> _confirmRemoveMapItem(BuildContext context, MapItem item) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Remove this pin?',
+      message: 'This only hides the place from your map.',
+      confirmLabel: 'REMOVE',
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final success = await ref.read(mapViewModelProvider).removeMapItem(item);
+    if (!context.mounted) return;
+
+    final vm = ref.read(mapViewModelProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'PIN REMOVED'
+              : vm.mapPinActionError ?? 'COULD NOT REMOVE THIS PIN',
           style: GoogleFonts.spaceMono(
-            color: AppColors.fg(context),
-            fontSize: 16,
+            color: AppColors.white,
             fontWeight: FontWeight.w700,
           ),
         ),
-        content: Text(
-          'This only hides the place from your map.',
-          style: GoogleFonts.spaceMono(
-            color: AppColors.textSec(context),
-            fontSize: 13,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'CANCEL',
-              style: GoogleFonts.spaceMono(
-                color: AppColors.textSec(context),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final success = await ref
-                  .read(mapViewModelProvider)
-                  .removeMapItem(item);
-              if (!context.mounted) return;
-
-              final vm = ref.read(mapViewModelProvider);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    success
-                        ? 'PIN REMOVED'
-                        : vm.mapPinActionError ?? 'COULD NOT REMOVE THIS PIN',
-                    style: GoogleFonts.spaceMono(
-                      color: AppColors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  backgroundColor: success
-                      ? AppColors.black
-                      : AppColors.destructive,
-                ),
-              );
-            },
-            child: Text(
-              'REMOVE',
-              style: GoogleFonts.spaceMono(
-                color: AppColors.destructive,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
+        backgroundColor: success ? AppColors.black : AppColors.destructive,
       ),
     );
   }
-
 
   @override
   void dispose() {

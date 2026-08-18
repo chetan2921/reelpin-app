@@ -319,8 +319,15 @@ class ReelRepository extends ChangeNotifier {
     return reel;
   }
 
-  Future<ProcessingJob> enqueueReelProcessing(String url) {
-    return _apiService.enqueueReelProcessing(url, userId: _currentUserId);
+  Future<ProcessingJob> enqueueReelProcessing(
+    String url, {
+    List<String> collectionIds = const [],
+  }) {
+    return _apiService.enqueueReelProcessing(
+      url,
+      userId: _currentUserId,
+      collectionIds: collectionIds,
+    );
   }
 
   Future<ReelFiltersResponse> getFilters({

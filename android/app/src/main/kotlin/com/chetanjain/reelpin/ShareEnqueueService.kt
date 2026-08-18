@@ -17,6 +17,7 @@ class ShareEnqueueService : JobIntentService() {
     override fun onHandleWork(intent: Intent) {
         val sharedPayload = intent.getStringExtra(EXTRA_SHARED_PAYLOAD)?.trim()
         if (sharedPayload.isNullOrEmpty()) return
+        val collectionIds = intent.getStringArrayListExtra(EXTRA_COLLECTION_IDS) ?: arrayListOf()
 
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val shareToken = prefs.getString(KEY_SHARE_TOKEN, null)?.trim()
@@ -27,11 +28,11 @@ class ShareEnqueueService : JobIntentService() {
         // No background credential yet (first run before the app minted one, or
         // signed out): capture the URL for the app to enqueue on next open.
         if (shareToken.isNullOrEmpty() || baseUrl.isNullOrEmpty()) {
-            savePendingShare(prefs, sharedPayload)
+            savePendingShare(prefs, sharedPayload, collectionIds)
             return
         }
 
-        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedPayload) }
+        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedPayload, collectionIds) }
             .getOrDefault(ShareRequestResult.FAILURE)
         when (result) {
             ShareRequestResult.SUCCESS -> {
@@ -40,16 +41,16 @@ class ShareEnqueueService : JobIntentService() {
             }
             ShareRequestResult.INVALID_SHARE_TOKEN -> {
                 prefs.edit().remove(KEY_SHARE_TOKEN).commit()
-                savePendingShare(prefs, sharedPayload)
+                savePendingShare(prefs, sharedPayload, collectionIds)
                 showToast("Open ReelPin and sign in again.")
             }
             ShareRequestResult.UNSUPPORTED -> showToast("ReelPin can't save this link.")
             ShareRequestResult.RATE_LIMITED -> {
-                savePendingShare(prefs, sharedPayload)
+                savePendingShare(prefs, sharedPayload, collectionIds)
                 showToast("You've hit your saving limit. We'll retry later.")
             }
             ShareRequestResult.FAILURE -> {
-                savePendingShare(prefs, sharedPayload)
+                savePendingShare(prefs, sharedPayload, collectionIds)
                 showToast("Couldn't reach ReelPin. We'll retry when you open the app.")
             }
         }
@@ -59,6 +60,7 @@ class ShareEnqueueService : JobIntentService() {
         baseUrl: String,
         shareToken: String,
         sharedPayload: String,
+        collectionIds: List<String>,
     ): ShareRequestResult {
         val connection = (URL(apiUrl(baseUrl, "processing-jobs/reels")).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -70,7 +72,11 @@ class ShareEnqueueService : JobIntentService() {
         }
         try {
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
-                it.write(JSONObject().put("raw_payload_text", sharedPayload).toString())
+                val body = JSONObject().put("raw_payload_text", sharedPayload)
+                if (collectionIds.isNotEmpty()) {
+                    body.put("collection_ids", JSONArray(collectionIds))
+                }
+                it.write(body.toString())
             }
             val statusCode = connection.responseCode
             val responseBody = runCatching {
@@ -109,14 +115,25 @@ class ShareEnqueueService : JobIntentService() {
         }
     }
 
-    private fun savePendingShare(prefs: SharedPreferences, url: String) {
+    /** Stores the collections with the URL. Dropping them here filed the reel
+     *  into the library only, with no sign anything was lost, whenever the
+     *  service could not post the share itself. */
+    private fun savePendingShare(
+        prefs: SharedPreferences,
+        sharedPayload: String,
+        collectionIds: List<String> = emptyList(),
+    ) {
         val existing = prefs.getString(KEY_PENDING_URLS, "[]") ?: "[]"
         val array = try {
             JSONArray(existing)
         } catch (e: Exception) {
             JSONArray()
         }
-        array.put(url)
+        val entry = JSONObject().put("raw_payload_text", sharedPayload)
+        if (collectionIds.isNotEmpty()) {
+            entry.put("collection_ids", JSONArray(collectionIds))
+        }
+        array.put(entry)
         // commit() (not apply()) so the value is on disk before the Flutter app
         // reads it back to drain pending shares.
         prefs.edit().putString(KEY_PENDING_URLS, array.toString()).commit()
@@ -138,6 +155,7 @@ class ShareEnqueueService : JobIntentService() {
     companion object {
         private const val JOB_ID = 47231
         private const val EXTRA_SHARED_PAYLOAD = "extra_shared_payload"
+        private const val EXTRA_COLLECTION_IDS = "extra_collection_ids"
         // Native-owned SharedPreferences file. The Flutter shared_preferences
         // plugin now stores values in a DataStore that native code cannot read,
         // so the app pushes these values here via a MethodChannel (see
@@ -148,10 +166,19 @@ class ShareEnqueueService : JobIntentService() {
         const val KEY_PUSH_TOKEN = "push_token"
         const val KEY_PUSH_PLATFORM = "push_platform"
         const val KEY_PENDING_URLS = "pending_urls"
+        const val KEY_COLLECTIONS = "collections"
+        const val KEY_COLLECTIONS_DIR = "collections_dir"
 
-        fun enqueue(context: Context, sharedPayload: String) {
+        fun enqueue(
+            context: Context,
+            sharedPayload: String,
+            collectionIds: List<String> = emptyList(),
+        ) {
             val intent = Intent(context, ShareEnqueueService::class.java).apply {
                 putExtra(EXTRA_SHARED_PAYLOAD, sharedPayload)
+                if (collectionIds.isNotEmpty()) {
+                    putStringArrayListExtra(EXTRA_COLLECTION_IDS, ArrayList(collectionIds))
+                }
             }
             enqueueWork(context, ShareEnqueueService::class.java, JOB_ID, intent)
         }

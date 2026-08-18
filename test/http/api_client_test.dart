@@ -168,6 +168,37 @@ void main() {
   );
 
   test(
+    'enqueueReelProcessing files the reel into the given collections',
+    () async {
+      Map<String, dynamic>? body;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          body = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({'id': 'job-1', 'status': 'queued'}),
+            202,
+          );
+        }),
+      );
+
+      await service.enqueueReelProcessing(
+        'https://instagram.com/reel/abc',
+        userId: 'user-123',
+        collectionIds: const ['col-1', 'col-2'],
+      );
+
+      // Without this the reel is saved to the library only, which is what a
+      // share that fell back to the app used to do.
+      expect(body, {
+        'url': 'https://instagram.com/reel/abc',
+        'collection_ids': ['col-1', 'col-2'],
+      });
+    },
+  );
+
+  test(
     'processReel returns an existing X saved item without another poll',
     () async {
       final requests = <Uri>[];
@@ -402,32 +433,35 @@ void main() {
     await service.recordNotificationOpened(notificationId: 'notification-123');
   });
 
-  test('getReelFilters sends auth header without user_id query param', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(
-          request.url.toString(),
-          'https://example.com/api/v1/reels/filters',
-        );
-        return http.Response(
-          jsonEncode({
-            'total_count': 0,
-            'platforms': <Map<String, Object?>>[],
-            'categories': <Map<String, Object?>>[],
-            'selected_preview_count': 0,
-          }),
-          200,
-        );
-      }),
-    );
+  test(
+    'getReelFilters sends auth header without user_id query param',
+    () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(
+            request.url.toString(),
+            'https://example.com/api/v1/reels/filters',
+          );
+          return http.Response(
+            jsonEncode({
+              'total_count': 0,
+              'platforms': <Map<String, Object?>>[],
+              'categories': <Map<String, Object?>>[],
+              'selected_preview_count': 0,
+            }),
+            200,
+          );
+        }),
+      );
 
-    final response = await service.getReelFilters(userId: 'user-123');
+      final response = await service.getReelFilters(userId: 'user-123');
 
-    expect(response.totalCount, 0);
-  });
+      expect(response.totalCount, 0);
+    },
+  );
 
   test('getReelFilters forwards the selection as query params', () async {
     final service = ApiClient(

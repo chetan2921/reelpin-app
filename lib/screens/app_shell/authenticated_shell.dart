@@ -246,6 +246,9 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
           AppLogger.error('Store listing launch failed: $e');
         }
       },
+      openCollection: (collectionId) async {
+        await Navigator.of(context).push(collectionDetailRoute(collectionId));
+      },
     );
   }
 

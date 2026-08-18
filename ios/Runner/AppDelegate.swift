@@ -17,6 +17,8 @@ import receive_sharing_intent
   private let pushTokenKey = "push_token"
   private let pushPlatformKey = "push_platform"
   private let pendingSharesKey = "pending_urls"
+  private let collectionsKey = "collections"
+  private let collectionsDirKey = "collections_dir"
   private var shareHandoffChannel: FlutterMethodChannel?
   private let reelShareChannelName = "com.chetanjain.reelpin/reel_share"
   private var reelShareChannel: FlutterMethodChannel?
@@ -125,6 +127,10 @@ import receive_sharing_intent
       case "clear":
         self.clearShareHandoffValues()
         result(true)
+      case "shareAssetsDir":
+        // The Share Extension is a separate sandbox, so rendered artwork has to
+        // live in the App Group container for it to be readable at all.
+        result(self.shareAssetsDirectory())
       case "drainPending":
         result(self.drainPendingShares())
       default:
@@ -159,32 +165,57 @@ import receive_sharing_intent
         let text = (values["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let subject = (values["subject"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let items: [Any] = text.isEmpty ? [image] : [image, text]
-        let activity = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        if !subject.isEmpty {
-          activity.setValue(subject, forKey: "subject")
-        }
-        guard let rootViewController = self.currentRootViewController() else {
-          result(FlutterError(code: "no_presenter", message: "No view controller available", details: nil))
+        self.presentShareSheet(items: items, subject: subject, result: result)
+
+      case "shareText":
+        guard
+          let values = call.arguments as? [String: Any],
+          let text = (values["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !text.isEmpty
+        else {
+          result(FlutterError(code: "bad_args", message: "Missing share text", details: nil))
           return
         }
-        let presenter = self.topViewController(from: rootViewController)
-        if let popover = activity.popoverPresentationController {
-          popover.sourceView = presenter.view
-          popover.sourceRect = CGRect(
-            x: presenter.view.bounds.midX,
-            y: presenter.view.bounds.midY,
-            width: 1,
-            height: 1
-          )
-          popover.permittedArrowDirections = []
-        }
-        presenter.present(activity, animated: true)
-        result(true)
+
+        let subject = (values["subject"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.presentShareSheet(items: [text], subject: subject, result: result)
+
       default:
         result(FlutterMethodNotImplemented)
       }
     }
     reelShareChannel = channel
+  }
+
+  /// Shared by shareReelCard and shareText: presents UIActivityViewController
+  /// from the top-most controller, with the iPad popover anchored so it does
+  /// not crash on a nil source view.
+  private func presentShareSheet(
+    items: [Any],
+    subject: String,
+    result: @escaping FlutterResult
+  ) {
+    let activity = UIActivityViewController(activityItems: items, applicationActivities: nil)
+    if !subject.isEmpty {
+      activity.setValue(subject, forKey: "subject")
+    }
+    guard let rootViewController = currentRootViewController() else {
+      result(FlutterError(code: "no_presenter", message: "No view controller available", details: nil))
+      return
+    }
+    let presenter = topViewController(from: rootViewController)
+    if let popover = activity.popoverPresentationController {
+      popover.sourceView = presenter.view
+      popover.sourceRect = CGRect(
+        x: presenter.view.bounds.midX,
+        y: presenter.view.bounds.midY,
+        width: 1,
+        height: 1
+      )
+      popover.permittedArrowDirections = []
+    }
+    presenter.present(activity, animated: true)
+    result(true)
   }
 
   func configureDeviceMetadataChannel(binaryMessenger: FlutterBinaryMessenger) {
@@ -247,6 +278,8 @@ import receive_sharing_intent
     set(defaults: defaults, key: baseUrlKey, value: values["baseUrl"])
     set(defaults: defaults, key: pushTokenKey, value: values["pushToken"])
     set(defaults: defaults, key: pushPlatformKey, value: values["pushPlatform"])
+    set(defaults: defaults, key: collectionsKey, value: values["collections"])
+    set(defaults: defaults, key: collectionsDirKey, value: values["collectionsDir"])
     defaults.synchronize()
   }
 
@@ -256,7 +289,21 @@ import receive_sharing_intent
     defaults.removeObject(forKey: baseUrlKey)
     defaults.removeObject(forKey: pushTokenKey)
     defaults.removeObject(forKey: pushPlatformKey)
+    defaults.removeObject(forKey: collectionsKey)
+    defaults.removeObject(forKey: collectionsDirKey)
     defaults.synchronize()
+  }
+
+  private func shareAssetsDirectory() -> String? {
+    guard
+      let appGroupId = Bundle.main.object(forInfoDictionaryKey: "AppGroupId") as? String,
+      let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId)
+    else {
+      return nil
+    }
+    let dir = container.appendingPathComponent("share_assets", isDirectory: true)
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    return dir.path
   }
 
   private func drainPendingShares() -> String? {

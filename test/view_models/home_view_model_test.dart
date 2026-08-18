@@ -48,31 +48,37 @@ void main() {
     expect(repository.lastInitialCategory, isNull);
   });
 
-  test('the category row refines the platform instead of replacing it', () async {
-    vm.applyFilters(platform: 'instagram');
-    await pumpEventQueue();
+  test(
+    'the category row refines the platform instead of replacing it',
+    () async {
+      vm.applyFilters(platform: 'instagram');
+      await pumpEventQueue();
 
-    vm.filterByCategory('Food');
-    await pumpEventQueue();
+      vm.filterByCategory('Food');
+      await pumpEventQueue();
 
-    // Tapping a category chip must not silently widen the filter back out to
-    // every platform.
-    expect(vm.selectedPlatform, 'instagram');
-    expect(vm.selectedCategory, 'Food');
-    expect(repository.lastInitialPlatform, 'instagram');
-    expect(repository.lastInitialCategory, 'Food');
-  });
+      // Tapping a category chip must not silently widen the filter back out to
+      // every platform.
+      expect(vm.selectedPlatform, 'instagram');
+      expect(vm.selectedCategory, 'Food');
+      expect(repository.lastInitialPlatform, 'instagram');
+      expect(repository.lastInitialCategory, 'Food');
+    },
+  );
 
-  test('re-tapping the active category clears it but keeps the platform', () async {
-    vm.applyFilters(platform: 'instagram', category: 'Food');
-    await pumpEventQueue();
+  test(
+    're-tapping the active category clears it but keeps the platform',
+    () async {
+      vm.applyFilters(platform: 'instagram', category: 'Food');
+      await pumpEventQueue();
 
-    vm.filterByCategory('Food');
-    await pumpEventQueue();
+      vm.filterByCategory('Food');
+      await pumpEventQueue();
 
-    expect(vm.selectedCategory, isNull);
-    expect(vm.selectedPlatform, 'instagram');
-  });
+      expect(vm.selectedCategory, isNull);
+      expect(vm.selectedPlatform, 'instagram');
+    },
+  );
 
   test('pagination carries the platform filter', () async {
     vm.applyFilters(platform: 'reddit', category: 'Movies');
@@ -85,11 +91,7 @@ void main() {
   });
 
   test('clearFilters drops every level', () async {
-    vm.applyFilters(
-      platform: 'x',
-      category: 'Sports',
-      subcategory: 'Tennis',
-    );
+    vm.applyFilters(platform: 'x', category: 'Sports', subcategory: 'Tennis');
     await pumpEventQueue();
 
     vm.clearFilters();

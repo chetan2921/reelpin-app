@@ -51,7 +51,7 @@ class SearchResultTile extends StatelessWidget {
                         reel.category.toUpperCase(),
                         style: GoogleFonts.spaceMono(
                           color: _contrastText(catColor),
-                          fontSize: layout.font(9),
+                          fontSize: layout.font(10),
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.3,
                         ),

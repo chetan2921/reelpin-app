@@ -13,6 +13,15 @@ class LibraryStats {
   final int totalCategories;
   final int totalSubcategories;
 
+  /// Mirrors [fromJson] so a cached copy restores exactly as it arrived.
+  Map<String, dynamic> toJson() => {
+    'total_reels': totalReels,
+    'total_pinned_locations': totalPinnedLocations,
+    'total_tags': totalTags,
+    'total_categories': totalCategories,
+    'total_subcategories': totalSubcategories,
+  };
+
   factory LibraryStats.fromJson(Map<String, dynamic> json) {
     return LibraryStats(
       totalReels: (json['total_reels'] as num?)?.toInt() ?? 0,

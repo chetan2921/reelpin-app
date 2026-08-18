@@ -106,6 +106,12 @@
 	<string>ReelPin uses your location to center the map near you and show saved places on the map.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>ReelPin sends notifications when saved reels finish processing and when new features are available.</string>
+	<!-- Attribution keys (NSUserTrackingUsageDescription,
+	     NSAdvertisingAttributionReportEndpoint, AttributionCopyEndpoint) are
+	     intentionally absent: Linkrunner ships in the binary but is never
+	     initialised without LINKRUNNER_TOKEN, so the app does no tracking and
+	     must not claim otherwise. Restore them together with
+	     PrivacyInfo.xcprivacy when the SDK is actually switched on. -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

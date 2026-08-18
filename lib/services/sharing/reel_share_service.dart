@@ -18,4 +18,16 @@ class ReelShareService {
       'subject': subject,
     });
   }
+
+  /// Opens the OS share sheet with text only — used for collection share and
+  /// invite links, which have no card image to attach.
+  static Future<void> shareText({
+    required String text,
+    required String subject,
+  }) {
+    return _channel.invokeMethod<void>('shareText', {
+      'text': text,
+      'subject': subject,
+    });
+  }
 }

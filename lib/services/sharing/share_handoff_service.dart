@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/env.dart';
 import 'package:reelpin/utils/app_logger.dart';
 
@@ -22,6 +25,9 @@ class ShareHandoffService {
   static const _pushTokenKey = 'share_handoff_push_token';
   static const _pushPlatformKey = 'share_handoff_push_platform';
   static const _shareTokenKey = 'share_handoff_share_token';
+  static const _collectionsKey = 'share_handoff_collections';
+  static const _collectionsDirKey = 'share_handoff_collections_dir';
+  static const _collectionPickerKey = 'share_handoff_collection_picker';
 
   bool get _supportsNativeHandoff =>
       !kIsWeb &&
@@ -68,6 +74,107 @@ class ShareHandoffService {
     }
     await prefs.setString(_baseUrlKey, nextBaseUrl);
     await _syncNative();
+  }
+
+  /// Whether a share into ReelPin stops to offer collections. On by default:
+  /// filing at share time is the point of the picker. Turning it off restores
+  /// the one-tap save for people who never file.
+  Future<bool> isCollectionPickerEnabled() async {
+    // Best-effort like the rest of this service: an unreadable store means the
+    // picker stays on, which is the behaviour the user did not ask to change.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_collectionPickerKey) ?? true;
+    } catch (e) {
+      AppLogger.error('Share collection picker preference read skipped: $e');
+      return true;
+    }
+  }
+
+  /// Persists the choice and re-syncs, so the next share honours it without
+  /// waiting for a collections reload.
+  Future<void> setCollectionPickerEnabled(
+    bool enabled,
+    List<CollectionSummary> collections, {
+    Future<Map<String, String>> Function({
+      required String directory,
+      required List<CollectionSummary> collections,
+    })?
+    renderTiles,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_collectionPickerKey, enabled);
+    await syncCollections(collections, renderTiles: renderTiles);
+  }
+
+  /// Mirrors the user's editable collections to native so the share sheet can
+  /// offer them with no network call. A share extension has a tiny time budget
+  /// and can be killed mid-request, so the picker reads this cached snapshot
+  /// rather than hitting the API.
+  ///
+  /// Only id and name are stored — it is a picker, not a detail view.
+  ///
+  /// With the picker turned off the snapshot is cleared rather than skipped:
+  /// an empty list is already how both platforms mean "save without asking",
+  /// so the preference needs no native code of its own.
+  /// [renderTiles] draws each collection's artwork into the directory it is
+  /// given and returns the file name per id. Injected because drawing a widget
+  /// is a component's job and this layer may not reach into one; a null
+  /// renderer simply syncs names without artwork.
+  Future<void> syncCollections(
+    List<CollectionSummary> collections, {
+    Future<Map<String, String>> Function({
+      required String directory,
+      required List<CollectionSummary> collections,
+    })?
+    renderTiles,
+  }) async {
+    final editable = await isCollectionPickerEnabled()
+        ? collections.where((c) => c.canEdit).toList(growable: false)
+        : const <CollectionSummary>[];
+
+    // Render the real folder tile to PNG so the native sheets show the same
+    // artwork as the SAVED tab rather than a native approximation.
+    var artwork = <String, String>{};
+    String? assetsDir;
+    if (editable.isNotEmpty && renderTiles != null) {
+      assetsDir = await _shareAssetsDirectory();
+      if (assetsDir != null) {
+        artwork = await renderTiles(
+          directory: assetsDir,
+          collections: editable,
+        );
+      }
+    }
+
+    final payload = editable
+        .map(
+          (c) => {
+            'id': c.id,
+            'name': c.name,
+            if (artwork[c.id] != null) 'image': artwork[c.id],
+          },
+        )
+        .toList(growable: false);
+    final encoded = payload.isEmpty ? '' : jsonEncode(payload);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (encoded.isEmpty) {
+        await prefs.remove(_collectionsKey);
+        await prefs.remove(_collectionsDirKey);
+      } else {
+        await prefs.setString(_collectionsKey, encoded);
+        if (assetsDir != null) {
+          await prefs.setString(_collectionsDirKey, assetsDir);
+        }
+      }
+      await _syncNative();
+    } catch (e) {
+      // The picker degrades to "save without a collection", which is the
+      // pre-existing behaviour. Never worth surfacing.
+      AppLogger.error('Collection share-target sync skipped: $e');
+    }
   }
 
   Future<void> syncPushToken({
@@ -122,6 +229,21 @@ class ShareHandoffService {
     }
   }
 
+  /// Where native wants rendered artwork written. On iOS this must be the App
+  /// Group container — the Share Extension is a separate sandbox and cannot
+  /// read the app's own documents directory.
+  Future<String?> _shareAssetsDirectory() async {
+    if (!_supportsNativeHandoff) return null;
+    try {
+      final dir = await _channel.invokeMethod<String>('shareAssetsDir');
+      final cleaned = dir?.trim();
+      return (cleaned == null || cleaned.isEmpty) ? null : cleaned;
+    } catch (e) {
+      AppLogger.error('Share assets dir lookup skipped: $e');
+      return null;
+    }
+  }
+
   Future<void> _syncNative() async {
     if (!_supportsNativeHandoff) return;
     try {
@@ -131,6 +253,8 @@ class ShareHandoffService {
         'baseUrl': prefs.getString(_baseUrlKey) ?? '',
         'pushToken': prefs.getString(_pushTokenKey) ?? '',
         'pushPlatform': prefs.getString(_pushPlatformKey) ?? '',
+        'collections': prefs.getString(_collectionsKey) ?? '',
+        'collectionsDir': prefs.getString(_collectionsDirKey) ?? '',
       });
     } catch (e) {
       AppLogger.error('Share handoff native sync skipped: $e');

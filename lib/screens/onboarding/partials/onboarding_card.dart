@@ -270,7 +270,7 @@ class _OnboardingCard extends StatelessWidget {
                                 color: step.accent.computeLuminance() > 0.5
                                     ? AppColors.black
                                     : AppColors.white,
-                                fontSize: layout.font(9),
+                                fontSize: layout.font(10),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -296,7 +296,7 @@ class _OnboardingCard extends StatelessWidget {
                                   highlight,
                                   style: GoogleFonts.spaceMono(
                                     color: AppColors.fg(context),
-                                    fontSize: layout.font(9),
+                                    fontSize: layout.font(10),
                                     fontWeight: FontWeight.w700,
                                     height: 1.3,
                                   ),

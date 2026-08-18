@@ -19,6 +19,12 @@ class HomeViewModel extends ChangeNotifier {
   List<Reel> _reels = [];
   bool _isLoading = false;
   bool _hasSettledFirstLoad = false;
+
+  /// Which filter the in-flight load is for, and a counter so a slow load for
+  /// an abandoned filter cannot overwrite a newer one.
+  String? _loadingCategory;
+  String? _loadingSubcategory;
+  int _loadRequest = 0;
   bool _isLoadingMore = false;
   String? _error;
   String? _selectedPlatform;
@@ -55,9 +61,19 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   Future<void> loadReels({bool forceRefresh = false}) async {
-    if (_isLoading) return;
+    // Only a load for the *same* filter is redundant. Bailing on any in-flight
+    // load meant tapping a second category while the first was still running
+    // silently did nothing at all — the tap looked ignored.
+    if (_isLoading &&
+        _loadingCategory == _selectedCategory &&
+        _loadingSubcategory == _selectedSubcategory) {
+      return;
+    }
 
+    final request = ++_loadRequest;
     _isLoading = true;
+    _loadingCategory = _selectedCategory;
+    _loadingSubcategory = _selectedSubcategory;
     _error = null;
     notifyListeners();
 
@@ -68,16 +84,21 @@ class HomeViewModel extends ChangeNotifier {
         category: _selectedCategory,
         subcategory: _selectedSubcategory,
       );
+      // A newer filter has been asked for since; its result is the one to show.
+      if (request != _loadRequest) return;
       _reels = List<Reel>.from(_repository.cachedReels);
     } catch (e) {
+      if (request != _loadRequest) return;
       _error = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load saved reels right now.',
       );
     } finally {
-      _isLoading = false;
-      _hasSettledFirstLoad = true;
-      notifyListeners();
+      if (request == _loadRequest) {
+        _isLoading = false;
+        _hasSettledFirstLoad = true;
+        notifyListeners();
+      }
     }
   }
 
@@ -169,12 +190,18 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
-  Future<ProcessingJob> enqueueReelProcessing(String url) async {
+  Future<ProcessingJob> enqueueReelProcessing(
+    String url, {
+    List<String> collectionIds = const [],
+  }) async {
     _error = null;
     notifyListeners();
 
     try {
-      return await _repository.enqueueReelProcessing(url);
+      return await _repository.enqueueReelProcessing(
+        url,
+        collectionIds: collectionIds,
+      );
     } catch (e) {
       _error = userFacingErrorMessage(
         e,

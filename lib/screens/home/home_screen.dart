@@ -16,6 +16,8 @@ import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/components/reels/category_badge.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
+import 'package:reelpin/components/common/confirm_dialog.dart';
+import 'package:reelpin/components/collections/add_to_collection_sheet.dart';
 
 part 'partials/filter_option.dart';
 part 'partials/platform_filter_tile.dart';
@@ -32,6 +34,53 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _didRequestInitialLoad = false;
+
+  /// Non-null once a long press has put the grid into selection mode. Empty
+  /// is still selection mode — the user can deselect everything and the bar
+  /// stays until they close it.
+  Set<String>? _selection;
+
+  bool get _isSelecting => _selection != null;
+
+  void _startSelection(String reelId) {
+    setState(() => _selection = {reelId});
+  }
+
+  void _toggleSelection(String reelId) {
+    final current = _selection;
+    if (current == null) return;
+    setState(() {
+      if (!current.remove(reelId)) current.add(reelId);
+    });
+  }
+
+  void _endSelection() {
+    setState(() => _selection = null);
+  }
+
+  Future<void> _addSelectionToCollection(HomeViewModel vm) async {
+    final ids = _selection?.toList(growable: false) ?? const <String>[];
+    if (ids.isEmpty) return;
+    await showAddToCollectionSheet(context, ids);
+    if (mounted) _endSelection();
+  }
+
+  Future<void> _deleteSelection(HomeViewModel vm) async {
+    final ids = _selection?.toList(growable: false) ?? const <String>[];
+    if (ids.isEmpty) return;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: ids.length == 1
+          ? 'Delete this pin?'
+          : 'Delete ${ids.length} pins?',
+      message: 'This action cannot be undone.',
+    );
+    if (confirmed != true) return;
+    for (final id in ids) {
+      await vm.deleteReel(id);
+    }
+    if (mounted) _endSelection();
+  }
 
   @override
   void initState() {
@@ -74,6 +123,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bg(context),
+      // At the top, not the bottom: the shell's own navigation bar sits over
+      // the bottom of this screen and was covering it.
+      appBar: _isSelecting
+          ? PreferredSize(
+              preferredSize: Size.fromHeight(AppLayout.of(context).gap(56)),
+              child: _SelectionBar(
+                count: _selection!.length,
+                onCancel: _endSelection,
+                onAdd: () => _addSelectionToCollection(vm),
+                onDelete: () => _deleteSelection(vm),
+              ),
+            )
+          : null,
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -477,10 +539,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: FadeInAnimation(
                   child: ReelCard(
                     reel: reel,
+                    selected: _selection?.contains(reel.id),
                     onTap: () {
+                      if (_isSelecting) {
+                        _toggleSelection(reel.id);
+                        return;
+                      }
                       Navigator.push(context, reelDetailSlideRoute(reel));
                     },
                     onDelete: () => vm.deleteReel(reel.id),
+                    onLongPress: () => _startSelection(reel.id),
                   ),
                 ),
               ),
@@ -682,7 +750,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.spaceMono(
               color: resolvedTextColor.withAlpha(190),
-              fontSize: layout.font(9),
+              fontSize: layout.font(10),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1007,13 +1075,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             return FractionallySizedBox(
               heightFactor: 0.82,
               child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.bg(context),
-                  border: Border.all(
-                    color: AppColors.fg(context),
-                    width: AppTheme.borderWidth,
-                  ),
-                ),
+                // No border: fg is white in dark mode, which drew a hard
+                // white frame around the sheet. Every sheet is frameless.
+                decoration: BoxDecoration(color: AppColors.bg(context)),
                 child: SafeArea(
                   top: false,
                   child: Column(
@@ -1724,8 +1788,145 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         '$count',
         style: GoogleFonts.spaceMono(
           color: textColor,
-          fontSize: layout.font(9),
+          fontSize: layout.font(10),
           fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+/// The action bar shown while the grid is in selection mode.
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.count,
+    required this.onCancel,
+    required this.onAdd,
+    required this.onDelete,
+  });
+
+  final int count;
+  final VoidCallback onCancel;
+  final VoidCallback onAdd;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    final hasSelection = count > 0;
+    return Container(
+      color: AppColors.bg(context),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            layout.inset(14),
+            layout.gap(10),
+            layout.inset(14),
+            layout.gap(10),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: onCancel,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: EdgeInsets.all(layout.inset(6)),
+                  child: Icon(
+                    Icons.close,
+                    color: AppColors.fg(context),
+                    size: layout.inset(20),
+                  ),
+                ),
+              ),
+              SizedBox(width: layout.inset(8)),
+              Expanded(
+                child: Text(
+                  '$count SELECTED',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.spaceMono(
+                    color: AppColors.fg(context),
+                    fontSize: layout.font(11),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              _SelectionAction(
+                icon: Icons.drive_file_move,
+                label: 'ADD TO COLLECTION',
+                color: AppColors.blue,
+                iconColor: AppColors.white,
+                onTap: hasSelection ? onAdd : null,
+              ),
+              SizedBox(width: layout.inset(10)),
+              _SelectionAction(
+                icon: Icons.delete_outline,
+                color: AppColors.destructive,
+                iconColor: AppColors.white,
+                onTap: hasSelection ? onDelete : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionAction extends StatelessWidget {
+  const _SelectionAction({
+    required this.icon,
+    required this.color,
+    required this.iconColor,
+    required this.onTap,
+    this.label,
+  });
+
+  final IconData icon;
+  final Color color;
+  final Color iconColor;
+  final VoidCallback? onTap;
+
+  /// When set the button widens to carry the words too, for the action whose
+  /// icon alone does not say what it does.
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    final text = label;
+    return GestureDetector(
+      onTap: onTap,
+      child: Opacity(
+        opacity: onTap == null ? 0.4 : 1,
+        child: Container(
+          height: layout.inset(40),
+          width: text == null ? layout.inset(40) : null,
+          padding: text == null
+              ? null
+              : EdgeInsets.symmetric(horizontal: layout.inset(12)),
+          alignment: Alignment.center,
+          decoration: AppTheme.brutalBox(context, color: color),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: iconColor, size: layout.inset(18)),
+              if (text != null) ...[
+                SizedBox(width: layout.inset(8)),
+                Text(
+                  text,
+                  style: GoogleFonts.spaceMono(
+                    color: iconColor,
+                    fontSize: layout.font(10),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
