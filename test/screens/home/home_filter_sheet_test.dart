@@ -12,7 +12,7 @@ import 'package:reelpin/screens/home/home_screen.dart';
 import 'package:reelpin/services/auth/auth_service.dart';
 import 'package:reelpin/services/auth/profile_service.dart';
 
-late _FakeApiClient api;
+late _FakeApiClient _api;
 
 Future<void> _pumpHome(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
@@ -23,7 +23,7 @@ Future<void> _pumpHome(WidgetTester tester) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        apiClientProvider.overrideWithValue(api),
+        apiClientProvider.overrideWithValue(_api),
         authServiceProvider.overrideWithValue(_FakeAuthService()),
       ],
       child: const MaterialApp(home: Scaffold(body: HomeScreen())),
@@ -38,7 +38,7 @@ Future<void> _openSheet(WidgetTester tester) async {
 }
 
 void main() {
-  setUp(() => api = _FakeApiClient());
+  setUp(() => _api = _FakeApiClient());
 
   testWidgets('lists every social the user has actually saved from', (
     tester,
@@ -61,13 +61,13 @@ void main() {
     await _openSheet(tester);
 
     expect(find.text('APPLY / 12 REELS'), findsOneWidget);
-    final requestsBefore = api.reelsPageCalls;
+    final requestsBefore = _api.reelsPageCalls;
 
     await tester.tap(find.bySemanticsLabel('YOUTUBE, 4 saved'));
     await tester.pumpAndSettle();
 
     expect(find.text('APPLY / 4 REELS'), findsOneWidget);
-    expect(api.reelsPageCalls, requestsBefore);
+    expect(_api.reelsPageCalls, requestsBefore);
   });
 
   testWidgets('applying a social filters the reels request', (tester) async {
@@ -79,8 +79,8 @@ void main() {
     await tester.tap(find.text('APPLY / 4 REELS'));
     await tester.pumpAndSettle();
 
-    expect(api.lastPlatform, 'youtube');
-    expect(api.lastCategory, isNull);
+    expect(_api.lastPlatform, 'youtube');
+    expect(_api.lastCategory, isNull);
   });
 
   testWidgets('the category dropdown only offers the social\'s categories', (
@@ -126,9 +126,9 @@ void main() {
     await tester.tap(find.text('APPLY / 3 REELS'));
     await tester.pumpAndSettle();
 
-    expect(api.lastPlatform, 'youtube');
-    expect(api.lastCategory, 'Travel');
-    expect(api.lastSubcategory, 'Food Guides');
+    expect(_api.lastPlatform, 'youtube');
+    expect(_api.lastCategory, 'Travel');
+    expect(_api.lastSubcategory, 'Food Guides');
   });
 
   testWidgets('switching social clears a category that does not carry over', (
