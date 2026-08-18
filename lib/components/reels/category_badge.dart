@@ -42,7 +42,7 @@ class CategoryBadge extends StatelessWidget {
           category.toUpperCase(),
           style: GoogleFonts.spaceMono(
             color: _contrastText(color),
-            fontSize: layout.font(9),
+            fontSize: layout.font(10),
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),

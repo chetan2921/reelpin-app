@@ -503,7 +503,7 @@ class _PlaceSearchTabButton extends StatelessWidget {
                   '$count',
                   style: GoogleFonts.spaceMono(
                     color: isSelected ? AppColors.white : AppColors.black,
-                    fontSize: layout.font(9),
+                    fontSize: layout.font(10),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -713,7 +713,7 @@ class _MapPlaceResultTile extends StatelessWidget {
                           badgeText,
                           style: GoogleFonts.spaceMono(
                             color: AppColors.black,
-                            fontSize: layout.font(8),
+                            fontSize: layout.font(10),
                             fontWeight: FontWeight.w700,
                           ),
                         ),

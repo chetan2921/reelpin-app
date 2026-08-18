@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
-import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
+import 'package:reelpin/components/sharing/share_card.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
 
 void main() {
@@ -176,6 +176,44 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('collection share card fits a long name and note', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(700, 700);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UnconstrainedBox(
+            alignment: Alignment.topLeft,
+            child: CollectionShareCard(
+              name:
+                  'A collection name long enough to wrap past two lines and '
+                  'keep going well beyond what the poster can show',
+              note:
+                  'A note with enough text to fill the paper several times '
+                  'over, which is the case that would push the footer off the '
+                  'bottom of the card and take the install prompt with it. It '
+                  'clips on the paper instead, leaving the poster untouched.',
+              itemCount: 12,
+              role: 'editor',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final size = tester.getSize(find.byType(CollectionShareCard));
+    expect(size.width, size.height);
+    expect(find.text('INVITE'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget);
+    expect(find.text('YOU CAN ADD AND REMOVE PINS'), findsOneWidget);
   });
 }
 

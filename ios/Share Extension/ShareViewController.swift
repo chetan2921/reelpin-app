@@ -6,7 +6,21 @@ class ShareViewController: UIViewController {
   private let baseUrlKey = "base_url"
   private let pushTokenKey = "push_token"
   private let pushPlatformKey = "push_platform"
+  private let collectionsKey = "collections"
+  private let collectionsDirKey = "collections_dir"
   private var hasStartedProcessing = false
+  private var pendingSharedUrl: String?
+  private var shareCollections: [ShareCollection] = []
+  private var selectedCollectionIds: Set<String> = []
+  private weak var primaryAction: UIButton?
+
+  private lazy var collectionGrid: UICollectionView = {
+    let layout = UICollectionViewFlowLayout()
+    layout.minimumInteritemSpacing = 12
+    layout.minimumLineSpacing = 14
+    layout.sectionInset = UIEdgeInsets(top: 4, left: 20, bottom: 4, right: 20)
+    return UICollectionView(frame: .zero, collectionViewLayout: layout)
+  }()
   private let statusContainer = UIView()
   private let statusIconContainer = UIView()
   private let statusIconView = UIImageView()
@@ -49,7 +63,15 @@ class ShareViewController: UIViewController {
         return
       }
 
-      self.enqueueSharedUrl(sharedUrl)
+      let collections = self.loadShareCollections()
+      if collections.isEmpty {
+        // No collections: keep the one-tap save this extension has always had.
+        self.enqueueSharedUrl(sharedUrl, collectionIds: [])
+      } else {
+        self.pendingSharedUrl = sharedUrl
+        self.shareCollections = collections
+        self.presentCollectionPicker()
+      }
     }
   }
 
@@ -117,13 +139,13 @@ class ShareViewController: UIViewController {
     }
   }
 
-  private func enqueueSharedUrl(_ sharedUrl: String) {
+  private func enqueueSharedUrl(_ sharedUrl: String, collectionIds: [String]) {
     guard
       let defaults = appGroupDefaults(),
       let shareToken = cleanedString(defaults.string(forKey: shareTokenKey)),
       let baseUrl = cleanedString(defaults.string(forKey: baseUrlKey))
     else {
-      savePendingShare(sharedUrl)
+      savePendingShare(sharedUrl, collectionIds: collectionIds)
       showStatusAndComplete("Open ReelPin to sync.")
       return
     }
@@ -132,7 +154,9 @@ class ShareViewController: UIViewController {
       baseUrl: baseUrl,
       path: "processing-jobs/reels",
       shareToken: shareToken,
-      body: ["url": sharedUrl]
+      body: collectionIds.isEmpty
+        ? ["url": sharedUrl]
+        : ["url": sharedUrl, "collection_ids": collectionIds]
     ) { [weak self] result in
       guard let self else {
         return
@@ -145,10 +169,10 @@ class ShareViewController: UIViewController {
       case .invalidShareToken:
         defaults.removeObject(forKey: self.shareTokenKey)
         defaults.synchronize()
-        self.savePendingShare(sharedUrl)
+        self.savePendingShare(sharedUrl, collectionIds: collectionIds)
         self.showStatusAndComplete("Open ReelPin and sign in again.", isError: true)
       case .failure:
-        self.savePendingShare(sharedUrl)
+        self.savePendingShare(sharedUrl, collectionIds: collectionIds)
         self.showStatusAndComplete("Open ReelPin to sync.")
       }
     }
@@ -175,7 +199,8 @@ class ShareViewController: UIViewController {
     baseUrl: String,
     path: String,
     shareToken: String,
-    body: [String: String],
+    // [String: Any] rather than [String: String]: collection_ids is an array.
+    body: [String: Any],
     completion: @escaping (ShareRequestResult) -> Void
   ) {
     guard let url = URL(string: apiUrl(baseUrl: baseUrl, path: path)) else {
@@ -199,7 +224,10 @@ class ShareViewController: UIViewController {
     }.resume()
   }
 
-  private func savePendingShare(_ url: String) {
+  /// Stores the collections with the URL. Dropping them here filed the reel
+  /// into the library only, with no sign anything was lost, whenever the
+  /// extension could not post the share itself.
+  private func savePendingShare(_ url: String, collectionIds: [String] = []) {
     guard let defaults = appGroupDefaults() else {
       return
     }
@@ -209,7 +237,11 @@ class ShareViewController: UIViewController {
       try? JSONSerialization.jsonObject(with: $0)
     } as? [Any]
     var pending = decoded ?? []
-    pending.append(url)
+    var entry: [String: Any] = ["url": url]
+    if !collectionIds.isEmpty {
+      entry["collection_ids"] = collectionIds
+    }
+    pending.append(entry)
 
     if let data = try? JSONSerialization.data(withJSONObject: pending),
        let value = String(data: data, encoding: .utf8) {
@@ -231,6 +263,209 @@ class ShareViewController: UIViewController {
         }
       )
     }
+  }
+
+  // MARK: - Collection picker
+
+  /// Reads the snapshot the app syncs into the App Group. Deliberately local:
+  /// an extension has a tiny time budget and can be killed mid-request, so the
+  /// picker must appear instantly rather than wait on the network.
+  private func loadShareCollections() -> [ShareCollection] {
+    guard
+      let defaults = appGroupDefaults(),
+      let raw = cleanedString(defaults.string(forKey: collectionsKey)),
+      let data = raw.data(using: .utf8),
+      let parsed = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+    else {
+      return []
+    }
+    return parsed.compactMap { item in
+      guard
+        let id = (item["id"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+        !id.isEmpty
+      else {
+        return nil
+      }
+      let name = (item["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      let image = (item["image"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+      return ShareCollection(
+        id: id,
+        name: name.isEmpty ? "Untitled" : name,
+        image: (image?.isEmpty == false) ? image : nil
+      )
+    }
+  }
+
+  /// Artwork lives in the App Group container the app wrote it to.
+  private func loadTileImage(named fileName: String?) -> UIImage? {
+    guard
+      let fileName,
+      let defaults = appGroupDefaults(),
+      let dir = cleanedString(defaults.string(forKey: collectionsDirKey))
+    else {
+      return nil
+    }
+    // The app writes a light and a dark render of every tile; fall back to the
+    // light one when the dark file is not there yet.
+    var candidates = [fileName]
+    if traitCollection.userInterfaceStyle == .dark {
+      let darkName = (fileName as NSString).deletingPathExtension + "_dark.png"
+      candidates.insert(darkName, at: 0)
+    }
+    for candidate in candidates {
+      let path = (dir as NSString).appendingPathComponent(candidate)
+      if let image = UIImage(contentsOfFile: path) {
+        return image
+      }
+    }
+    return nil
+  }
+
+  /// AppColors.bg / .fg / .textSec, resolved against the device's mode. The
+  /// sheet was pinned to a white surface, which is wrong in dark mode.
+  private var bgColor: UIColor {
+    traitCollection.userInterfaceStyle == .dark
+      ? UIColor(white: 0.10, alpha: 1)
+      : .white
+  }
+
+  private var fgColor: UIColor {
+    traitCollection.userInterfaceStyle == .dark ? .white : .black
+  }
+
+  private var secondaryTextColor: UIColor {
+    traitCollection.userInterfaceStyle == .dark
+      ? UIColor(white: 0.80, alpha: 1)
+      : UIColor(white: 0.27, alpha: 1)
+  }
+
+  private func presentCollectionPicker() {
+    statusContainer.isHidden = true
+
+    // Drag handle: 40x4 solid, matching AddToCollectionSheet in the app.
+    let handle = UIView()
+    handle.backgroundColor = fgColor
+    handle.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(handle)
+
+    let heading = UILabel()
+    heading.text = "SAVE TO A COLLECTION"
+    heading.font = Self.spaceMono(size: 17, bold: true)
+    heading.textColor = fgColor
+    heading.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(heading)
+
+    let subtitle = UILabel()
+    subtitle.text = "Tap the ones it belongs in. Skip to just save it."
+    subtitle.font = Self.spaceMono(size: 12, bold: false)
+    subtitle.textColor = secondaryTextColor
+    subtitle.numberOfLines = 2
+    subtitle.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(subtitle)
+
+    view.backgroundColor = bgColor
+
+    // A 2-up grid, matching the SAVED tab. The extension gets a full sheet on
+    // iOS, so there is room to show the artwork rather than a bare list.
+    collectionGrid.dataSource = self
+    collectionGrid.delegate = self
+    collectionGrid.backgroundColor = .clear
+    collectionGrid.alwaysBounceVertical = true
+    collectionGrid.translatesAutoresizingMaskIntoConstraints = false
+    collectionGrid.register(CollectionFolderCell.self,
+                            forCellWithReuseIdentifier: CollectionFolderCell.reuseId)
+    view.addSubview(collectionGrid)
+
+    // One button whose label states exactly what will happen. A "Save" /
+    // "Just save" pair read as the same action twice.
+    let action = actionButton(title: actionTitle(), filled: true)
+    action.addTarget(self, action: #selector(saveWithSelectedCollections), for: .touchUpInside)
+    action.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(action)
+    primaryAction = action
+
+    let bar = action
+
+    NSLayoutConstraint.activate([
+      handle.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 14),
+      handle.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+      handle.widthAnchor.constraint(equalToConstant: 40),
+      handle.heightAnchor.constraint(equalToConstant: 4),
+
+      heading.topAnchor.constraint(equalTo: handle.bottomAnchor, constant: 18),
+      heading.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+      heading.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+
+      subtitle.topAnchor.constraint(equalTo: heading.bottomAnchor, constant: 4),
+      subtitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+      subtitle.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+
+      collectionGrid.topAnchor.constraint(equalTo: subtitle.bottomAnchor, constant: 14),
+      collectionGrid.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+      collectionGrid.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+      collectionGrid.bottomAnchor.constraint(equalTo: bar.topAnchor, constant: -12),
+
+      bar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+      bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
+      // -18 rather than -14: the 4pt slab sits outside the button's bounds.
+      bar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18),
+      bar.heightAnchor.constraint(equalToConstant: 48),
+    ])
+
+    preferredContentSize = CGSize(width: view.bounds.width, height: 520)
+  }
+
+  private func actionTitle() -> String {
+    switch selectedCollectionIds.count {
+    case 0: return "SAVE TO REELPIN"
+    case 1: return "SAVE TO 1 COLLECTION"
+    default: return "SAVE TO \(selectedCollectionIds.count) COLLECTIONS"
+    }
+  }
+
+  /// Port of AppTheme.brutalBox: flat fill, 1pt black border, and a solid black
+  /// slab offset down-right. shadowRadius 0 with full opacity is what turns
+  /// CALayer's normally-soft shadow into the hard slab the app uses.
+  private func actionButton(title: String, filled: Bool) -> UIButton {
+    let button = UIButton(type: .system)
+    button.setTitle(title, for: .normal)
+    button.titleLabel?.font = Self.spaceMono(size: 14, bold: true)
+    button.setTitleColor(filled ? .black : fgColor, for: .normal)
+    button.backgroundColor = filled ? Self.accentYellow : bgColor
+    button.layer.borderWidth = 1
+    button.layer.borderColor = fgColor.cgColor
+    button.layer.cornerRadius = 0
+    button.layer.shadowColor = fgColor.cgColor
+    button.layer.shadowOffset = CGSize(width: 4, height: 4)
+    button.layer.shadowRadius = 0
+    button.layer.shadowOpacity = 1
+    button.layer.masksToBounds = false
+    return button
+  }
+
+  /// The app's Space Mono, so native copy matches the rendered tiles. Falls
+  /// back to the system monospace if the bundled face fails to load.
+  private static func spaceMono(size: CGFloat, bold: Bool) -> UIFont {
+    let name = bold ? "SpaceMono-Bold" : "SpaceMono-Regular"
+    return UIFont(name: name, size: size)
+      ?? .monospacedSystemFont(ofSize: size, weight: bold ? .bold : .regular)
+  }
+
+  private static let accentYellow = UIColor(red: 1.0, green: 0xD6 / 255, blue: 0, alpha: 1)
+
+  @objc private func saveWithSelectedCollections() {
+    submitPendingShare(collectionIds: Array(selectedCollectionIds))
+  }
+
+  private func submitPendingShare(collectionIds: [String]) {
+    guard let sharedUrl = pendingSharedUrl else {
+      showStatusAndComplete("Unsupported link.", isError: true)
+      return
+    }
+    collectionGrid.isHidden = true
+    statusContainer.isHidden = false
+    showStatus("Saving to ReelPin", isLoading: true)
+    enqueueSharedUrl(sharedUrl, collectionIds: collectionIds)
   }
 
   private func appGroupDefaults() -> UserDefaults? {
@@ -357,5 +592,56 @@ class ShareViewController: UIViewController {
     view.backgroundColor = .clear
     view.superview?.isOpaque = false
     view.superview?.backgroundColor = .clear
+  }
+}
+
+struct ShareCollection {
+  let id: String
+  let name: String
+  let image: String?
+}
+
+extension ShareViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+  func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+    shareCollections.count
+  }
+
+  func collectionView(
+    _ collectionView: UICollectionView,
+    cellForItemAt indexPath: IndexPath
+  ) -> UICollectionViewCell {
+    let cell = collectionView.dequeueReusableCell(
+      withReuseIdentifier: CollectionFolderCell.reuseId, for: indexPath
+    ) as! CollectionFolderCell
+    let collection = shareCollections[indexPath.item]
+    cell.configure(
+      name: collection.name,
+      image: loadTileImage(named: collection.image),
+      isChecked: selectedCollectionIds.contains(collection.id)
+    )
+    return cell
+  }
+
+  func collectionView(
+    _ collectionView: UICollectionView,
+    layout collectionViewLayout: UICollectionViewLayout,
+    sizeForItemAt indexPath: IndexPath
+  ) -> CGSize {
+    let columns: CGFloat = 2
+    let insets: CGFloat = 40
+    let gap: CGFloat = 12
+    let width = (collectionView.bounds.width - insets - gap * (columns - 1)) / columns
+    return CGSize(width: floor(width), height: floor(width * 0.92))
+  }
+
+  func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+    let collection = shareCollections[indexPath.item]
+    if selectedCollectionIds.contains(collection.id) {
+      selectedCollectionIds.remove(collection.id)
+    } else {
+      selectedCollectionIds.insert(collection.id)
+    }
+    collectionView.reloadItems(at: [indexPath])
+    primaryAction?.setTitle(actionTitle(), for: .normal)
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:app_links/app_links.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,13 +19,18 @@ import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
+import 'package:reelpin/services/sharing/collection_link.dart';
+import 'package:reelpin/services/sharing/linkrunner_service.dart';
+import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/screens/home/home_screen.dart';
 import 'package:reelpin/screens/map/map_screen.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
+import 'package:reelpin/screens/splash/splash_screen.dart';
 import 'package:reelpin/screens/discover/discover_screen.dart';
+import 'package:reelpin/screens/collections/collections_screen.dart';
 
 part 'partials/app_shell_controller.dart';
 part 'partials/nav_item.dart';
@@ -50,8 +56,13 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _floatingNavBottomInset = 14.0;
   static const _floatingNavHorizontalInset = 60.0;
 
-  int _currentIndex = 0;
+  int _currentIndex = _AppTab.home;
   StreamSubscription? _mediaIntentSub;
+  AppLinks? _appLinks;
+  StreamSubscription? _deepLinkSub;
+  CollectionLink? _launchLink;
+  bool _hasRoutedLaunchLink = false;
+  Uri? _launchUriReplayGuard;
   bool _isQueueingSharedReel = false;
   String? _lastHandledSharedPayload;
   bool _isCheckingInitialPermissions = false;
@@ -62,6 +73,7 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _navItems = [
     _NavItem(icon: HugeIcons.strokeRoundedHome04, label: 'HOME'),
     _NavItem(icon: HugeIcons.strokeRoundedLocation03, label: 'MAP'),
+    _NavItem(icon: HugeIcons.strokeRoundedFolderPin, label: 'SAVED'),
     _NavItem(icon: HugeIcons.strokeRoundedDiscoverSquare, label: 'DISCOVER'),
   ];
 
@@ -71,10 +83,147 @@ class _AppShellState extends ConsumerState<AppShell>
     widget.controller?._attach(_selectControlledTab);
     WidgetsBinding.instance.addObserver(this);
     _initSharingIntent();
+    // Claimed before anything awaits: the Linkrunner-gated path below resumes
+    // on a microtask, which is still ahead of this frame, and would otherwise
+    // take the link and open it with a transition.
+    final launchUri = PendingDeepLink.pendingUri;
+    _launchLink = PendingDeepLink.takeCollectionLink();
+    if (_launchLink != null) {
+      _hasRoutedLaunchLink = true;
+      _launchUriReplayGuard = launchUri;
+    }
+    unawaited(_initCollectionDeepLinks());
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Opened at the end of the shell's first frame. Pushing any earlier would
+      // mark the root navigator dirty while it is still building.
+      final launchLink = _launchLink;
+      if (launchLink != null) unawaited(_openLaunchLink(launchLink));
       unawaited(_runFirstRunFlow());
       unawaited(_drainPendingNativeShares());
     });
+  }
+
+  Future<void> _initCollectionDeepLinks() async {
+    // Init first: a link arriving before this completes resolves as a plain
+    // URL, which is correct for direct /c/ links but loses Linkrunner ones.
+    await LinkrunnerService.instance.init();
+
+    _appLinks = AppLinks();
+    try {
+      // Skipped entirely when the launch link was already claimed above, or
+      // asking again would open the same collection a second time.
+      if (!_hasRoutedLaunchLink) {
+        // Taken from bootstrap, which captured it before auth gating could
+        // consume it. Falls back to asking directly for warm-start safety.
+        final initial =
+            PendingDeepLink.take() ?? await _appLinks!.getInitialLink();
+        if (initial != null) {
+          unawaited(_handleIncomingUri(initial));
+        } else {
+          // No launch URL. This may still be the first open after installing
+          // from a share link, where the destination only exists as attribution.
+          unawaited(_handleDeferredLink());
+        }
+      }
+    } catch (_) {}
+    _deepLinkSub = _appLinks!.uriLinkStream.listen(
+      (uri) => unawaited(_handleIncomingUri(uri)),
+      onError: (_) {},
+    );
+  }
+
+  Future<void> _handleDeferredLink() async {
+    final deferred = await LinkrunnerService.instance.deferredLink();
+    if (deferred != null) _routeCollectionUri(deferred);
+  }
+
+  Future<void> _handleIncomingUri(Uri uri) async {
+    // Android hands the launch intent to the link stream once it starts
+    // listening, so the URL the app opened with arrives here a second time and
+    // would stack another copy of the collection on the one already open. Only
+    // the replay is dropped: tapping the same link again later is a real
+    // request to reopen it.
+    if (_launchUriReplayGuard == uri) {
+      _launchUriReplayGuard = null;
+      return;
+    }
+    _routeCollectionUri(await LinkrunnerService.instance.resolve(uri));
+  }
+
+  void _routeCollectionUri(Uri uri) {
+    final link = CollectionLink.parse(uri);
+    if (link != null) _routeCollectionLink(link);
+  }
+
+  /// Holds the splash until the launch link has somewhere to send the user.
+  ///
+  /// A share link can be opened straight away. An invite has to be redeemed
+  /// over the network first, and releasing the shell for the length of that
+  /// round trip is what made a tapped invite look like it opened Home and then
+  /// moved somewhere else seconds later. Whether it succeeds or fails, the
+  /// shell is released at the end: on failure the user lands on Home with the
+  /// snackbar, which is where they would have been anyway.
+  Future<void> _openLaunchLink(CollectionLink link) async {
+    try {
+      if (link.isInvite) {
+        await _acceptCollectionInvite(link.token, animate: false);
+      } else {
+        unawaited(
+          _openSharedCollection(link.token, animate: false, url: link.url),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _launchLink = null);
+    }
+  }
+
+  void _routeCollectionLink(CollectionLink link, {bool animate = true}) {
+    if (link.isInvite) {
+      unawaited(_acceptCollectionInvite(link.token));
+    } else {
+      unawaited(
+        _openSharedCollection(link.token, animate: animate, url: link.url),
+      );
+    }
+  }
+
+  Future<void> _openSharedCollection(
+    String token, {
+    bool animate = true,
+    String? url,
+  }) async {
+    if (!mounted) return;
+    await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push(sharedCollectionRoute(token, animate: animate, url: url));
+  }
+
+  Future<void> _acceptCollectionInvite(
+    String token, {
+    bool animate = true,
+  }) async {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final joined = await ref
+          .read(collectionsViewModelProvider)
+          .acceptInvite(token);
+      if (joined != null && mounted) {
+        // Not awaited: pushing settles the destination, but the future only
+        // completes when the user pops back out of it.
+        unawaited(
+          Navigator.of(
+            context,
+            rootNavigator: true,
+          ).push(collectionDetailRoute(joined.id, animate: animate)),
+        );
+      }
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('This invite is no longer valid.')),
+      );
+    }
   }
 
   void _initSharingIntent() {
@@ -112,6 +261,7 @@ class _AppShellState extends ConsumerState<AppShell>
   Future<void> _handleSharedPayload(
     String payload, {
     bool showConfirmation = true,
+    List<String> collectionIds = const [],
   }) async {
     final normalizedPayload = payload.trim();
     if (normalizedPayload.isEmpty) return;
@@ -139,7 +289,11 @@ class _AppShellState extends ConsumerState<AppShell>
       if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
         return;
       }
-      await _enqueueSharedReel(resolvedUrl, showConfirmation: showConfirmation);
+      await _enqueueSharedReel(
+        resolvedUrl,
+        showConfirmation: showConfirmation,
+        collectionIds: collectionIds,
+      );
     } catch (error) {
       unawaited(analytics.recordEnqueueFailed(normalizedPayload, error));
     }
@@ -148,6 +302,7 @@ class _AppShellState extends ConsumerState<AppShell>
   Future<void> _enqueueSharedReel(
     String url, {
     required bool showConfirmation,
+    List<String> collectionIds = const [],
   }) async {
     if (_isQueueingSharedReel) return;
 
@@ -162,7 +317,7 @@ class _AppShellState extends ConsumerState<AppShell>
     try {
       await _syncPushTokenRegistrationIfPossible();
       unawaited(analytics.recordEnqueueStarted(url));
-      await homeVm.enqueueReelProcessing(url);
+      await homeVm.enqueueReelProcessing(url, collectionIds: collectionIds);
       unawaited(_refreshSavedContent());
 
       if (!mounted) return;
@@ -270,6 +425,7 @@ class _AppShellState extends ConsumerState<AppShell>
     WidgetsBinding.instance.removeObserver(this);
     _homeScrollController.dispose();
     _mediaIntentSub?.cancel();
+    _deepLinkSub?.cancel();
     super.dispose();
   }
 
@@ -307,13 +463,30 @@ class _AppShellState extends ConsumerState<AppShell>
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
       for (final entry in decoded) {
-        final blob = entry?.toString().trim() ?? '';
+        // Native stashes {raw_payload_text, collection_ids}. Anything already
+        // on disk from an older build is a bare string, and still has to drain.
+        final blob =
+            (entry is Map ? entry['raw_payload_text'] : entry)
+                ?.toString()
+                .trim() ??
+            '';
         if (blob.isEmpty) continue;
+        final collectionIds = entry is Map
+            ? (entry['collection_ids'] as List?)
+                      ?.map((id) => id.toString())
+                      .where((id) => id.isNotEmpty)
+                      .toList(growable: false) ??
+                  const <String>[]
+            : const <String>[];
         // Reset the per-payload dedupe so each pending share is processed.
         _lastHandledSharedPayload = null;
         // Pending entries are raw share blobs, so route them through the same
         // backend extraction path as a live share.
-        await _handleSharedPayload(blob, showConfirmation: false);
+        await _handleSharedPayload(
+          blob,
+          showConfirmation: false,
+          collectionIds: collectionIds,
+        );
       }
     } catch (e) {
       AppLogger.error('Pending share drain skipped: $e');
@@ -420,10 +593,10 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _openSearchFromHome() {
     setState(() {
-      _currentIndex = 2;
+      _currentIndex = _AppTab.discover;
       _searchFocusRequestId += 1;
     });
-    _refreshSelectedContent(2);
+    _refreshSelectedContent(_AppTab.discover);
   }
 
   Future<void> _scrollHomeToTop() async {
@@ -437,7 +610,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _showHomeAtTop() {
     setState(() {
-      _currentIndex = 0;
+      _currentIndex = _AppTab.home;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_scrollHomeToTop());
@@ -445,7 +618,7 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _selectControlledTab(int index) {
-    if (index == 0) {
+    if (index == _AppTab.home) {
       _showHomeAtTop();
       return;
     }
@@ -462,6 +635,15 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _selectTab(int index) {
+    // Detail screens are pushed onto the root navigator, above the shell, so
+    // switching tabs used to change the tab underneath while the pushed screen
+    // stayed on top — tapping SAVED appeared to reopen the last collection.
+    // Tapping any tab returns to that tab's root, including when it is already
+    // selected, which is also the expected "tap again to go back" behaviour.
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.popUntil((route) => route.isFirst);
+    }
     setState(() {
       _currentIndex = index;
     });
@@ -469,12 +651,12 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _refreshSelectedContent(int index) {
-    if (index == 1) {
+    if (index == _AppTab.map) {
       unawaited(
         ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true),
       );
     }
-    if (index == 2) {
+    if (index == _AppTab.discover) {
       unawaited(
         ref.read(discoverViewModelProvider).loadDiscover(forceRefresh: true),
       );
@@ -483,6 +665,12 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
+    // A launch link is opened at the end of this first frame, so until then the
+    // shell holds nothing the user asked for. Painting Home in that gap is what
+    // made a tapped link look like it opened the wrong screen and then moved;
+    // staying on the splash instead makes the collection the first thing shown.
+    if (_launchLink != null) return const SplashScreen();
+
     return PopScope(
       canPop: _currentIndex == 0 && !_isHomeScrolledDown(),
       onPopInvokedWithResult: (didPop, result) {
@@ -511,6 +699,7 @@ class _AppShellState extends ConsumerState<AppShell>
                       scrollController: _homeScrollController,
                     ),
                     const MapScreen(),
+                    const CollectionsScreen(),
                     DiscoverScreen(focusRequestId: _searchFocusRequestId),
                   ],
                 ),
@@ -547,7 +736,12 @@ class _AppShellState extends ConsumerState<AppShell>
               AnimatedAlign(
                 duration: const Duration(milliseconds: 260),
                 curve: Curves.easeOutCubic,
-                alignment: Alignment(-1.0 + _currentIndex, 0),
+                alignment: Alignment(
+                  _navItems.length > 1
+                      ? -1.0 + 2.0 * _currentIndex / (_navItems.length - 1)
+                      : 0,
+                  0,
+                ),
                 child: FractionallySizedBox(
                   widthFactor: 1 / _navItems.length,
                   heightFactor: 1,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,13 +8,20 @@ import 'package:reelpin/data_models/account/library_stats.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/router.dart';
 import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/services/sharing/share_handoff_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
+import 'package:reelpin/components/common/app_back_button.dart';
+import 'package:reelpin/components/collections/collection_tile_renderer.dart';
+import 'package:reelpin/components/common/app_switch.dart';
+import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 part 'partials/location_preference_card.dart';
 part 'partials/notification_preference_card.dart';
+part 'partials/share_picker_preference_card.dart';
 part 'partials/profile_action_card.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -31,19 +40,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadStats();
+      // Paint the last known numbers first, then refresh over the top. The
+      // stats barely move between visits, so waiting on the network to show
+      // any of them made every open of this screen a spinner.
+      unawaited(_hydrateStats().then((_) => _loadStats()));
     });
+  }
+
+  Future<void> _hydrateStats() async {
+    final payload = await ContentCache.instance.read(
+      ContentCacheKeys.libraryStats,
+    );
+    if (payload == null || !mounted || _stats != null) return;
+    setState(() => _stats = LibraryStats.fromJson(payload));
   }
 
   Future<void> _loadStats() async {
     setState(() {
-      _isLoadingStats = true;
+      // Only a first load has nothing to show; a refresh keeps the numbers up.
+      _isLoadingStats = _stats == null;
       _statsError = null;
     });
 
     try {
       final stats = await ref.read(accountHttpProvider).getLibraryStats();
       if (!mounted) return;
+      unawaited(
+        ContentCache.instance.write(
+          ContentCacheKeys.libraryStats,
+          stats.toJson(),
+        ),
+      );
       setState(() {
         _stats = stats;
       });
@@ -84,9 +111,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             letterSpacing: 1.2,
           ),
         ),
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back, color: AppColors.fg(context)),
+        leading: const Padding(
+          padding: EdgeInsets.all(8),
+          child: AppBackButton(),
         ),
       ),
       body: SafeArea(
@@ -245,6 +272,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const _NotificationPreferenceCard(),
                 SizedBox(height: layout.gap(14)),
                 const _LocationPreferenceCard(),
+                SizedBox(height: layout.gap(14)),
+                const _SharePickerPreferenceCard(),
                 SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'HELP'),
                 SizedBox(height: layout.gap(10)),
@@ -397,65 +426,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required String message,
     required String actionLabel,
   }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.bg(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: BorderSide(
-            color: AppColors.fg(context),
-            width: AppTheme.borderWidth,
-          ),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.spaceMono(
-            color: AppColors.fg(context),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.spaceMono(
-            color: AppColors.textSec(context),
-            fontSize: 12,
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'CANCEL',
-              style: GoogleFonts.spaceMono(
-                color: AppColors.textSec(context),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => Navigator.pop(context, true),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.destructive,
-                border: Border.all(color: AppColors.fg(context), width: 2),
-                boxShadow: AppTheme.brutalShadowSmall(context),
-              ),
-              child: Text(
-                actionLabel,
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return showConfirmDialog(
+      context,
+      title: title,
+      message: message,
+      confirmLabel: actionLabel,
     );
   }
 

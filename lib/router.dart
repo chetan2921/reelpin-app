@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/screens/collections/collection_detail_screen.dart';
 import 'package:reelpin/screens/feature_announcement/feature_announcement_screen.dart';
 import 'package:reelpin/screens/how_to/how_to_use_screen.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
@@ -57,6 +58,44 @@ Route<void> howToUseRoute({bool isFirstRun = false}) {
 
 Route<void> profileRoute() {
   return MaterialPageRoute<void>(builder: (_) => const ProfileScreen());
+}
+
+/// [animate] is false when this is where a launch link landed, for the same
+/// reason as [sharedCollectionRoute]: the collection is the destination, so it
+/// should appear rather than slide in over whatever was behind it.
+Route<void> collectionDetailRoute(String collectionId, {bool animate = true}) {
+  final screen = CollectionDetailScreen(collectionId: collectionId);
+  if (animate) return MaterialPageRoute<void>(builder: (_) => screen);
+  return PageRouteBuilder<void>(
+    pageBuilder: (_, _, _) => screen,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
+  );
+}
+
+/// Read-only view of a collection opened from a share link. The token is the
+/// capability, so there is no collection id to pass.
+///
+/// [animate] is false for the link the app was launched with. Sliding the
+/// collection in leaves Home on screen for the length of the transition, which
+/// on a cold start reads as the app opening Home and then moving somewhere else;
+/// the collection is the destination, so it should simply be what appears.
+Route<void> sharedCollectionRoute(
+  String token, {
+  bool animate = true,
+  String? url,
+}) {
+  final screen = CollectionDetailScreen(
+    collectionId: '',
+    sharedToken: token,
+    sharedUrl: url,
+  );
+  if (animate) return MaterialPageRoute<void>(builder: (_) => screen);
+  return PageRouteBuilder<void>(
+    pageBuilder: (_, _, _) => screen,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
+  );
 }
 
 Route<void> paywallRoute({

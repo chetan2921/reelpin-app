@@ -1043,7 +1043,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                                 color: catColor.computeLuminance() > 0.5
                                     ? AppColors.black
                                     : AppColors.white,
-                                fontSize: 8,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
                               maxLines: 1,
@@ -1078,7 +1078,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                               reel.relativeDate.toUpperCase(),
                               style: GoogleFonts.spaceMono(
                                 color: AppColors.textSecondary,
-                                fontSize: 9,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -1166,7 +1166,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                                       '${item.count} REEL${item.count == 1 ? '' : 'S'}',
                                       style: GoogleFonts.spaceMono(
                                         color: AppColors.fg(context),
-                                        fontSize: 9,
+                                        fontSize: 10,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),

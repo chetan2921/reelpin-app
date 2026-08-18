@@ -51,11 +51,14 @@ void main() {
     ]);
   });
 
-  test('an unknown platform offers no categories rather than all of them', () async {
-    await load();
+  test(
+    'an unknown platform offers no categories rather than all of them',
+    () async {
+      await load();
 
-    expect(vm.categoriesFor('linkedin'), isEmpty);
-  });
+      expect(vm.categoriesFor('linkedin'), isEmpty);
+    },
+  );
 
   test('previewCountFor resolves every level from the tree', () async {
     await load();

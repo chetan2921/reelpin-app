@@ -8,6 +8,8 @@ import 'package:reelpin/screens/splash/splash_screen.dart';
 import 'package:reelpin/services/app_update_service.dart';
 import 'package:reelpin/screens/auth/auth_screen.dart';
 import 'package:reelpin/screens/onboarding/onboarding_screen.dart';
+import 'package:reelpin/services/sharing/pending_deep_link.dart';
+import 'package:reelpin/services/sharing/shared_collection_prefetch.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppEntry extends ConsumerStatefulWidget {
@@ -32,7 +34,7 @@ class _AppEntryState extends ConsumerState<AppEntry>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(AppUpdateService.checkForImmediateUpdate());
-    _holdSplash();
+    _startCollectionLaunch();
     _loadOnboardingState();
     _startContentLoad();
   }
@@ -62,6 +64,27 @@ class _AppEntryState extends ConsumerState<AppEntry>
         ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
       );
     });
+  }
+
+  /// A launch from a collection link asked for one specific screen, so the two
+  /// things standing between the tap and that screen are dropped here: the
+  /// branding hold, which is pure delay in front of a destination the user
+  /// already chose, and the serial fetch, which starts now instead of waiting
+  /// for the shell to mount.
+  void _startCollectionLaunch() {
+    final link = PendingDeepLink.pendingCollectionLink;
+    if (link == null) {
+      _holdSplash();
+      return;
+    }
+    _hasCompletedSplash = true;
+    // An invite has to be redeemed before there is anything to show, and that
+    // is the shell's job.
+    if (link.isInvite) return;
+    SharedCollectionPrefetch.start(
+      link.token,
+      () => ref.read(collectionsHttpProvider).getSharedCollection(link.token),
+    );
   }
 
   @override

@@ -22,6 +22,7 @@ void main() {
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
       openAppUpdate: () async => fail('Unexpected app update route'),
+      openCollection: (_) async => fail('Unexpected collection route'),
     );
 
     expect(handled, isTrue);
@@ -48,6 +49,7 @@ void main() {
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
       openAppUpdate: () async => fail('Unexpected app update route'),
+      openCollection: (_) async => fail('Unexpected collection route'),
     );
 
     expect(openedAnnouncement?.announcementId, 'youtube_support_v1');
@@ -73,6 +75,7 @@ void main() {
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
       openAppUpdate: () async => fail('Unexpected app update route'),
+      openCollection: (_) async => fail('Unexpected collection route'),
     );
 
     expect(openedHome, isTrue);
@@ -97,6 +100,7 @@ void main() {
       openDiscover: () async {},
       openProfile: () async {},
       openAppUpdate: () async {},
+      openCollection: (_) async {},
     );
 
     expect(await handle(), isTrue);
@@ -128,6 +132,7 @@ void main() {
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
       openAppUpdate: () async => fail('Unexpected app update route'),
+      openCollection: (_) async => fail('Unexpected collection route'),
     );
 
     expect(handled, isTrue);
@@ -151,6 +156,7 @@ void main() {
       openDiscover: () async => fail('Unexpected Discover route'),
       openProfile: () async => fail('Unexpected Profile route'),
       openAppUpdate: () async => fail('Unexpected app update route'),
+      openCollection: (_) async => fail('Unexpected collection route'),
     );
 
     expect(events, ['track', 'navigate']);
@@ -212,6 +218,7 @@ void main() {
         openProfile: () async => openedTarget = AppNotificationTarget.profile,
         openAppUpdate: () async =>
             openedTarget = AppNotificationTarget.appUpdate,
+        openCollection: (_) async => fail('Unexpected collection route'),
       );
 
       expect(handled, isTrue);
@@ -219,7 +226,75 @@ void main() {
       expect(tracked, ['notification-${testCase.target}']);
     }
   });
+
+  test('collection tap routes to the collection it names', () async {
+    final handler = NotificationTapHandler();
+    final openedCollections = <String>[];
+    final tracked = <String>[];
+
+    final handled = await handler.handle(
+      OpenedAppNotification(
+        notification: _collectionNotification,
+        source: AppNotificationOpenSource.backgroundRemote,
+      ),
+      trackOpen: (id) async => tracked.add(id),
+      openReel: (_) async => fail('Unexpected reel route'),
+      openAnnouncement: (_) async => fail('Unexpected announcement route'),
+      openHome: () async => fail('Unexpected Home route'),
+      openMap: () async => fail('Unexpected Map route'),
+      openDiscover: () async => fail('Unexpected Discover route'),
+      openProfile: () async => fail('Unexpected Profile route'),
+      openAppUpdate: () async => fail('Unexpected app update route'),
+      openCollection: (id) async => openedCollections.add(id),
+    );
+
+    expect(handled, isTrue);
+    expect(tracked, ['notification-collection']);
+    expect(openedCollections, ['collection-1']);
+  });
+
+  test('collection tap without an id falls back to Home', () async {
+    final handler = NotificationTapHandler();
+    var openedHome = false;
+
+    await handler.handle(
+      const OpenedAppNotification(
+        notification: AppNotification(
+          title: 'Weekend Hikes',
+          body: '2 new reels added.',
+          target: AppNotificationTarget.collection,
+          isMalformed: false,
+          data: {},
+          notificationId: 'notification-missing-collection',
+        ),
+        source: AppNotificationOpenSource.backgroundRemote,
+      ),
+      trackOpen: (_) async {},
+      openReel: (_) async => fail('Unexpected reel route'),
+      openAnnouncement: (_) async => fail('Unexpected announcement route'),
+      openHome: () async => openedHome = true,
+      openMap: () async => fail('Unexpected Map route'),
+      openDiscover: () async => fail('Unexpected Discover route'),
+      openProfile: () async => fail('Unexpected Profile route'),
+      openAppUpdate: () async => fail('Unexpected app update route'),
+      openCollection: (_) async => fail('Unexpected collection route'),
+    );
+
+    expect(openedHome, isTrue);
+  });
 }
+
+final _collectionNotification = AppNotification.fromData(
+  title: 'Weekend Hikes',
+  body: '2 new reels added.',
+  data: const {
+    'schema_version': '1',
+    'notification_id': 'notification-collection',
+    'type': 'collection_update',
+    'target': 'collection',
+    'collection_id': 'collection-1',
+  },
+);
 
 AppNotification _featureTargetNotification(String target) {
   return AppNotification.fromData(
