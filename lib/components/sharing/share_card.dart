@@ -18,14 +18,12 @@ class ReelShareCard extends StatelessWidget {
               : 'Untitled reel'
         : reel.title;
     final summary = _shareSummary(reel.summary);
-    final facts = _shareItems(reel.keyFacts, 4);
     final actions = reel.actionableItems
         .where((item) => item.trim().isNotEmpty)
         .take(3)
         .toList();
     final typeLabel = _typeLabel(reel);
     final hasSummary = summary.isNotEmpty;
-    final hasFacts = facts.isNotEmpty;
     final hasActions = actions.isNotEmpty;
 
     return Material(
@@ -135,7 +133,7 @@ class ReelShareCard extends StatelessWidget {
                                       textWidthBasis: TextWidthBasis.parent,
                                       style: GoogleFonts.spaceMono(
                                         color: AppColors.black,
-                                        fontSize: 18,
+                                        fontSize: 22,
                                         fontWeight: FontWeight.w700,
                                         height: 1.02,
                                       ),
@@ -152,36 +150,20 @@ class ReelShareCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 5),
-                        if (hasSummary || hasFacts)
+                        if (hasSummary)
                           Expanded(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (hasSummary)
-                                  Expanded(
-                                    flex: hasFacts ? 8 : 1,
-                                    child: _ShareSummaryNote(
-                                      summary: summary,
-                                      maxLines: hasFacts ? 8 : 7,
-                                    ),
-                                  ),
-                                if (hasSummary && hasFacts)
-                                  const SizedBox(width: 10),
-                                if (hasFacts)
-                                  Expanded(
-                                    flex: hasSummary ? 7 : 1,
-                                    child: _KeyFactsBoard(facts: facts),
-                                  ),
-                              ],
+                            child: _ShareSummaryNote(
+                              summary: summary,
+                              maxLines: hasActions ? 9 : 13,
                             ),
                           )
                         else
                           const Spacer(),
                         if (hasActions) ...[
-                          SizedBox(height: hasSummary || hasFacts ? 7 : 0),
+                          SizedBox(height: hasSummary ? 8 : 0),
                           _ShareActionNote(
                             actions: actions,
-                            isPrimary: !hasSummary && !hasFacts,
+                            isPrimary: !hasSummary,
                           ),
                         ],
                         SizedBox(height: hasActions ? 8 : 10),
@@ -205,14 +187,6 @@ class ReelShareCard extends StatelessWidget {
       _ => 'POST',
     };
     return reel.sourcePlatform == 'x' ? 'X $contentType' : contentType;
-  }
-
-  static List<String> _shareItems(List<String> values, int limit) {
-    return values
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .take(limit)
-        .toList(growable: false);
   }
 
   static String _shareSummary(String value) {
@@ -241,6 +215,8 @@ class CollectionShareCard extends StatelessWidget {
     required this.note,
     required this.itemCount,
     required this.role,
+    this.ownerName,
+    this.memberCount = 0,
   });
 
   final String name;
@@ -251,12 +227,17 @@ class CollectionShareCard extends StatelessWidget {
   /// changes the badge and the line under the count.
   final String? role;
 
+  /// Who is sending it, when known.
+  final String? ownerName;
+
+  /// People already in the collection, the sender included.
+  final int memberCount;
+
   @override
   Widget build(BuildContext context) {
     final title = name.trim().isEmpty ? 'Untitled collection' : name.trim();
-    final noteText = note.trim().isEmpty
-        ? 'Reels, posts and videos saved in one place.'
-        : note.trim();
+    final noteText = note.trim();
+    final owner = ownerName?.trim();
     final promise = switch (role) {
       'editor' => 'YOU CAN ADD AND REMOVE PINS',
       'viewer' => 'YOU CAN BROWSE EVERYTHING INSIDE',
@@ -318,7 +299,7 @@ class CollectionShareCard extends StatelessWidget {
                     ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -328,12 +309,9 @@ class CollectionShareCard extends StatelessWidget {
                               : 'Collection invite',
                           badge: role == null ? 'COLLECTION' : 'INVITE',
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 10),
                         Container(height: 4, color: AppColors.black),
-                        const SizedBox(height: 12),
-                        // Not Flexible: two lines is already a fixed height,
-                        // and flexing it would split the free space with the
-                        // note instead of leaving it all to the paper.
+                        const SizedBox(height: 16),
                         Text(
                           title.toUpperCase(),
                           maxLines: 2,
@@ -342,56 +320,92 @@ class CollectionShareCard extends StatelessWidget {
                           textWidthBasis: TextWidthBasis.parent,
                           style: GoogleFonts.spaceMono(
                             color: AppColors.black,
-                            fontSize: 28,
+                            fontSize: 32,
                             fontWeight: FontWeight.w700,
                             height: 1.05,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Container(width: 84, height: 5, color: AppColors.red),
-                        const SizedBox(height: 14),
-                        Expanded(
-                          child: _PinnedNote(
-                            color: const Color(0xFFFFF2A8),
-                            angle: 0.012,
-                            pinAlignment: Alignment.topRight,
-                            childPadding: const EdgeInsets.fromLTRB(
-                              14,
-                              16,
-                              14,
-                              12,
+                        const SizedBox(height: 10),
+                        Container(width: 96, height: 6, color: AppColors.red),
+                        if (owner != null && owner.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'FROM ${owner.toUpperCase()}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.spaceMono(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _NoteTitle(
-                                  label: 'NOTE',
-                                  color: AppColors.black,
-                                  fontSize: 10,
+                          ),
+                        ],
+                        // The note is only drawn when there is one. Stretching
+                        // a stock line across half the poster read as a card
+                        // that had failed to load.
+                        if (noteText.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          Flexible(
+                            child: _PinnedNote(
+                              color: const Color(0xFFFFF2A8),
+                              angle: 0.012,
+                              pinAlignment: Alignment.topRight,
+                              childPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                18,
+                                16,
+                                14,
+                              ),
+                              child: Text(
+                                noteText,
+                                maxLines: 4,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: true,
+                                textWidthBasis: TextWidthBasis.parent,
+                                style: GoogleFonts.spaceMono(
+                                  color: const Color(0xFF242424),
+                                  fontSize: 15,
+                                  height: 1.3,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const SizedBox(height: 8),
-                                Expanded(
-                                  child: Text(
-                                    noteText,
-                                    maxLines: 5,
-                                    overflow: TextOverflow.ellipsis,
-                                    softWrap: true,
-                                    textWidthBasis: TextWidthBasis.parent,
-                                    style: GoogleFonts.spaceMono(
-                                      color: const Color(0xFF242424),
-                                      fontSize: 12.5,
-                                      height: 1.25,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        _CollectionStats(
+                          itemCount: itemCount,
+                          memberCount: memberCount,
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF19D6C8),
+                            border: Border.all(
+                              color: AppColors.black,
+                              width: 3,
+                            ),
+                          ),
+                          child: Text(
+                            promise,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.spaceMono(
+                              color: AppColors.black,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                              letterSpacing: 0.4,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        _CollectionStats(itemCount: itemCount, line: promise),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         _ShareFooter(),
                       ],
                     ),
@@ -406,77 +420,76 @@ class CollectionShareCard extends StatelessWidget {
   }
 }
 
-/// The reel count beside the one line that says what the recipient can do.
+/// The two numbers worth knowing before opening someone else's collection.
 class _CollectionStats extends StatelessWidget {
-  const _CollectionStats({required this.itemCount, required this.line});
+  const _CollectionStats({required this.itemCount, required this.memberCount});
 
   final int itemCount;
-  final String line;
+  final int memberCount;
 
   @override
   Widget build(BuildContext context) {
-    // Fixed height: a stretch alone cannot size these against each other
-    // inside a column with no bounded height of its own.
     return SizedBox(
-      height: 62,
+      height: 74,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: AppColors.black,
-              boxShadow: AppTheme.inkShadowSmall,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$itemCount',
-                  style: GoogleFonts.spaceMono(
-                    color: const Color(0xFF39FF14),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  itemCount == 1 ? 'PIN' : 'PINS',
-                  style: GoogleFonts.spaceMono(
-                    color: AppColors.white,
-                    fontSize: 9.6,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
+          Expanded(
+            child: _StatBlock(
+              value: '$itemCount',
+              label: itemCount == 1 ? 'PIN' : 'PINS',
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              alignment: Alignment.centerLeft,
-              decoration: BoxDecoration(
-                color: const Color(0xFF19D6C8),
-                border: Border.all(color: AppColors.black, width: 3),
+          if (memberCount > 0) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatBlock(
+                value: '$memberCount',
+                label: memberCount == 1 ? 'PERSON' : 'PEOPLE',
               ),
-              child: Text(
-                line,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                softWrap: true,
-                textWidthBasis: TextWidthBasis.parent,
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.black,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                  letterSpacing: 0.4,
-                ),
-              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatBlock extends StatelessWidget {
+  const _StatBlock({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.black,
+        boxShadow: AppTheme.inkShadowSmall,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: GoogleFonts.spaceMono(
+              color: const Color(0xFF39FF14),
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.spaceMono(
+              color: AppColors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
             ),
           ),
         ],
@@ -499,8 +512,8 @@ class _ShareBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 104),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      constraints: const BoxConstraints(maxWidth: 120),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: color,
         border: Border.all(color: AppColors.black, width: 2),
@@ -510,7 +523,7 @@ class _ShareBadge extends StatelessWidget {
         textAlign: TextAlign.center,
         style: GoogleFonts.spaceMono(
           color: textColor,
-          fontSize: 8,
+          fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
         ),
@@ -566,7 +579,7 @@ class _ShareHeader extends StatelessWidget {
                 kicker,
                 style: GoogleFonts.spaceMono(
                   color: AppColors.textSecondary,
-                  fontSize: 8,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.7,
                 ),
@@ -717,93 +730,6 @@ class _NoteTitle extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _KeyFactsBoard extends StatelessWidget {
-  final List<String> facts;
-
-  const _KeyFactsBoard({required this.facts});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.black,
-        border: Border.all(color: AppColors.black, width: 3),
-        boxShadow: AppTheme.inkShadowSmall,
-      ),
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'KEY FACTS',
-            style: GoogleFonts.spaceMono(
-              color: const Color(0xFF39FF14),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Expanded(
-            child: ClipRect(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: facts.map((fact) {
-                  return _ShareFactRow(text: fact);
-                }).toList(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShareFactRow extends StatelessWidget {
-  final String text;
-
-  const _ShareFactRow({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 5),
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: AppColors.red,
-              border: Border.all(color: AppColors.white, width: 1),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              softWrap: true,
-              textWidthBasis: TextWidthBasis.parent,
-              style: GoogleFonts.spaceMono(
-                color: AppColors.white,
-                fontSize: 9.6,
-                height: 1.12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -967,7 +893,7 @@ class _ShareFooter extends StatelessWidget {
             'Saved, summarized, and pinned with ReelPin',
             style: GoogleFonts.spaceMono(
               color: AppColors.black,
-              fontSize: 8.5,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.3,
               height: 1.15,
@@ -986,7 +912,7 @@ class _ShareFooter extends StatelessWidget {
             'GET REELPIN',
             style: GoogleFonts.spaceMono(
               color: AppColors.black,
-              fontSize: 8.5,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
             ),

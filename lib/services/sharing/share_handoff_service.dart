@@ -28,6 +28,7 @@ class ShareHandoffService {
   static const _shareTokenKey = 'share_handoff_share_token';
   static const _collectionsKey = 'share_handoff_collections';
   static const _collectionsDirKey = 'share_handoff_collections_dir';
+  static const _collectionPickerKey = 'share_handoff_collection_picker';
 
   bool get _supportsNativeHandoff =>
       !kIsWeb &&
@@ -76,14 +77,46 @@ class ShareHandoffService {
     await _syncNative();
   }
 
+  /// Whether a share into ReelPin stops to offer collections. On by default:
+  /// filing at share time is the point of the picker. Turning it off restores
+  /// the one-tap save for people who never file.
+  Future<bool> isCollectionPickerEnabled() async {
+    // Best-effort like the rest of this service: an unreadable store means the
+    // picker stays on, which is the behaviour the user did not ask to change.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_collectionPickerKey) ?? true;
+    } catch (e) {
+      AppLogger.error('Share collection picker preference read skipped: $e');
+      return true;
+    }
+  }
+
+  /// Persists the choice and re-syncs, so the next share honours it without
+  /// waiting for a collections reload.
+  Future<void> setCollectionPickerEnabled(
+    bool enabled,
+    List<CollectionSummary> collections,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_collectionPickerKey, enabled);
+    await syncCollections(collections);
+  }
+
   /// Mirrors the user's editable collections to native so the share sheet can
   /// offer them with no network call. A share extension has a tiny time budget
   /// and can be killed mid-request, so the picker reads this cached snapshot
   /// rather than hitting the API.
   ///
   /// Only id and name are stored — it is a picker, not a detail view.
+  ///
+  /// With the picker turned off the snapshot is cleared rather than skipped:
+  /// an empty list is already how both platforms mean "save without asking",
+  /// so the preference needs no native code of its own.
   Future<void> syncCollections(List<CollectionSummary> collections) async {
-    final editable = collections.where((c) => c.canEdit).toList(growable: false);
+    final editable = await isCollectionPickerEnabled()
+        ? collections.where((c) => c.canEdit).toList(growable: false)
+        : const <CollectionSummary>[];
 
     // Render the real folder tile to PNG so the native sheets show the same
     // artwork as the SAVED tab rather than a native approximation.

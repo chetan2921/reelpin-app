@@ -21,6 +21,7 @@ class AppBottomSheet extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.maxHeightFactor = 0.72,
+    this.fillHeight = false,
   });
 
   final String title;
@@ -34,12 +35,19 @@ class AppBottomSheet extends StatelessWidget {
 
   final double maxHeightFactor;
 
+  /// Fill whatever height the sheet is given instead of hugging its content.
+  /// For lists that can be any length, where a short list would otherwise
+  /// leave a sheet too small to drag open.
+  final bool fillHeight;
+
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * maxHeightFactor,
+        maxHeight: fillHeight
+            ? double.infinity
+            : MediaQuery.of(context).size.height * maxHeightFactor,
       ),
       child: Container(
         padding: EdgeInsets.fromLTRB(
@@ -54,7 +62,7 @@ class AppBottomSheet extends StatelessWidget {
         child: SafeArea(
           top: false,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
@@ -93,7 +101,10 @@ class AppBottomSheet extends StatelessWidget {
                 ),
               ],
               SizedBox(height: layout.gap(18)),
-              Flexible(child: child),
+              if (fillHeight)
+                Expanded(child: child)
+              else
+                Flexible(child: child),
             ],
           ),
         ),
@@ -112,5 +123,31 @@ Future<T?> showAppBottomSheet<T>({
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: builder,
+  );
+}
+
+/// A sheet the user can drag up to fill the screen, for content whose length
+/// is unknown — a list of collaborators is one row or a hundred.
+///
+/// [builder] receives the controller its scrollable must use, or dragging the
+/// sheet and scrolling the list fight each other.
+Future<T?> showExpandableAppBottomSheet<T>({
+  required BuildContext context,
+  required Widget Function(ScrollController controller) builder,
+  double initialSize = 0.55,
+  double minSize = 0.3,
+  double maxSize = 0.94,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: initialSize,
+      minChildSize: minSize,
+      maxChildSize: maxSize,
+      builder: (context, controller) => builder(controller),
+    ),
   );
 }

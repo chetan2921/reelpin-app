@@ -17,6 +17,7 @@ class ContentCacheKeys {
   static const discoverOverview = 'discover_overview';
   static const reelFilters = 'reel_filters';
   static const collections = 'collections';
+  static const libraryStats = 'library_stats';
 
   /// One slot per collection. Opening a collection used to wait on the network
   /// every time, even when nothing in it had changed.
@@ -31,6 +32,7 @@ class ContentCacheKeys {
     discoverOverview,
     reelFilters,
     collections,
+    libraryStats,
   ];
 
   static const all = <String>[...contentKeys, entitlements];

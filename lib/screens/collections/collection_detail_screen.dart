@@ -238,6 +238,7 @@ class _CollectionDetailScreenState
     // flag must never label an owner's own collection view-only.
     final isViewOnly =
         widget.isShared || (collection != null && !collection.canEdit);
+    final ownsReels = !widget.isShared && (collection?.isOwner ?? false);
 
     return Scaffold(
       backgroundColor: AppColors.bg(context),
@@ -272,6 +273,7 @@ class _CollectionDetailScreenState
                       vm,
                       collection,
                       canEdit: canEdit,
+                      ownerName: detail?.ownerName,
                     ),
                   ),
                 ),
@@ -313,6 +315,7 @@ class _CollectionDetailScreenState
                   isLoading: isLoading,
                   error: error,
                   canEdit: canEdit,
+                  ownsReels: ownsReels,
                 ),
                 SliverToBoxAdapter(child: SizedBox(height: layout.gap(96))),
               ],
@@ -328,11 +331,19 @@ class _CollectionDetailScreenState
     CollectionsViewModel vm,
     CollectionSummary? collection, {
     required bool canEdit,
+    required String? ownerName,
   }) {
     final layout = AppLayout.of(context);
     final title = collection?.name ?? widget.initialName ?? 'COLLECTION';
     final count = collection?.itemCount ?? 0;
     final isOwner = !widget.isShared && (collection?.isOwner ?? false);
+    // Whose collection this is, for everyone it was shared with. An editor
+    // needs it as much as a viewer, so it sits in the header rather than in
+    // the view-only strip.
+    final owner = isOwner ? null : ownerName?.trim();
+    final subtitle = owner == null || owner.isEmpty
+        ? '$count PIN${count == 1 ? '' : 'S'}'
+        : '$count PIN${count == 1 ? '' : 'S'} · BY ${owner.toUpperCase()}';
 
     return Row(
       children: [
@@ -355,7 +366,9 @@ class _CollectionDetailScreenState
               ),
               SizedBox(height: layout.gap(4)),
               Text(
-                '$count PIN${count == 1 ? '' : 'S'}',
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.spaceMono(
                   color: AppColors.textSec(context),
                   fontSize: layout.font(10),
@@ -402,6 +415,7 @@ class _CollectionDetailScreenState
 
   List<Widget> _buildContent(
     BuildContext context, {
+    required bool ownsReels,
     required CollectionDetail? detail,
     required bool isLoading,
     required String? error,
@@ -443,7 +457,7 @@ class _CollectionDetailScreenState
       ];
     }
     return [
-      _buildReelGrid(context, reels, canEdit: canEdit),
+      _buildReelGrid(context, reels, canEdit: canEdit, ownsReels: ownsReels),
       _buildPaginationState(context, detail!),
     ];
   }
@@ -452,6 +466,7 @@ class _CollectionDetailScreenState
     BuildContext context,
     List<Reel> reels, {
     required bool canEdit,
+    required bool ownsReels,
   }) {
     final layout = AppLayout.of(context);
     final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
@@ -488,14 +503,14 @@ class _CollectionDetailScreenState
                       Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => widget.isShared
-                              ? ReelDetailScreen(
-                                  reel: reel,
-                                  readOnly: true,
+                          builder: (_) => ownsReels
+                              ? ReelDetailLoaderScreen(
+                                  reelId: reel.id,
                                   collectionUrl: _collectionShareUrl,
                                 )
-                              : ReelDetailLoaderScreen(
-                                  reelId: reel.id,
+                              : ReelDetailScreen(
+                                  reel: reel,
+                                  readOnly: true,
                                   collectionUrl: _collectionShareUrl,
                                 ),
                         ),

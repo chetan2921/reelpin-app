@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'package:reelpin/components/collections/collection_folder_tile.dart';
 import 'package:reelpin/constants/app_colors.dart';
@@ -179,11 +180,13 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
         SliverFillRemaining(
           hasScrollBody: false,
           child: _MessageCard(
-            icon: Icons.create_new_folder,
+            hugeIcon: HugeIcons.strokeRoundedFolderPin,
             title: 'NO COLLECTIONS YET',
-            body:
-                'TAP NEW TO MAKE ONE. GIVE IT A NAME AND A STICKY NOTE, '
-                'THEN START ADDING PINS.',
+            body: 'GROUP YOUR PINS INTO COLLECTIONS AND SHARE THEM.',
+            action: _MessageAction(
+              label: '+ NEW COLLECTION',
+              onTap: vm.isMutating ? null : _createCollection,
+            ),
           ),
         ),
       ];
@@ -256,18 +259,31 @@ class _LoadingState extends StatelessWidget {
 }
 
 /// Shared shell for the empty and error states.
+/// One button on a [_MessageCard]: the thing to do about the state it
+/// describes. Null [onTap] renders it disabled rather than hiding it.
+class _MessageAction {
+  const _MessageAction({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+}
+
 class _MessageCard extends StatelessWidget {
   const _MessageCard({
     required this.title,
     required this.body,
-    this.icon,
+    this.hugeIcon,
     this.onRetry,
+    this.action,
   });
 
   final String title;
   final String body;
-  final IconData? icon;
+
+  /// The app's own icon set, for the states worth dressing properly.
+  final List<List<dynamic>>? hugeIcon;
   final Future<void> Function()? onRetry;
+  final _MessageAction? action;
 
   @override
   Widget build(BuildContext context) {
@@ -280,22 +296,23 @@ class _MessageCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[
+            if (hugeIcon != null) ...[
               Container(
-                width: layout.inset(52),
-                height: layout.inset(44),
+                width: layout.inset(64),
+                height: layout.inset(64),
+                alignment: Alignment.center,
                 decoration: AppTheme.brutalBox(
                   context,
                   color: AppColors.yellow,
-                  shadow: false,
                 ),
-                child: Icon(
-                  icon,
+                child: HugeIcon(
+                  icon: hugeIcon!,
                   color: AppColors.black,
-                  size: layout.inset(26),
+                  size: layout.inset(32),
+                  strokeWidth: 1.8,
                 ),
               ),
-              SizedBox(height: layout.gap(14)),
+              SizedBox(height: layout.gap(18)),
             ],
             Text(
               title,
@@ -316,6 +333,34 @@ class _MessageCard extends StatelessWidget {
                 height: 1.5,
               ),
             ),
+            if (action != null) ...[
+              SizedBox(height: layout.gap(20)),
+              GestureDetector(
+                onTap: action!.onTap,
+                child: Opacity(
+                  opacity: action!.onTap == null ? 0.5 : 1,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: layout.inset(20),
+                      vertical: layout.gap(13),
+                    ),
+                    decoration: AppTheme.brutalBox(
+                      context,
+                      color: AppColors.yellow,
+                    ),
+                    child: Text(
+                      action!.label,
+                      style: GoogleFonts.spaceMono(
+                        color: AppColors.black,
+                        fontSize: layout.font(12),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             if (onRetry != null) ...[
               SizedBox(height: layout.gap(16)),
               GestureDetector(

@@ -200,17 +200,32 @@ class CollectionMember {
     required this.userId,
     required this.role,
     this.createdAt,
+    this.displayName,
   });
 
   final String userId;
   final String role;
   final String? createdAt;
 
+  /// The name the account was created with. Null for accounts that have none,
+  /// and for any build talking to an API that predates it.
+  final String? displayName;
+
+  /// What to put in front of a person: their name, or a short form of their id
+  /// when there is no name to show. A full uuid tells the owner nothing.
+  String get label {
+    final name = displayName?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    final id = userId.trim();
+    return id.length > 8 ? 'USER ${id.substring(0, 8)}' : id;
+  }
+
   factory CollectionMember.fromJson(Map<String, dynamic> json) {
     return CollectionMember(
       userId: json['user_id']?.toString() ?? '',
       role: json['role']?.toString() ?? 'viewer',
       createdAt: json['created_at']?.toString(),
+      displayName: json['display_name']?.toString(),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,15 +8,19 @@ import 'package:reelpin/data_models/account/library_stats.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/router.dart';
 import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
+import 'package:reelpin/services/sharing/share_handoff_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/components/common/app_back_button.dart';
+import 'package:reelpin/components/common/app_switch.dart';
 import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 part 'partials/location_preference_card.dart';
 part 'partials/notification_preference_card.dart';
+part 'partials/share_picker_preference_card.dart';
 part 'partials/profile_action_card.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -33,19 +39,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadStats();
+      // Paint the last known numbers first, then refresh over the top. The
+      // stats barely move between visits, so waiting on the network to show
+      // any of them made every open of this screen a spinner.
+      unawaited(_hydrateStats().then((_) => _loadStats()));
     });
+  }
+
+  Future<void> _hydrateStats() async {
+    final payload = await ContentCache.instance.read(
+      ContentCacheKeys.libraryStats,
+    );
+    if (payload == null || !mounted || _stats != null) return;
+    setState(() => _stats = LibraryStats.fromJson(payload));
   }
 
   Future<void> _loadStats() async {
     setState(() {
-      _isLoadingStats = true;
+      // Only a first load has nothing to show; a refresh keeps the numbers up.
+      _isLoadingStats = _stats == null;
       _statsError = null;
     });
 
     try {
       final stats = await ref.read(accountHttpProvider).getLibraryStats();
       if (!mounted) return;
+      unawaited(
+        ContentCache.instance.write(
+          ContentCacheKeys.libraryStats,
+          stats.toJson(),
+        ),
+      );
       setState(() {
         _stats = stats;
       });
@@ -247,6 +271,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const _NotificationPreferenceCard(),
                 SizedBox(height: layout.gap(14)),
                 const _LocationPreferenceCard(),
+                SizedBox(height: layout.gap(14)),
+                const _SharePickerPreferenceCard(),
                 SizedBox(height: layout.gap(18)),
                 _sectionTitle(context, 'HELP'),
                 SizedBox(height: layout.gap(10)),

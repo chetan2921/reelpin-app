@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/components/common/app_bottom_sheet.dart';
+import 'package:reelpin/components/common/app_switch.dart';
 import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/components/sharing/share_card.dart';
 import 'package:reelpin/constants/app_colors.dart';
@@ -179,6 +180,9 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
             note: collection?.description ?? '',
             itemCount: collection?.itemCount ?? 0,
             role: role,
+            // The sender is whoever is looking at this sheet.
+            ownerName: ref.read(sessionViewModelProvider).displayName,
+            memberCount: _members?.members.length ?? 0,
           ),
         ),
       ),
@@ -229,6 +233,27 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
     _copiedResetTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) setState(() => _copiedLabel = null);
     });
+  }
+
+  /// The full list, on its own sheet so it can scroll however long it gets.
+  Future<void> _openCollaborators(bool isOwner) async {
+    final members = _members;
+    if (members == null) return;
+    await showExpandableAppBottomSheet<void>(
+      context: context,
+      builder: (controller) => _CollaboratorsSheet(
+        scrollController: controller,
+        members: members.members,
+        canManage: isOwner,
+        onRemove: (member) => ref
+            .read(collectionsViewModelProvider)
+            .removeMember(
+              collectionId: widget.collectionId,
+              memberUserId: member.userId,
+            ),
+      ),
+    );
+    if (mounted) _loadMembers();
   }
 
   Future<void> _invite(String role) async {
@@ -313,30 +338,9 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
             ),
             if (_members != null && _members!.members.isNotEmpty) ...[
               SizedBox(height: layout.gap(20)),
-              Text(
-                'COLLABORATORS',
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.textSec(context),
-                  fontSize: layout.font(10),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                ),
-              ),
-              SizedBox(height: layout.gap(8)),
-              ..._members!.members.map(
-                (m) => _MemberRow(
-                  member: m,
-                  canManage: isOwner,
-                  onRemove: () async {
-                    await ref
-                        .read(collectionsViewModelProvider)
-                        .removeMember(
-                          collectionId: widget.collectionId,
-                          memberUserId: m.userId,
-                        );
-                    _loadMembers();
-                  },
-                ),
+              _CollaboratorsRow(
+                count: _members!.members.length,
+                onTap: () => _openCollaborators(isOwner),
               ),
             ],
             SizedBox(height: layout.gap(20)),
@@ -346,11 +350,9 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
             _SheetRow(
               label: 'PUBLIC VIEW LINK',
               hint: hasLink ? 'Anyone with the link can view' : 'Off',
-              trailing: Switch(
+              trailing: AppSwitch(
                 value: hasLink,
                 onChanged: _busy ? null : _toggleLink,
-                activeThumbColor: AppColors.black,
-                activeTrackColor: AppColors.yellow,
               ),
             ),
             if (hasLink) ...[
@@ -578,45 +580,196 @@ class _ChipAction extends StatelessWidget {
   }
 }
 
+/// The one-line summary in the share sheet. The list itself lives behind it.
+class _CollaboratorsRow extends StatelessWidget {
+  const _CollaboratorsRow({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: _SheetRow(
+        label: 'COLLABORATORS',
+        hint: count == 1 ? '1 person' : '$count people',
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: layout.inset(10),
+                vertical: layout.gap(6),
+              ),
+              decoration: AppTheme.brutalBox(
+                context,
+                color: AppColors.surfaceElevatedColor(context),
+                shadow: false,
+              ),
+              child: Text(
+                '$count',
+                style: GoogleFonts.spaceMono(
+                  color: AppColors.fg(context),
+                  fontSize: layout.font(12),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            SizedBox(width: layout.inset(6)),
+            Icon(
+              Icons.chevron_right,
+              color: AppColors.fg(context),
+              size: layout.inset(20),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Every collaborator, on a sheet of its own so the list can scroll rather
+/// than pushing the invite buttons off the share sheet.
+class _CollaboratorsSheet extends StatefulWidget {
+  const _CollaboratorsSheet({
+    required this.scrollController,
+    required this.members,
+    required this.canManage,
+    required this.onRemove,
+  });
+
+  final ScrollController scrollController;
+  final List<CollectionMember> members;
+  final bool canManage;
+  final Future<void> Function(CollectionMember member) onRemove;
+
+  @override
+  State<_CollaboratorsSheet> createState() => _CollaboratorsSheetState();
+}
+
+class _CollaboratorsSheetState extends State<_CollaboratorsSheet> {
+  late final List<CollectionMember> _members = List.of(widget.members);
+  final Set<String> _removing = {};
+
+  Future<void> _remove(CollectionMember member) async {
+    setState(() => _removing.add(member.userId));
+    try {
+      await widget.onRemove(member);
+      if (mounted) {
+        setState(() => _members.removeWhere((m) => m.userId == member.userId));
+      }
+    } finally {
+      if (mounted) setState(() => _removing.remove(member.userId));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _members.length;
+    return AppBottomSheet(
+      title: 'Collaborators',
+      subtitle: count == 1
+          ? '1 person can open this collection.'
+          : '$count people can open this collection.',
+      // Fills the dragged height, so the sheet is worth dragging open even
+      // when the list is short.
+      fillHeight: true,
+      child: ListView.builder(
+        controller: widget.scrollController,
+        itemCount: _members.length,
+        itemBuilder: (context, index) {
+          final member = _members[index];
+          return _MemberRow(
+            member: member,
+            canManage: widget.canManage,
+            isRemoving: _removing.contains(member.userId),
+            onRemove: () => _remove(member),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _MemberRow extends StatelessWidget {
   const _MemberRow({
     required this.member,
     required this.canManage,
     required this.onRemove,
+    this.isRemoving = false,
   });
 
   final CollectionMember member;
   final bool canManage;
   final VoidCallback onRemove;
+  final bool isRemoving;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final layout = AppLayout.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: layout.gap(6)),
       child: Row(
         children: [
-          const CircleAvatar(radius: 12, child: Icon(Icons.person, size: 14)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              member.userId,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Container(
+            width: layout.inset(30),
+            height: layout.inset(30),
+            decoration: AppTheme.brutalBox(
+              context,
+              color: AppColors.yellow,
+              shadow: false,
+            ),
+            child: Icon(
+              Icons.person,
+              size: layout.inset(16),
+              color: AppColors.black,
             ),
           ),
-          Text(
-            member.role.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          SizedBox(width: layout.inset(10)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  member.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.spaceMono(
+                    color: AppColors.fg(context),
+                    fontSize: layout.font(12),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  member.role.toUpperCase(),
+                  style: GoogleFonts.spaceMono(
+                    color: AppColors.textSec(context),
+                    fontSize: layout.font(10),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
             ),
           ),
           if (canManage)
             IconButton(
-              iconSize: 18,
-              icon: const Icon(Icons.close),
+              iconSize: layout.inset(18),
+              icon: isRemoving
+                  ? SizedBox(
+                      width: layout.inset(14),
+                      height: layout.inset(14),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.fg(context),
+                      ),
+                    )
+                  : Icon(Icons.close, color: AppColors.fg(context)),
               tooltip: 'Remove',
-              onPressed: onRemove,
+              onPressed: isRemoving ? null : onRemove,
             ),
         ],
       ),

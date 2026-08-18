@@ -73,7 +73,7 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _navItems = [
     _NavItem(icon: HugeIcons.strokeRoundedHome04, label: 'HOME'),
     _NavItem(icon: HugeIcons.strokeRoundedLocation03, label: 'MAP'),
-    _NavItem(icon: HugeIcons.strokeRoundedBookmark02, label: 'SAVED'),
+    _NavItem(icon: HugeIcons.strokeRoundedFolderPin, label: 'SAVED'),
     _NavItem(icon: HugeIcons.strokeRoundedDiscoverSquare, label: 'DISCOVER'),
   ];
 
