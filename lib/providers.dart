@@ -24,6 +24,7 @@ import 'package:reelpin/view_models/session_view_model.dart';
 import 'package:reelpin/view_models/theme_view_model.dart';
 import 'package:reelpin/http/collections_http.dart';
 import 'package:reelpin/http/mock_collections_http.dart';
+import 'package:reelpin/components/collections/collection_tile_renderer.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
 final themeViewModelProvider = ChangeNotifierProvider<ThemeViewModel>((ref) {
@@ -85,7 +86,10 @@ final collectionsHttpProvider = Provider<CollectionsHttp>((ref) {
 
 final collectionsViewModelProvider =
     ChangeNotifierProvider<CollectionsViewModel>((ref) {
-      return CollectionsViewModel(ref.read(collectionsHttpProvider));
+      return CollectionsViewModel(
+        ref.read(collectionsHttpProvider),
+        renderShareTiles: CollectionTileRenderer.writeTiles,
+      );
     });
 
 final accountHttpProvider = Provider<AccountHttp>((ref) {

@@ -17,7 +17,7 @@ import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/components/reels/category_badge.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
 import 'package:reelpin/components/common/confirm_dialog.dart';
-import 'package:reelpin/screens/collections/add_to_collection_sheet.dart';
+import 'package:reelpin/components/collections/add_to_collection_sheet.dart';
 
 part 'partials/filter_option.dart';
 part 'partials/platform_filter_tile.dart';

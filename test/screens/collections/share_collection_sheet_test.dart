@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/http/collections_http.dart';
 import 'package:reelpin/providers.dart';
-import 'package:reelpin/screens/collections/share_collection_sheet.dart';
+import 'package:reelpin/components/collections/share_collection_sheet.dart';
 
 /// Regression cover for the copy flow. The sheet used to confirm a copy with a
 /// ScaffoldMessenger snackbar, which renders *behind* the modal sheet — the

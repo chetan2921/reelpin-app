@@ -40,6 +40,7 @@ class _SharePickerPreferenceCardState
       await ShareHandoffService.instance.setCollectionPickerEnabled(
         enabled,
         ref.read(collectionsViewModelProvider).collections,
+        renderTiles: CollectionTileRenderer.writeTiles,
       );
     } finally {
       if (mounted) setState(() => _isUpdating = false);

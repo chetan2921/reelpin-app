@@ -13,7 +13,7 @@ import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/screens/collections/collection_detail_screen.dart';
-import 'package:reelpin/screens/collections/collection_form_sheet.dart';
+import 'package:reelpin/components/collections/collection_form_sheet.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
 class CollectionsScreen extends ConsumerStatefulWidget {

@@ -5,7 +5,7 @@ import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
-import 'package:reelpin/screens/collections/add_to_collection_sheet.dart';
+import 'package:reelpin/components/collections/add_to_collection_sheet.dart';
 
 enum _ReelAction { addToCollection, delete }
 

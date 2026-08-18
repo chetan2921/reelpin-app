@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reelpin/data_models/collections/collection_models.dart';
-import 'package:reelpin/services/sharing/collection_tile_renderer.dart';
 import 'package:reelpin/env.dart';
 import 'package:reelpin/utils/app_logger.dart';
 
@@ -96,11 +95,16 @@ class ShareHandoffService {
   /// waiting for a collections reload.
   Future<void> setCollectionPickerEnabled(
     bool enabled,
-    List<CollectionSummary> collections,
-  ) async {
+    List<CollectionSummary> collections, {
+    Future<Map<String, String>> Function({
+      required String directory,
+      required List<CollectionSummary> collections,
+    })?
+    renderTiles,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_collectionPickerKey, enabled);
-    await syncCollections(collections);
+    await syncCollections(collections, renderTiles: renderTiles);
   }
 
   /// Mirrors the user's editable collections to native so the share sheet can
@@ -113,7 +117,18 @@ class ShareHandoffService {
   /// With the picker turned off the snapshot is cleared rather than skipped:
   /// an empty list is already how both platforms mean "save without asking",
   /// so the preference needs no native code of its own.
-  Future<void> syncCollections(List<CollectionSummary> collections) async {
+  /// [renderTiles] draws each collection's artwork into the directory it is
+  /// given and returns the file name per id. Injected because drawing a widget
+  /// is a component's job and this layer may not reach into one; a null
+  /// renderer simply syncs names without artwork.
+  Future<void> syncCollections(
+    List<CollectionSummary> collections, {
+    Future<Map<String, String>> Function({
+      required String directory,
+      required List<CollectionSummary> collections,
+    })?
+    renderTiles,
+  }) async {
     final editable = await isCollectionPickerEnabled()
         ? collections.where((c) => c.canEdit).toList(growable: false)
         : const <CollectionSummary>[];
@@ -122,10 +137,10 @@ class ShareHandoffService {
     // artwork as the SAVED tab rather than a native approximation.
     var artwork = <String, String>{};
     String? assetsDir;
-    if (editable.isNotEmpty) {
+    if (editable.isNotEmpty && renderTiles != null) {
       assetsDir = await _shareAssetsDirectory();
       if (assetsDir != null) {
-        artwork = await CollectionTileRenderer.writeTiles(
+        artwork = await renderTiles(
           directory: assetsDir,
           collections: editable,
         );

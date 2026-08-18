@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:reelpin/data_models/reels/reel.dart';
-import 'package:reelpin/screens/collections/add_to_collection_sheet.dart';
+import 'package:reelpin/components/collections/add_to_collection_sheet.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/router.dart';

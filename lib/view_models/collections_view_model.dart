@@ -10,11 +10,19 @@ import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
 
 class CollectionsViewModel extends ChangeNotifier {
-  CollectionsViewModel(this._api, {ContentCache? cache})
+  CollectionsViewModel(this._api, {ContentCache? cache, this.renderShareTiles})
     : _cache = cache ?? ContentCache.instance;
 
   final CollectionsHttp _api;
   final ContentCache _cache;
+
+  /// Draws the share-sheet artwork. Supplied by providers.dart, since the
+  /// drawing lives in components and this layer may not import one.
+  final Future<Map<String, String>> Function({
+    required String directory,
+    required List<CollectionSummary> collections,
+  })?
+  renderShareTiles;
 
   final List<CollectionSummary> _collections = [];
   bool _isLoadingCollections = false;
@@ -339,7 +347,10 @@ class CollectionsViewModel extends ChangeNotifier {
   /// the picker is a convenience, and a stale list only means one fewer
   /// shortcut, never a lost reel.
   Future<void> _syncShareTargets() {
-    return ShareHandoffService.instance.syncCollections(_collections);
+    return ShareHandoffService.instance.syncCollections(
+      _collections,
+      renderTiles: renderShareTiles,
+    );
   }
 
   void _upsert(CollectionSummary collection) {

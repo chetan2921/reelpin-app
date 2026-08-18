@@ -14,6 +14,7 @@ import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/components/common/app_back_button.dart';
+import 'package:reelpin/components/collections/collection_tile_renderer.dart';
 import 'package:reelpin/components/common/app_switch.dart';
 import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
