@@ -26,7 +26,7 @@ class CollectionTileRenderer {
 
   static Future<Uint8List?> renderTile({
     required CollectionSummary collection,
-    required int index,
+    required Color accent,
     Brightness brightness = Brightness.light,
   }) async {
     try {
@@ -54,7 +54,7 @@ class CollectionTileRenderer {
         container: boundary,
         child: _tileFrame(
           collection: collection,
-          index: index,
+          accent: accent,
           brightness: brightness,
         ),
       ).attachToRenderTree(buildOwner);
@@ -83,7 +83,7 @@ class CollectionTileRenderer {
   /// showing the tile provides its own surface.
   static Widget _tileFrame({
     required CollectionSummary collection,
-    required int index,
+    required Color accent,
     required Brightness brightness,
   }) {
     return Directionality(
@@ -103,7 +103,7 @@ class CollectionTileRenderer {
               padding: const EdgeInsets.all(6),
               child: CollectionFolderTile(
                 collection: collection,
-                index: index,
+                accent: accent,
                 onTap: null,
               ),
             ),
@@ -134,14 +134,14 @@ class CollectionTileRenderer {
     }
 
     final names = <String, String>{};
-    for (var index = 0; index < collections.length; index++) {
-      final collection = collections[index];
+    final accents = CollectionFolderTile.accentsFor(collections);
+    for (final collection in collections) {
       // Both themes: the native sheet picks by the device's mode, and it has
       // no Flutter engine to render one on demand.
       for (final brightness in Brightness.values) {
         final bytes = await renderTile(
           collection: collection,
-          index: index,
+          accent: accents[collection.id]!,
           brightness: brightness,
         );
         if (bytes == null) continue;

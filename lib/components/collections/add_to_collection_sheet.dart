@@ -97,6 +97,9 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     final layout = AppLayout.of(context);
     final vm = ref.watch(collectionsViewModelProvider);
     final editable = vm.collections.where((c) => c.canEdit).toList();
+    // Built from every collection, not just the editable ones: a filtered list
+    // would rank them differently and show a different colour here than SAVED.
+    final accents = CollectionFolderTile.accentsFor(vm.collections);
     final maxHeight = MediaQuery.of(context).size.height * 0.72;
 
     return ConstrainedBox(
@@ -175,7 +178,12 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
               ),
               SizedBox(height: layout.gap(16)),
               Flexible(
-                child: _buildBody(context, vm.isLoadingCollections, editable),
+                child: _buildBody(
+                  context,
+                  vm.isLoadingCollections,
+                  editable,
+                  accents,
+                ),
               ),
               if (editable.isNotEmpty) ...[
                 SizedBox(height: layout.gap(16)),
@@ -195,6 +203,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     BuildContext context,
     bool isLoading,
     List<CollectionSummary> editable,
+    Map<String, Color> accents,
   ) {
     final layout = AppLayout.of(context);
 
@@ -245,6 +254,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
         final collection = editable[index];
         return CollectionFolderTile(
           collection: collection,
+          accent: accents[collection.id]!,
           onTap: () => _toggle(collection.id),
           overlay: _selected.contains(collection.id)
               ? const SelectionTick()
