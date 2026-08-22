@@ -18,7 +18,7 @@ class CollectionLink {
   /// Returns null for any URL that is not a collection link, including a
   /// Linkrunner short link, which only becomes one after the SDK resolves it.
   static CollectionLink? parse(Uri uri) {
-    final segments = uri.pathSegments;
+    final segments = _segments(uri);
     if (segments.isEmpty || segments.first != 'c') return null;
     if (segments.length >= 3 && segments[1] == 'invite') {
       return _of(segments[2], isInvite: true, url: uri.toString());
@@ -27,6 +27,18 @@ class CollectionLink {
       return _of(segments[1], isInvite: false, url: uri.toString());
     }
     return null;
+  }
+
+  /// The path segments to match on, with a custom scheme's host folded back in.
+  ///
+  /// `https://reelpin.in/c/invite/x` puts `c` in the path, but `reelpin://c/invite/x`
+  /// puts it in the *host*, leaving the path as `invite/x`. The custom scheme is
+  /// what a chat app's in-app browser can still open — those browsers never hand
+  /// a Universal Link to the app — so both shapes have to reach the same place.
+  static List<String> _segments(Uri uri) {
+    if (uri.scheme == 'https' || uri.scheme == 'http') return uri.pathSegments;
+    final host = uri.host;
+    return host.isEmpty ? uri.pathSegments : [host, ...uri.pathSegments];
   }
 
   /// A trailing slash leaves an empty last segment, so `/c/` parses as far as a
