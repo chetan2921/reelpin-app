@@ -15,7 +15,7 @@ class CollectionFolderTile extends StatelessWidget {
   const CollectionFolderTile({
     super.key,
     required this.collection,
-    required this.index,
+    required this.accent,
     required this.onTap,
     this.compact = false,
     this.overlay,
@@ -23,8 +23,9 @@ class CollectionFolderTile extends StatelessWidget {
 
   final CollectionSummary collection;
 
-  /// Drives the accent colour so a grid cycles through the palette.
-  final int index;
+  /// From [accentsFor]; the tile does not pick its own colour because the
+  /// choice depends on every other collection.
+  final Color accent;
   final VoidCallback? onTap;
   final bool compact;
 
@@ -39,11 +40,39 @@ class CollectionFolderTile extends StatelessWidget {
     AppColors.neonGreen,
   ];
 
-  static Color accentFor(int index) => _accents[index % _accents.length];
+  /// A stable colour per collection, all different until the palette runs out.
+  ///
+  /// Ranked by creation order, never by the grid's own order. The grid moves a
+  /// collection to the front when something is saved into it, so a colour tied
+  /// to grid position repainted every folder it moved past — and adding a new
+  /// collection recoloured all the older ones.
+  ///
+  /// Pass the full collection list, not a filtered view, or the picker and the
+  /// SAVED grid disagree about a collection's colour.
+  static Map<String, Color> accentsFor(List<CollectionSummary> collections) {
+    final ordered = [...collections]..sort(_byCreation);
+    return {
+      for (var i = 0; i < ordered.length; i++)
+        ordered[i].id: _accents[i % _accents.length],
+    };
+  }
+
+  /// Oldest first. [CollectionSummary.createdAt] is an ISO-8601 string, so it
+  /// compares correctly as text; id breaks ties so the order is total.
+  static int _byCreation(CollectionSummary a, CollectionSummary b) {
+    final aCreated = a.createdAt;
+    final bCreated = b.createdAt;
+    if (aCreated == null && bCreated != null) return 1;
+    if (aCreated != null && bCreated == null) return -1;
+    if (aCreated != null && bCreated != null) {
+      final byDate = aCreated.compareTo(bCreated);
+      if (byDate != 0) return byDate;
+    }
+    return a.id.compareTo(b.id);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final accent = accentFor(index);
     final note = collection.description.trim();
     return GestureDetector(
       onTap: onTap,

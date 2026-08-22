@@ -24,6 +24,16 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
+			<string>reelpin-collections</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>reelpin</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
 			<string>supabase-oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>

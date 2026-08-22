@@ -195,6 +195,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
   }
 
   Widget _buildGrid(BuildContext context, List<CollectionSummary> collections) {
+    final accents = CollectionFolderTile.accentsFor(collections);
     final layout = AppLayout.of(context);
     final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
     final spacing = layout.inset(12);
@@ -221,7 +222,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 child: FadeInAnimation(
                   child: CollectionFolderTile(
                     collection: collection,
-                    index: index,
+                    accent: accents[collection.id]!,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => CollectionDetailScreen(

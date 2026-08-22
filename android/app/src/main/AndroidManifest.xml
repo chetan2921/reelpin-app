@@ -67,6 +67,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="reelpin.in" android:pathPrefix="/c/" />
             </intent-filter>
+
+            <!-- Custom-scheme fallback for the same links. A chat app's in-app
+                 browser never hands an App Link / Universal Link to the app, so
+                 the web page offers reelpin://c/... as a second route. Kept on
+                 both platforms so the page can use one URL for both. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="reelpin" android:host="c" />
+            </intent-filter>
         </activity>
         <activity
             android:name=".ShareReceiverActivity"

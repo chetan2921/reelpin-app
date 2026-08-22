@@ -217,19 +217,67 @@ void main() {
       expect(vm.detailFor('a')?.collection.itemCount, 0);
     });
 
-    test('addReels refreshes both the detail and the list', () async {
+    test(
+      'addReelsToCollections drops the stale detail and refreshes the list',
+      () async {
+        final api = _FakeCollectionsHttp(collections: [_summary('a')]);
+        final vm = CollectionsViewModel(api);
+        await vm.loadCollections();
+        await vm.loadCollectionDetail('a');
+        final listBefore = api.getCollectionsCalls;
+
+        await vm.addReelsToCollections(
+          collectionIds: const ['a'],
+          reelIds: const ['r9'],
+        );
+
+        // The detail is dropped rather than refetched here: the next open of the
+        // collection loads it, instead of the save waiting on data nobody may look at.
+        expect(vm.detailFor('a'), isNull);
+        expect(api.getCollectionsCalls, greaterThan(listBefore));
+      },
+    );
+
+    test(
+      'addReelsToCollections adds in parallel and refreshes the list once',
+      () async {
+        // Saving to three collections used to be nine sequential round trips:
+        // add + detail + list, per collection.
+        final api = _FakeCollectionsHttp(
+          collections: [_summary('a'), _summary('b'), _summary('c')],
+        );
+        final vm = CollectionsViewModel(api);
+        await vm.loadCollections();
+        final listBefore = api.getCollectionsCalls;
+
+        await vm.addReelsToCollections(
+          collectionIds: const ['a', 'b', 'c'],
+          reelIds: const ['r9'],
+        );
+
+        expect(api.addCalls, 3);
+        expect(
+          api.maxConcurrentAdds,
+          3,
+          reason: 'adds must overlap, not queue',
+        );
+        expect(api.getCollectionsCalls, listBefore + 1);
+      },
+    );
+
+    test('addReelsToCollections is a no-op with nothing selected', () async {
       final api = _FakeCollectionsHttp(collections: [_summary('a')]);
       final vm = CollectionsViewModel(api);
       await vm.loadCollections();
-      await vm.loadCollectionDetail('a');
-      final detailBefore = api.detailCalls;
       final listBefore = api.getCollectionsCalls;
 
-      final added = await vm.addReels(collectionId: 'a', reelIds: const ['r9']);
+      await vm.addReelsToCollections(
+        collectionIds: const [],
+        reelIds: const ['r9'],
+      );
 
-      expect(added, 1);
-      expect(api.detailCalls, greaterThan(detailBefore));
-      expect(api.getCollectionsCalls, greaterThan(listBefore));
+      expect(api.addCalls, 0);
+      expect(api.getCollectionsCalls, listBefore);
     });
 
     test('isMutating is reset even when the call throws', () async {
@@ -383,6 +431,9 @@ class _FakeCollectionsHttp implements CollectionsHttp {
 
   int getCollectionsCalls = 0;
   int detailCalls = 0;
+  int addCalls = 0;
+  int _concurrentAdds = 0;
+  int maxConcurrentAdds = 0;
 
   @override
   Future<List<CollectionSummary>> getCollections() async {
@@ -435,6 +486,13 @@ class _FakeCollectionsHttp implements CollectionsHttp {
     required String collectionId,
     required List<String> reelIds,
   }) async {
+    addCalls += 1;
+    _concurrentAdds += 1;
+    if (_concurrentAdds > maxConcurrentAdds) {
+      maxConcurrentAdds = _concurrentAdds;
+    }
+    await Future<void>.delayed(Duration.zero);
+    _concurrentAdds -= 1;
     if (mutationError != null) throw mutationError!;
     return reelIds.length;
   }

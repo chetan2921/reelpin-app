@@ -224,20 +224,33 @@ class CollectionsViewModel extends ChangeNotifier {
     });
   }
 
-  Future<int> addReels({
-    required String collectionId,
+  /// Adds [reelIds] to every collection in [collectionIds].
+  ///
+  /// The adds run together and the grid is refreshed once at the end. Doing an
+  /// add, a detail refresh and a list refresh per collection made saving to
+  /// three collections nine sequential round trips, which the picker sat and
+  /// waited on.
+  Future<void> addReelsToCollections({
+    required List<String> collectionIds,
     required List<String> reelIds,
   }) async {
-    var added = 0;
+    if (collectionIds.isEmpty || reelIds.isEmpty) return;
     await _mutate(() async {
-      added = await _api.addReelsToCollection(
-        collectionId: collectionId,
-        reelIds: reelIds,
-      );
+      await Future.wait([
+        for (final collectionId in collectionIds)
+          _api.addReelsToCollection(
+            collectionId: collectionId,
+            reelIds: reelIds,
+          ),
+      ]);
+      // Drop the cached detail rather than refetching it here. Opening the
+      // collection loads it fresh, so the save no longer waits on data the
+      // user may never look at.
+      for (final collectionId in collectionIds) {
+        _details.remove(collectionId);
+      }
     });
-    await loadCollectionDetail(collectionId, forceRefresh: true);
     await loadCollections(forceRefresh: true);
-    return added;
   }
 
   Future<void> removeReel({

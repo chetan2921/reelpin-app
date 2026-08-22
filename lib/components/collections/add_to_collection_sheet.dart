@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -37,7 +39,6 @@ class AddToCollectionSheet extends ConsumerStatefulWidget {
 
 class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
   final Set<String> _selected = {};
-  bool _saving = false;
 
   @override
   void initState() {
@@ -53,29 +54,36 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     });
   }
 
-  Future<void> _save() async {
-    if (_selected.isEmpty || _saving) return;
-    setState(() => _saving = true);
+  /// Closes the sheet straight away and lets the save finish behind it.
+  ///
+  /// Waiting for the round trip held the picker open under a spinner for
+  /// several seconds. The only thing that needs the result is the error
+  /// message, which the messenger below can still show once the sheet is gone.
+  void _save() {
+    if (_selected.isEmpty) return;
     final vm = ref.read(collectionsViewModelProvider);
-    try {
-      for (final collectionId in _selected) {
-        await vm.addReels(collectionId: collectionId, reelIds: widget.reelIds);
-      }
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            userFacingErrorMessage(
-              e,
-              fallbackMessage: 'Could not add to that collection.',
-            ),
-          ),
-        ),
-      );
-    }
+    final collectionIds = _selected.toList(growable: false);
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    unawaited(
+      vm
+          .addReelsToCollections(
+            collectionIds: collectionIds,
+            reelIds: widget.reelIds,
+          )
+          .catchError((Object e) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(
+                  userFacingErrorMessage(
+                    e,
+                    fallbackMessage: 'Could not add to that collection.',
+                  ),
+                ),
+              ),
+            );
+          }),
+    );
   }
 
   Future<void> _createAndAdd() async {
@@ -89,6 +97,9 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     final layout = AppLayout.of(context);
     final vm = ref.watch(collectionsViewModelProvider);
     final editable = vm.collections.where((c) => c.canEdit).toList();
+    // Built from every collection, not just the editable ones: a filtered list
+    // would rank them differently and show a different colour here than SAVED.
+    final accents = CollectionFolderTile.accentsFor(vm.collections);
     final maxHeight = MediaQuery.of(context).size.height * 0.72;
 
     return ConstrainedBox(
@@ -167,14 +178,18 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
               ),
               SizedBox(height: layout.gap(16)),
               Flexible(
-                child: _buildBody(context, vm.isLoadingCollections, editable),
+                child: _buildBody(
+                  context,
+                  vm.isLoadingCollections,
+                  editable,
+                  accents,
+                ),
               ),
               if (editable.isNotEmpty) ...[
                 SizedBox(height: layout.gap(16)),
                 _SaveButton(
                   count: _selected.length,
-                  saving: _saving,
-                  onTap: _selected.isEmpty || _saving ? null : _save,
+                  onTap: _selected.isEmpty ? null : _save,
                 ),
               ],
             ],
@@ -188,6 +203,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
     BuildContext context,
     bool isLoading,
     List<CollectionSummary> editable,
+    Map<String, Color> accents,
   ) {
     final layout = AppLayout.of(context);
 
@@ -238,7 +254,7 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
         final collection = editable[index];
         return CollectionFolderTile(
           collection: collection,
-          index: index,
+          accent: accents[collection.id]!,
           onTap: () => _toggle(collection.id),
           overlay: _selected.contains(collection.id)
               ? const SelectionTick()
@@ -252,14 +268,9 @@ class _AddToCollectionSheetState extends ConsumerState<AddToCollectionSheet> {
 /// The confirm step. Nothing is written until this is tapped, so a mis-tap on
 /// a folder costs nothing.
 class _SaveButton extends StatelessWidget {
-  const _SaveButton({
-    required this.count,
-    required this.saving,
-    required this.onTap,
-  });
+  const _SaveButton({required this.count, required this.onTap});
 
   final int count;
-  final bool saving;
   final VoidCallback? onTap;
 
   @override
@@ -280,24 +291,15 @@ class _SaveButton extends StatelessWidget {
           padding: EdgeInsets.symmetric(vertical: layout.gap(14)),
           alignment: Alignment.center,
           decoration: AppTheme.brutalBox(context, color: AppColors.yellow),
-          child: saving
-              ? SizedBox(
-                  width: layout.inset(16),
-                  height: layout.inset(16),
-                  child: const CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: AppColors.black,
-                  ),
-                )
-              : Text(
-                  label,
-                  style: GoogleFonts.spaceMono(
-                    color: AppColors.black,
-                    fontSize: layout.font(13),
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                  ),
-                ),
+          child: Text(
+            label,
+            style: GoogleFonts.spaceMono(
+              color: AppColors.black,
+              fontSize: layout.font(13),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
+          ),
         ),
       ),
     );
