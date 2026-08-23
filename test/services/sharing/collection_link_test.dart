@@ -40,6 +40,23 @@ void main() {
     expect(link.isInvite, isTrue);
   });
 
+  test('parses links on the dedicated link host', () {
+    // Links now come from link.reelpin.in, which serves nothing but /c/ links.
+    // The parser matches on path, not host, so both hosts must keep working
+    // while links already sent out point at the old one.
+    final invite = CollectionLink.parse(
+      Uri.parse('https://link.reelpin.in/c/invite/xyz789'),
+    );
+    expect(invite?.token, 'xyz789');
+    expect(invite?.isInvite, isTrue);
+
+    final share = CollectionLink.parse(
+      Uri.parse('https://link.reelpin.in/c/abc123'),
+    );
+    expect(share?.token, 'abc123');
+    expect(share?.isInvite, isFalse);
+  });
+
   test('returns null for URLs that are not collection links', () {
     for (final url in [
       'https://reelpin.in/',
