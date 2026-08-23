@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12 and up draw their own splash screen and ignore windowBackground
+         for it, so the branding has to go through these attributes instead.
+
+         The pin is supplied as the icon because that is the only centred slot the
+         platform exposes — the branding-image slot is pinned to the bottom of the
+         screen. The OS clips this drawable to a circle, and the asset is sized to
+         sit inside it. One UI ignores this attribute and uses the launcher icon,
+         which is why that icon is adaptive with a matching background layer. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/launch_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_pin</item>
+    </style>
+
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@color/launch_background</item>
+    </style>
+</resources>

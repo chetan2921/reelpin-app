@@ -41,7 +41,6 @@ class SessionViewModel extends ChangeNotifier {
 
   Session? _session;
   bool _forceSignedOut = false;
-  bool _isBootstrapping = true;
   bool _isSigningIn = false;
   bool _isSigningOut = false;
   bool _isDeletingAccount = false;
@@ -52,7 +51,6 @@ class SessionViewModel extends ChangeNotifier {
   User? get currentUser =>
       _forceSignedOut ? null : _session?.user ?? _authService.currentUser;
   bool get isAuthenticated => currentUser != null;
-  bool get isBootstrapping => _isBootstrapping;
   bool get isSigningIn => _isSigningIn;
   bool get isSigningOut => _isSigningOut;
   bool get isDeletingAccount => _isDeletingAccount;
@@ -279,12 +277,16 @@ class SessionViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Post-restore housekeeping, deliberately awaited by nothing on screen.
+  ///
+  /// The session is restored synchronously in the constructor, so the app
+  /// already knows whether it has a user by the time the first frame builds.
+  /// Neither call below feeds a screen — one upserts the profile row, the other
+  /// mints the token the native share path uses — so gating the UI on them only
+  /// held the splash up for the length of two network round trips.
   Future<void> _bootstrap() async {
-    await Future<void>.delayed(const Duration(milliseconds: 850));
     await _syncProfileSilently();
     await _syncShareHandoffState();
-    _isBootstrapping = false;
-    notifyListeners();
   }
 
   Future<void> _syncProfileSilently() async {

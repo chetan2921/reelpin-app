@@ -66,6 +66,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="reelpin.in" android:pathPrefix="/c/" />
+                <!-- Link-only host. It serves nothing but /c/ links, so it never
+                     accumulates the per-domain state that stops a browser handing
+                     a link to the app the way the marketing site does. -->
+                <data android:scheme="https" android:host="link.reelpin.in" android:pathPrefix="/c/" />
             </intent-filter>
 
             <!-- Custom-scheme fallback for the same links. A chat app's in-app

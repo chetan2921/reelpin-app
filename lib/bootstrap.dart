@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:reelpin/reelpin_app.dart';
 import 'package:reelpin/env.dart';
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/view_models/theme_view_model.dart';
 import 'package:reelpin/utils/app_logger.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
 import 'package:reelpin/services/sharing/pending_deep_link.dart';
@@ -24,11 +26,19 @@ Future<void> bootstrap() async {
   // first frame, and the background handler registers a moment later.
   unawaited(_initializeMessaging());
 
-  // Before anything can gate on auth: a launch URL is reported once, and the
-  // shell that knows how to route it does not exist yet.
-  await PendingDeepLink.capture();
-
   final isSupabaseConfigured = SupabaseConfig.isConfigured;
+
+  // All three are in flight before anything is awaited, so the launch screen
+  // covers the slowest rather than the sum. None of them depends on another,
+  // and each has to land before the first frame:
+  //  - a launch URL is reported once, and the shell that knows how to route it
+  //    does not exist yet, so it is claimed before auth gating can consume it;
+  //  - Supabase has to be up before the first build asks whether there is a
+  //    session to restore;
+  //  - the theme has to be known, or the first frame is painted light and then
+  //    corrected — a white flash for anyone who chose dark.
+  final pendingLink = PendingDeepLink.capture();
+  final pendingTheme = ThemeViewModel.restored();
   if (isSupabaseConfigured) {
     await Supabase.initialize(
       url: SupabaseConfig.url,
@@ -38,9 +48,12 @@ Future<void> bootstrap() async {
       ),
     );
   }
+  await pendingLink;
+  final themeViewModel = await pendingTheme;
 
   runApp(
     ProviderScope(
+      overrides: [themeViewModelProvider.overrideWith((ref) => themeViewModel)],
       child: ReelPinApp(isSupabaseConfigured: isSupabaseConfigured),
     ),
   );

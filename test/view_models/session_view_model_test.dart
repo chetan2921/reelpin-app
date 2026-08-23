@@ -75,6 +75,24 @@ void main() {
     viewModel.dispose();
   });
 
+  test('starts the profile sync without waiting out a startup delay', () async {
+    SharedPreferences.setMockInitialValues({});
+    final events = <String>[];
+    final viewModel = SessionViewModel(
+      _FakeAuthService(events, user: _signedInUser),
+      ApiClient.new,
+      () => _FakeSharingHttp(events),
+    );
+
+    // Only drains microtasks and zero-duration timers, so a startup
+    // `Future.delayed` would still be pending here — which is the point. The
+    // splash used to sit behind exactly that.
+    await pumpEventQueue();
+
+    expect(events, contains('ensure-profile'));
+    viewModel.dispose();
+  });
+
   test('keeps push registration when account deletion fails', () async {
     SharedPreferences.setMockInitialValues({});
     final events = <String>[];
@@ -91,22 +109,33 @@ void main() {
   });
 }
 
+const _signedInUser = User(
+  id: 'user-1',
+  appMetadata: <String, dynamic>{},
+  userMetadata: <String, dynamic>{},
+  aud: 'authenticated',
+  createdAt: '2026-01-01T00:00:00Z',
+);
+
 class _FakeAuthService extends AuthService {
-  _FakeAuthService(this.events) : super(ProfileService());
+  _FakeAuthService(this.events, {this.user}) : super(ProfileService());
 
   final List<String> events;
+  final User? user;
 
   @override
   Session? get currentSession => null;
 
   @override
-  User? get currentUser => null;
+  User? get currentUser => user;
 
   @override
   Stream<AuthState> get authStateChanges => const Stream<AuthState>.empty();
 
   @override
-  Future<void> ensureProfile() async {}
+  Future<void> ensureProfile() async {
+    events.add('ensure-profile');
+  }
 
   @override
   Future<void> signOut() async {
