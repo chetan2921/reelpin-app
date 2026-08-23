@@ -21,10 +21,8 @@ class AppEntry extends ConsumerStatefulWidget {
 
 class _AppEntryState extends ConsumerState<AppEntry>
     with WidgetsBindingObserver {
-  static const _minimumSplashDuration = Duration(milliseconds: 1600);
   static const _onboardingCompletedKey = 'app_entry_onboarding_completed_v1';
 
-  bool _hasCompletedSplash = false;
   bool _hasCompletedOnboarding = false;
   bool _isLoadingOnboardingState = true;
   bool _hasStartedContentLoad = false;
@@ -39,14 +37,12 @@ class _AppEntryState extends ConsumerState<AppEntry>
     _startContentLoad();
   }
 
-  /// Restores the cached library and starts the first refresh while the splash
-  /// is still up.
+  /// Restores the cached library and starts the first refresh.
   ///
   /// The session is restored from local storage before `runApp`, so a returning
-  /// user is already known here — well before [AuthenticatedShell] mounts. Left
-  /// to the shell, none of this would begin until the splash had finished, and
-  /// the user would watch a loading screen that loads nothing followed by a
-  /// second wait for the cards.
+  /// user is already known here — a build ahead of [AuthenticatedShell]. That
+  /// head start is what lets the shell paint cached cards rather than an empty
+  /// grid on its first frame.
   ///
   /// Both calls de-duplicate internally, so the shell repeating them on mount
   /// costs nothing.
@@ -66,18 +62,11 @@ class _AppEntryState extends ConsumerState<AppEntry>
     });
   }
 
-  /// A launch from a collection link asked for one specific screen, so the two
-  /// things standing between the tap and that screen are dropped here: the
-  /// branding hold, which is pure delay in front of a destination the user
-  /// already chose, and the serial fetch, which starts now instead of waiting
-  /// for the shell to mount.
+  /// A launch from a collection link asked for one specific screen, so its
+  /// fetch starts here rather than waiting for the shell to mount.
   void _startCollectionLaunch() {
     final link = PendingDeepLink.pendingCollectionLink;
-    if (link == null) {
-      _holdSplash();
-      return;
-    }
-    _hasCompletedSplash = true;
+    if (link == null) return;
     // An invite has to be redeemed before there is anything to show, and that
     // is the shell's job.
     if (link.isInvite) return;
@@ -98,14 +87,6 @@ class _AppEntryState extends ConsumerState<AppEntry>
     if (state == AppLifecycleState.resumed) {
       unawaited(AppUpdateService.checkForImmediateUpdate());
     }
-  }
-
-  Future<void> _holdSplash() async {
-    await Future<void>.delayed(_minimumSplashDuration);
-    if (!mounted) return;
-    setState(() {
-      _hasCompletedSplash = true;
-    });
   }
 
   Future<void> _loadOnboardingState() async {
@@ -134,28 +115,29 @@ class _AppEntryState extends ConsumerState<AppEntry>
       // Also covers signing in mid-session, when initState ran before there
       // was a user to load anything for.
       _startContentLoad();
-    } else {
-      // Signed out; let the next sign-in start its own load.
-      _hasStartedContentLoad = false;
+      // Straight through: the session was restored from local storage before
+      // runApp, and the shell's own screens each know how to show a cached or
+      // loading state. Holding a splash in front of them buys nothing that the
+      // home grid's shimmer does not already cover, and costs the user the
+      // whole wait.
+      return const AuthenticatedShell();
     }
 
-    if (!_hasCompletedSplash ||
-        sessionVm.isBootstrapping ||
-        _isLoadingOnboardingState) {
-      return const SplashScreen();
-    }
+    // Signed out; let the next sign-in start its own load.
+    _hasStartedContentLoad = false;
 
-    if (!sessionVm.isAuthenticated) {
-      if (!_hasCompletedOnboarding) {
-        return OnboardingScreen(
-          onContinue: () {
-            unawaited(_completeOnboarding());
-          },
-        );
-      }
-      return const AuthScreen();
-    }
+    // The one thing here that is not known synchronously, and it picks between
+    // two different screens, so there is nothing correct to draw until it
+    // lands. A single preferences read, so this is a frame or two at most.
+    if (_isLoadingOnboardingState) return const SplashScreen();
 
-    return const AuthenticatedShell();
+    if (!_hasCompletedOnboarding) {
+      return OnboardingScreen(
+        onContinue: () {
+          unawaited(_completeOnboarding());
+        },
+      );
+    }
+    return const AuthScreen();
   }
 }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher icon is adaptive so its background layer is ours rather than the
+     launcher's. One UI ignores windowSplashScreenAnimatedIcon and always draws this
+     icon on the splash, plated on white when the icon is a legacy bitmap — which is
+     where the white square behind the pin came from. With a brand-coloured
+     background layer the plate disappears into the yellow splash. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/launch_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

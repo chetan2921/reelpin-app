@@ -63,21 +63,25 @@ void main() {
     );
   });
 
-  testWidgets('holds the splash when the app was not opened from a link', (
+  testWidgets('reaches onboarding without a branding hold', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
     _sizeView(tester);
 
     await tester.pumpWidget(_appEntry());
-    await tester.pump(const Duration(milliseconds: 500));
+    // Long enough for the onboarding preference to be read off disk, and far
+    // short of the 1600ms hold that used to sit in front of it.
+    await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('SYNCING YOUR SAVED WORLD'), findsOneWidget);
-
-    await _drainStartupTimers(tester);
+    expect(find.text('SYNCING YOUR SAVED WORLD'), findsNothing);
+    expect(
+      find.text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('a collection link skips the splash hold and prefetches', (
+  testWidgets('a collection link prefetches on the way to the shell', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -97,12 +101,9 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
 
-    // Past the splash long before the 1600ms branding hold would have ended.
     expect(find.text('SYNCING YOUR SAVED WORLD'), findsNothing);
-    // And the fetch is already in flight, rather than waiting for the shell.
+    // The fetch is already in flight, rather than waiting for the shell.
     expect(fetchedToken, 'splash-token');
-
-    await _drainStartupTimers(tester);
   });
 
   testWidgets('checks for an Android update on startup and resume', (
@@ -160,14 +161,6 @@ void main() {
 Future<void> _pumpPageTransition(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));
-}
-
-/// Startup schedules timers the widget tree outlives in a test — the splash
-/// hold and the session bootstrap — and a pending timer fails the test on its
-/// own. Let them fire before the assertions are done.
-Future<void> _drainStartupTimers(WidgetTester tester) async {
-  await tester.pump(const Duration(milliseconds: 1600));
-  await tester.pump();
 }
 
 void _sizeView(WidgetTester tester) {
@@ -231,9 +224,6 @@ class _FakeSessionViewModel extends SessionViewModel {
         () => ApiClient(baseUrl: 'https://example.com'),
         () => ApiClient(baseUrl: 'https://example.com'),
       );
-
-  @override
-  bool get isBootstrapping => false;
 }
 
 class _FakeAuthService extends AuthService {
