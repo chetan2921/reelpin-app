@@ -275,7 +275,12 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
       return;
     }
     _focusNode.unfocus();
-    vm.search(query);
+    // Submitting is the only path that pays for parsing; typing stays on the
+    // instant keyword search above.
+    vm.searchWithAi(
+      query,
+      facets: ref.read(reelFiltersViewModelProvider).categoryGroups,
+    );
   }
 
   Widget? _buildSearchFieldAction(BuildContext context, SearchViewModel vm) {

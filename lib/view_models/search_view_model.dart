@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:reelpin/utils/app_logger.dart';
+
 import 'package:reelpin/data_models/discover/parsed_query.dart';
 import 'package:reelpin/data_models/discover/search_result.dart';
 import 'package:reelpin/data_models/reels/reel_filters.dart';
@@ -80,6 +82,12 @@ class SearchViewModel extends ChangeNotifier {
       _total = response.total;
       _backendSearchMode = response.searchMode;
       _error = null;
+      if (kDebugMode) {
+        AppLogger.debug(
+          'SEARCH MODE: ${response.searchMode.name} '
+          'query="${response.query}" total=${response.total}',
+        );
+      }
     } on SearchCancelledException {
       return;
     } catch (e) {
@@ -123,9 +131,17 @@ class SearchViewModel extends ChangeNotifier {
         await parser.parse(normalizedQuery, facets: facets) ??
         ParsedQuery.fallback(normalizedQuery);
 
+    if (kDebugMode) {
+      AppLogger.debug(
+        'AI PARSE: "$normalizedQuery" -> query="${parsed.semanticQuery}" '
+        'category=${parsed.category} subcategory=${parsed.subcategory} '
+        'limit=${parsed.limit}',
+      );
+    }
+
     final requestId = ++_searchRequestId;
     try {
-      final response = await _repository.search(
+      var response = await _repository.search(
         parsed.semanticQuery,
         category: parsed.category ?? _selectedCategory,
         subcategory: parsed.subcategory ?? _selectedSubcategory,
@@ -133,10 +149,33 @@ class SearchViewModel extends ChangeNotifier {
       );
       if (requestId != _searchRequestId) return;
 
+      // Parsing can over-constrain: the backend ANDs every token in the query
+      // string *and* applies the facets, so a concept the model both kept in
+      // the text and promoted to a category gets filtered twice. When that
+      // wipes out the results, fall back to what plain search would have done
+      // rather than showing an empty state the user did not deserve.
+      if (response.results.isEmpty && parsed.semanticQuery != normalizedQuery) {
+        if (kDebugMode) {
+          AppLogger.debug('AI RETRY: parsed search empty, retrying raw query');
+        }
+        response = await _repository.search(
+          normalizedQuery,
+          category: _selectedCategory,
+          subcategory: _selectedSubcategory,
+        );
+        if (requestId != _searchRequestId) return;
+      }
+
       _results = response.results;
       _total = response.total;
       _backendSearchMode = response.searchMode;
       _error = null;
+      if (kDebugMode) {
+        AppLogger.debug(
+          'SEARCH MODE: ${response.searchMode.name} '
+          'query="${response.query}" total=${response.total}',
+        );
+      }
     } on SearchCancelledException {
       return;
     } catch (e) {

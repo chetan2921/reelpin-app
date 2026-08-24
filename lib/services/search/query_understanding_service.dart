@@ -20,7 +20,7 @@ abstract class QueryUnderstandingService {
 }
 
 class GeminiQueryUnderstandingService implements QueryUnderstandingService {
-  GeminiQueryUnderstandingService({this.timeout = const Duration(seconds: 3)});
+  GeminiQueryUnderstandingService({this.timeout = const Duration(seconds: 8)});
 
   /// Search should feel instant. Past this the raw query goes out instead of
   /// leaving the user watching a spinner.
@@ -101,11 +101,26 @@ class GeminiQueryUnderstandingService implements QueryUnderstandingService {
       ..writeln()
       ..writeln('Rules:')
       ..writeln(
-        '- semantic_query: the search terms only, spelling corrected. Remove '
-        'any words you moved into category or subcategory.',
+        '- Every filter you add is combined with AND, so more filters means '
+        'fewer results. Prefer fewer.',
+      )
+      ..writeln(
+        '- semantic_query: the fewest words that capture the intent, spelling '
+        'corrected. Two or three words is usually right.',
       )
       ..writeln('- Keep place names in semantic_query.')
-      ..writeln('- category/subcategory: only values listed above, else null.')
+      ..writeln(
+        '- If you set category, remove the words it covers from '
+        'semantic_query. Never filter on the same idea twice.',
+      )
+      ..writeln(
+        '- category: only when the query clearly names one of the above, '
+        'else null.',
+      )
+      ..writeln(
+        '- subcategory: only when the user named it almost exactly, '
+        'else null.',
+      )
       ..writeln('- limit: only when the user asked for a count, else null.')
       ..writeln()
       ..writeln('Query: $rawQuery');

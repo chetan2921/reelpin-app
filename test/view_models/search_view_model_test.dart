@@ -252,6 +252,83 @@ void main() {
     expect(viewModel.results, hasLength(1));
   });
 
+  test('searchWithAi retries the raw query when the parsed search finds nothing', () async {
+    final seenQueries = <String>[];
+    final seenCategories = <String?>[];
+    final repository = _FakeReelRepository(
+      onSearch:
+          ({
+            required String query,
+            String? category,
+            String? subcategory,
+          }) async {
+            seenQueries.add(query);
+            seenCategories.add(category);
+            // The narrowed query finds nothing; the raw one does.
+            return query == 'raw sentence here'
+                ? _searchResponse(query, [_resultFor(query)])
+                : _searchResponse(query, const []);
+          },
+    );
+    final viewModel = SearchViewModel(
+      repository,
+      queryUnderstanding: _FakeQueryUnderstanding(
+        const ParsedQuery(
+          semanticQuery: 'narrowed',
+          rawQuery: 'raw sentence here',
+          category: 'food',
+          subcategory: 'cafe',
+        ),
+      ),
+    );
+
+    await viewModel.searchWithAi('raw sentence here');
+
+    expect(seenQueries, ['narrowed', 'raw sentence here']);
+    expect(seenCategories.last, isNull, reason: 'retry drops the parsed facets');
+    expect(viewModel.results, hasLength(1));
+  });
+
+  test('searchWithAi does not retry when the parsed search finds results', () async {
+    final repository = _FakeReelRepository(
+      onSearch:
+          ({required String query, String? category, String? subcategory}) async =>
+              _searchResponse(query, [_resultFor(query)]),
+    );
+    final viewModel = SearchViewModel(
+      repository,
+      queryUnderstanding: _FakeQueryUnderstanding(
+        const ParsedQuery(
+          semanticQuery: 'narrowed',
+          rawQuery: 'raw sentence here',
+          category: 'food',
+        ),
+      ),
+    );
+
+    await viewModel.searchWithAi('raw sentence here');
+
+    expect(repository.searchCalls, 1);
+  });
+
+  test('searchWithAi does not retry when the parse changed nothing', () async {
+    final repository = _FakeReelRepository(
+      onSearch:
+          ({required String query, String? category, String? subcategory}) async =>
+              _searchResponse(query, const []),
+    );
+    final viewModel = SearchViewModel(
+      repository,
+      queryUnderstanding: _FakeQueryUnderstanding(
+        const ParsedQuery(semanticQuery: 'same', rawQuery: 'same'),
+      ),
+    );
+
+    await viewModel.searchWithAi('same');
+
+    expect(repository.searchCalls, 1, reason: 'retrying identical input is waste');
+  });
+
 }
 
 class _FakeReelRepository extends ReelRepository {

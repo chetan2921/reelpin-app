@@ -70,4 +70,29 @@ void main() {
     expect(prompt, contains('- travel\n'));
     expect(prompt, contains('- food (subcategories: cafe)'));
   });
+
+  test('prompt warns that filters are ANDed so the model prefers fewer', () {
+    final service = GeminiQueryUnderstandingService();
+
+    final prompt = service.buildPrompt('cafes in bangalore', _facets)
+        .toLowerCase();
+
+    expect(prompt, contains('and'));
+    expect(prompt, contains('prefer fewer'));
+  });
+
+  test('prompt forbids filtering on the same idea twice', () {
+    final service = GeminiQueryUnderstandingService();
+
+    final prompt = service.buildPrompt('cafes', _facets).toLowerCase();
+
+    expect(prompt, contains('never filter on the same idea twice'));
+  });
+
+  test('default timeout leaves room for a cold first call', () {
+    expect(
+      GeminiQueryUnderstandingService().timeout,
+      const Duration(seconds: 8),
+    );
+  });
 }
