@@ -149,6 +149,22 @@ reels actually carry them. Query a known Bangalore reel and check. If sparse,
 backfill via reverse geocoding; `geocode_location` (`extractor.py:101`) and the
 `geocode_cache` table already exist.
 
+### Task 7 - City name synonyms (Bengaluru vs Bangalore)
+
+Found during client device testing on 2026-08-25. A query parsed to
+`coffee bangalore` returned nothing, while the library demonstrably contains
+"Brownies at Kenko Cafe, **Bengaluru**".
+
+`bangalore` and `bengaluru` are different tokens to both retrieval paths:
+`_hash_embedding` hashes them into unrelated buckets, and `to_tsvector` stems
+them to different lexemes. The same applies to Bombay/Mumbai, Calcutta/Kolkata,
+Madras/Chennai and every other renamed Indian city - a very common way for
+users to phrase a query about their own saves.
+
+Task 1 (real embeddings) largely dissolves this, since a real model places the
+two names close together. Until then, a synonym map applied at query time, or a
+Postgres text search dictionary with these pairs, would close the gap cheaply.
+
 ## Contract note for the client
 
 `search_mode` can return `"hybrid"` (`app/main.py:2431`), but the Flutter app's
