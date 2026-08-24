@@ -19,6 +19,7 @@ import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/http/map_http.dart';
 import 'package:reelpin/http/folders_http.dart';
 import 'package:reelpin/http/sharing_http.dart';
+import 'package:reelpin/services/search/query_understanding_service.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:reelpin/view_models/session_view_model.dart';
 import 'package:reelpin/view_models/theme_view_model.dart';
@@ -143,7 +144,10 @@ final discoverViewModelProvider = ChangeNotifierProvider<DiscoverViewModel>((
 });
 
 final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>((ref) {
-  return SearchViewModel(ref.read(reelRepositoryProvider));
+  return SearchViewModel(
+    ref.read(reelRepositoryProvider),
+    queryUnderstanding: GeminiQueryUnderstandingService(),
+  );
 });
 
 final foldersViewModelProvider = ChangeNotifierProvider<FoldersViewModel>((

@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:reelpin/data_models/discover/parsed_query.dart';
 import 'package:reelpin/data_models/discover/search_result.dart';
+import 'package:reelpin/data_models/reels/reel_filters.dart';
 import 'package:reelpin/data_models/account/user_entitlement.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
+import 'package:reelpin/services/search/query_understanding_service.dart';
 import 'package:reelpin/utils/error_message.dart';
 
 /// ViewModel for the RAG Search screen.
@@ -11,7 +14,12 @@ class SearchViewModel extends ChangeNotifier {
 
   final ReelRepository _repository;
 
-  SearchViewModel(this._repository);
+  SearchViewModel(this._repository, {QueryUnderstandingService? queryUnderstanding})
+    : _queryUnderstanding = queryUnderstanding;
+
+  /// Absent in tests and wherever parsing is not wanted, in which case
+  /// [searchWithAi] degrades to [search].
+  final QueryUnderstandingService? _queryUnderstanding;
 
   List<SearchResult> _results = [];
   bool _isSearching = false;
@@ -65,6 +73,63 @@ class SearchViewModel extends ChangeNotifier {
         normalizedQuery,
         category: _selectedCategory,
         subcategory: _selectedSubcategory,
+      );
+      if (requestId != _searchRequestId) return;
+
+      _results = response.results;
+      _total = response.total;
+      _backendSearchMode = response.searchMode;
+      _error = null;
+    } on SearchCancelledException {
+      return;
+    } catch (e) {
+      if (requestId != _searchRequestId) return;
+      _error = userFacingErrorMessage(
+        e,
+        fallbackMessage: 'Search is not available right now.',
+      );
+    } finally {
+      if (requestId == _searchRequestId) {
+        _isSearching = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Submit-time search: Gemini fixes spelling and moves concepts out of the
+  /// query string into the category filters before the request goes out.
+  ///
+  /// The backend ANDs every token it receives, so promoting a word to a facet
+  /// widens the result set where leaving it in the string would narrow it.
+  ///
+  /// Any parsing failure degrades to [search]'s exact behaviour, so this can
+  /// never return less than typing the same text would.
+  Future<void> searchWithAi(
+    String query, {
+    List<ReelCategoryGroup> facets = const [],
+  }) async {
+    final normalizedQuery = query.trim();
+    final parser = _queryUnderstanding;
+    if (parser == null || normalizedQuery.length < minimumQueryLength) {
+      return search(normalizedQuery);
+    }
+
+    _lastQuery = normalizedQuery;
+    _isSearching = true;
+    _error = null;
+    notifyListeners();
+
+    final parsed =
+        await parser.parse(normalizedQuery, facets: facets) ??
+        ParsedQuery.fallback(normalizedQuery);
+
+    final requestId = ++_searchRequestId;
+    try {
+      final response = await _repository.search(
+        parsed.semanticQuery,
+        category: parsed.category ?? _selectedCategory,
+        subcategory: parsed.subcategory ?? _selectedSubcategory,
+        limit: parsed.limit,
       );
       if (requestId != _searchRequestId) return;
 

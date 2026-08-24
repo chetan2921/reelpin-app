@@ -391,10 +391,15 @@ class ReelRepository extends ChangeNotifier {
     await loadInitialReels(forceRefresh: true);
   }
 
+  /// Mirrors the API client's own default so callers that do not care
+  /// about result count keep today's behaviour.
+  static const _defaultSearchLimit = 5;
+
   Future<SearchResponse> search(
     String query, {
     String? category,
     String? subcategory,
+    int? limit,
   }) async {
     final normalizedQuery = query.trim();
     if (normalizedQuery.isEmpty) {
@@ -416,6 +421,7 @@ class ReelRepository extends ChangeNotifier {
         userId: _currentUserId,
         category: category,
         subcategory: subcategory,
+        limit: limit ?? _defaultSearchLimit,
         client: searchClient,
       );
       if (!_isActiveSearchClient(searchClient)) {

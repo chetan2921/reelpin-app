@@ -284,6 +284,7 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
     String query, {
     String? category,
     String? subcategory,
+    int? limit,
   }) {
     return onSearch(query: query, category: category, subcategory: subcategory);
   }
