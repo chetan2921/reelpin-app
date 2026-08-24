@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -67,6 +68,17 @@ Future<void> _initializeMessaging() async {
   }
   try {
     await Firebase.initializeApp();
+    // App Check gates Firebase AI Logic, which enforces it automatically. The
+    // debug providers are the only ones that work on a simulator or emulator;
+    // release builds attest for real.
+    await FirebaseAppCheck.instance.activate(
+      providerAndroid: kDebugMode
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
+      providerApple: kDebugMode
+          ? const AppleDebugProvider()
+          : const AppleAppAttestProvider(),
+    );
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
     AppLogger.error('Firebase initialization skipped: $e');
