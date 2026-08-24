@@ -155,6 +155,27 @@ This app expects a ReelPin backend with these endpoints:
 
 The app uses the backend category-filter tree for its filter UI. It does not rely on a hardcoded category list anymore.
 
+## Branches And Promotion
+
+`dev` is the working branch and `main` is what ships to the stores. A push to
+`dev` triggers `.github/workflows/build-dev-apk.yml` (debug APK) and
+`validate.yml`; `main` is what you cut a release build from.
+
+1. **Never push directly to `main`.** It moves only by merging a pull request
+   from `dev`, or from a short-lived branch cut off `dev`.
+2. **`dev` must always contain `main`.** Before starting work and again before
+   opening a promotion PR, merge `origin/main` into `dev`. If that merge changes
+   files, someone committed to `main` out of band.
+3. **Promote with a merge, not a rebase.** `dev` is shared and already pushed, so
+   a rebase would need a force-push.
+4. **After a promotion lands on `main`, merge `main` back down into `dev`.** A
+   promotion adds a merge commit to `main` that `dev` lacks, which is how the two
+   drift while their trees stay identical.
+5. **Never force-push `dev` or `main`.**
+
+`git rev-list --left-right --count origin/main...dev` tells you where you stand.
+The left number is commits only on `main` and should be zero before you promote.
+
 ## Local Setup
 
 ### Prerequisites
