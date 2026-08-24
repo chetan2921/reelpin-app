@@ -391,10 +391,15 @@ class ReelRepository extends ChangeNotifier {
     await loadInitialReels(forceRefresh: true);
   }
 
-  /// Search should surface everything the user actually saved that matches,
-  /// not a token sample of it. The API client's own default of 5 was a hard
-  /// cap on every search in the app.
-  static const _defaultSearchLimit = 30;
+  /// The API client's default of 5 was a hard cap on every search, which is
+  /// far too few for a library of hundreds of saves.
+  ///
+  /// Kept modest because the backend fans this out: `/api/v1/search` queries
+  /// Pinecone with `top_k = limit * 4`, then fetches every match from Supabase
+  /// and lexically scores it against the full transcript. A limit of 30 pushed
+  /// that to 120 records per search and the endpoint began closing connections
+  /// before responding.
+  static const _defaultSearchLimit = 10;
 
   Future<SearchResponse> search(
     String query, {
