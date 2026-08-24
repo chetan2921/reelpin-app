@@ -252,7 +252,7 @@ void main() {
     expect(viewModel.results, hasLength(1));
   });
 
-  test('searchWithAi retries the raw query when the parsed search finds nothing', () async {
+  test('retry drops the facets but keeps the cleaned query', () async {
     final seenQueries = <String>[];
     final seenCategories = <String?>[];
     final repository = _FakeReelRepository(
@@ -264,8 +264,8 @@ void main() {
           }) async {
             seenQueries.add(query);
             seenCategories.add(category);
-            // The narrowed query finds nothing; the raw one does.
-            return query == 'raw sentence here'
+            // Over-constrained first pass finds nothing; unfiltered finds one.
+            return category == null
                 ? _searchResponse(query, [_resultFor(query)])
                 : _searchResponse(query, const []);
           },
@@ -274,22 +274,56 @@ void main() {
       repository,
       queryUnderstanding: _FakeQueryUnderstanding(
         const ParsedQuery(
-          semanticQuery: 'narrowed',
-          rawQuery: 'raw sentence here',
+          semanticQuery: 'coffee Bangalore',
+          rawQuery: 'give me the top five coffee places in Bangalore',
           category: 'food',
           subcategory: 'cafe',
         ),
       ),
     );
 
-    await viewModel.searchWithAi('raw sentence here');
+    await viewModel.searchWithAi('give me the top five coffee places in Bangalore');
 
-    expect(seenQueries, ['narrowed', 'raw sentence here']);
-    expect(seenCategories.last, isNull, reason: 'retry drops the parsed facets');
+    expect(seenQueries, ['coffee Bangalore', 'coffee Bangalore']);
+    expect(seenCategories, ['food', null]);
     expect(viewModel.results, hasLength(1));
   });
 
-  test('searchWithAi does not retry when the parsed search finds results', () async {
+  test('the raw conversational sentence is never sent to search', () async {
+    final seenQueries = <String>[];
+    final repository = _FakeReelRepository(
+      onSearch:
+          ({
+            required String query,
+            String? category,
+            String? subcategory,
+          }) async {
+            seenQueries.add(query);
+            return _searchResponse(query, const []);
+          },
+    );
+    final viewModel = SearchViewModel(
+      repository,
+      queryUnderstanding: _FakeQueryUnderstanding(
+        const ParsedQuery(
+          semanticQuery: 'coffee Bangalore',
+          rawQuery: 'give me the top five coffee places in Bangalore',
+          category: 'food',
+        ),
+      ),
+    );
+
+    await viewModel.searchWithAi('give me the top five coffee places in Bangalore');
+
+    // Filler words like "give me the top five" match unrelated reels in the
+    // backend's keyword fallback, which is worse than showing nothing.
+    expect(
+      seenQueries,
+      isNot(contains('give me the top five coffee places in Bangalore')),
+    );
+  });
+
+  test('no retry when the parsed search finds results', () async {
     final repository = _FakeReelRepository(
       onSearch:
           ({required String query, String? category, String? subcategory}) async =>
@@ -311,7 +345,7 @@ void main() {
     expect(repository.searchCalls, 1);
   });
 
-  test('searchWithAi does not retry when the parse changed nothing', () async {
+  test('no retry when no facets were applied, since nothing would change', () async {
     final repository = _FakeReelRepository(
       onSearch:
           ({required String query, String? category, String? subcategory}) async =>
@@ -320,13 +354,13 @@ void main() {
     final viewModel = SearchViewModel(
       repository,
       queryUnderstanding: _FakeQueryUnderstanding(
-        const ParsedQuery(semanticQuery: 'same', rawQuery: 'same'),
+        const ParsedQuery(semanticQuery: 'coffee', rawQuery: 'coffee'),
       ),
     );
 
-    await viewModel.searchWithAi('same');
+    await viewModel.searchWithAi('coffee');
 
-    expect(repository.searchCalls, 1, reason: 'retrying identical input is waste');
+    expect(repository.searchCalls, 1);
   });
 
 }

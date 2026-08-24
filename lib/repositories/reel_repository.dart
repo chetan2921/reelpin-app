@@ -391,9 +391,10 @@ class ReelRepository extends ChangeNotifier {
     await loadInitialReels(forceRefresh: true);
   }
 
-  /// Mirrors the API client's own default so callers that do not care
-  /// about result count keep today's behaviour.
-  static const _defaultSearchLimit = 5;
+  /// Search should surface everything the user actually saved that matches,
+  /// not a token sample of it. The API client's own default of 5 was a hard
+  /// cap on every search in the app.
+  static const _defaultSearchLimit = 30;
 
   Future<SearchResponse> search(
     String query, {

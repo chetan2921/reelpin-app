@@ -151,17 +151,24 @@ class SearchViewModel extends ChangeNotifier {
 
       // Parsing can over-constrain: the backend ANDs every token in the query
       // string *and* applies the facets, so a concept the model both kept in
-      // the text and promoted to a category gets filtered twice. When that
-      // wipes out the results, fall back to what plain search would have done
-      // rather than showing an empty state the user did not deserve.
-      if (response.results.isEmpty && parsed.semanticQuery != normalizedQuery) {
+      // the text and promoted to a category gets filtered twice. Retry once
+      // without the facets, keeping the cleaned query.
+      //
+      // The raw sentence is deliberately never retried. "give me the top five
+      // coffee places in Bangalore" sent to the backend's keyword fallback
+      // matches filler words like "give" and "top" against unrelated reels,
+      // which is worse than an honest empty state.
+      final usedParsedFacets =
+          parsed.category != null || parsed.subcategory != null;
+      if (response.results.isEmpty && usedParsedFacets) {
         if (kDebugMode) {
-          AppLogger.debug('AI RETRY: parsed search empty, retrying raw query');
+          AppLogger.debug('AI RETRY: dropping parsed facets, keeping query');
         }
         response = await _repository.search(
-          normalizedQuery,
+          parsed.semanticQuery,
           category: _selectedCategory,
           subcategory: _selectedSubcategory,
+          limit: parsed.limit,
         );
         if (requestId != _searchRequestId) return;
       }
