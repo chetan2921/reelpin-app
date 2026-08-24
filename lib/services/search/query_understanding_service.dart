@@ -105,10 +105,18 @@ class GeminiQueryUnderstandingService implements QueryUnderstandingService {
         'fewer results. Prefer fewer.',
       )
       ..writeln(
-        '- semantic_query: the fewest words that capture the intent, spelling '
-        'corrected. Two or three words is usually right.',
+        '- semantic_query: the fewest distinctive words, spelling corrected. '
+        'One or two is usually right.',
       )
-      ..writeln('- Keep place names in semantic_query.')
+      ..writeln(
+        '- Drop generic filler nouns entirely - spots, places, things, stuff, '
+        'options, recommendations. They match nothing and exclude everything.',
+      )
+      ..writeln('- Keep place names and proper nouns in semantic_query.')
+      ..writeln(
+        '- limit: read it from phrases like "top 5", "best three", "a couple". '
+        'Set it whenever the user implies a count.',
+      )
       ..writeln(
         '- If you set category, remove the words it covers from '
         'semantic_query. Never filter on the same idea twice.',
@@ -121,7 +129,6 @@ class GeminiQueryUnderstandingService implements QueryUnderstandingService {
         '- subcategory: only when the user named it almost exactly, '
         'else null.',
       )
-      ..writeln('- limit: only when the user asked for a count, else null.')
       ..writeln()
       ..writeln('Query: $rawQuery');
 

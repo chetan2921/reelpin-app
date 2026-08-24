@@ -95,4 +95,25 @@ void main() {
       const Duration(seconds: 8),
     );
   });
+
+  test('prompt names the filler nouns that must be dropped', () {
+    final service = GeminiQueryUnderstandingService();
+
+    final prompt = service.buildPrompt('top 5 food spots in bangalore', _facets)
+        .toLowerCase();
+
+    // "spots bangalore" ANDs to nothing: no reel contains the word "spots".
+    expect(prompt, contains('spots'));
+    expect(prompt, contains('places'));
+    expect(prompt, contains('generic filler'));
+  });
+
+  test('prompt gives concrete examples of count phrases', () {
+    final service = GeminiQueryUnderstandingService();
+
+    final prompt = service.buildPrompt('top 5 cafes', _facets).toLowerCase();
+
+    expect(prompt, contains('top 5'));
+    expect(prompt, contains('limit'));
+  });
 }
