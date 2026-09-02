@@ -2,38 +2,43 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reelpin/utils/app_logger.dart';
 
-/// Tracks whether a signed-in user has already been walked through the
-/// "how to save a reel" guide. The flag is keyed per user id so a second
-/// account signing in on the same device still gets the walkthrough.
+/// Tracks whether the "how to save a reel" walkthrough is still owed.
+///
+/// It is armed when onboarding finishes, which only happens on a fresh
+/// install, and consumed the first time the shell can show it. Updating the
+/// app never arms it, so a user who already has reels saved goes straight to
+/// their home screen; the walkthrough stays reachable from the empty state and
+/// from Profile.
 class HowToGuideService {
   HowToGuideService._();
 
   static final HowToGuideService instance = HowToGuideService._();
 
-  static const _keyPrefix = 'how_to_guide_seen_v1_';
+  static const _pendingKey = 'how_to_guide_pending_v1';
 
-  String _keyFor(String userId) => '$_keyPrefix${userId.trim()}';
-
-  Future<bool> hasSeenGuide(String userId) async {
-    if (userId.trim().isEmpty) return true;
+  Future<void> markGuidePending() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyFor(userId)) ?? false;
+      await prefs.setBool(_pendingKey, true);
     } catch (e) {
-      AppLogger.error('How-to guide flag read skipped: $e');
-      // Treat an unreadable flag as "already seen" so a storage failure never
-      // pins the guide open on every launch.
-      return true;
+      AppLogger.error('How-to guide flag write skipped: $e');
     }
   }
 
-  Future<void> markGuideSeen(String userId) async {
-    if (userId.trim().isEmpty) return;
+  /// Reads the flag and clears it in the same breath, so a walkthrough that
+  /// gets interrupted — backgrounded, or the app killed part-way — does not
+  /// come back on the next launch.
+  Future<bool> takePendingGuide() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyFor(userId), true);
+      if (!(prefs.getBool(_pendingKey) ?? false)) return false;
+      await prefs.remove(_pendingKey);
+      return true;
     } catch (e) {
-      AppLogger.error('How-to guide flag write skipped: $e');
+      AppLogger.error('How-to guide flag read skipped: $e');
+      // An unreadable flag cannot tell a new install from an old one. Staying
+      // quiet is the safe half: the empty state still offers the guide.
+      return false;
     }
   }
 }

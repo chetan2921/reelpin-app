@@ -15,6 +15,7 @@ import 'package:reelpin/providers.dart';
 import 'package:reelpin/reelpin_app.dart';
 import 'package:reelpin/http/api_client.dart';
 import 'package:reelpin/services/auth/auth_service.dart';
+import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/services/auth/profile_service.dart';
 import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/shared_collection_prefetch.dart';
@@ -61,6 +62,29 @@ void main() {
       find.text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.'),
       findsNothing,
     );
+  });
+
+  testWidgets('finishing onboarding arms the how-to walkthrough once', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1170, 2532);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await _pumpAppEntry(tester);
+    await tester.tap(find.text('NEXT'));
+    await _pumpPageTransition(tester);
+    await tester.tap(find.text('NEXT'));
+    await _pumpPageTransition(tester);
+    await tester.tap(find.text('CONTINUE TO LOGIN'));
+    await tester.pump();
+
+    expect(await HowToGuideService.instance.takePendingGuide(), isTrue);
+    // A second cold start is an update, not an install, so nothing is owed.
+    await _pumpAppEntry(tester);
+    expect(await HowToGuideService.instance.takePendingGuide(), isFalse);
   });
 
   testWidgets('reaches onboarding without a branding hold', (
