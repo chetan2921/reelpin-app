@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 
 part 'partials/how_to_step.dart';
 part 'partials/how_to_stage.dart';
@@ -191,6 +194,7 @@ class _HowToUseScreenState extends State<HowToUseScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AnalyticsService.log(AnalyticsEvent.howToOpened));
     // Portrait phone captures have nothing sensible to show in landscape, and
     // the app locks no orientation globally.
     SystemChrome.setPreferredOrientations(const [

@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/screens/collections/collection_detail_screen.dart';
 import 'package:reelpin/screens/feature_announcement/feature_announcement_screen.dart';
 import 'package:reelpin/screens/how_to/how_to_use_screen.dart';
@@ -110,5 +114,11 @@ Future<void> openPaywall(
   BuildContext context, {
   PaywallEntryPoint entryPoint = PaywallEntryPoint.account,
 }) {
+  unawaited(
+    AnalyticsService.log(
+      AnalyticsEvent.paywallViewed,
+      parameters: {'entry_point': entryPoint.name},
+    ),
+  );
   return Navigator.of(context).push(paywallRoute(entryPoint: entryPoint));
 }

@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:reelpin/data_models/discover/search_result.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/data_models/account/user_entitlement.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/utils/error_message.dart';
@@ -54,6 +58,13 @@ class SearchViewModel extends ChangeNotifier {
       notifyListeners();
       return;
     }
+
+    unawaited(
+      AnalyticsService.log(
+        AnalyticsEvent.searchPerformed,
+        parameters: {'query_length': normalizedQuery.length},
+      ),
+    );
 
     final requestId = ++_searchRequestId;
     _isSearching = true;
