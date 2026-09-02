@@ -19,6 +19,11 @@ class ProcessingJob {
   final int? recommendedPollAfterSeconds;
   final bool retryable;
   final String? resultReelId;
+
+  /// The collections this share is destined for, as the backend currently has
+  /// them. Authoritative and complete: re-sharing the same link into a second
+  /// collection merges onto the existing job rather than replacing it.
+  final List<String> collectionIds;
   final Reel? reel;
 
   const ProcessingJob({
@@ -40,6 +45,7 @@ class ProcessingJob {
     this.recommendedPollAfterSeconds,
     this.retryable = false,
     this.resultReelId,
+    this.collectionIds = const [],
     this.reel,
   });
 
@@ -84,6 +90,14 @@ class ProcessingJob {
       ),
       retryable: json['retryable'] == true,
       resultReelId: json['result_reel_id']?.toString(),
+      collectionIds:
+          (json['collection_ids'] as List?)
+              // whereType drops nulls before toString turns them into "null".
+              ?.whereType<Object>()
+              .map((id) => id.toString().trim())
+              .where((id) => id.isNotEmpty)
+              .toList(growable: false) ??
+          const <String>[],
       reel: reelPayload is Map<String, dynamic>
           ? Reel.fromJson(reelPayload)
           : null,

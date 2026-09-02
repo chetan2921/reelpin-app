@@ -25,6 +25,31 @@ void main() {
     expect(api.deletedReelIds, [_reelA.id]);
   });
 
+  test('insertReel puts a finished reel at the front without refetching', () async {
+    final api = _FakeApiService();
+    final repository = ReelRepository(api, _FakeAuthService());
+    await repository.loadInitialReels(forceRefresh: true);
+    final callsBefore = api.pageCalls;
+
+    repository.insertReel(_reelC);
+
+    expect(repository.cachedReels.first.id, _reelC.id);
+    expect(repository.cachedReels.length, 3);
+    // The processing job already carried the reel; a round trip here is what
+    // used to leave a hole where the placeholder card had been.
+    expect(api.pageCalls, callsBefore);
+  });
+
+  test('insertReel ignores a reel the grid already holds', () async {
+    final api = _FakeApiService();
+    final repository = ReelRepository(api, _FakeAuthService());
+    await repository.loadInitialReels(forceRefresh: true);
+
+    repository.insertReel(_reelA);
+
+    expect(repository.cachedReels.length, 2);
+  });
+
   test('search returns only backend results', () async {
     final api = _FakeApiService(searchResponse: _emptySearchResponse);
     final repository = ReelRepository(api, _FakeAuthService());
@@ -61,6 +86,7 @@ class _FakeApiService extends ApiClient {
   final List<Reel> _serverReels = [_reelA, _reelB];
   final List<String> deletedReelIds = [];
   final SearchResponse? searchResponse;
+  int pageCalls = 0;
 
   @override
   Future<ReelPage> getReelsPage({
@@ -74,6 +100,7 @@ class _FakeApiService extends ApiClient {
     int limit = 50,
     String? sort,
   }) async {
+    pageCalls += 1;
     return ReelPage(
       reels: List.unmodifiable(_serverReels),
       hasMore: false,
@@ -190,6 +217,22 @@ class _DelayedApiService extends ApiClient {
     );
   }
 }
+
+const _reelC = Reel(
+  id: 'reel-c',
+  userId: 'user-123',
+  url: 'https://example.com/c',
+  title: 'Freshly processed',
+  summary: '',
+  caption: '',
+  transcript: '',
+  category: '',
+  subCategory: '',
+  keyFacts: [],
+  locations: [],
+  peopleMentioned: [],
+  actionableItems: [],
+);
 
 const _reelA = Reel(
   id: 'reel-a',

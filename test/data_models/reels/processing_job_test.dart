@@ -3,6 +3,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 
 void main() {
+  test('collection targets are read off the job', () {
+    final job = ProcessingJob.fromJson({
+      'id': 'job-1',
+      'status': 'queued',
+      'collection_ids': ['col-a', ' col-b ', '', null],
+    });
+
+    expect(job.collectionIds, ['col-a', 'col-b']);
+  });
+
+  test('a job without collection targets reports none', () {
+    final job = ProcessingJob.fromJson({'id': 'job-1', 'status': 'queued'});
+
+    expect(job.collectionIds, isEmpty);
+  });
+
   test('parses complete X processing-job metadata', () {
     final job = ProcessingJob.fromJson({
       'id': 'job-x-1',

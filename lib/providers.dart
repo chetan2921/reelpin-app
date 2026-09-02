@@ -15,6 +15,7 @@ import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/entitlements_view_model.dart';
 import 'package:reelpin/view_models/folders_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
+import 'package:reelpin/view_models/processing_jobs_view_model.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/http/map_http.dart';
 import 'package:reelpin/http/folders_http.dart';
@@ -166,6 +167,31 @@ final entitlementsViewModelProvider =
       );
     });
 
+final processingJobsViewModelProvider =
+    ChangeNotifierProvider<ProcessingJobsViewModel>((ref) {
+      return ProcessingJobsViewModel(
+        ref.read(reelRepositoryProvider),
+        // A finished job means there is a real reel to fetch, so reuse the same
+        // content reload the app already runs on resume.
+        // Awaited by the view model: each placeholder holds its place until
+        // the card that replaces it is in the grid.
+        onJobsFinished: (readyReels) async {
+          if (readyReels.isNotEmpty) {
+            final repository = ref.read(reelRepositoryProvider);
+            for (final reel in readyReels) {
+              repository.insertReel(reel);
+            }
+            return;
+          }
+          // The job finished without its reel attached, so there is nothing to
+          // swap in and the grid has to be refetched after all.
+          await ref
+              .read(entitlementsViewModelProvider)
+              .refresh(reloadContent: true);
+        },
+      );
+    });
+
 final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
   return UserStateCoordinator(
     searchViewModel: ref.read(searchViewModelProvider),
@@ -175,5 +201,6 @@ final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
     discoverViewModel: ref.read(discoverViewModelProvider),
     reelRepository: ref.read(reelRepositoryProvider),
     entitlementsViewModel: ref.read(entitlementsViewModelProvider),
+    processingJobsViewModel: ref.read(processingJobsViewModelProvider),
   );
 });
