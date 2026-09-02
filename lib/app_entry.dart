@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reelpin/providers.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/screens/app_shell/authenticated_shell.dart';
 import 'package:reelpin/screens/splash/splash_screen.dart';
 import 'package:reelpin/services/app_update_service.dart';
+import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/screens/auth/auth_screen.dart';
 import 'package:reelpin/screens/onboarding/onboarding_screen.dart';
 import 'package:reelpin/services/sharing/pending_deep_link.dart';
@@ -99,8 +102,12 @@ class _AppEntryState extends ConsumerState<AppEntry>
   }
 
   Future<void> _completeOnboarding() async {
+    unawaited(AnalyticsService.log(AnalyticsEvent.onboardingCompleted));
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_onboardingCompletedKey, true);
+    // Reaching here means a fresh install, and that is the only thing that
+    // earns the how-to walkthrough once the shell is up.
+    await HowToGuideService.instance.markGuidePending();
     if (!mounted) return;
     setState(() {
       _hasCompletedOnboarding = true;

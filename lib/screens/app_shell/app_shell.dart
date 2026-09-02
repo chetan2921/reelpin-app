@@ -542,16 +542,13 @@ class _AppShellState extends ConsumerState<AppShell>
       return;
     }
 
-    final userId = ref.read(authServiceProvider).currentUser?.id;
-    if (userId == null || userId.trim().isEmpty) return;
-
-    final guideService = HowToGuideService.instance;
-    if (await guideService.hasSeenGuide(userId)) return;
+    // Armed by onboarding, so only a fresh install is owed the walkthrough. A
+    // returning user goes straight to their reels; skipping still counts, and
+    // the empty state and Profile both keep the guide reachable.
+    if (!await HowToGuideService.instance.takePendingGuide()) return;
     if (!mounted) return;
 
     await Navigator.of(context).push(howToUseRoute(isFirstRun: true));
-    // Skipping still counts as seen — Profile keeps it reachable afterwards.
-    await guideService.markGuideSeen(userId);
   }
 
   Future<void> _maybePromptInitialPermissions() async {
