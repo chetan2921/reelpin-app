@@ -330,6 +330,16 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
     }
 
     if (query.length >= 2 && allResults.isEmpty) {
+      if (vm.isPlaceSuggestionUnavailable) {
+        return _PlaceSearchMessage(
+          icon: Icons.cloud_off,
+          title: 'PLACE SUGGESTIONS UNAVAILABLE',
+          body:
+              'ONLY YOUR SAVED PLACES COULD BE SEARCHED. '
+              'TRY AGAIN IN A MOMENT.',
+          accentColor: AppColors.destructive,
+        );
+      }
       return _PlaceSearchMessage(
         icon: Icons.search_off,
         title: 'NO PLACES FOUND',
@@ -353,7 +363,7 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
       return const SizedBox.shrink();
     }
 
-    return ListView.separated(
+    final resultsList = ListView.separated(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.fromLTRB(
         layout.inset(20),
@@ -383,6 +393,23 @@ class _MapPlaceSearchSheetState extends ConsumerState<_MapPlaceSearchSheet> {
           },
         );
       },
+    );
+
+    if (!vm.isPlaceSuggestionUnavailable) return resultsList;
+
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            layout.inset(20),
+            layout.gap(12),
+            layout.inset(20),
+            0,
+          ),
+          child: const _PlaceSearchNotice(),
+        ),
+        Expanded(child: resultsList),
+      ],
     );
   }
 
@@ -511,6 +538,46 @@ class _PlaceSearchTabButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PlaceSearchNotice extends StatelessWidget {
+  const _PlaceSearchNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(layout.inset(12)),
+      decoration: AppTheme.brutalBox(
+        context,
+        color: AppColors.destructive,
+        shadow: false,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.cloud_off,
+            color: AppColors.white,
+            size: layout.inset(18),
+          ),
+          SizedBox(width: layout.inset(10)),
+          Expanded(
+            child: Text(
+              'PLACE SUGGESTIONS UNAVAILABLE — SHOWING SAVED PLACES ONLY',
+              style: GoogleFonts.spaceMono(
+                color: AppColors.white,
+                fontSize: layout.font(10),
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

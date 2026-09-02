@@ -19,6 +19,8 @@ import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/components/reels/category_badge.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 part 'partials/map_place_search_sheet.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -67,6 +69,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AnalyticsService.log(AnalyticsEvent.mapOpened));
     _initUserLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
