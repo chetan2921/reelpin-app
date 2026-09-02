@@ -6,6 +6,8 @@ import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final ReelRepository _repository;
@@ -214,6 +216,12 @@ class HomeViewModel extends ChangeNotifier {
 
   Future<void> deleteReel(String reelId) async {
     await _repository.deleteReel(reelId);
+    unawaited(
+      AnalyticsService.log(
+        AnalyticsEvent.reelDeleted,
+        parameters: {'source': 'grid'},
+      ),
+    );
     _removeReelLocally(reelId);
     _onReelDeleted?.call(reelId);
   }

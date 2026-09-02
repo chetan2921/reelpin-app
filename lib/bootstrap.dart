@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:reelpin/reelpin_app.dart';
 import 'package:reelpin/env.dart';
 import 'package:reelpin/providers.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/view_models/theme_view_model.dart';
 import 'package:reelpin/utils/app_logger.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
@@ -17,6 +18,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AnalyticsService.installErrorHandlers();
   GoogleFonts.config.allowRuntimeFetching = false;
   _configureImageCache();
   await SupabaseConfig.loadLocalConfig();
@@ -24,7 +26,7 @@ Future<void> bootstrap() async {
   // launch screen — the icon on a blank window — so each await there is time
   // the user spends looking at nothing. Messaging is not needed to draw the
   // first frame, and the background handler registers a moment later.
-  unawaited(_initializeMessaging());
+  unawaited(_initializeFirebase());
 
   final isSupabaseConfigured = SupabaseConfig.isConfigured;
 
@@ -59,7 +61,7 @@ Future<void> bootstrap() async {
   );
 }
 
-Future<void> _initializeMessaging() async {
+Future<void> _initializeFirebase() async {
   if (kIsWeb ||
       (defaultTargetPlatform != TargetPlatform.android &&
           defaultTargetPlatform != TargetPlatform.iOS)) {
@@ -67,6 +69,7 @@ Future<void> _initializeMessaging() async {
   }
   try {
     await Firebase.initializeApp();
+    AnalyticsService.markReady();
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
     AppLogger.error('Firebase initialization skipped: $e');

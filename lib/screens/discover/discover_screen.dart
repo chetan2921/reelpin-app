@@ -16,6 +16,9 @@ import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
 import 'package:reelpin/screens/discover/partials/search_result_tile.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
+
 part 'partials/saved_date_calendar_sheet.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
@@ -39,6 +42,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AnalyticsService.log(AnalyticsEvent.discoverOpened));
     _controller.addListener(_handleControllerTextChanged);
     _scheduleFocusIfRequested();
     WidgetsBinding.instance.addPostFrameCallback((_) {

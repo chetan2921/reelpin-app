@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:reelpin/data_models/notifications/app_notification.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 
 typedef NotificationAction = Future<void> Function();
 typedef ReelNotificationAction = Future<void> Function(String reelId);
@@ -28,6 +32,13 @@ class NotificationTapHandler {
         notification.notificationId ??
         '${notification.target.name}:${notification.reelId ?? notification.announcementId ?? notification.collectionId ?? notification.title}';
     if (!_handledNotificationOpens.add(dedupeKey)) return false;
+
+    unawaited(
+      AnalyticsService.log(
+        AnalyticsEvent.notificationOpened,
+        parameters: {'target': notification.target.name},
+      ),
+    );
 
     final notificationId = notification.notificationId;
     final tracking = notificationId == null

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/services/cache/content_cache.dart';
 import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/utils/app_logger.dart';
@@ -110,6 +112,12 @@ class SessionViewModel extends ChangeNotifier {
     try {
       await _authService.signInWithGoogle();
       _forceSignedOut = false;
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.loginCompleted,
+          parameters: {'method': 'google'},
+        ),
+      );
     } catch (e) {
       _error = authErrorMessage(e, operation: AuthOperation.signIn);
     } finally {
@@ -129,6 +137,12 @@ class SessionViewModel extends ChangeNotifier {
     try {
       await _authService.signInWithApple();
       _forceSignedOut = false;
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.loginCompleted,
+          parameters: {'method': 'apple'},
+        ),
+      );
       await _syncProfileSilently();
     } catch (e) {
       _error = authErrorMessage(e, operation: AuthOperation.signIn);
@@ -159,6 +173,7 @@ class SessionViewModel extends ChangeNotifier {
       await _authService.signOut();
       _session = null;
       _forceSignedOut = true;
+      unawaited(AnalyticsService.log(AnalyticsEvent.logoutCompleted));
       await ShareHandoffService.instance.clear();
       // Don't leave saved content on disk for whoever signs in next.
       await ContentCache.instance.clear();
@@ -217,6 +232,12 @@ class SessionViewModel extends ChangeNotifier {
     try {
       await _authService.signInWithEmail(email: email, password: password);
       _forceSignedOut = false;
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.loginCompleted,
+          parameters: {'method': 'email'},
+        ),
+      );
       await _syncProfileSilently();
       return true;
     } catch (e) {
@@ -255,6 +276,12 @@ class SessionViewModel extends ChangeNotifier {
         await _syncProfileSilently();
         _statusMessage = 'ACCOUNT READY. WELCOME TO REELPIN.';
       }
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.signupCompleted,
+          parameters: {'method': 'email'},
+        ),
+      );
       return true;
     } catch (e) {
       _error = authErrorMessage(e, operation: AuthOperation.signUp);

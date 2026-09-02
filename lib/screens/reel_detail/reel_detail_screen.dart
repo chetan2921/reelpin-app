@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -22,6 +23,8 @@ import 'package:reelpin/constants/source_platforms.dart';
 import 'package:reelpin/utils/app_store_links.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/components/sharing/share_card.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 
 class _ShareLocationLink {
   final String label;
@@ -281,6 +284,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AnalyticsService.log(AnalyticsEvent.reelOpened));
     _activeReel = widget.reel;
     if (!widget.readOnly && widget.refreshOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

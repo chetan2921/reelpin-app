@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 
 /// ViewModel for the Reel Detail screen.
 class ReelDetailViewModel extends ChangeNotifier {
@@ -56,6 +60,12 @@ class ReelDetailViewModel extends ChangeNotifier {
     if (_reel == null) return false;
     try {
       await _repository.deleteReel(_reel!.id);
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.reelDeleted,
+          parameters: {'source': 'detail'},
+        ),
+      );
       return true;
     } catch (e) {
       _error = userFacingErrorMessage(

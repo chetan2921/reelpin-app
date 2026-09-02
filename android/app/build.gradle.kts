@@ -113,6 +113,7 @@ val hasGoogleServicesConfig = listOf(
 
 if (hasGoogleServicesConfig) {
     apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
 }
 
 android {

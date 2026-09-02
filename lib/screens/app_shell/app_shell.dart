@@ -20,6 +20,8 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/sharing/collection_link.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/services/sharing/linkrunner_service.dart';
 import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
@@ -178,6 +180,12 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _routeCollectionLink(CollectionLink link, {bool animate = true}) {
+    unawaited(
+      AnalyticsService.log(
+        AnalyticsEvent.collectionLinkOpened,
+        parameters: {'kind': link.isInvite ? 'invite' : 'share'},
+      ),
+    );
     if (link.isInvite) {
       unawaited(_acceptCollectionInvite(link.token));
     } else {
@@ -268,8 +276,10 @@ class _AppShellState extends ConsumerState<AppShell>
 
     final analytics = ref.read(shareFlowAnalyticsServiceProvider);
     unawaited(analytics.recordShareDetected(normalizedPayload));
+    unawaited(AnalyticsService.log(AnalyticsEvent.shareReceived));
     if (_lastHandledSharedPayload == normalizedPayload) {
       unawaited(analytics.recordDuplicateShareSkipped(normalizedPayload));
+      unawaited(AnalyticsService.log(AnalyticsEvent.shareDuplicateSkipped));
       return;
     }
     _lastHandledSharedPayload = normalizedPayload;
@@ -294,8 +304,15 @@ class _AppShellState extends ConsumerState<AppShell>
         showConfirmation: showConfirmation,
         collectionIds: collectionIds,
       );
-    } catch (error) {
+    } catch (error, stack) {
       unawaited(analytics.recordEnqueueFailed(normalizedPayload, error));
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.reelSaveFailed,
+          parameters: {'reason': 'resolve_failed'},
+        ),
+      );
+      unawaited(AnalyticsService.recordError(error, stack));
     }
   }
 
@@ -325,6 +342,7 @@ class _AppShellState extends ConsumerState<AppShell>
         _isQueueingSharedReel = false;
       });
       unawaited(analytics.recordEnqueueSucceeded(url));
+      unawaited(AnalyticsService.log(AnalyticsEvent.reelSaveSucceeded));
 
       if (showConfirmation) {
         messenger.showSnackBar(
@@ -374,9 +392,15 @@ class _AppShellState extends ConsumerState<AppShell>
         if (!mounted) return;
         await SystemNavigator.pop();
       }
-    } catch (error) {
+    } catch (error, stack) {
       if (error is ApiException && error.isMonthlyReelLimitReached) {
         unawaited(analytics.recordEnqueueFailed(url, error));
+        unawaited(
+          AnalyticsService.log(
+            AnalyticsEvent.reelSaveFailed,
+            parameters: {'reason': 'monthly_limit'},
+          ),
+        );
         unawaited(ref.read(entitlementsViewModelProvider).refresh());
         if (!mounted) return;
         setState(() {
@@ -393,6 +417,13 @@ class _AppShellState extends ConsumerState<AppShell>
         _isQueueingSharedReel = false;
       });
       unawaited(analytics.recordEnqueueFailed(url, error));
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.reelSaveFailed,
+          parameters: {'reason': 'enqueue_failed'},
+        ),
+      );
+      unawaited(AnalyticsService.recordError(error, stack));
       if (showConfirmation) {
         messenger.showSnackBar(
           SnackBar(
