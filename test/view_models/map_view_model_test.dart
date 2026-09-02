@@ -149,14 +149,17 @@ void main() {
     expect(viewModel.placeSearchError, isNull);
   });
 
-  test('map place search clears the unavailable flag on a healthy reply', () async {
-    final repository = _FakeReelRepository.empty();
-    final viewModel = MapViewModel(repository);
+  test(
+    'map place search clears the unavailable flag on a healthy reply',
+    () async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(repository);
 
-    await viewModel.searchMapPlaces('brew');
+      await viewModel.searchMapPlaces('brew');
 
-    expect(viewModel.isPlaceSuggestionUnavailable, isFalse);
-  });
+      expect(viewModel.isPlaceSuggestionUnavailable, isFalse);
+    },
+  );
 
   test('pinPlace upserts and selects manual map pin', () async {
     final repository = _FakeReelRepository.empty(pinnedMapItem: _manualMapItem);

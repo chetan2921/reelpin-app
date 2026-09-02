@@ -30,10 +30,7 @@ void main() {
     final before = _response(reelsSaved: 3, reelsRemaining: 17);
     final after = _response(reelsSaved: 4, reelsRemaining: 16);
 
-    expect(
-      before.contentAccessSignature(),
-      after.contentAccessSignature(),
-    );
+    expect(before.contentAccessSignature(), after.contentAccessSignature());
   });
 
   test('a changed plan still counts as a change in access', () {

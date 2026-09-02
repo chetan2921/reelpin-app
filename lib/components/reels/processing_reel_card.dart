@@ -68,9 +68,10 @@ class _ProcessingReelCardState extends State<ProcessingReelCard>
     final next = _targetLevel;
     final current = _levelAnim.value;
     if ((next - current).abs() < 0.001) return;
-    _levelAnim = Tween<double>(begin: current, end: next).animate(
-      CurvedAnimation(parent: _level, curve: Curves.easeOutCubic),
-    );
+    _levelAnim = Tween<double>(
+      begin: current,
+      end: next,
+    ).animate(CurvedAnimation(parent: _level, curve: Curves.easeOutCubic));
     _level.forward(from: 0);
   }
 

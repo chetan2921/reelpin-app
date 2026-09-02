@@ -152,7 +152,9 @@ void main() {
   test('a job recovered from the backend knows its collection', () async {
     // Queued by the share extension with the app closed: this install never
     // saw the target, so the card can only be placed from what the API says.
-    repository.jobs = [_job('job-9', collectionIds: ['col-a'])];
+    repository.jobs = [
+      _job('job-9', collectionIds: ['col-a']),
+    ];
 
     await vm.refresh();
 
@@ -198,23 +200,27 @@ void main() {
     expect(vm.isSettling('job-1'), isFalse);
   });
 
-  test('a card left settling stops the polling', () async {
-    vm.trackEnqueued(_job('job-1'));
-    repository.jobs = [_job('job-1', status: 'completed', terminal: true)];
-    reload = Completer<void>();
+  test(
+    'a card left settling stops the polling',
+    () async {
+      vm.trackEnqueued(_job('job-1'));
+      repository.jobs = [_job('job-1', status: 'completed', terminal: true)];
+      reload = Completer<void>();
 
-    final pending = vm.refresh();
-    await pumpEventQueue();
-    repository.calls = 0;
+      final pending = vm.refresh();
+      await pumpEventQueue();
+      repository.calls = 0;
 
-    // Nothing left to ask about: the only card on screen is waiting on the
-    // reload, not on the backend.
-    await Future<void>.delayed(const Duration(seconds: 4));
-    expect(repository.calls, 0);
+      // Nothing left to ask about: the only card on screen is waiting on the
+      // reload, not on the backend.
+      await Future<void>.delayed(const Duration(seconds: 4));
+      expect(repository.calls, 0);
 
-    reload.complete();
-    await pending;
-  }, timeout: const Timeout(Duration(seconds: 20)));
+      reload.complete();
+      await pending;
+    },
+    timeout: const Timeout(Duration(seconds: 20)),
+  );
 
   test('a failure still leaves without waiting on a reload', () async {
     vm.trackEnqueued(_job('job-1'));
