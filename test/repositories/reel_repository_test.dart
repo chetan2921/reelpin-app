@@ -25,20 +25,23 @@ void main() {
     expect(api.deletedReelIds, [_reelA.id]);
   });
 
-  test('insertReel puts a finished reel at the front without refetching', () async {
-    final api = _FakeApiService();
-    final repository = ReelRepository(api, _FakeAuthService());
-    await repository.loadInitialReels(forceRefresh: true);
-    final callsBefore = api.pageCalls;
+  test(
+    'insertReel puts a finished reel at the front without refetching',
+    () async {
+      final api = _FakeApiService();
+      final repository = ReelRepository(api, _FakeAuthService());
+      await repository.loadInitialReels(forceRefresh: true);
+      final callsBefore = api.pageCalls;
 
-    repository.insertReel(_reelC);
+      repository.insertReel(_reelC);
 
-    expect(repository.cachedReels.first.id, _reelC.id);
-    expect(repository.cachedReels.length, 3);
-    // The processing job already carried the reel; a round trip here is what
-    // used to leave a hole where the placeholder card had been.
-    expect(api.pageCalls, callsBefore);
-  });
+      expect(repository.cachedReels.first.id, _reelC.id);
+      expect(repository.cachedReels.length, 3);
+      // The processing job already carried the reel; a round trip here is what
+      // used to leave a hole where the placeholder card had been.
+      expect(api.pageCalls, callsBefore);
+    },
+  );
 
   test('insertReel ignores a reel the grid already holds', () async {
     final api = _FakeApiService();

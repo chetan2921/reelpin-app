@@ -53,17 +53,22 @@ class ProcessingJobsViewModel extends ChangeNotifier {
   /// saw — the backend reports each job's targets, so a job recovered after a
   /// cold start lands in the right collection too.
   List<ProcessingJob> jobsForCollection(String collectionId) {
-    return _jobs.where((job) {
-      if (job.collectionIds.contains(collectionId)) return true;
-      // Falls back to what this install passed at enqueue, which is all an API
-      // predating `collection_ids` on the response can offer.
-      return _collectionIdsByJob[job.id]?.contains(collectionId) ?? false;
-    }).toList(growable: false);
+    return _jobs
+        .where((job) {
+          if (job.collectionIds.contains(collectionId)) return true;
+          // Falls back to what this install passed at enqueue, which is all an API
+          // predating `collection_ids` on the response can offer.
+          return _collectionIdsByJob[job.id]?.contains(collectionId) ?? false;
+        })
+        .toList(growable: false);
   }
 
   /// Adds the job an enqueue just returned, so the card appears on the same
   /// frame as the share instead of waiting for a poll.
-  void trackEnqueued(ProcessingJob job, {List<String> collectionIds = const []}) {
+  void trackEnqueued(
+    ProcessingJob job, {
+    List<String> collectionIds = const [],
+  }) {
     if (job.id.trim().isEmpty) return;
     // Re-sharing something already saved comes back complete off the server's
     // cache. There is nothing to wait for, so there is no card to show.

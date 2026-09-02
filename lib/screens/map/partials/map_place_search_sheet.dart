@@ -560,11 +560,7 @@ class _PlaceSearchNotice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.cloud_off,
-            color: AppColors.white,
-            size: layout.inset(18),
-          ),
+          Icon(Icons.cloud_off, color: AppColors.white, size: layout.inset(18)),
           SizedBox(width: layout.inset(10)),
           Expanded(
             child: Text(

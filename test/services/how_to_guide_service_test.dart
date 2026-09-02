@@ -25,12 +25,15 @@ void main() {
     expect(await service.takePendingGuide(), isFalse);
   });
 
-  test('an update carrying the old seen flag never re-arms the guide', () async {
-    // What a 1.0.15 user has on disk after being walked through it once.
-    SharedPreferences.setMockInitialValues({
-      'how_to_guide_seen_v1_user-123': true,
-    });
+  test(
+    'an update carrying the old seen flag never re-arms the guide',
+    () async {
+      // What a 1.0.15 user has on disk after being walked through it once.
+      SharedPreferences.setMockInitialValues({
+        'how_to_guide_seen_v1_user-123': true,
+      });
 
-    expect(await service.takePendingGuide(), isFalse);
-  });
+      expect(await service.takePendingGuide(), isFalse);
+    },
+  );
 }
