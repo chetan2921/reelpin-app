@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/services/cache/content_cache.dart';
 import 'package:reelpin/utils/app_logger.dart';
 import 'package:reelpin/utils/error_message.dart';
@@ -31,6 +33,11 @@ class CollectionsViewModel extends ChangeNotifier {
   Future<void>? _loadCollectionsFuture;
 
   final Map<String, CollectionDetail> _details = {};
+
+  /// Details standing in for the real thing: the summary the SAVED grid already
+  /// had, with no reels behind it yet. Tracked so the screen can tell "nothing
+  /// in here" apart from "not fetched yet".
+  final Set<String> _placeholderDetailIds = {};
   bool _isLoadingDetail = false;
   String? _detailError;
   final Map<String, Future<void>> _loadDetailFutures = {};
@@ -45,6 +52,28 @@ class CollectionsViewModel extends ChangeNotifier {
   bool get isMutating => _isMutating;
 
   CollectionDetail? detailFor(String id) => _details[id];
+
+  /// True while [id] is showing its summary only, with the reels still on their
+  /// way in from cache or network.
+  bool isDetailPlaceholder(String id) => _placeholderDetailIds.contains(id);
+
+  /// Opens a collection on what the SAVED grid already knows, so tapping one
+  /// lands on the collection rather than a full-screen spinner. Whatever
+  /// arrives next — cache or network — replaces this.
+  void seedDetailFromSummary(String id) {
+    if (_details.containsKey(id)) return;
+    for (final summary in _collections) {
+      if (summary.id != id) continue;
+      _details[id] = CollectionDetail(
+        collection: summary,
+        reels: const [],
+        pagination: const CollectionPagination(),
+      );
+      _placeholderDetailIds.add(id);
+      notifyListeners();
+      return;
+    }
+  }
 
   /// Paints the last known grid immediately so opening SAVED never shows a
   /// spinner on a warm start. The network refresh still runs and overwrites
@@ -114,11 +143,12 @@ class CollectionsViewModel extends ChangeNotifier {
   /// never waits on the network to show what the user already had. The refresh
   /// still runs over the top.
   Future<void> hydrateDetailFromCache(String id) async {
-    if (_details.containsKey(id)) return;
+    if (_hasRealDetail(id)) return;
     final payload = await _cache.read(ContentCacheKeys.collectionDetail(id));
-    if (payload == null || _details.containsKey(id)) return;
+    if (payload == null || _hasRealDetail(id)) return;
     try {
       _details[id] = CollectionDetail.fromJson(payload);
+      _placeholderDetailIds.remove(id);
       notifyListeners();
     } catch (e) {
       AppLogger.error('Cached collection detail could not be restored: $e');
@@ -126,10 +156,13 @@ class CollectionsViewModel extends ChangeNotifier {
     }
   }
 
+  bool _hasRealDetail(String id) =>
+      _details.containsKey(id) && !_placeholderDetailIds.contains(id);
+
   Future<void> loadCollectionDetail(String id, {bool forceRefresh = false}) {
     final existing = _loadDetailFutures[id];
     if (existing != null) return existing;
-    if (_details.containsKey(id) && !forceRefresh) return Future.value();
+    if (_hasRealDetail(id) && !forceRefresh) return Future.value();
     final future = _loadCollectionDetail(id);
     _loadDetailFutures[id] = future.whenComplete(() {
       _loadDetailFutures.remove(id);
@@ -141,11 +174,14 @@ class CollectionsViewModel extends ChangeNotifier {
     // Same rule as the grid: with a cached detail on screen this stays false,
     // so refreshing never replaces the reels with a spinner.
     _isLoadingDetail = !_details.containsKey(id);
+    // A placeholder counts as something to show, so the spinner stays off; the
+    // screen renders the collection and fills the grid in when this lands.
     _detailError = null;
     notifyListeners();
     try {
       final detail = await _api.getCollectionDetail(id);
       _details[id] = detail;
+      _placeholderDetailIds.remove(id);
       unawaited(
         _cache.write(ContentCacheKeys.collectionDetail(id), detail.toJson()),
       );
@@ -194,6 +230,9 @@ class CollectionsViewModel extends ChangeNotifier {
       );
       _upsert(created!);
     });
+    if (created != null) {
+      unawaited(AnalyticsService.log(AnalyticsEvent.collectionCreated));
+    }
     return created;
   }
 
@@ -221,6 +260,8 @@ class CollectionsViewModel extends ChangeNotifier {
       await _api.deleteCollection(id);
       _collections.removeWhere((c) => c.id == id);
       _details.remove(id);
+      _placeholderDetailIds.remove(id);
+      unawaited(AnalyticsService.log(AnalyticsEvent.collectionDeleted));
     });
   }
 
@@ -248,6 +289,7 @@ class CollectionsViewModel extends ChangeNotifier {
       // user may never look at.
       for (final collectionId in collectionIds) {
         _details.remove(collectionId);
+        _placeholderDetailIds.remove(collectionId);
       }
     });
     await loadCollections(forceRefresh: true);
@@ -332,6 +374,7 @@ class CollectionsViewModel extends ChangeNotifier {
       await _api.leaveCollection(id);
       _collections.removeWhere((c) => c.id == id);
       _details.remove(id);
+      _placeholderDetailIds.remove(id);
     });
   }
 
