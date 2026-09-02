@@ -25,6 +25,7 @@ class MapViewModel extends ChangeNotifier {
   int _visiblePinnedLocations = 0;
   List<MapPlaceSearchResult> _placeSearchResults = [];
   bool _isSearchingPlaces = false;
+  bool _isPlaceSuggestionUnavailable = false;
   bool _isSavingMapPin = false;
   bool _isRemovingMapPin = false;
   String? _placeSearchError;
@@ -45,6 +46,7 @@ class MapViewModel extends ChangeNotifier {
   List<MapPlaceSearchResult> get placeSearchResults =>
       List.unmodifiable(_placeSearchResults);
   bool get isSearchingPlaces => _isSearchingPlaces;
+  bool get isPlaceSuggestionUnavailable => _isPlaceSuggestionUnavailable;
   bool get isSavingMapPin => _isSavingMapPin;
   bool get isRemovingMapPin => _isRemovingMapPin;
   String? get placeSearchError => _placeSearchError;
@@ -148,6 +150,7 @@ class MapViewModel extends ChangeNotifier {
     _visiblePinnedLocations = 0;
     _placeSearchResults = const [];
     _isSearchingPlaces = false;
+    _isPlaceSuggestionUnavailable = false;
     _isSavingMapPin = false;
     _isRemovingMapPin = false;
     _placeSearchError = null;
@@ -166,6 +169,7 @@ class MapViewModel extends ChangeNotifier {
       _placeSearchRequestId += 1;
       _placeSearchResults = const [];
       _placeSearchError = null;
+      _isPlaceSuggestionUnavailable = false;
       _isSearchingPlaces = false;
       notifyListeners();
       return;
@@ -191,6 +195,7 @@ class MapViewModel extends ChangeNotifier {
 
       _placeSearchResults = response.results;
       _placeSearchError = null;
+      _isPlaceSuggestionUnavailable = response.isGoogleSearchUnavailable;
     } catch (e) {
       if (requestId != _placeSearchRequestId) return;
 
@@ -198,6 +203,7 @@ class MapViewModel extends ChangeNotifier {
         e,
         fallbackMessage: 'Could not search map places right now.',
       );
+      _isPlaceSuggestionUnavailable = false;
     } finally {
       if (requestId == _placeSearchRequestId) {
         _isSearchingPlaces = false;
@@ -283,6 +289,7 @@ class MapViewModel extends ChangeNotifier {
     _placeSearchRequestId += 1;
     _placeSearchResults = const [];
     _isSearchingPlaces = false;
+    _isPlaceSuggestionUnavailable = false;
     _placeSearchError = null;
     _mapPinActionError = null;
     _lastPlaceQuery = '';

@@ -6,6 +6,7 @@ class MapPlaceSearchResponse {
     required this.searchMode,
     required this.total,
     required this.results,
+    this.googleStatus = 'ok',
   });
 
   final String query;
@@ -13,11 +14,18 @@ class MapPlaceSearchResponse {
   final int total;
   final List<MapPlaceSearchResult> results;
 
+  /// 'ok', 'failed' or 'not_configured' — the backend reports when Google
+  /// Places could not be reached, so an empty list is not read as "no matches".
+  final String googleStatus;
+
+  bool get isGoogleSearchUnavailable => googleStatus != 'ok';
+
   factory MapPlaceSearchResponse.fromJson(Map<String, dynamic> json) {
     final rawResults = json['results'] as List<dynamic>? ?? const [];
     return MapPlaceSearchResponse(
       query: json['query']?.toString() ?? '',
       searchMode: json['search_mode']?.toString() ?? '',
+      googleStatus: json['google_status']?.toString() ?? 'ok',
       total: (json['total'] as num?)?.toInt() ?? 0,
       results: rawResults
           .map(

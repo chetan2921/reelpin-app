@@ -114,6 +114,50 @@ void main() {
     );
   });
 
+  test('map place search flags unavailable google suggestions', () async {
+    final repository = _FakeReelRepository.empty(
+      onMapSearch:
+          ({
+            required String query,
+            String? category,
+            String? sessionToken,
+          }) async => const MapPlaceSearchResponse(
+            query: 'brew',
+            searchMode: 'existing',
+            googleStatus: 'failed',
+            total: 1,
+            results: [
+              MapPlaceSearchResult(
+                resultType: 'existing',
+                sourceType: 'reel',
+                mapItem: _travelMapItem,
+                displayTitle: 'Brew Lab',
+                displayAddress: 'Brew Lab',
+                placeName: 'Brew Lab',
+                placeTypes: [],
+                canPin: false,
+              ),
+            ],
+          ),
+    );
+    final viewModel = MapViewModel(repository);
+
+    await viewModel.searchMapPlaces('brew');
+
+    expect(viewModel.isPlaceSuggestionUnavailable, isTrue);
+    expect(viewModel.placeSearchResults, hasLength(1));
+    expect(viewModel.placeSearchError, isNull);
+  });
+
+  test('map place search clears the unavailable flag on a healthy reply', () async {
+    final repository = _FakeReelRepository.empty();
+    final viewModel = MapViewModel(repository);
+
+    await viewModel.searchMapPlaces('brew');
+
+    expect(viewModel.isPlaceSuggestionUnavailable, isFalse);
+  });
+
   test('pinPlace upserts and selects manual map pin', () async {
     final repository = _FakeReelRepository.empty(pinnedMapItem: _manualMapItem);
     final viewModel = MapViewModel(repository);
