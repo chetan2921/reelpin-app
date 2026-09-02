@@ -69,6 +69,47 @@ void main() {
       },
     );
 
+    test('a tapped collection opens on the summary, not a spinner', () async {
+      final api = _FakeCollectionsHttp(collections: [_summary('a')]);
+      final vm = CollectionsViewModel(api);
+      await vm.loadCollections();
+
+      vm.seedDetailFromSummary('a');
+
+      expect(vm.detailFor('a')?.collection.id, 'a');
+      expect(vm.isDetailPlaceholder('a'), isTrue);
+
+      // The placeholder is what keeps the full-screen spinner off while the
+      // real payload is fetched.
+      final pending = vm.loadCollectionDetail('a', forceRefresh: true);
+      expect(vm.isLoadingDetail, isFalse);
+
+      await pending;
+      expect(vm.isDetailPlaceholder('a'), isFalse);
+    });
+
+    test('a placeholder never blocks the real detail', () async {
+      final api = _FakeCollectionsHttp(collections: [_summary('a')]);
+      final vm = CollectionsViewModel(api);
+      await vm.loadCollections();
+      vm.seedDetailFromSummary('a');
+
+      await vm.loadCollectionDetail('a');
+
+      expect(api.detailCalls, 1);
+      expect(vm.isDetailPlaceholder('a'), isFalse);
+    });
+
+    test('seeding does nothing for a collection the grid has not seen', () {
+      final api = _FakeCollectionsHttp();
+      final vm = CollectionsViewModel(api);
+
+      vm.seedDetailFromSummary('unknown');
+
+      expect(vm.detailFor('unknown'), isNull);
+      expect(vm.isDetailPlaceholder('unknown'), isFalse);
+    });
+
     test('detail is cached per id and refetched on force', () async {
       final api = _FakeCollectionsHttp(collections: [_summary('a')]);
       final vm = CollectionsViewModel(api);

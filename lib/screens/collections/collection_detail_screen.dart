@@ -65,6 +65,14 @@ class _CollectionDetailScreenState
   @override
   void initState() {
     super.initState();
+    // Before the first frame, and synchronously: the SAVED grid already holds
+    // this collection, so the screen can open on it instead of a spinner while
+    // the reels are fetched.
+    if (!widget.isShared) {
+      ref
+          .read(collectionsViewModelProvider)
+          .seedDetailFromSummary(widget.collectionId);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.isShared) {
