@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:reelpin/components/reels/processing_reel_card.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
 import 'package:reelpin/components/common/app_back_button.dart';
 import 'package:reelpin/components/common/confirm_dialog.dart';
@@ -12,6 +13,7 @@ import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
+import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/components/collections/collection_form_sheet.dart';
@@ -143,9 +145,12 @@ class _CollectionDetailScreenState
   }
 
   Future<void> _refresh() {
-    return ref
-        .read(collectionsViewModelProvider)
-        .loadCollectionDetail(widget.collectionId, forceRefresh: true);
+    return Future.wait([
+      ref
+          .read(collectionsViewModelProvider)
+          .loadCollectionDetail(widget.collectionId, forceRefresh: true),
+      ref.read(processingJobsViewModelProvider).refresh(),
+    ]);
   }
 
   Future<void> _edit(CollectionSummary collection) async {
@@ -450,7 +455,28 @@ class _CollectionDetailScreenState
       ];
     }
     final reels = detail?.reels ?? const <Reel>[];
-    if (reels.isEmpty) {
+    // A shared collection is someone else's; our pending shares do not belong
+    // in it.
+    final processingJobs = widget.isShared
+        ? const <ProcessingJob>[]
+        : ref
+              .watch(processingJobsViewModelProvider)
+              .jobsForCollection(widget.collectionId);
+    if (reels.isEmpty && processingJobs.isEmpty) {
+      // Seeded from the summary, so the reels are still on their way. Claiming
+      // the collection is empty here would be a lie that corrects itself a
+      // second later.
+      if (!widget.isShared &&
+          ref
+              .watch(collectionsViewModelProvider)
+              .isDetailPlaceholder(widget.collectionId)) {
+        return [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _buildLoading(context),
+          ),
+        ];
+      }
       return [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -465,7 +491,13 @@ class _CollectionDetailScreenState
       ];
     }
     return [
-      _buildReelGrid(context, reels, canEdit: canEdit, ownsReels: ownsReels),
+      _buildReelGrid(
+        context,
+        reels,
+        canEdit: canEdit,
+        ownsReels: ownsReels,
+        processingJobs: processingJobs,
+      ),
       _buildPaginationState(context, detail!),
     ];
   }
@@ -475,6 +507,7 @@ class _CollectionDetailScreenState
     List<Reel> reels, {
     required bool canEdit,
     required bool ownsReels,
+    required List<ProcessingJob> processingJobs,
   }) {
     final layout = AppLayout.of(context);
     final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
@@ -497,7 +530,25 @@ class _CollectionDetailScreenState
             childAspectRatio: aspect,
           ),
           delegate: SliverChildBuilderDelegate((context, index) {
-            final reel = reels[index];
+            if (index < processingJobs.length) {
+              return AnimationConfiguration.staggeredGrid(
+                position: index,
+                columnCount: columns,
+                duration: const Duration(milliseconds: 300),
+                child: ScaleAnimation(
+                  scale: 0.96,
+                  child: FadeInAnimation(
+                    child: ProcessingReelCard(
+                      job: processingJobs[index],
+                      isSettling: ref
+                          .read(processingJobsViewModelProvider)
+                          .isSettling(processingJobs[index].id),
+                    ),
+                  ),
+                ),
+              );
+            }
+            final reel = reels[index - processingJobs.length];
             return AnimationConfiguration.staggeredGrid(
               position: index,
               columnCount: columns,
@@ -529,7 +580,7 @@ class _CollectionDetailScreenState
                 ),
               ),
             );
-          }, childCount: reels.length),
+          }, childCount: processingJobs.length + reels.length),
         ),
       ),
     );

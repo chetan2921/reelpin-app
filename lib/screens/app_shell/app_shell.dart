@@ -102,6 +102,7 @@ class _AppShellState extends ConsumerState<AppShell>
       if (launchLink != null) unawaited(_openLaunchLink(launchLink));
       unawaited(_runFirstRunFlow());
       unawaited(_drainPendingNativeShares());
+      unawaited(ref.read(processingJobsViewModelProvider).refresh());
     });
   }
 
@@ -334,7 +335,16 @@ class _AppShellState extends ConsumerState<AppShell>
     try {
       await _syncPushTokenRegistrationIfPossible();
       unawaited(analytics.recordEnqueueStarted(url));
-      await homeVm.enqueueReelProcessing(url, collectionIds: collectionIds);
+      unawaited(AnalyticsService.log(AnalyticsEvent.reelSaveStarted));
+      final job = await homeVm.enqueueReelProcessing(
+        url,
+        collectionIds: collectionIds,
+      );
+      // Straight into the grid: the card has to be there when the user lands
+      // back in the app, not one poll later.
+      ref
+          .read(processingJobsViewModelProvider)
+          .trackEnqueued(job, collectionIds: collectionIds);
       unawaited(_refreshSavedContent());
 
       if (!mounted) return;
@@ -462,11 +472,21 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) return;
+    if (!mounted) return;
+
+    final processingJobs = ref.read(processingJobsViewModelProvider);
+    if (state != AppLifecycleState.resumed) {
+      processingJobs.setForeground(false);
+      return;
+    }
+    processingJobs.setForeground(true);
 
     // Always drain shares captured while the app was backgrounded, regardless
     // of the content-refresh throttle below.
     unawaited(_drainPendingNativeShares());
+    // Unthrottled, and deliberately: this is one small request, and it is the
+    // only thing that tells a user who just shared that the app noticed.
+    unawaited(processingJobs.refresh());
 
     final now = DateTime.now();
     if (_lastResumeRefreshAt != null &&

@@ -170,6 +170,42 @@ class ApiClient
     return ProcessingJob.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  @override
+  Future<List<ProcessingJob>> listProcessingJobs({
+    bool activeOnly = true,
+    int limit = 20,
+  }) async {
+    final res = await _sendRequest(
+      (baseUrl) => _client
+          .get(
+            _apiUri(
+              baseUrl,
+              '/api/v1/processing-jobs',
+              queryParameters: {
+                'active_only': activeOnly.toString(),
+                'limit': limit.toString(),
+              },
+            ),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load the processing status right now.',
+      );
+    }
+
+    final decoded = jsonDecode(res.body);
+    if (decoded is! List) return const <ProcessingJob>[];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(ProcessingJob.fromJson)
+        .toList(growable: false);
+  }
+
   Future<ProcessingJob> _getProcessingJob(String jobId) async {
     final res = await _sendRequest(
       (baseUrl) => _client
