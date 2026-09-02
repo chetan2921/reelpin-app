@@ -335,8 +335,10 @@ class EntitlementsResponse {
       currentEntitlement.status.name,
       currentEntitlement.searchMode.name,
       currentEntitlement.restricted.toString(),
-      usage.reelsSavedThisMonth.toString(),
-      usage.reelsRemainingThisMonth?.toString() ?? '',
+      // Usage counters are deliberately absent. They tick on every save, and
+      // including them made each save look like an access change — which wipes
+      // and refetches every visible tab. What the user may see is governed by
+      // the plan, status and limits below, not by how much of it they have used.
       limits.reelsPerMonth?.toString() ?? '',
       limits.accessibleHistoryDays?.toString() ?? '',
       limits.mapPins?.toString() ?? '',
