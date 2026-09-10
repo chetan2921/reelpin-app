@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,9 +17,10 @@ import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/components/reels/category_badge.dart';
-import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
+import 'package:reelpin/utils/location_maps_uri.dart';
 import 'package:reelpin/services/analytics/analytics_event.dart';
 import 'package:reelpin/services/analytics/analytics_service.dart';
+import 'package:reelpin/utils/category_marker_icon.dart';
 part 'partials/map_place_search_sheet.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -233,82 +233,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  /// Brutalist map pin: flat colored square with thick black border
-  Future<BitmapDescriptor> _createCustomPin(String category) async {
-    final catColor = AppColors.getCategoryColor(category);
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    const size = Size(40, 52);
-
-    // Hard shadow (offset, no blur)
-    final shadowPaint = Paint()..color = Colors.black;
-    canvas.drawRect(
-      Rect.fromLTWH(3, 3, size.width - 3, size.height * 0.7),
-      shadowPaint,
-    );
-    // Add shadow specifically for the pointer to make it unified
-    final shadowPath = Path();
-    shadowPath.moveTo((size.width - 3) * 0.35 + 3, size.height * 0.7 + 3);
-    shadowPath.lineTo((size.width - 3) * 0.5 + 3, size.height);
-    shadowPath.lineTo((size.width - 3) * 0.65 + 3, size.height * 0.7 + 3);
-    shadowPath.close();
-    canvas.drawPath(shadowPath, shadowPaint);
-
-    // Pin body (sharp square with pointer)
-    final path = Path();
-    // Square body
-    path.addRect(Rect.fromLTWH(0, 0, size.width - 3, size.height * 0.7));
-    // Triangle pointer
-    path.moveTo((size.width - 3) * 0.35, size.height * 0.7);
-    path.lineTo((size.width - 3) * 0.5, size.height - 3);
-    path.lineTo((size.width - 3) * 0.65, size.height * 0.7);
-    path.close();
-
-    // Fill
-    canvas.drawPath(path, Paint()..color = catColor);
-    // Border
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = Colors.black
-        ..style = PaintingStyle.stroke
-        ..strokeJoin = StrokeJoin.miter
-        ..strokeWidth = 2.5,
-    );
-
-    // Letter (centered in square body)
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    final letterColor = catColor.computeLuminance() > 0.5
-        ? AppColors.black
-        : AppColors.white;
-    textPainter.text = TextSpan(
-      text: category.isNotEmpty ? category[0].toUpperCase() : '?',
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w900,
-        color: letterColor,
-        fontFamily: 'monospace',
-      ),
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        ((size.width - 3) - textPainter.width) / 2,
-        (size.height * 0.7 - textPainter.height) / 2,
-      ),
-    );
-
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(
-      size.width.toInt(),
-      size.height.toInt(),
-    );
-    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List());
-  }
+  /// Brutalist map pin: flat colored square with thick black border. Shared
+  /// with the chat places block via `lib/utils/category_marker_icon.dart` so
+  /// both draw the same pin.
+  Future<BitmapDescriptor> _createCustomPin(String category) =>
+      createCategoryMarkerIcon(category);
 
   void _fitMarkers(Set<Marker> markers) {
     if (_mapController == null || markers.isEmpty) return;
