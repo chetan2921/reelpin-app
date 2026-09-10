@@ -31,7 +31,7 @@ class SessionViewModel extends ChangeNotifier {
       notifyListeners();
       _syncProfileSilently();
       unawaited(_syncShareHandoffState());
-    });
+    }, onError: AuthService.handleAuthStreamError);
     _bootstrap();
   }
 

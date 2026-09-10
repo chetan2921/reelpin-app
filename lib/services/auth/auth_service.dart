@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -5,6 +6,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reelpin/env.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/services/auth/profile_service.dart';
 import 'package:reelpin/services/auth/supabase_client.dart';
 
@@ -15,7 +17,22 @@ class AuthService {
 
   Session? get currentSession => supabase.auth.currentSession;
   User? get currentUser => supabase.auth.currentUser;
+
+  /// Every listener must pass [handleAuthStreamError] as `onError`: gotrue
+  /// reports failed token refreshes as errors on this stream, and one with no
+  /// handler is an uncaught error.
   Stream<AuthState> get authStateChanges => supabase.auth.onAuthStateChange;
+
+  /// Handles an error gotrue pushed down [authStateChanges].
+  ///
+  /// A background token refresh that fails on the network — a 504, a
+  /// connection dropped when the app is backgrounded — arrives as
+  /// [AuthRetryableFetchException]. gotrue keeps the session and retries on
+  /// its next tick, so there is nothing to do. Anything else is reported.
+  static void handleAuthStreamError(Object error, StackTrace stack) {
+    if (error is AuthRetryableFetchException) return;
+    unawaited(AnalyticsService.recordError(error, stack));
+  }
 
   Future<AuthResponse> signInWithEmail({
     required String email,

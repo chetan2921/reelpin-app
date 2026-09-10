@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -107,6 +109,29 @@ void main() {
     expect(events, ['delete-account']);
     viewModel.dispose();
   });
+
+  test('errors on the auth stream are handled, not left uncaught', () async {
+    SharedPreferences.setMockInitialValues({});
+    final events = <String>[];
+    final auth = StreamController<AuthState>();
+    final viewModel = SessionViewModel(
+      _FakeAuthService(events, stream: auth.stream),
+      ApiClient.new,
+      () => _FakeSharingHttp(events),
+    );
+
+    // What gotrue pushes down onAuthStateChange when a background token
+    // refresh hits a 504 or a dropped connection, and when a refresh fails
+    // for good. Unhandled, each reached Crashlytics as a crash.
+    auth.addError(
+      AuthRetryableFetchException(message: 'upstream request timeout'),
+    );
+    auth.addError(AuthException('Session expired.'));
+    await pumpEventQueue();
+
+    viewModel.dispose();
+    await auth.close();
+  });
 }
 
 const _signedInUser = User(
@@ -118,10 +143,12 @@ const _signedInUser = User(
 );
 
 class _FakeAuthService extends AuthService {
-  _FakeAuthService(this.events, {this.user}) : super(ProfileService());
+  _FakeAuthService(this.events, {this.user, this.stream})
+    : super(ProfileService());
 
   final List<String> events;
   final User? user;
+  final Stream<AuthState>? stream;
 
   @override
   Session? get currentSession => null;
@@ -130,7 +157,8 @@ class _FakeAuthService extends AuthService {
   User? get currentUser => user;
 
   @override
-  Stream<AuthState> get authStateChanges => const Stream<AuthState>.empty();
+  Stream<AuthState> get authStateChanges =>
+      stream ?? const Stream<AuthState>.empty();
 
   @override
   Future<void> ensureProfile() async {
