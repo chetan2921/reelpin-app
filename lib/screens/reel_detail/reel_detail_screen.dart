@@ -7,12 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:reelpin/constants/chat_feature.dart';
+import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/components/collections/add_to_collection_sheet.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/router.dart';
 import 'package:reelpin/utils/error_message.dart';
+import 'package:reelpin/utils/location_maps_uri.dart';
 import 'package:reelpin/services/sharing/reel_share_service.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/components/common/app_back_button.dart';
@@ -51,47 +54,6 @@ Uri? locationMapsUri(Location loc) {
     latitude: loc.latitude,
     longitude: loc.longitude,
   );
-}
-
-Uri? locationMapsSearchUri({
-  String? name,
-  String? displayLabel,
-  String? address,
-  String? backendUrl,
-  double? latitude,
-  double? longitude,
-}) {
-  final placeQuery = _firstNonEmpty([name, displayLabel, address]);
-  if (placeQuery != null) {
-    return Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(placeQuery)}',
-    );
-  }
-
-  final fallbackUri = _externalLocationUri(backendUrl);
-  if (fallbackUri != null) {
-    return fallbackUri;
-  }
-
-  if (latitude != null && longitude != null) {
-    return Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
-    );
-  }
-  return null;
-}
-
-Uri? _externalLocationUri(String? rawUrl) {
-  final trimmed = rawUrl?.trim();
-  if (trimmed == null || trimmed.isEmpty) return null;
-
-  final uri = Uri.tryParse(trimmed);
-  if (uri == null) return null;
-  if (!uri.hasScheme) return null;
-  final scheme = uri.scheme.toLowerCase();
-  if (scheme != 'http' && scheme != 'https') return null;
-  if (uri.host.trim().isEmpty) return null;
-  return uri;
 }
 
 String? _firstNonEmpty(List<String?> values) {
@@ -511,6 +473,14 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                                 margin: EdgeInsets.zero,
                               ),
                             ),
+                            if (chatEnabled)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  left: layout.inset(8),
+                                  top: layout.gap(1),
+                                ),
+                                child: _askAboutButton(layout),
+                              ),
                           ],
                         ),
                         if (reel.relativeDate.isNotEmpty) ...[
@@ -1159,6 +1129,36 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+
+  /// Icon-only so it sits next to SHARE without stretching the row onto a
+  /// second line — the labelled "ASK ABOUT THIS" button used to do that.
+  Widget _askAboutButton(AppLayout layout) {
+    return GestureDetector(
+      onTap: () => openChat(
+        context,
+        ref,
+        seedAttachments: [
+          ChatAttachment(
+            kind: AttachmentKind.savedReel,
+            displayName: reel.title.isEmpty ? 'This save' : reel.title,
+            reelId: reel.id,
+          ),
+        ],
+        showAskTab: () => ref.read(appShellControllerProvider)?.showAsk(),
+      ),
+      child: Container(
+        width: layout.inset(30),
+        height: layout.inset(30),
+        decoration: BoxDecoration(
+          color: AppColors.yellow,
+          border: Border.all(color: AppColors.fg(context), width: 2),
+          boxShadow: AppTheme.brutalShadowSmall(context),
+        ),
+        alignment: Alignment.center,
+        child: Image.asset('assets/images/pin.png', width: 15, height: 15),
       ),
     );
   }
