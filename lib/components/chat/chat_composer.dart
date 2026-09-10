@@ -103,14 +103,19 @@ class _ChatComposerState extends State<ChatComposer> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '${widget.pending[i].kind.label} · ${widget.pending[i].displayName}'
-                      .toUpperCase(),
-                  style: GoogleFonts.spaceMono(
-                    color: AppColors.black,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+                // A reel title can be wider than the screen.
+                Flexible(
+                  child: Text(
+                    '${widget.pending[i].kind.label} · ${widget.pending[i].displayName}'
+                        .toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.spaceMono(
+                      color: AppColors.black,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
                 GestureDetector(
