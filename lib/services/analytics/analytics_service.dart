@@ -21,18 +21,22 @@ class AnalyticsService {
   /// being awaited, so handlers installed only after initialization would miss
   /// anything that failed during launch — the window this exists to cover.
   /// Reports raised before [markReady] are logged locally instead of dropped.
+  ///
+  /// Both are reported as non-fatal: a Dart error does not close the app, and
+  /// counting one as a crash made crash-free users read 0% on a phone that
+  /// never crashed. Native crashes are still recorded as crashes.
   static void installErrorHandlers() {
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
       if (_ready) {
-        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+        FirebaseCrashlytics.instance.recordFlutterError(details);
       } else {
         AppLogger.error('Flutter error before Crashlytics was ready: $details');
       }
     };
     PlatformDispatcher.instance.onError = (error, stack) {
       if (_ready) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: false);
       } else {
         AppLogger.error('Uncaught error before Crashlytics was ready: $error');
       }
