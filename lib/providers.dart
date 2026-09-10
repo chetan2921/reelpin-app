@@ -1,6 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reelpin/http/account_http.dart';
+import 'package:reelpin/http/chat_api_http.dart';
+import 'package:reelpin/http/chat_http.dart';
+import 'package:reelpin/http/collection_chat_api_http.dart';
+import 'package:reelpin/http/collection_chat_http.dart';
+import 'package:reelpin/http/mock_chat_http.dart';
+import 'package:reelpin/http/mock_collection_chat_http.dart';
+import 'package:reelpin/screens/app_shell/app_shell.dart';
+import 'package:reelpin/services/chat/chat_thread_store.dart';
+import 'package:reelpin/view_models/chat_view_model.dart';
+import 'package:reelpin/view_models/collection_chat_view_model.dart';
 import 'package:reelpin/view_models/user_state_coordinator.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/http/reels_http.dart';
@@ -192,6 +202,49 @@ final processingJobsViewModelProvider =
       );
     });
 
+final chatThreadStoreProvider = Provider<ChatThreadStore>((ref) {
+  return ChatThreadStore();
+});
+
+final chatHttpProvider = Provider<ChatHttp>((ref) {
+  if (!useMockChat) return ChatApiHttp();
+  return MockChatHttp(
+    reelsSource: () => ref.read(reelRepositoryProvider).cachedReels,
+  );
+});
+
+/// The real backend by default; `--dart-define=MOCK_CHAT=true` falls back to
+/// the in-memory mock — the same switch, and the same default, as the private
+/// chat's [chatHttpProvider].
+final collectionChatHttpProvider = Provider<CollectionChatHttp>((ref) {
+  if (!useMockChat) return CollectionChatApiHttp();
+  return MockCollectionChatHttp();
+});
+
+final chatViewModelProvider = ChangeNotifierProvider<ChatViewModel>((ref) {
+  return ChatViewModel(
+    ref.read(chatHttpProvider),
+    ref.read(chatThreadStoreProvider),
+    currentUserId: () => ref.read(authServiceProvider).currentUser?.id ?? '',
+  );
+});
+
+/// Per collection, and auto-disposed: the poll timer has to die with the
+/// screen that started it.
+final collectionChatViewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<CollectionChatViewModel, String>((ref, collectionId) {
+      return CollectionChatViewModel(
+        ref.read(collectionChatHttpProvider),
+        collectionId,
+      );
+    });
+
+/// Holds the shell's controller so screens outside the shell can select a tab.
+/// Set by AuthenticatedShell when it builds its controller.
+final appShellControllerProvider = StateProvider<AppShellController?>(
+  (ref) => null,
+);
+
 final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
   return UserStateCoordinator(
     searchViewModel: ref.read(searchViewModelProvider),
@@ -202,5 +255,6 @@ final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
     reelRepository: ref.read(reelRepositoryProvider),
     entitlementsViewModel: ref.read(entitlementsViewModelProvider),
     processingJobsViewModel: ref.read(processingJobsViewModelProvider),
+    chatViewModel: ref.read(chatViewModelProvider),
   );
 });
