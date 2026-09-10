@@ -27,12 +27,14 @@ import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/constants/chat_feature.dart';
 import 'package:reelpin/screens/home/home_screen.dart';
 import 'package:reelpin/screens/map/map_screen.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/screens/splash/splash_screen.dart';
 import 'package:reelpin/screens/discover/discover_screen.dart';
 import 'package:reelpin/screens/collections/collections_screen.dart';
+import 'package:reelpin/screens/chat/chat_screen.dart';
 
 part 'partials/app_shell_controller.dart';
 part 'partials/nav_item.dart';
@@ -56,9 +58,14 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _resumeRefreshInterval = Duration(minutes: 5);
   static const _floatingNavHeight = 56.0;
   static const _floatingNavBottomInset = 14.0;
-  static const _floatingNavHorizontalInset = 60.0;
+  // Five tabs need a narrower inset to fit; without the ASK tab the bar
+  // still has just four, so it keeps the original wider inset.
+  static const _floatingNavHorizontalInset = chatEnabled ? 26.0 : 60.0;
+  // Single source of truth for tab indices; the ASK tab's own existence
+  // below is gated on the same `chatEnabled` const, so the two stay in sync.
+  static final _tabLayout = AppTabLayout.forChatEnabled(chatEnabled);
 
-  int _currentIndex = _AppTab.home;
+  int _currentIndex = _tabLayout.home;
   StreamSubscription? _mediaIntentSub;
   AppLinks? _appLinks;
   StreamSubscription? _deepLinkSub;
@@ -75,6 +82,7 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _navItems = [
     _NavItem(icon: HugeIcons.strokeRoundedHome04, label: 'HOME'),
     _NavItem(icon: HugeIcons.strokeRoundedLocation03, label: 'MAP'),
+    if (chatEnabled) _NavItem(assetPath: 'assets/images/pin.png', label: 'ASK'),
     _NavItem(icon: HugeIcons.strokeRoundedFolderPin, label: 'SAVED'),
     _NavItem(icon: HugeIcons.strokeRoundedDiscoverSquare, label: 'DISCOVER'),
   ];
@@ -641,10 +649,10 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _openSearchFromHome() {
     setState(() {
-      _currentIndex = _AppTab.discover;
+      _currentIndex = _tabLayout.discover;
       _searchFocusRequestId += 1;
     });
-    _refreshSelectedContent(_AppTab.discover);
+    _refreshSelectedContent(_tabLayout.discover);
   }
 
   Future<void> _scrollHomeToTop() async {
@@ -658,7 +666,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _showHomeAtTop() {
     setState(() {
-      _currentIndex = _AppTab.home;
+      _currentIndex = _tabLayout.home;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_scrollHomeToTop());
@@ -666,7 +674,7 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _selectControlledTab(int index) {
-    if (index == _AppTab.home) {
+    if (index == _tabLayout.home) {
       _showHomeAtTop();
       return;
     }
@@ -699,12 +707,12 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _refreshSelectedContent(int index) {
-    if (index == _AppTab.map) {
+    if (index == _tabLayout.map) {
       unawaited(
         ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true),
       );
     }
-    if (index == _AppTab.discover) {
+    if (index == _tabLayout.discover) {
       unawaited(
         ref.read(discoverViewModelProvider).loadDiscover(forceRefresh: true),
       );
@@ -747,6 +755,7 @@ class _AppShellState extends ConsumerState<AppShell>
                       scrollController: _homeScrollController,
                     ),
                     const MapScreen(),
+                    if (chatEnabled) const ChatScreen(),
                     const CollectionsScreen(),
                     DiscoverScreen(focusRequestId: _searchFocusRequestId),
                   ],
@@ -820,12 +829,18 @@ class _AppShellState extends ConsumerState<AppShell>
         behavior: HitTestBehavior.opaque,
         child: SizedBox.expand(
           child: Center(
-            child: HugeIcon(
-              icon: item.icon,
-              color: isSelected ? AppColors.black : AppColors.fg(context),
-              size: _navIconSize,
-              strokeWidth: 1.8,
-            ),
+            child: item.assetPath != null
+                ? Image.asset(
+                    item.assetPath!,
+                    width: _navIconSize,
+                    height: _navIconSize,
+                  )
+                : HugeIcon(
+                    icon: item.icon!,
+                    color: isSelected ? AppColors.black : AppColors.fg(context),
+                    size: _navIconSize,
+                    strokeWidth: 1.8,
+                  ),
           ),
         ),
       ),

@@ -83,6 +83,10 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       if (!mounted) return;
       unawaited(_entitlementsViewModel.refresh(reloadContent: true));
     });
+    // Deferred a frame: modifying a provider during build throws in Riverpod.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(appShellControllerProvider.notifier).state = _appShellController;
+    });
   }
 
   @override

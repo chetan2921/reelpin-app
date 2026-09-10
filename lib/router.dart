@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
+import 'package:reelpin/providers.dart';
 import 'package:reelpin/services/analytics/analytics_event.dart';
 import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/screens/collections/collection_detail_screen.dart';
@@ -121,4 +124,21 @@ Future<void> openPaywall(
     ),
   );
   return Navigator.of(context).push(paywallRoute(entryPoint: entryPoint));
+}
+
+/// Every door into the chat funnels through here: seed the composer, then
+/// select the tab. One path, so a reel, a collection and the search bar cannot
+/// drift into three different behaviours.
+Future<void> openChat(
+  BuildContext context,
+  WidgetRef ref, {
+  String seedText = '',
+  List<ChatAttachment> seedAttachments = const [],
+  required VoidCallback showAskTab,
+}) async {
+  ref
+      .read(chatViewModelProvider)
+      .startNewThread(seedText: seedText, seedAttachments: seedAttachments);
+  Navigator.of(context).popUntil((route) => route.isFirst);
+  showAskTab();
 }

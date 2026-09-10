@@ -1,34 +1,72 @@
 part of '../app_shell.dart';
 
-/// Tab positions, so the order lives in one place. The bar reads
-/// HOME / MAP / SAVED / DISCOVER.
-class _AppTab {
-  const _AppTab._();
+/// Index layout for the shell's tabs, computed from whether the chat tab
+/// exists in this build. Kept as a pure function of a bool — rather than
+/// reading the `chatEnabled` compile-time const directly — so both tab
+/// configurations can be pinned by a test without a second build.
+@visibleForTesting
+class AppTabLayout {
+  const AppTabLayout._({
+    required this.home,
+    required this.map,
+    required this.ask,
+    required this.saved,
+    required this.discover,
+  });
 
-  static const home = 0;
-  static const map = 1;
-  static const saved = 2;
-  static const discover = 3;
+  factory AppTabLayout.forChatEnabled(bool chatEnabled) {
+    return chatEnabled
+        ? const AppTabLayout._(home: 0, map: 1, ask: 2, saved: 3, discover: 4)
+        : const AppTabLayout._(
+            home: 0,
+            map: 1,
+            ask: null,
+            saved: 2,
+            discover: 3,
+          );
+  }
+
+  final int home;
+  final int map;
+  final int? ask; // null when the chat tab does not exist in this build.
+  final int saved;
+  final int discover;
 }
 
 class AppShellController {
+  AppShellController() : _layout = AppTabLayout.forChatEnabled(chatEnabled);
+
+  @visibleForTesting
+  AppShellController.forTest({required bool chatEnabled})
+    : _layout = AppTabLayout.forChatEnabled(chatEnabled);
+
+  final AppTabLayout _layout;
   ValueChanged<int>? _selectTab;
   int? _pendingTabIndex;
 
   void showHome() {
-    _select(_AppTab.home);
+    _select(_layout.home);
   }
 
   void showMap() {
-    _select(_AppTab.map);
+    _select(_layout.map);
   }
 
   void showSaved() {
-    _select(_AppTab.saved);
+    _select(_layout.saved);
   }
 
   void showDiscover() {
-    _select(_AppTab.discover);
+    _select(_layout.discover);
+  }
+
+  void showAsk() {
+    // A stale deep link or queued notification can still target ASK after a
+    // build without the chat tab; treat that as a no-op rather than an
+    // out-of-range index.
+    final index = _layout.ask;
+    if (index == null) return;
+    _select(index);
   }
 
   void _select(int index) {
@@ -39,6 +77,9 @@ class AppShellController {
     }
     callback(index);
   }
+
+  @visibleForTesting
+  void attachForTest(ValueChanged<int> callback) => _attach(callback);
 
   void _attach(ValueChanged<int> callback) {
     _selectTab = callback;
