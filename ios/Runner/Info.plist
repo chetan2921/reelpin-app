@@ -126,5 +126,9 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>ReelPin uses the camera so you can add a photo to a question about your saves.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ReelPin needs your photo library so you can add a picture to a question about your saves.</string>
 </dict>
 </plist>
