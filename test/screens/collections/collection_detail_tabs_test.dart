@@ -55,9 +55,13 @@ void main() {
 
   /// `c-empty` is an owned collection with no reels, so the grid never asks
   /// for a network image — which a widget test cannot serve.
-  Future<void> pumpDetail(
+  ///
+  /// [gridOnly] loads just the SAVED grid, as when a collection is tapped
+  /// there, and returns once the screen has mounted.
+  Future<CollectionsViewModel> pumpDetail(
     WidgetTester tester, {
     required bool offerChat,
+    bool gridOnly = false,
   }) async {
     final collectionsHttp = MockCollectionsHttp();
     final collections = CollectionsViewModel(
@@ -69,7 +73,11 @@ void main() {
     );
     // Loaded for real before the screen mounts: the cache sits on dart:io,
     // which does not complete inside a widget test's fake clock.
-    await tester.runAsync(() => collections.loadCollectionDetail('c-empty'));
+    await tester.runAsync(
+      () => gridOnly
+          ? collections.loadCollections()
+          : collections.loadCollectionDetail('c-empty'),
+    );
 
     await tester.pumpWidget(
       ProviderScope(
@@ -90,11 +98,30 @@ void main() {
         ),
       ),
     );
+    if (gridOnly) return collections;
     // The screen refetches over the cached detail; the mock answers after
     // ~450ms.
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
+    return collections;
   }
+
+  testWidgets(
+    'opening from the grid seeds the collection without modifying a provider '
+    'mid-build',
+    (tester) async {
+      final collections = await pumpDetail(
+        tester,
+        offerChat: false,
+        gridOnly: true,
+      );
+
+      // Riverpod throws when initState notifies a provider's listeners; in
+      // release that throw is skipped and the tree may build inconsistently.
+      expect(tester.takeException(), isNull);
+      expect(collections.isDetailPlaceholder('c-empty'), isTrue);
+    },
+  );
 
   testWidgets('CHATS swaps the pins for the shared thread, PINS swaps back', (
     tester,

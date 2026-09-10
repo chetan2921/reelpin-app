@@ -60,6 +60,10 @@ class CollectionsViewModel extends ChangeNotifier {
   /// Opens a collection on what the SAVED grid already knows, so tapping one
   /// lands on the collection rather than a full-screen spinner. Whatever
   /// arrives next — cache or network — replaces this.
+  ///
+  /// Deliberately silent: this runs in the detail screen's initState, where
+  /// notifying a provider throws in Riverpod, and that screen reads the seed
+  /// in the build that follows anyway.
   void seedDetailFromSummary(String id) {
     if (_details.containsKey(id)) return;
     for (final summary in _collections) {
@@ -70,7 +74,6 @@ class CollectionsViewModel extends ChangeNotifier {
         pagination: const CollectionPagination(),
       );
       _placeholderDetailIds.add(id);
-      notifyListeners();
       return;
     }
   }
