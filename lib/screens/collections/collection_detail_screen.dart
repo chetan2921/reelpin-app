@@ -12,12 +12,16 @@ import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
+import 'package:reelpin/constants/chat_feature.dart';
+import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/components/collections/collection_form_sheet.dart';
 import 'package:reelpin/components/collections/share_collection_sheet.dart';
+import 'package:reelpin/router.dart';
+import 'package:reelpin/screens/collections/partials/collection_chat_panel.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_loader_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
 import 'package:reelpin/services/sharing/collection_link_cache.dart';
@@ -26,6 +30,7 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
 part 'partials/collection_sticky_note.dart';
+part 'partials/collection_tab_bar.dart';
 
 class CollectionDetailScreen extends ConsumerStatefulWidget {
   const CollectionDetailScreen({
@@ -34,6 +39,7 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
     this.sharedToken,
     this.sharedUrl,
     this.initialName,
+    this.offerChat = chatEnabled,
   });
 
   final String collectionId;
@@ -46,6 +52,12 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
   /// a reel from inside it.
   final String? sharedUrl;
   final String? initialName;
+
+  /// Whether to offer the collection's shared AI thread. Defaults to this
+  /// build's [chatEnabled]; tests pass true — the same way
+  /// `AppShellController.forTest` injects it — since the const is always
+  /// false under `flutter test`.
+  final bool offerChat;
 
   bool get isShared => sharedToken != null;
 
@@ -63,6 +75,11 @@ class _CollectionDetailScreenState
   /// This collection's own share link, when the owner minted one on this
   /// device. Null is normal — a link may be off, or was created elsewhere.
   String? _ownLinkUrl;
+
+  /// Which tab is showing. Plain widget state rather than a view model: it is
+  /// purely this screen's presentation, and opening on REELS every time is
+  /// the right default.
+  bool _chatTab = false;
 
   @override
   void initState() {
@@ -252,6 +269,28 @@ class _CollectionDetailScreenState
     final isViewOnly =
         widget.isShared || (collection != null && !collection.canEdit);
     final ownsReels = !widget.isShared && (collection?.isOwner ?? false);
+    // A link visitor has no identity to attribute a question to, so the shared
+    // thread is offered to members only.
+    final showChatTab =
+        widget.offerChat && !widget.isShared && collection != null;
+
+    // Its own Scaffold rather than a branch inside the scroll view below, so
+    // the REELS layout is left exactly as it was.
+    if (showChatTab && _chatTab) {
+      return Scaffold(
+        backgroundColor: AppColors.bg(context),
+        body: SafeArea(
+          bottom: false,
+          child: _buildChatTab(
+            context,
+            vm,
+            collection,
+            canEdit: canEdit,
+            ownerName: detail?.ownerName,
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.bg(context),
@@ -290,6 +329,80 @@ class _CollectionDetailScreenState
                     ),
                   ),
                 ),
+                if (showChatTab)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        layout.inset(20),
+                        0,
+                        layout.inset(20),
+                        layout.gap(16),
+                      ),
+                      child: _CollectionTabBar(
+                        chatSelected: false,
+                        onSelect: _selectTab,
+                      ),
+                    ),
+                  ),
+                if (chatEnabled && collection != null)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        layout.inset(20),
+                        0,
+                        layout.inset(20),
+                        layout.gap(16),
+                      ),
+                      child: GestureDetector(
+                        // `collection!`: null-promotion from the branch
+                        // condition above doesn't survive into this closure.
+                        onTap: () => openChat(
+                          context,
+                          ref,
+                          seedAttachments: [
+                            ChatAttachment(
+                              kind: AttachmentKind.collection,
+                              displayName: collection!.name,
+                              collectionId: collection.id,
+                            ),
+                          ],
+                          showAskTab: () =>
+                              ref.read(appShellControllerProvider)?.showAsk(),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.yellow,
+                            border: Border.all(color: AppColors.black),
+                            boxShadow: AppTheme.inkShadowSmall,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image.asset(
+                                'assets/images/pin.png',
+                                width: 15,
+                                height: 15,
+                              ),
+                              const SizedBox(width: 7),
+                              Text(
+                                'ASK THIS COLLECTION',
+                                style: GoogleFonts.spaceMono(
+                                  color: AppColors.black,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (detail != null && isViewOnly)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -336,6 +449,52 @@ class _CollectionDetailScreenState
           ),
         ),
       ),
+    );
+  }
+
+  void _selectTab(bool chat) => setState(() => _chatTab = chat);
+
+  /// The CHAT tab pins the header rather than letting it scroll away with the
+  /// content: a thread needs a stable list and composer, which a grid does not.
+  Widget _buildChatTab(
+    BuildContext context,
+    CollectionsViewModel vm,
+    CollectionSummary? collection, {
+    required bool canEdit,
+    required String? ownerName,
+  }) {
+    final layout = AppLayout.of(context);
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            layout.inset(20),
+            layout.gap(20),
+            layout.inset(20),
+            layout.gap(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(
+                context,
+                vm,
+                collection,
+                canEdit: canEdit,
+                ownerName: ownerName,
+              ),
+              SizedBox(height: layout.gap(16)),
+              _CollectionTabBar(chatSelected: true, onSelect: _selectTab),
+            ],
+          ),
+        ),
+        Expanded(
+          child: CollectionChatPanel(
+            collectionId: widget.collectionId,
+            canEdit: canEdit,
+          ),
+        ),
+      ],
     );
   }
 
