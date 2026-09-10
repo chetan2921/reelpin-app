@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -69,6 +70,12 @@ Future<void> _initializeFirebase() async {
   }
   try {
     await Firebase.initializeApp();
+    // `flutter run` sessions stay out of the dashboard: debug builds raise
+    // errors a release build never reports (Riverpod's build-time checks,
+    // layout overflows), which buried the real ones.
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+      !kDebugMode,
+    );
     AnalyticsService.markReady();
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
