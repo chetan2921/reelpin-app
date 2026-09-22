@@ -4,17 +4,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/data_models/chat/chat_thread.dart';
 
+/// The sidebar of past conversations, with a way to start a new one. The
+/// private chat and a collection's ASK screen both use it.
 class ChatThreadDrawer extends StatelessWidget {
   const ChatThreadDrawer({
     super.key,
     required this.threads,
     required this.onOpen,
     required this.onNewChat,
+    this.heading = 'YOUR CHATS',
   });
 
   final List<ChatThread> threads;
   final ValueChanged<String> onOpen;
   final VoidCallback onNewChat;
+  final String heading;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +35,7 @@ class ChatThreadDrawer extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'YOUR CHATS',
+                      heading,
                       style: GoogleFonts.spaceMono(
                         color: AppColors.fg(context),
                         fontSize: 15,

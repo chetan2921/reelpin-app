@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/data_models/chat/chat_attachment.dart';
-import 'package:reelpin/screens/chat/partials/chat_attachment_sheet.dart';
+import 'package:reelpin/components/chat/chat_attachment_sheet.dart';
 
 void main() {
   testWidgets('the sheet lists every source', (tester) async {

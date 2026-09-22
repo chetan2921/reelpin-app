@@ -14,10 +14,10 @@ import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/chat_thread.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/router.dart';
-import 'package:reelpin/screens/chat/partials/chat_attachment_sheet.dart';
+import 'package:reelpin/components/chat/chat_attachment_sheet.dart';
 import 'package:reelpin/components/chat/chat_composer.dart';
 import 'package:reelpin/screens/chat/partials/chat_empty_state.dart';
-import 'package:reelpin/screens/chat/partials/chat_thread_drawer.dart';
+import 'package:reelpin/components/chat/chat_thread_drawer.dart';
 import 'package:reelpin/services/chat/chat_reel_cache.dart';
 import 'package:reelpin/view_models/chat_view_model.dart';
 
