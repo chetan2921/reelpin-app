@@ -16,6 +16,10 @@ class ProcessingJob {
   final String? statusLabel;
   final String? statusMessage;
   final DateTime? nextRetryAt;
+
+  /// When the backend first queued this share. Null from an API that does not
+  /// report it, which reads as "age unknown" rather than "new".
+  final DateTime? createdAt;
   final int? recommendedPollAfterSeconds;
   final bool retryable;
   final String? resultReelId;
@@ -42,6 +46,7 @@ class ProcessingJob {
     this.statusLabel,
     this.statusMessage,
     this.nextRetryAt,
+    this.createdAt,
     this.recommendedPollAfterSeconds,
     this.retryable = false,
     this.resultReelId,
@@ -85,6 +90,7 @@ class ProcessingJob {
       statusLabel: json['status_label']?.toString(),
       statusMessage: json['status_message']?.toString(),
       nextRetryAt: parseDate(json['next_retry_at']),
+      createdAt: parseDate(json['created_at']),
       recommendedPollAfterSeconds: _parseInt(
         json['recommended_poll_after_seconds'],
       ),
