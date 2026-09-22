@@ -20,6 +20,8 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/services/location/location_service.dart';
 import 'package:reelpin/services/sharing/collection_link.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/services/sharing/linkrunner_service.dart';
 import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
@@ -100,6 +102,7 @@ class _AppShellState extends ConsumerState<AppShell>
       if (launchLink != null) unawaited(_openLaunchLink(launchLink));
       unawaited(_runFirstRunFlow());
       unawaited(_drainPendingNativeShares());
+      unawaited(ref.read(processingJobsViewModelProvider).refresh());
     });
   }
 
@@ -178,6 +181,12 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _routeCollectionLink(CollectionLink link, {bool animate = true}) {
+    unawaited(
+      AnalyticsService.log(
+        AnalyticsEvent.collectionLinkOpened,
+        parameters: {'kind': link.isInvite ? 'invite' : 'share'},
+      ),
+    );
     if (link.isInvite) {
       unawaited(_acceptCollectionInvite(link.token));
     } else {
@@ -268,8 +277,10 @@ class _AppShellState extends ConsumerState<AppShell>
 
     final analytics = ref.read(shareFlowAnalyticsServiceProvider);
     unawaited(analytics.recordShareDetected(normalizedPayload));
+    unawaited(AnalyticsService.log(AnalyticsEvent.shareReceived));
     if (_lastHandledSharedPayload == normalizedPayload) {
       unawaited(analytics.recordDuplicateShareSkipped(normalizedPayload));
+      unawaited(AnalyticsService.log(AnalyticsEvent.shareDuplicateSkipped));
       return;
     }
     _lastHandledSharedPayload = normalizedPayload;
@@ -294,8 +305,15 @@ class _AppShellState extends ConsumerState<AppShell>
         showConfirmation: showConfirmation,
         collectionIds: collectionIds,
       );
-    } catch (error) {
+    } catch (error, stack) {
       unawaited(analytics.recordEnqueueFailed(normalizedPayload, error));
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.reelSaveFailed,
+          parameters: {'reason': 'resolve_failed'},
+        ),
+      );
+      unawaited(AnalyticsService.recordError(error, stack));
     }
   }
 
@@ -317,7 +335,16 @@ class _AppShellState extends ConsumerState<AppShell>
     try {
       await _syncPushTokenRegistrationIfPossible();
       unawaited(analytics.recordEnqueueStarted(url));
-      await homeVm.enqueueReelProcessing(url, collectionIds: collectionIds);
+      unawaited(AnalyticsService.log(AnalyticsEvent.reelSaveStarted));
+      final job = await homeVm.enqueueReelProcessing(
+        url,
+        collectionIds: collectionIds,
+      );
+      // Straight into the grid: the card has to be there when the user lands
+      // back in the app, not one poll later.
+      ref
+          .read(processingJobsViewModelProvider)
+          .trackEnqueued(job, collectionIds: collectionIds);
       unawaited(_refreshSavedContent());
 
       if (!mounted) return;
@@ -325,6 +352,7 @@ class _AppShellState extends ConsumerState<AppShell>
         _isQueueingSharedReel = false;
       });
       unawaited(analytics.recordEnqueueSucceeded(url));
+      unawaited(AnalyticsService.log(AnalyticsEvent.reelSaveSucceeded));
 
       if (showConfirmation) {
         messenger.showSnackBar(
@@ -374,9 +402,15 @@ class _AppShellState extends ConsumerState<AppShell>
         if (!mounted) return;
         await SystemNavigator.pop();
       }
-    } catch (error) {
+    } catch (error, stack) {
       if (error is ApiException && error.isMonthlyReelLimitReached) {
         unawaited(analytics.recordEnqueueFailed(url, error));
+        unawaited(
+          AnalyticsService.log(
+            AnalyticsEvent.reelSaveFailed,
+            parameters: {'reason': 'monthly_limit'},
+          ),
+        );
         unawaited(ref.read(entitlementsViewModelProvider).refresh());
         if (!mounted) return;
         setState(() {
@@ -393,6 +427,13 @@ class _AppShellState extends ConsumerState<AppShell>
         _isQueueingSharedReel = false;
       });
       unawaited(analytics.recordEnqueueFailed(url, error));
+      unawaited(
+        AnalyticsService.log(
+          AnalyticsEvent.reelSaveFailed,
+          parameters: {'reason': 'enqueue_failed'},
+        ),
+      );
+      unawaited(AnalyticsService.recordError(error, stack));
       if (showConfirmation) {
         messenger.showSnackBar(
           SnackBar(
@@ -431,11 +472,21 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) return;
+    if (!mounted) return;
+
+    final processingJobs = ref.read(processingJobsViewModelProvider);
+    if (state != AppLifecycleState.resumed) {
+      processingJobs.setForeground(false);
+      return;
+    }
+    processingJobs.setForeground(true);
 
     // Always drain shares captured while the app was backgrounded, regardless
     // of the content-refresh throttle below.
     unawaited(_drainPendingNativeShares());
+    // Unthrottled, and deliberately: this is one small request, and it is the
+    // only thing that tells a user who just shared that the app noticed.
+    unawaited(processingJobs.refresh());
 
     final now = DateTime.now();
     if (_lastResumeRefreshAt != null &&
@@ -511,16 +562,28 @@ class _AppShellState extends ConsumerState<AppShell>
       return;
     }
 
-    final userId = ref.read(authServiceProvider).currentUser?.id;
-    if (userId == null || userId.trim().isEmpty) return;
-
-    final guideService = HowToGuideService.instance;
-    if (await guideService.hasSeenGuide(userId)) return;
+    // Armed by onboarding, so only a fresh install is owed the walkthrough,
+    // and only then if the account behind it has nothing saved. A returning
+    // user goes straight to their reels; skipping still counts, and the empty
+    // state and Profile both keep the guide reachable.
+    if (!await HowToGuideService.instance.takePendingGuide(
+      hasExistingSaves: _accountHasSaves,
+    )) {
+      return;
+    }
     if (!mounted) return;
 
     await Navigator.of(context).push(howToUseRoute(isFirstRun: true));
-    // Skipping still counts as seen — Profile keeps it reachable afterwards.
-    await guideService.markGuideSeen(userId);
+  }
+
+  /// Whether this account has ever saved a reel. The cache answers instantly
+  /// for a user whose library has already painted; on a reinstall it is still
+  /// empty this early, so the count comes from the backend. A throw here is
+  /// caught by the caller, which treats "cannot tell" as "do not show".
+  Future<bool> _accountHasSaves() async {
+    if (ref.read(reelRepositoryProvider).cachedReels.isNotEmpty) return true;
+    final stats = await ref.read(accountHttpProvider).getLibraryStats();
+    return stats.totalReels > 0;
   }
 
   Future<void> _maybePromptInitialPermissions() async {

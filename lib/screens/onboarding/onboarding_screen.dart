@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_colors.dart';
@@ -55,6 +59,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       highlights: ['LOCAL SAVES', 'PLANS THAT STICK'],
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(AnalyticsService.log(AnalyticsEvent.onboardingStarted));
+  }
 
   @override
   void dispose() {

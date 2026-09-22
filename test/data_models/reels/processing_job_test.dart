@@ -3,6 +3,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 
 void main() {
+  test('collection targets are read off the job', () {
+    final job = ProcessingJob.fromJson({
+      'id': 'job-1',
+      'status': 'queued',
+      'collection_ids': ['col-a', ' col-b ', '', null],
+    });
+
+    expect(job.collectionIds, ['col-a', 'col-b']);
+  });
+
+  test('a job without collection targets reports none', () {
+    final job = ProcessingJob.fromJson({'id': 'job-1', 'status': 'queued'});
+
+    expect(job.collectionIds, isEmpty);
+  });
+
   test('parses complete X processing-job metadata', () {
     final job = ProcessingJob.fromJson({
       'id': 'job-x-1',
@@ -64,6 +80,22 @@ void main() {
     expect(job.retryable, isTrue);
     expect(job.isRetryScheduled, isTrue);
     expect(job.isTerminalFailure, isFalse);
+  });
+
+  test('reads the queue time the backend stamps on a job', () {
+    final job = ProcessingJob.fromJson({
+      'id': 'job-1',
+      'status': 'queued',
+      'created_at': '2026-09-22T10:15:00+00:00',
+    });
+
+    expect(job.createdAt, DateTime.utc(2026, 9, 22, 10, 15));
+  });
+
+  test('a job with no queue time reports none rather than now', () {
+    final job = ProcessingJob.fromJson({'id': 'job-1', 'status': 'queued'});
+
+    expect(job.createdAt, isNull);
   });
 
   test('unknown source values remain parseable', () {

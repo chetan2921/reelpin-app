@@ -4,6 +4,9 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
+import 'package:reelpin/components/reels/processing_reel_card.dart';
+import 'package:reelpin/data_models/reels/processing_job.dart';
+
 import 'package:reelpin/data_models/reels/reel_filters.dart';
 import 'package:reelpin/data_models/account/user_entitlement.dart';
 import 'package:reelpin/providers.dart';
@@ -103,7 +106,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// Single source of truth for "the library is empty", so the category row and
   /// the content branch below can never disagree about which one is showing.
-  bool _isEmptyStateVisible(HomeViewModel vm) {
+  bool _isEmptyStateVisible(HomeViewModel vm, {required bool hasProcessing}) {
+    // A share still being processed is content on its way in, so the library
+    // is not empty — it just has nothing finished in it yet.
+    if (hasProcessing) return false;
     if (vm.isLoading && vm.reels.isEmpty) return false;
     if (vm.error != null && vm.reels.isEmpty) return false;
     // vm.isEmpty stays false until a load has actually settled, so this cannot
@@ -119,7 +125,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final entitlementsVm = ref.watch(entitlementsViewModelProvider);
     final entitlements = entitlementsVm.entitlement;
     final entitlementResponse = entitlementsVm.response;
-    final isEmptyState = _isEmptyStateVisible(vm);
+    final processingJobs = ref.watch(processingJobsViewModelProvider).jobs;
+    final isEmptyState = _isEmptyStateVisible(
+      vm,
+      hasProcessing: processingJobs.isNotEmpty,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.bg(context),
@@ -142,6 +152,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onRefresh: () => Future.wait([
             vm.loadReels(forceRefresh: true),
             filtersVm.loadFilters(forceRefresh: true),
+            ref.read(processingJobsViewModelProvider).refresh(),
           ]),
           color: AppColors.fg(context),
           backgroundColor: AppColors.yellow,
@@ -284,12 +295,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildEmptyState(context)
                 else if (vm.error != null && vm.reels.isEmpty)
                   _buildErrorState(context, vm)
-                else if (vm.reels.isEmpty)
+                else if (vm.reels.isEmpty && processingJobs.isEmpty)
                   // Covers "loading" and "not started yet" alike — both mean we
                   // cannot show cards and must not claim the library is empty.
                   _buildShimmerGrid(context)
                 else ...[
-                  _buildReelGrid(context, vm),
+                  _buildReelGrid(context, vm, processingJobs),
                   _buildPaginationState(context, vm),
                 ],
 
@@ -501,7 +512,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── Grid ──
-  Widget _buildReelGrid(BuildContext context, HomeViewModel vm) {
+  Widget _buildReelGrid(
+    BuildContext context,
+    HomeViewModel vm,
+    List<ProcessingJob> processingJobs,
+  ) {
     final layout = AppLayout.of(context);
     final columns = layout.gridColumns(compact: 2, regular: 2, wide: 3);
     final spacing = layout.inset(12);
@@ -529,7 +544,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             childAspectRatio: aspect,
           ),
           delegate: SliverChildBuilderDelegate((context, index) {
-            final reel = vm.reels[index];
+            if (index < processingJobs.length) {
+              return AnimationConfiguration.staggeredGrid(
+                position: index,
+                columnCount: columns,
+                duration: const Duration(milliseconds: 300),
+                child: ScaleAnimation(
+                  scale: 0.96,
+                  child: FadeInAnimation(
+                    child: ProcessingReelCard(
+                      job: processingJobs[index],
+                      isSettling: ref
+                          .read(processingJobsViewModelProvider)
+                          .isSettling(processingJobs[index].id),
+                    ),
+                  ),
+                ),
+              );
+            }
+            final reel = vm.reels[index - processingJobs.length];
             return AnimationConfiguration.staggeredGrid(
               position: index,
               columnCount: columns,
@@ -553,7 +586,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             );
-          }, childCount: vm.reels.length),
+          }, childCount: processingJobs.length + vm.reels.length),
         ),
       ),
     );

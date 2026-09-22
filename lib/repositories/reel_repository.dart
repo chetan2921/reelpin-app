@@ -330,6 +330,26 @@ class ReelRepository extends ChangeNotifier {
     );
   }
 
+  /// Puts a finished reel at the front of the cached grid.
+  ///
+  /// A completed processing job arrives with the whole reel attached, so the
+  /// placeholder card is swapped for the real one without a round trip — and
+  /// without depending on a content reload that may already be in flight with
+  /// older data.
+  void insertReel(Reel reel) {
+    if (_cachedReels.any((existing) => existing.id == reel.id)) return;
+    _cachedReels = [reel, ..._cachedReels];
+    _totalCount += 1;
+    notifyListeners();
+  }
+
+  /// The most recent jobs, newest first, terminal ones included. Asking for
+  /// only the active jobs would make a job that vanished from the list
+  /// ambiguous — finished and failed look identical from the outside.
+  Future<List<ProcessingJob>> listProcessingJobs({int limit = 20}) {
+    return _apiService.listProcessingJobs(activeOnly: false, limit: limit);
+  }
+
   Future<ReelFiltersResponse> getFilters({
     String? platform,
     String? category,

@@ -13,6 +13,7 @@ class ShareViewController: UIViewController {
   private var shareCollections: [ShareCollection] = []
   private var selectedCollectionIds: Set<String> = []
   private weak var primaryAction: UIButton?
+  private var processingCard: ProcessingCardView?
 
   private lazy var collectionGrid: UICollectionView = {
     let layout = UICollectionViewFlowLayout()
@@ -30,6 +31,13 @@ class ShareViewController: UIViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
     configureStatusView()
+    // Read here rather than when the share resolves: iOS hands this extension a
+    // near full-height sheet whatever we ask for, and the card has to be in it
+    // from the first frame or the user still sees the empty panel.
+    shareCollections = loadShareCollections()
+    if shareCollections.isEmpty {
+      configureProcessingCard()
+    }
     showStatus("Saving to ReelPin", isLoading: true)
   }
 
@@ -63,13 +71,14 @@ class ShareViewController: UIViewController {
         return
       }
 
-      let collections = self.loadShareCollections()
+      self.processingCard?.setPlatform(SharePlatformName.from(url: sharedUrl))
+
+      let collections = self.shareCollections
       if collections.isEmpty {
         // No collections: keep the one-tap save this extension has always had.
         self.enqueueSharedUrl(sharedUrl, collectionIds: [])
       } else {
         self.pendingSharedUrl = sharedUrl
-        self.shareCollections = collections
         self.presentCollectionPicker()
       }
     }
@@ -252,11 +261,16 @@ class ShareViewController: UIViewController {
 
   private func showStatusAndComplete(_ message: String, isError: Bool = false) {
     showStatus(message, isError: isError)
-    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+    processingCard?.stopAnimating()
+    // The share is already filed by this point; the rest is the user waiting to
+    // be let go. An error is the one case worth reading, so it alone lingers.
+    let hold: TimeInterval = isError ? 1.4 : 0.35
+    DispatchQueue.main.asyncAfter(deadline: .now() + hold) {
       UIView.animate(
         withDuration: 0.16,
         animations: {
           self.statusContainer.alpha = 0
+          self.processingCard?.alpha = 0
         },
         completion: { _ in
           self.extensionContext?.completeRequest(returningItems: nil)
@@ -562,6 +576,57 @@ class ShareViewController: UIViewController {
     clearExtensionBackground()
   }
 
+  /// Fills the sheet iOS insists on presenting. Only reached when the user has
+  /// no collections — the picker takes the whole view otherwise — and laid out
+  /// above the status pill that already sits at the bottom.
+  private func configureProcessingCard() {
+    let card = ProcessingCardView(
+      fgColor: fgColor,
+      bgColor: bgColor,
+      accent: Self.accentYellow,
+      font: { Self.spaceMono(size: $0, bold: $1) }
+    )
+    card.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(card)
+    processingCard = card
+
+    // The one thing worth saying to a user who has no collections, in the space
+    // that would otherwise stay empty.
+    let nudge = UILabel()
+    nudge.text = "MAKE A COLLECTION IN REELPIN AND YOU CAN FILE SHARES RIGHT HERE."
+    nudge.font = Self.spaceMono(size: 11, bold: false)
+    nudge.textColor = secondaryTextColor
+    nudge.numberOfLines = 2
+    nudge.textAlignment = .center
+    nudge.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(nudge)
+
+    let width = card.widthAnchor.constraint(
+      equalTo: view.widthAnchor,
+      multiplier: 0.5
+    )
+    width.priority = .defaultHigh
+
+    NSLayoutConstraint.activate([
+      card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+      card.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -28),
+      width,
+      card.widthAnchor.constraint(lessThanOrEqualToConstant: 210),
+      // The grid's compact aspect, so this is the card the app will show.
+      card.heightAnchor.constraint(equalTo: card.widthAnchor, multiplier: 1 / 0.74),
+
+      nudge.topAnchor.constraint(equalTo: card.bottomAnchor, constant: 22),
+      nudge.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
+      nudge.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
+      nudge.bottomAnchor.constraint(
+        lessThanOrEqualTo: statusContainer.topAnchor,
+        constant: -16
+      ),
+    ])
+
+    card.startAnimating()
+  }
+
   private func showStatus(
     _ message: String,
     isLoading: Bool = false,
@@ -643,5 +708,203 @@ extension ShareViewController: UICollectionViewDataSource, UICollectionViewDeleg
     }
     collectionView.reloadItems(at: [indexPath])
     primaryAction?.setTitle(actionTitle(), for: .normal)
+  }
+}
+
+/// The waiting card the share sheet shows when the user has no collections to
+/// pick from.
+///
+/// Same shape as the placeholder the app puts in its own grid — brutalist
+/// border, hard shadow, yellow water climbing a rectangle — so the sheet
+/// previews the card the user is about to find on Home rather than an empty
+/// panel. The rise is indeterminate on purpose: nothing is being processed yet,
+/// only sent, and the sheet closes the moment the send returns.
+final class ProcessingCardView: UIView {
+  private let card = UIView()
+  private let water = CAShapeLayer()
+  private let titleLabel = UILabel()
+  private let platformLabel = UILabel()
+
+  private var displayLink: CADisplayLink?
+  private var elapsed: CFTimeInterval = 0
+  private var lastTick: CFTimeInterval = 0
+
+  /// Matches the app card: never fill to the brim, or a card that keeps
+  /// sitting there reads as finished-but-stuck.
+  private let maxLevel: CGFloat = 0.85
+  private let minLevel: CGFloat = 0.06
+  /// How long the water takes to climb from empty to `maxLevel`. Chosen to
+  /// outlast a typical enqueue, so the card is still rising when it is
+  /// dismissed rather than parked at the top waiting.
+  private let riseDuration: CFTimeInterval = 3.2
+
+  init(fgColor: UIColor, bgColor: UIColor, accent: UIColor, font: (CGFloat, Bool) -> UIFont) {
+    super.init(frame: .zero)
+
+    card.backgroundColor = bgColor
+    card.layer.borderColor = fgColor.cgColor
+    card.layer.borderWidth = 3
+    card.layer.shadowColor = fgColor.cgColor
+    card.layer.shadowOffset = CGSize(width: 4, height: 4)
+    card.layer.shadowRadius = 0
+    card.layer.shadowOpacity = 1
+    card.layer.masksToBounds = false
+    card.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(card)
+
+    // Its own clipped host, so the water is cut by the card's edges while the
+    // card itself keeps its unclipped drop shadow.
+    let well = UIView()
+    well.backgroundColor = .clear
+    well.clipsToBounds = true
+    well.translatesAutoresizingMaskIntoConstraints = false
+    card.addSubview(well)
+    water.fillColor = accent.cgColor
+    well.layer.addSublayer(water)
+
+    titleLabel.text = "SAVING"
+    titleLabel.font = font(15, true)
+    titleLabel.textColor = fgColor
+    titleLabel.translatesAutoresizingMaskIntoConstraints = false
+    card.addSubview(titleLabel)
+
+    platformLabel.text = "TO REELPIN"
+    platformLabel.font = font(11, true)
+    platformLabel.textColor = fgColor.withAlphaComponent(0.65)
+    platformLabel.translatesAutoresizingMaskIntoConstraints = false
+    card.addSubview(platformLabel)
+
+    NSLayoutConstraint.activate([
+      card.topAnchor.constraint(equalTo: topAnchor),
+      card.leadingAnchor.constraint(equalTo: leadingAnchor),
+      card.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+      card.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+
+      well.topAnchor.constraint(equalTo: card.topAnchor),
+      well.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+      well.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+      well.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+
+      platformLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+      platformLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+      platformLabel.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+
+      titleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+      titleLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+      titleLabel.bottomAnchor.constraint(equalTo: platformLabel.topAnchor, constant: -2),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  /// Named once the shared link has been read, so the card says what it is
+  /// holding rather than staying generic.
+  func setPlatform(_ name: String?) {
+    platformLabel.text = name?.uppercased() ?? "TO REELPIN"
+  }
+
+  func startAnimating() {
+    guard displayLink == nil else { return }
+    lastTick = CACurrentMediaTime()
+    let link = CADisplayLink(target: self, selector: #selector(tick))
+    link.add(to: .main, forMode: .common)
+    displayLink = link
+  }
+
+  func stopAnimating() {
+    displayLink?.invalidate()
+    displayLink = nil
+  }
+
+  deinit {
+    displayLink?.invalidate()
+  }
+
+  @objc private func tick() {
+    let now = CACurrentMediaTime()
+    elapsed += now - lastTick
+    lastTick = now
+    redrawWater()
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    redrawWater()
+  }
+
+  private func redrawWater() {
+    let size = card.bounds.size
+    guard size.width > 0, size.height > 0 else { return }
+
+    // Ease out, so the climb is quick at first and slows as it approaches the
+    // cap rather than stopping dead.
+    let t = min(elapsed / riseDuration, 1)
+    let eased = 1 - pow(1 - t, 3)
+    let level = minLevel + (maxLevel - minLevel) * CGFloat(eased)
+
+    let amplitude = size.height * 0.022
+    let baseline = size.height * (1 - level) + amplitude
+    let sweep = CGFloat(elapsed.truncatingRemainder(dividingBy: 2.6) / 2.6) * 2 * .pi
+
+    // Two sine waves of different length and speed, summed: one alone reads as
+    // a sliding ruler. Same shape the app's card paints.
+    let path = UIBezierPath()
+    path.move(to: CGPoint(x: 0, y: size.height))
+    path.addLine(to: CGPoint(x: 0, y: baseline))
+    var x: CGFloat = 0
+    while x <= size.width {
+      let ratio = x / size.width
+      let y = baseline
+        + sin(ratio * 2 * .pi + sweep) * amplitude
+        + sin(ratio * 5 * .pi - sweep * 1.7) * amplitude * 0.45
+      path.addLine(to: CGPoint(x: x, y: y))
+      x += 2
+    }
+    path.addLine(to: CGPoint(x: size.width, y: size.height))
+    path.close()
+
+    // The path is rebuilt every frame, so the layer's implicit animation would
+    // fight it.
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    water.frame = CGRect(origin: .zero, size: size)
+    water.path = path.cgPath
+    CATransaction.commit()
+  }
+}
+
+/// Names the platform a shared link belongs to, mirroring the hosts the backend
+/// recognises. Only used for the card's label — what is actually supported
+/// stays the backend's decision.
+enum SharePlatformName {
+  static func from(url: String) -> String? {
+    guard
+      let host = URLComponents(string: url)?.host?.lowercased()
+    else {
+      return nil
+    }
+    let bare = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+
+    switch true {
+    case bare.hasSuffix("instagram.com"), bare == "instagr.am":
+      return "Instagram"
+    case bare.hasSuffix("tiktok.com"):
+      return "TikTok"
+    case bare.hasSuffix("youtube.com"), bare == "youtu.be":
+      return "YouTube"
+    case bare == "x.com", bare == "twitter.com", bare == "t.co":
+      return "X"
+    case bare.hasSuffix("linkedin.com"):
+      return "LinkedIn"
+    case bare.hasSuffix("reddit.com"), bare == "redd.it":
+      return "Reddit"
+    case bare.hasSuffix("pinterest.com"), bare == "pin.it":
+      return "Pinterest"
+    default:
+      return nil
+    }
   }
 }

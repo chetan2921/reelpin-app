@@ -17,6 +17,8 @@ import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
+import 'package:reelpin/services/analytics/analytics_event.dart';
+import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/services/sharing/collection_link_cache.dart';
 import 'package:reelpin/services/sharing/collection_share_message.dart';
 import 'package:reelpin/services/sharing/reel_share_service.dart';
@@ -142,6 +144,12 @@ class _ShareCollectionSheetState extends ConsumerState<ShareCollectionSheet> {
     CollectionShareMessage message, {
     required String? role,
   }) async {
+    unawaited(
+      AnalyticsService.log(
+        AnalyticsEvent.collectionShared,
+        parameters: {'kind': role ?? 'link'},
+      ),
+    );
     final card = await _renderShareCard(role);
     try {
       if (card != null) {

@@ -18,6 +18,13 @@ abstract interface class ReelsHttp {
     List<String> collectionIds = const [],
   });
 
+  /// Jobs the backend is still working on for the signed-in user. Used to show
+  /// a placeholder card for a share that was queued while the app was closed.
+  Future<List<ProcessingJob>> listProcessingJobs({
+    bool activeOnly = true,
+    int limit = 20,
+  });
+
   Future<Reel> processVideo(
     File videoFile, {
     String userId = 'default-user',

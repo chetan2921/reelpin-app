@@ -77,7 +77,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
           _queueNotificationOpen(deferred);
         }
       }
-    });
+    }, onError: AuthService.handleAuthStreamError);
     _initializeBackgroundMessaging();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
