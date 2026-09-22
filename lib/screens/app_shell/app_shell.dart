@@ -570,13 +570,28 @@ class _AppShellState extends ConsumerState<AppShell>
       return;
     }
 
-    // Armed by onboarding, so only a fresh install is owed the walkthrough. A
-    // returning user goes straight to their reels; skipping still counts, and
-    // the empty state and Profile both keep the guide reachable.
-    if (!await HowToGuideService.instance.takePendingGuide()) return;
+    // Armed by onboarding, so only a fresh install is owed the walkthrough,
+    // and only then if the account behind it has nothing saved. A returning
+    // user goes straight to their reels; skipping still counts, and the empty
+    // state and Profile both keep the guide reachable.
+    if (!await HowToGuideService.instance.takePendingGuide(
+      hasExistingSaves: _accountHasSaves,
+    )) {
+      return;
+    }
     if (!mounted) return;
 
     await Navigator.of(context).push(howToUseRoute(isFirstRun: true));
+  }
+
+  /// Whether this account has ever saved a reel. The cache answers instantly
+  /// for a user whose library has already painted; on a reinstall it is still
+  /// empty this early, so the count comes from the backend. A throw here is
+  /// caught by the caller, which treats "cannot tell" as "do not show".
+  Future<bool> _accountHasSaves() async {
+    if (ref.read(reelRepositoryProvider).cachedReels.isNotEmpty) return true;
+    final stats = await ref.read(accountHttpProvider).getLibraryStats();
+    return stats.totalReels > 0;
   }
 
   Future<void> _maybePromptInitialPermissions() async {

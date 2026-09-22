@@ -81,10 +81,22 @@ void main() {
     await tester.tap(find.text('CONTINUE TO LOGIN'));
     await tester.pump();
 
-    expect(await HowToGuideService.instance.takePendingGuide(), isTrue);
+    // Onboarding armed it, and this account saved nothing before reaching the
+    // shell — the one case the walkthrough is for.
+    expect(
+      await HowToGuideService.instance.takePendingGuide(
+        hasExistingSaves: () async => false,
+      ),
+      isTrue,
+    );
     // A second cold start is an update, not an install, so nothing is owed.
     await _pumpAppEntry(tester);
-    expect(await HowToGuideService.instance.takePendingGuide(), isFalse);
+    expect(
+      await HowToGuideService.instance.takePendingGuide(
+        hasExistingSaves: () async => false,
+      ),
+      isFalse,
+    );
   });
 
   testWidgets('reaches onboarding without a branding hold', (
