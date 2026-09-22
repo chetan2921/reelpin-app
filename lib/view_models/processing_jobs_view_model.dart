@@ -31,6 +31,20 @@ class ProcessingJobsViewModel extends ChangeNotifier {
   static const _minPollInterval = Duration(seconds: 3);
   static const _maxPollInterval = Duration(seconds: 15);
 
+  /// How long a share can sit unfinished before its card is dropped.
+  ///
+  /// The backend gives up on its own in every case it knows about: retries
+  /// exhausted or a failure it cannot retry both end as `dead_lettered`, which
+  /// arrives here as a terminal job and is already removed. This covers the
+  /// case it does not know about — a job left queued that no worker ever
+  /// finishes, which stays non-terminal forever and would otherwise hold a
+  /// card and its polling for the life of the install.
+  ///
+  /// Matched to the backend's own `WORKER_STALE_JOB_MINUTES`, the point at
+  /// which it considers a job stale, rather than a second opinion invented
+  /// here.
+  static const _abandonedAfter = Duration(minutes: 20);
+
   final List<ProcessingJob> _jobs = [];
   final Map<String, List<String>> _collectionIdsByJob = {};
 
@@ -105,7 +119,9 @@ class ProcessingJobsViewModel extends ChangeNotifier {
 
   Future<void> _applyServerJobs(List<ProcessingJob> latest) async {
     final active = latest
-        .where((job) => !job.terminal && !job.isCompleted)
+        .where(
+          (job) => !job.terminal && !job.isCompleted && !_isAbandoned(job),
+        )
         .toList(growable: false);
     final activeIds = active.map((job) => job.id).toSet();
     final byId = {for (final job in latest) job.id: job};
@@ -172,6 +188,21 @@ class ProcessingJobsViewModel extends ChangeNotifier {
 
   bool _isStillShown(String jobId, Set<String> activeIds) {
     return activeIds.contains(jobId) || _settlingIds.contains(jobId);
+  }
+
+  /// Whether the backend has left this share unfinished long enough to give up
+  /// on it. Dropping out of [_applyServerJobs]'s active list is what removes
+  /// it, and because the job is still in the response and not complete, it
+  /// leaves down the quiet path a failure takes rather than the one that asks
+  /// the grid to swap in a reel that was never produced.
+  ///
+  /// A job with no timestamp is never abandoned: an API that does not report
+  /// `created_at` cannot say how old anything is, and guessing would drop
+  /// cards for shares that are still working.
+  bool _isAbandoned(ProcessingJob job) {
+    final createdAt = job.createdAt;
+    if (createdAt == null) return false;
+    return DateTime.now().difference(createdAt) > _abandonedAfter;
   }
 
   /// Polling only earns its keep while there is a card on screen to update, so

@@ -17,6 +17,7 @@ ProcessingJob _job(
   int? progress,
   Reel? reel,
   List<String> collectionIds = const [],
+  DateTime? createdAt,
 }) {
   return ProcessingJob(
     id: id,
@@ -25,6 +26,7 @@ ProcessingJob _job(
     progressPercent: progress,
     collectionIds: collectionIds,
     reel: reel,
+    createdAt: createdAt,
   );
 }
 
@@ -137,6 +139,70 @@ void main() {
     await vm.refresh();
 
     expect(vm.jobs.map((j) => j.id), ['live']);
+  });
+
+  test('a job the backend never finished stops being shown', () async {
+    // Queued well past the point the backend itself calls a job stale, and
+    // still not terminal — nobody is coming for it.
+    repository.jobs = [
+      _job(
+        'stuck',
+        status: 'queued',
+        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+      ),
+      _job('live', createdAt: DateTime.now()),
+    ];
+
+    await vm.refresh();
+
+    expect(vm.jobs.map((j) => j.id), ['live']);
+  });
+
+  test('an abandoned job leaves quietly, without a reel swap', () async {
+    final swapped = <List<Reel>>[];
+    final model = ProcessingJobsViewModel(
+      repository,
+      onJobsFinished: (reels) async => swapped.add(reels),
+    );
+    addTearDown(model.dispose);
+    repository.jobs = [
+      _job(
+        'stuck',
+        status: 'queued',
+        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+      ),
+    ];
+
+    await model.refresh();
+
+    // Treating it as finished would ask the grid to swap in a reel that was
+    // never produced, leaving a hole where the card was.
+    expect(swapped, isEmpty);
+    expect(model.jobs, isEmpty);
+  });
+
+  test('a job still inside the window keeps its card', () async {
+    repository.jobs = [
+      _job(
+        'recent',
+        status: 'queued',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+      ),
+    ];
+
+    await vm.refresh();
+
+    expect(vm.jobs.single.id, 'recent');
+  });
+
+  test('a job with no timestamp is never aged out', () async {
+    // An API that does not report created_at cannot tell us how old anything
+    // is, and guessing would drop cards for shares that are still working.
+    repository.jobs = [_job('undated', status: 'queued')];
+
+    await vm.refresh();
+
+    expect(vm.jobs.single.id, 'undated');
   });
 
   test('a failed poll leaves the cards already on screen alone', () async {
