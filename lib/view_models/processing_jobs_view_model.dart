@@ -119,9 +119,7 @@ class ProcessingJobsViewModel extends ChangeNotifier {
 
   Future<void> _applyServerJobs(List<ProcessingJob> latest) async {
     final active = latest
-        .where(
-          (job) => !job.terminal && !job.isCompleted && !_isAbandoned(job),
-        )
+        .where((job) => !job.terminal && !job.isCompleted && !_isAbandoned(job))
         .toList(growable: false);
     final activeIds = active.map((job) => job.id).toSet();
     final byId = {for (final job in latest) job.id: job};
