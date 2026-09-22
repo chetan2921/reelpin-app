@@ -2,64 +2,72 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reelpin/components/collections/pick_collection_sheet.dart';
-import 'package:reelpin/data_models/chat/chat_thread.dart';
+import 'package:reelpin/data_models/chat/answer_block.dart';
 import 'package:reelpin/providers.dart';
-import 'package:reelpin/utils/error_message.dart';
 
-/// What "+ COLLECTION" on an answer does: puts the answer at [index], exactly
-/// as it stands, into the chat of a collection the user picks.
+/// What "+ COLLECTION" on an answer does: puts the answer, exactly as it
+/// stands, into the chat of one or more collections the user picks.
 ///
 /// Shared by the private chat and a collection's own chat, which is how an
 /// answer moves on from one collection to another. No re-ask: everyone sees
-/// the answer the sharer saw. It travels with the question that produced it,
-/// so the thread it lands in reads as a conversation rather than loose
-/// answers.
+/// the answer the sharer saw. The private question that produced it is never
+/// sent — only the answer is shared, and only who shared it is shown.
 Future<void> shareToCollectionChat(
   BuildContext context,
   WidgetRef ref, {
-  required List<ChatMessage> messages,
-  required int index,
+  required List<AnswerBlock> blocks,
   String? excludeCollectionId,
 }) async {
-  final collection = await showPickCollectionSheet(
+  final collections = await showPickCollectionSheet(
     context,
     excludeCollectionId: excludeCollectionId,
   );
-  if (collection == null || !context.mounted) return;
+  if (collections == null || collections.isEmpty || !context.mounted) return;
   final messenger = ScaffoldMessenger.of(context);
+  final http = ref.read(collectionChatHttpProvider);
+  final collectionsVm = ref.read(collectionsViewModelProvider);
 
-  var question = '';
-  for (var i = index - 1; i >= 0; i--) {
-    if (messages[i].role == MessageRole.user) {
-      question = messages[i].text;
-      break;
+  // Each share starts its own conversation in the collection, titled by the
+  // answer, so it shows in the ASK screen's sidebar rather than landing in
+  // the middle of someone else's thread.
+  final threadId = 'shared-${DateTime.now().microsecondsSinceEpoch}';
+  final succeeded = <String>[];
+  final failed = <String>[];
+  for (final collection in collections) {
+    try {
+      // Straight to the seam rather than through a collection's view model:
+      // that one lives and dies with the collection screen, and nothing is
+      // watching it from here. Empty question text: the private question
+      // that produced this answer was never asked here and stays private.
+      await http.shareAnswer(
+        collectionId: collection.id,
+        threadId: threadId,
+        questionText: '',
+        blocks: blocks,
+      );
+      // Same jump to the top of the list an added reel gets, since sharing
+      // into a collection's chat doesn't otherwise refetch it.
+      collectionsVm.bumpToFront(collection.id);
+      succeeded.add(collection.name);
+    } catch (_) {
+      failed.add(collection.name);
     }
   }
 
-  try {
-    // Straight to the seam rather than through a collection's view model:
-    // that one lives and dies with the collection screen, and nothing is
-    // watching it from here.
-    await ref
-        .read(collectionChatHttpProvider)
-        .shareAnswer(
-          collectionId: collection.id,
-          questionText: question,
-          blocks: messages[index].blocks,
-        );
-    messenger.showSnackBar(
-      SnackBar(content: Text('Added to ${collection.name}.')),
-    );
-  } catch (e) {
+  if (succeeded.isNotEmpty) {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          userFacingErrorMessage(
-            e,
-            fallbackMessage: 'Could not add it to that collection.',
-          ),
+          succeeded.length == 1
+              ? 'Added to ${succeeded.single}.'
+              : 'Added to ${succeeded.length} collections.',
         ),
       ),
+    );
+  }
+  if (failed.isNotEmpty) {
+    messenger.showSnackBar(
+      SnackBar(content: Text('Could not add to ${failed.join(', ')}.')),
     );
   }
 }

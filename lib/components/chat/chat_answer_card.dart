@@ -27,6 +27,7 @@ class ChatAnswerCard extends StatelessWidget {
     required this.reelCache,
     required this.onTapReel,
     required this.onSaveToCollection,
+    this.sharedByName,
   });
 
   final ChatMessage message;
@@ -40,6 +41,11 @@ class ChatAnswerCard extends StatelessWidget {
   final ChatReelCache reelCache;
   final ValueChanged<Reel> onTapReel;
   final VoidCallback onSaveToCollection;
+
+  /// Who published this answer here from their private chat. Only meaningful
+  /// alongside [ChatMessage.isShared]; null there just means the name wasn't
+  /// resolved.
+  final String? sharedByName;
 
   @override
   Widget build(BuildContext context) {
@@ -68,12 +74,17 @@ class ChatAnswerCard extends StatelessWidget {
 
   /// Marks an answer somebody generated in their own private chat and then
   /// published here, so the thread does not read as if the AI was asked this
-  /// in the open.
+  /// in the open. The private question behind it is never shown — only who
+  /// shared the answer.
   Widget _buildSharedMarker(BuildContext context) {
+    final by = sharedByName?.trim();
+    final label = by == null || by.isEmpty
+        ? 'SHARED FROM A PRIVATE CHAT'
+        : 'SHARED FROM A PRIVATE CHAT · ${by.toUpperCase()}';
     return Padding(
       padding: const EdgeInsets.only(bottom: 9),
       child: Text(
-        'SHARED FROM A PRIVATE CHAT',
+        label,
         style: GoogleFonts.spaceMono(
           color: AppColors.textTertiary,
           fontSize: 8.5,

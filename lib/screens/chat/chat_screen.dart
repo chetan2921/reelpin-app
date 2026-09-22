@@ -276,12 +276,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           onTapReel: (reel) =>
               Navigator.of(context).push(reelDetailRoute(reel)),
           onSaveToCollection: () => unawaited(
-            shareToCollectionChat(
-              context,
-              ref,
-              messages: messages,
-              index: index,
-            ),
+            shareToCollectionChat(context, ref, blocks: message.blocks),
           ),
         );
       },

@@ -216,6 +216,40 @@ void main() {
       expect(vm.collections.map((c) => c.id), ['created', 'a']);
     });
 
+    test('bumpToFront moves a collection to the top of the list', () async {
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a'), _summary('b'), _summary('c')],
+      );
+      final vm = CollectionsViewModel(api);
+      await vm.loadCollections();
+
+      vm.bumpToFront('c');
+
+      expect(vm.collections.map((c) => c.id), ['c', 'a', 'b']);
+    });
+
+    test('bumpToFront on the collection already first does nothing', () async {
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a'), _summary('b')],
+      );
+      final vm = CollectionsViewModel(api);
+      await vm.loadCollections();
+
+      vm.bumpToFront('a');
+
+      expect(vm.collections.map((c) => c.id), ['a', 'b']);
+    });
+
+    test('bumpToFront on an unknown collection does nothing', () async {
+      final api = _FakeCollectionsHttp(collections: [_summary('a')]);
+      final vm = CollectionsViewModel(api);
+      await vm.loadCollections();
+
+      vm.bumpToFront('does-not-exist');
+
+      expect(vm.collections.map((c) => c.id), ['a']);
+    });
+
     test(
       'deleteCollection drops it from the list and the detail cache',
       () async {

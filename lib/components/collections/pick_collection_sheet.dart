@@ -3,19 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/components/collections/collection_folder_tile.dart';
+import 'package:reelpin/components/collections/selection_tick.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/providers.dart';
 
-/// Picks the one collection an answer gets added to. Returns null if the
-/// sheet is dismissed.
-Future<CollectionSummary?> showPickCollectionSheet(
+/// Picks one or more collections an answer gets added to. Returns null if the
+/// sheet is dismissed with nothing selected.
+Future<List<CollectionSummary>?> showPickCollectionSheet(
   BuildContext context, {
   String? excludeCollectionId,
 }) {
-  return showModalBottomSheet<CollectionSummary>(
+  return showModalBottomSheet<List<CollectionSummary>>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -24,9 +25,9 @@ Future<CollectionSummary?> showPickCollectionSheet(
   );
 }
 
-/// Single-select, and it acts on the tap — unlike `AddToCollectionSheet`,
-/// which multi-selects and then confirms. An answer lands in exactly one
-/// thread, so a confirm step would be a second tap that decides nothing.
+/// Multi-select, same tap-to-check-then-confirm shape as
+/// `AddToCollectionSheet`: a tap ticks a folder, nothing is written until
+/// SAVE, so a mis-tap costs nothing.
 class PickCollectionSheet extends ConsumerStatefulWidget {
   const PickCollectionSheet({super.key, this.excludeCollectionId});
 
@@ -40,12 +41,26 @@ class PickCollectionSheet extends ConsumerStatefulWidget {
 }
 
 class _PickCollectionSheetState extends ConsumerState<PickCollectionSheet> {
+  final Set<String> _selected = {};
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(collectionsViewModelProvider).loadCollections();
     });
+  }
+
+  void _toggle(String collectionId) {
+    setState(() {
+      if (!_selected.remove(collectionId)) _selected.add(collectionId);
+    });
+  }
+
+  void _save(List<CollectionSummary> editable) {
+    if (_selected.isEmpty) return;
+    final picked = editable.where((c) => _selected.contains(c.id)).toList();
+    Navigator.of(context).pop(picked);
   }
 
   @override
@@ -97,7 +112,7 @@ class _PickCollectionSheetState extends ConsumerState<PickCollectionSheet> {
               ),
               SizedBox(height: layout.gap(6)),
               Text(
-                "IT GOES INTO THAT COLLECTION'S CHAT, FOR EVERYONE IN IT.",
+                "IT GOES INTO EACH COLLECTION'S CHAT, FOR EVERYONE IN IT.",
                 style: GoogleFonts.spaceMono(
                   color: AppColors.textSec(context),
                   fontSize: layout.font(10),
@@ -113,6 +128,13 @@ class _PickCollectionSheetState extends ConsumerState<PickCollectionSheet> {
                   accents,
                 ),
               ),
+              if (editable.isNotEmpty) ...[
+                SizedBox(height: layout.gap(16)),
+                _SaveButton(
+                  count: _selected.length,
+                  onTap: _selected.isEmpty ? null : () => _save(editable),
+                ),
+              ],
             ],
           ),
         ),
@@ -176,9 +198,53 @@ class _PickCollectionSheetState extends ConsumerState<PickCollectionSheet> {
         return CollectionFolderTile(
           collection: collection,
           accent: accents[collection.id]!,
-          onTap: () => Navigator.of(context).pop(collection),
+          onTap: () => _toggle(collection.id),
+          overlay: _selected.contains(collection.id)
+              ? const SelectionTick()
+              : null,
         );
       },
+    );
+  }
+}
+
+/// The confirm step. Nothing is written until this is tapped, so a mis-tap on
+/// a folder costs nothing.
+class _SaveButton extends StatelessWidget {
+  const _SaveButton({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = AppLayout.of(context);
+    final label = switch (count) {
+      0 => 'SELECT A COLLECTION',
+      1 => 'ADD TO 1 COLLECTION',
+      _ => 'ADD TO $count COLLECTIONS',
+    };
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Opacity(
+        opacity: onTap == null ? 0.5 : 1,
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(vertical: layout.gap(14)),
+          alignment: Alignment.center,
+          decoration: AppTheme.brutalBox(context, color: AppColors.yellow),
+          child: Text(
+            label,
+            style: GoogleFonts.spaceMono(
+              color: AppColors.black,
+              fontSize: layout.font(13),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

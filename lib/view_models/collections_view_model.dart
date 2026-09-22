@@ -57,6 +57,19 @@ class CollectionsViewModel extends ChangeNotifier {
   /// way in from cache or network.
   bool isDetailPlaceholder(String id) => _placeholderDetailIds.contains(id);
 
+  /// Moves a collection to the front of the in-memory list, the same
+  /// position adding a reel to it puts it in once the backend re-sorts by
+  /// `updated_at` and the list is refetched. Sharing a chat answer into a
+  /// collection doesn't refetch, so this gives that collection the same jump
+  /// to the top without waiting on a round trip. A no-op if the collection
+  /// isn't loaded or is already first.
+  void bumpToFront(String collectionId) {
+    final index = _collections.indexWhere((c) => c.id == collectionId);
+    if (index <= 0) return;
+    _collections.insert(0, _collections.removeAt(index));
+    notifyListeners();
+  }
+
   /// Opens a collection on what the SAVED grid already knows, so tapping one
   /// lands on the collection rather than a full-screen spinner. Whatever
   /// arrives next — cache or network — replaces this.
