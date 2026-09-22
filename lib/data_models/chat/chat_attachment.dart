@@ -43,10 +43,14 @@ class ChatAttachment {
   });
 
   factory ChatAttachment.fromJson(Map<String, dynamic> json) => ChatAttachment(
-    kind: AttachmentKind.values.firstWhere(
-      (k) => k.name == json['kind'],
-      orElse: () => AttachmentKind.file,
-    ),
+    // The backend echoes the wire name, `saved_reel`, where local storage
+    // keeps the enum's own `savedReel`; both mean the same attachment.
+    kind: json['kind'] == 'saved_reel'
+        ? AttachmentKind.savedReel
+        : AttachmentKind.values.firstWhere(
+            (k) => k.name == json['kind'],
+            orElse: () => AttachmentKind.file,
+          ),
     displayName: json['display_name']?.toString() ?? '',
     localPath: json['local_path']?.toString(),
     url: json['url']?.toString(),
