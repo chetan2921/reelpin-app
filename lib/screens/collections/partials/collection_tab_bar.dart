@@ -1,16 +1,15 @@
 part of '../collection_detail_screen.dart';
 
-/// PINS / CHATS, drawn like the ALL / SAVED tabs in the map search sheet: one
-/// bordered bar split down the middle, the selected half filled yellow. They
-/// switch between two screens inside one collection, not two filters over one
-/// list.
+/// PINS / ASK, drawn like the ALL / SAVED tabs in the map search sheet: one
+/// bordered bar split down the middle. PINS is this screen; ASK opens the
+/// collection's own chat screen on top of it, so PINS is always the half
+/// shown selected here. Labelled ASK rather than CHATS: this is where the
+/// collection is brainstormed over, and "chats" would be confused with the
+/// app's own private ASK YOUR SAVES screen.
 class _CollectionTabBar extends StatelessWidget {
-  const _CollectionTabBar({required this.chatSelected, required this.onSelect});
+  const _CollectionTabBar({required this.onAsk});
 
-  final bool chatSelected;
-
-  /// Called with true for CHATS, false for PINS.
-  final ValueChanged<bool> onSelect;
+  final VoidCallback onAsk;
 
   @override
   Widget build(BuildContext context) {
@@ -21,12 +20,7 @@ class _CollectionTabBar extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _tab(
-              context,
-              label: 'PINS',
-              selected: !chatSelected,
-              onTap: () => onSelect(false),
-            ),
+            child: _tab(context, label: 'PINS', selected: true, onTap: null),
           ),
           Container(
             width: AppTheme.borderWidth,
@@ -34,12 +28,7 @@ class _CollectionTabBar extends StatelessWidget {
             color: AppColors.fg(context),
           ),
           Expanded(
-            child: _tab(
-              context,
-              label: 'CHATS',
-              selected: chatSelected,
-              onTap: () => onSelect(true),
-            ),
+            child: _tab(context, label: 'ASK', selected: false, onTap: onAsk),
           ),
         ],
       ),
@@ -50,7 +39,7 @@ class _CollectionTabBar extends StatelessWidget {
     BuildContext context, {
     required String label,
     required bool selected,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
     final layout = AppLayout.of(context);
 

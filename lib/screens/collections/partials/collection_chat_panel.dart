@@ -5,22 +5,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/components/chat/chat_answer_card.dart';
+import 'package:reelpin/components/chat/chat_attachment_sheet.dart';
+import 'package:reelpin/components/chat/chat_composer.dart';
 import 'package:reelpin/components/chat/chat_question_bubble.dart';
 import 'package:reelpin/components/chat/chat_thinking_stages.dart';
 import 'package:reelpin/components/collections/share_to_collection_chat.dart';
 import 'package:reelpin/constants/app_colors.dart';
+import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/chat_thread.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/router.dart';
-import 'package:reelpin/components/chat/chat_composer.dart';
 import 'package:reelpin/services/chat/chat_reel_cache.dart';
 import 'package:reelpin/view_models/collection_chat_view_model.dart';
 
-/// A collection's shared AI thread: everyone with access reads it, owners and
-/// editors ask into it.
+/// The open conversation of a collection's chat, and the composer to ask into
+/// it. The ASK screen puts the sidebar and header around it.
 ///
 /// Built from the private chat's own components — the same bubbles, answer
-/// cards and composer — so an answer here is exactly as rich as one there.
+/// cards, composer and attachment sheet — so an answer here is exactly as rich
+/// as one there.
 class CollectionChatPanel extends ConsumerStatefulWidget {
   const CollectionChatPanel({
     super.key,
@@ -43,6 +46,7 @@ class _CollectionChatPanelState extends ConsumerState<CollectionChatPanel> {
   late final ChatReelCache _reelCache = ChatReelCache(
     (reelId) => ref.read(reelRepositoryProvider).getReel(reelId),
   );
+  final List<ChatAttachment> _pending = [];
 
   @override
   void initState() {
@@ -96,8 +100,22 @@ class _CollectionChatPanelState extends ConsumerState<CollectionChatPanel> {
           SafeArea(
             top: false,
             child: ChatComposer(
-              onSend: (text) => unawaited(viewModel.ask(text)),
               enabled: !viewModel.isAsking,
+              pending: _pending,
+              onRemoveAttachment: (i) => setState(() => _pending.removeAt(i)),
+              onAttach: () async {
+                final attachment = await showChatAttachmentSheet(
+                  context,
+                  library: ref.read(reelRepositoryProvider).cachedReels,
+                );
+                if (attachment == null || !mounted) return;
+                setState(() => _pending.add(attachment));
+              },
+              onSend: (text) {
+                final attachments = List<ChatAttachment>.from(_pending);
+                setState(_pending.clear);
+                unawaited(viewModel.ask(text, attachments: attachments));
+              },
             ),
           ),
       ],
@@ -106,8 +124,28 @@ class _CollectionChatPanelState extends ConsumerState<CollectionChatPanel> {
 
   Widget _thread(
     CollectionChatViewModel viewModel,
-    List<ChatMessage> messages,
+    List<ChatMessage> rawMessages,
   ) {
+    // A shared answer's paired "question" row holds the private question that
+    // produced it — asked in someone's own chat, not here — so it never gets
+    // its own bubble. Only who shared the answer is shown, on the answer
+    // itself, resolved from that same row before it's filtered out.
+    final sharedByName = <String, String>{};
+    for (var i = 0; i < rawMessages.length - 1; i++) {
+      final question = rawMessages[i];
+      final answer = rawMessages[i + 1];
+      if (question.role == MessageRole.user &&
+          question.isShared &&
+          answer.role == MessageRole.assistant &&
+          answer.isShared &&
+          question.authorName.trim().isNotEmpty) {
+        sharedByName[answer.id] = question.authorName;
+      }
+    }
+    final messages = rawMessages
+        .where((m) => !(m.role == MessageRole.user && m.isShared))
+        .toList();
+
     // Reversed, so the thread opens on its newest entry and stays pinned
     // there as the poll appends — the end of a shared log is what changed.
     return ListView.separated(
@@ -132,14 +170,14 @@ class _CollectionChatPanelState extends ConsumerState<CollectionChatPanel> {
           reelCache: _reelCache,
           onTapReel: (reel) =>
               Navigator.of(context).push(reelDetailRoute(reel)),
+          sharedByName: sharedByName[message.id],
           // Passes the answer on to another collection's chat; the one it is
           // already in is left out of the picker.
           onSaveToCollection: () => unawaited(
             shareToCollectionChat(
               context,
               ref,
-              messages: messages,
-              index: messages.length - 1 - index,
+              blocks: message.blocks,
               excludeCollectionId: widget.collectionId,
             ),
           ),

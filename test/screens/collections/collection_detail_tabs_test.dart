@@ -11,6 +11,7 @@ import 'package:reelpin/http/mock_collection_chat_http.dart';
 import 'package:reelpin/http/mock_collections_http.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/components/chat/chat_composer.dart';
+import 'package:reelpin/screens/collections/collection_ask_screen.dart';
 import 'package:reelpin/screens/collections/partials/collection_chat_panel.dart';
 import 'package:reelpin/screens/collections/collection_detail_screen.dart';
 import 'package:reelpin/services/auth/auth_service.dart';
@@ -123,30 +124,33 @@ void main() {
     },
   );
 
-  testWidgets('CHATS swaps the pins for the shared thread, PINS swaps back', (
+  testWidgets('ASK opens the collection chat screen, back returns to PINS', (
     tester,
   ) async {
     await pumpDetail(tester, offerChat: true);
 
-    expect(find.byType(CollectionChatPanel), findsNothing);
+    expect(find.byType(CollectionAskScreen), findsNothing);
 
-    await tester.tap(find.text('CHATS'));
+    await tester.tap(find.text('ASK'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(CollectionChatPanel), findsOneWidget);
-    // An owner can ask.
+    expect(find.byType(CollectionAskScreen), findsOneWidget);
+    // An owner can ask, and gets the private chat's sidebar button.
     expect(find.byType(ChatComposer), findsOneWidget);
+    expect(find.byIcon(Icons.menu), findsOneWidget);
 
-    await tester.tap(find.text('PINS'));
+    // AppBackButton, the app's one shared back control, draws a chevron.
+    await tester.tap(find.byIcon(Icons.chevron_left));
     await tester.pumpAndSettle();
 
-    expect(find.byType(CollectionChatPanel), findsNothing);
+    expect(find.byType(CollectionAskScreen), findsNothing);
+    expect(find.text('PINS'), findsOneWidget);
   });
 
   testWidgets('no tab bar at all when chat is off', (tester) async {
     await pumpDetail(tester, offerChat: false);
 
-    expect(find.text('CHATS'), findsNothing);
+    expect(find.text('ASK'), findsNothing);
     expect(find.byType(CollectionChatPanel), findsNothing);
   });
 }

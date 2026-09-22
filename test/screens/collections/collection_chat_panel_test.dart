@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reelpin/data_models/chat/answer_block.dart';
+import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/collection_chat_page.dart';
+import 'package:reelpin/data_models/chat/collection_chat_thread.dart';
 import 'package:reelpin/http/api_client.dart';
 import 'package:reelpin/http/chat_http.dart';
 import 'package:reelpin/http/collection_chat_http.dart';
@@ -39,23 +41,29 @@ class _FakeAuthService extends AuthService {
   Stream<AuthState> get authStateChanges => const Stream<AuthState>.empty();
 }
 
-/// The thread cannot be fetched at all.
+/// The chat cannot be fetched at all.
 class _UnreachableCollectionChatHttp implements CollectionChatHttp {
   int fetches = 0;
 
   @override
-  Future<CollectionChatPage> fetchMessages(
-    String collectionId, {
-    String? after,
-  }) async {
+  Future<List<CollectionChatThread>> fetchThreads(String collectionId) async {
     fetches += 1;
     throw Exception('offline');
   }
 
   @override
+  Future<CollectionChatPage> fetchMessages(
+    String collectionId, {
+    required String threadId,
+    String? after,
+  }) async => throw Exception('offline');
+
+  @override
   Stream<ChatEvent> ask({
     required String collectionId,
+    required String threadId,
     required String text,
+    List<ChatAttachment> attachments = const [],
   }) async* {
     throw Exception('offline');
   }
@@ -63,6 +71,7 @@ class _UnreachableCollectionChatHttp implements CollectionChatHttp {
   @override
   Future<void> shareAnswer({
     required String collectionId,
+    required String threadId,
     required String questionText,
     required List<AnswerBlock> blocks,
   }) async => throw Exception('offline');
@@ -102,22 +111,41 @@ void main() {
   MockCollectionChatHttp mock({String authorName = 'You'}) =>
       MockCollectionChatHttp(stageDelay: Duration.zero, authorName: authorName);
 
-  testWidgets('renders a question with its author, and marks a shared answer', (
-    tester,
-  ) async {
+  testWidgets('a live question renders with its author', (tester) async {
     final http = mock(authorName: 'Priya');
-    await http.shareAnswer(
-      collectionId: 'c1',
-      questionText: 'where should we start?',
-      blocks: const [TextBlock('Start with the ramen.')],
+    await tester.runAsync(
+      () => http
+          .ask(
+            collectionId: 'c1',
+            threadId: 't-1',
+            text: 'where should we start?',
+          )
+          .toList(),
     );
 
     await _pumpPanel(tester, http, canEdit: true);
 
     expect(find.text('where should we start?'), findsOneWidget);
     expect(find.text('PRIYA'), findsOneWidget);
+  });
+
+  testWidgets('a shared answer shows who shared it, not the private question', (
+    tester,
+  ) async {
+    final http = mock(authorName: 'Priya');
+    await http.shareAnswer(
+      collectionId: 'c1',
+      threadId: 'shared-1',
+      questionText: 'where should we start?',
+      blocks: const [TextBlock('Start with the ramen.')],
+    );
+
+    await _pumpPanel(tester, http, canEdit: true);
+
+    // The private question that produced this answer was never asked here.
+    expect(find.text('where should we start?'), findsNothing);
     expect(find.text('Start with the ramen.'), findsOneWidget);
-    expect(find.text('SHARED FROM A PRIVATE CHAT'), findsOneWidget);
+    expect(find.text('SHARED FROM A PRIVATE CHAT · PRIYA'), findsOneWidget);
   });
 
   testWidgets('a viewer reads the thread but gets no composer', (tester) async {
@@ -127,14 +155,14 @@ void main() {
     expect(find.textContaining('EDITORS CAN ASK'), findsOneWidget);
   });
 
-  testWidgets('an editor gets a composer with no attach button', (
+  testWidgets('an editor gets a composer with the attach button', (
     tester,
   ) async {
     await _pumpPanel(tester, mock(), canEdit: true);
 
     expect(find.byType(ChatComposer), findsOneWidget);
-    // The collection is the scope; there is nothing to attach.
-    expect(find.byIcon(Icons.add), findsNothing);
+    // The same + the private chat has, for adding a save, link, photo or file.
+    expect(find.byIcon(Icons.add), findsOneWidget);
     expect(find.textContaining('NOTHING HERE YET'), findsOneWidget);
   });
 
@@ -154,7 +182,7 @@ void main() {
     );
   });
 
-  testWidgets('a thread that cannot load offers a retry', (tester) async {
+  testWidgets('a chat that cannot load offers a retry', (tester) async {
     final http = _UnreachableCollectionChatHttp();
     await _pumpPanel(tester, http, canEdit: true);
 
