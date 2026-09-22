@@ -5,13 +5,14 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:reelpin/data_models/chat/answer_block.dart';
+import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/http/chat_http.dart';
 import 'package:reelpin/http/collection_chat_api_http.dart';
 
 const _collectionId = '55555555-5555-5555-5555-555555555555';
-const _threadUrl =
-    'https://example.com/api/v1/collections/$_collectionId/chat/messages';
+const _base = 'https://example.com/api/v1/collections/$_collectionId/chat';
+const _threadUrl = '$_base/messages';
 
 /// Every request goes to [handler]; [onRequest] sees the request and its body
 /// first, so a test can assert what was actually put on the wire.
@@ -38,8 +39,35 @@ http.StreamedResponse _sse(List<String> chunks) =>
     http.StreamedResponse(Stream.fromIterable(chunks.map(utf8.encode)), 200);
 
 void main() {
+  test('fetchThreads reads the sidebar, newest first as sent', () async {
+    late http.BaseRequest seen;
+    final api = _client(
+      (_) async => _json({
+        'threads': [
+          {
+            'thread_id': 't-2',
+            'title': 'What else?',
+            'question_count': 2,
+            'updated_at': '2026-09-11T11:00:00+00:00',
+          },
+          {'thread_id': 't-1', 'title': 'Where do we start?'},
+        ],
+      }),
+      onRequest: (request, _) => seen = request,
+    );
+
+    final threads = await api.fetchThreads(_collectionId);
+
+    expect(seen.method, 'GET');
+    expect(seen.url.toString(), '$_base/threads');
+    expect(seen.headers['Authorization'], 'Bearer token-123');
+    expect(threads.map((t) => t.id), ['t-2', 't-1']);
+    expect(threads.first.questionCount, 2);
+    expect(threads.last.title, 'Where do we start?');
+  });
+
   test(
-    'fetchMessages reads the thread, with the token on the request',
+    'fetchMessages reads one thread, with the token on the request',
     () async {
       late http.BaseRequest seen;
       final api = _client(
@@ -50,6 +78,13 @@ void main() {
               'role': 'user',
               'author_name': 'Priya',
               'text': 'Where do we start?',
+              'attachments': [
+                {
+                  'kind': 'saved_reel',
+                  'display_name': 'Ramen bar',
+                  'reel_id': 'r1',
+                },
+              ],
               'created_at': '2026-09-11T10:00:00+00:00',
             },
             {
@@ -66,14 +101,17 @@ void main() {
         onRequest: (request, _) => seen = request,
       );
 
-      final page = await api.fetchMessages(_collectionId);
+      final page = await api.fetchMessages(_collectionId, threadId: 't-1');
 
       expect(seen.method, 'GET');
-      // No `after` on a first read: the whole thread, from the start.
-      expect(seen.url.toString(), _threadUrl);
+      expect(seen.url.toString(), '$_threadUrl?thread_id=t-1');
       expect(seen.headers['Authorization'], 'Bearer token-123');
       expect(page.messages.first.authorName, 'Priya');
-      expect(page.messages.first.text, 'Where do we start?');
+      // The server echoes the wire name; it must still read as a save.
+      expect(
+        page.messages.first.attachments.single.kind,
+        AttachmentKind.savedReel,
+      );
       expect(page.messages.last.isShared, isTrue);
       expect(
         (page.messages.last.blocks.single as TextBlock).text,
@@ -82,16 +120,17 @@ void main() {
     },
   );
 
-  test('after rides along as a query parameter', () async {
+  test('after rides along as a query parameter with the thread', () async {
     late http.BaseRequest seen;
     final api = _client(
       (_) async => _json({'messages': []}),
       onRequest: (request, _) => seen = request,
     );
 
-    await api.fetchMessages(_collectionId, after: 'm7');
+    await api.fetchMessages(_collectionId, threadId: 't-1', after: 'm7');
 
     expect(seen.url.queryParameters['after'], 'm7');
+    expect(seen.url.queryParameters['thread_id'], 't-1');
   });
 
   test(
@@ -107,7 +146,7 @@ void main() {
       // An empty page here would read as "nobody has asked anything yet",
       // which is a lie the screen cannot tell apart from the truth.
       expect(
-        () => api.fetchMessages(_collectionId),
+        () => api.fetchMessages(_collectionId, threadId: 't-1'),
         throwsA(
           isA<ApiException>()
               .having((e) => e.statusCode, 'statusCode', 404)
@@ -125,14 +164,14 @@ void main() {
     final api = _client((_) async => throw http.ClientException('offline'));
 
     expect(
-      () => api.fetchMessages(_collectionId),
+      () => api.fetchThreads(_collectionId),
       throwsA(
         isA<ApiException>().having((e) => e.statusCode, 'statusCode', 503),
       ),
     );
   });
 
-  test('ask posts the question, then streams stages and one answer', () async {
+  test('ask posts the question into its thread, then streams the answer', () async {
     late http.BaseRequest seen;
     late String body;
     final api = _client(
@@ -147,17 +186,60 @@ void main() {
     );
 
     final events = await api
-        .ask(collectionId: _collectionId, text: 'Where do we start?')
+        .ask(
+          collectionId: _collectionId,
+          threadId: 't-1',
+          text: 'Where do we start?',
+        )
         .toList();
 
     expect(seen.method, 'POST');
     expect(seen.url.toString(), _threadUrl);
     expect(seen.headers['Accept'], 'text/event-stream');
     // No blocks: that absence is what makes this a live question.
-    expect(jsonDecode(body), {'text': 'Where do we start?'});
+    expect(jsonDecode(body), {
+      'text': 'Where do we start?',
+      'thread_id': 't-1',
+    });
     expect(events.first, isA<StageEvent>());
     expect(events.last, isA<AnswerEvent>());
   });
+
+  test(
+    'ask sends attachments by their wire names, without local paths',
+    () async {
+      late String body;
+      final api = _client(
+        (_) async => _sse(['data: {"type":"answer","blocks":[]}\n\n']),
+        onRequest: (_, requestBody) => body = requestBody,
+      );
+
+      await api
+          .ask(
+            collectionId: _collectionId,
+            threadId: 't-1',
+            text: 'Compare these',
+            attachments: const [
+              ChatAttachment(
+                kind: AttachmentKind.savedReel,
+                displayName: 'Ramen bar',
+                reelId: 'r1',
+              ),
+              ChatAttachment(
+                kind: AttachmentKind.photo,
+                displayName: 'menu.jpg',
+                localPath: '/data/user/0/menu.jpg',
+              ),
+            ],
+          )
+          .toList();
+
+      expect(jsonDecode(body)['attachments'], [
+        {'kind': 'saved_reel', 'display_name': 'Ramen bar', 'reel_id': 'r1'},
+        {'kind': 'photo', 'display_name': 'menu.jpg'},
+      ]);
+    },
+  );
 
   test("a viewer's ask fails with the server's 403", () async {
     final api = _client(
@@ -168,7 +250,9 @@ void main() {
     );
 
     expect(
-      api.ask(collectionId: _collectionId, text: 'hello').toList(),
+      api
+          .ask(collectionId: _collectionId, threadId: 't-1', text: 'hello')
+          .toList(),
       throwsA(
         isA<ApiException>()
             .having((e) => e.statusCode, 'statusCode', 403)
@@ -178,7 +262,7 @@ void main() {
   });
 
   test(
-    'shareAnswer posts the blocks as a shared answer, as plain JSON',
+    'shareAnswer posts the blocks as a shared answer in its thread, as plain JSON',
     () async {
       late http.BaseRequest seen;
       late String body;
@@ -192,7 +276,8 @@ void main() {
 
       await api.shareAnswer(
         collectionId: _collectionId,
-        questionText: 'Asked privately',
+        threadId: 'shared-1',
+        questionText: '',
         blocks: const [
           TextBlock('The ramen bar.'),
           ReelRefsBlock(['r1']),
@@ -203,7 +288,8 @@ void main() {
       expect(seen.url.toString(), _threadUrl);
       expect(seen.headers['Accept'], 'application/json');
       expect(jsonDecode(body), {
-        'text': 'Asked privately',
+        'thread_id': 'shared-1',
+        'text': '',
         'blocks': [
           {'type': 'text', 'text': 'The ramen bar.'},
           {
@@ -227,6 +313,7 @@ void main() {
     expect(
       () => api.shareAnswer(
         collectionId: _collectionId,
+        threadId: 'shared-1',
         questionText: '',
         blocks: const [],
       ),

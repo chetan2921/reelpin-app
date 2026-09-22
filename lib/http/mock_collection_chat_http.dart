@@ -1,13 +1,15 @@
 import 'dart:async';
 
 import 'package:reelpin/data_models/chat/answer_block.dart';
+import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/chat_thread.dart';
 import 'package:reelpin/data_models/chat/collection_chat_page.dart';
+import 'package:reelpin/data_models/chat/collection_chat_thread.dart';
 import 'package:reelpin/data_models/chat/thinking_stage.dart';
 import 'package:reelpin/http/chat_http.dart';
 import 'package:reelpin/http/collection_chat_http.dart';
 
-/// In-memory collection threads, for working on the shared-chat UI without the
+/// In-memory collection chats, for working on the shared-chat UI without the
 /// backend (`--dart-define=MOCK_CHAT=true`).
 ///
 /// State lives for the life of the process — long enough to watch a thread
@@ -21,14 +23,55 @@ class MockCollectionChatHttp implements CollectionChatHttp {
 
   final Duration _stageDelay;
   final String _authorName;
-  final Map<String, List<ChatMessage>> _threads = {};
+
+  /// collection id → thread id → messages, oldest first.
+  final Map<String, Map<String, List<ChatMessage>>> _collections = {};
+
+  List<ChatMessage> _thread(String collectionId, String threadId) =>
+      (_collections[collectionId] ??= {})[threadId] ??= [];
+
+  @override
+  Future<List<CollectionChatThread>> fetchThreads(String collectionId) async {
+    final threads = [
+      for (final entry in (_collections[collectionId] ?? const {}).entries)
+        if (entry.value.isNotEmpty)
+          CollectionChatThread(
+            id: entry.key,
+            title: _titleOf(entry.value),
+            questionCount: entry.value
+                .where((m) => m.role == MessageRole.user)
+                .length,
+            updatedAt: entry.value.last.createdAt,
+          ),
+    ];
+    threads.sort((a, b) => b.updatedAt!.compareTo(a.updatedAt!));
+    return threads;
+  }
+
+  /// The same titling the backend does: the first question, or for a thread a
+  /// shared answer started, that answer's opening line.
+  static String _titleOf(List<ChatMessage> thread) {
+    for (final message in thread) {
+      if (message.role == MessageRole.user && message.text.trim().isNotEmpty) {
+        return message.text.trim();
+      }
+      if (message.role == MessageRole.assistant) {
+        final opening = message.blocks.whereType<TextBlock>().firstOrNull;
+        if (opening != null && opening.text.trim().isNotEmpty) {
+          return opening.text.trim().split('\n').first;
+        }
+      }
+    }
+    return 'Untitled chat';
+  }
 
   @override
   Future<CollectionChatPage> fetchMessages(
     String collectionId, {
+    required String threadId,
     String? after,
   }) async {
-    final thread = _threads[collectionId] ?? const <ChatMessage>[];
+    final thread = _thread(collectionId, threadId);
     if (after == null) return CollectionChatPage(messages: List.of(thread));
     final index = thread.indexWhere((m) => m.id == after);
     // An unknown id means the caller is holding something this thread no
@@ -41,7 +84,9 @@ class MockCollectionChatHttp implements CollectionChatHttp {
   @override
   Stream<ChatEvent> ask({
     required String collectionId,
+    required String threadId,
     required String text,
+    List<ChatAttachment> attachments = const [],
   }) async* {
     for (final label in const ['READING THIS COLLECTION', 'THINKING']) {
       yield StageEvent(
@@ -56,18 +101,27 @@ class MockCollectionChatHttp implements CollectionChatHttp {
     final blocks = <AnswerBlock>[
       TextBlock('Here is what this collection says about "$text".'),
     ];
-    _append(collectionId, question: text, blocks: blocks, isShared: false);
+    _append(
+      collectionId,
+      threadId,
+      question: text,
+      attachments: attachments,
+      blocks: blocks,
+      isShared: false,
+    );
     yield AnswerEvent(blocks);
   }
 
   @override
   Future<void> shareAnswer({
     required String collectionId,
+    required String threadId,
     required String questionText,
     required List<AnswerBlock> blocks,
   }) async {
     _append(
       collectionId,
+      threadId,
       question: questionText,
       blocks: blocks,
       isShared: true,
@@ -79,22 +133,27 @@ class MockCollectionChatHttp implements CollectionChatHttp {
     required String collectionId,
     required String messageId,
   }) async {
-    _threads[collectionId]?.removeWhere((m) => m.id == messageId);
+    for (final thread in (_collections[collectionId] ?? const {}).values) {
+      thread.removeWhere((m) => m.id == messageId);
+    }
   }
 
   void _append(
-    String collectionId, {
+    String collectionId,
+    String threadId, {
     required String question,
     required List<AnswerBlock> blocks,
     required bool isShared,
+    List<ChatAttachment> attachments = const [],
   }) {
     final now = DateTime.now().toUtc();
     final stamp = now.microsecondsSinceEpoch;
-    (_threads[collectionId] ??= []).addAll([
+    _thread(collectionId, threadId).addAll([
       ChatMessage(
         id: 'cm-$stamp-u',
         role: MessageRole.user,
         text: question,
+        attachments: attachments,
         authorName: _authorName,
         isShared: isShared,
         createdAt: now,

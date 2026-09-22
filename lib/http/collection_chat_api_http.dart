@@ -6,7 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reelpin/data_models/chat/answer_block.dart';
+import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/collection_chat_page.dart';
+import 'package:reelpin/data_models/chat/collection_chat_thread.dart';
 import 'package:reelpin/env.dart';
 import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/http/chat_http.dart';
@@ -42,13 +44,25 @@ class CollectionChatApiHttp implements CollectionChatHttp {
   static const Duration _defaultRequestTimeout = Duration(seconds: 60);
 
   @override
+  Future<List<CollectionChatThread>> fetchThreads(String collectionId) async {
+    final body = await _call(
+      (client) => client.get(_threadsUri(collectionId), headers: _headers()),
+    );
+    final decoded = jsonDecode(body);
+    return decoded is Map<String, dynamic>
+        ? CollectionChatThread.listFromJson(decoded['threads'])
+        : const [];
+  }
+
+  @override
   Future<CollectionChatPage> fetchMessages(
     String collectionId, {
+    required String threadId,
     String? after,
   }) async {
     final body = await _call(
       (client) => client.get(
-        _uri(collectionId, query: {'after': ?after}),
+        _uri(collectionId, query: {'thread_id': threadId, 'after': ?after}),
         headers: _headers(),
       ),
     );
@@ -61,7 +75,9 @@ class CollectionChatApiHttp implements CollectionChatHttp {
   @override
   Stream<ChatEvent> ask({
     required String collectionId,
+    required String threadId,
     required String text,
+    List<ChatAttachment> attachments = const [],
   }) async* {
     final client = _clientFactory();
     try {
@@ -69,7 +85,12 @@ class CollectionChatApiHttp implements CollectionChatHttp {
       // than a shared answer.
       final request = http.Request('POST', _uri(collectionId))
         ..headers.addAll(_headers(accept: 'text/event-stream'))
-        ..body = jsonEncode({'text': text});
+        ..body = jsonEncode({
+          'text': text,
+          'thread_id': threadId,
+          if (attachments.isNotEmpty)
+            'attachments': attachments.map(_attachmentJson).toList(),
+        });
 
       final http.StreamedResponse response;
       try {
@@ -98,6 +119,7 @@ class CollectionChatApiHttp implements CollectionChatHttp {
   @override
   Future<void> shareAnswer({
     required String collectionId,
+    required String threadId,
     required String questionText,
     required List<AnswerBlock> blocks,
   }) async {
@@ -106,6 +128,7 @@ class CollectionChatApiHttp implements CollectionChatHttp {
         _uri(collectionId),
         headers: _headers(),
         body: jsonEncode({
+          'thread_id': threadId,
           'text': questionText,
           'blocks': blocks.map((block) => block.toJson()).toList(),
           'source': 'shared',
@@ -164,6 +187,33 @@ class CollectionChatApiHttp implements CollectionChatHttp {
     );
     return query.isEmpty ? uri : uri.replace(queryParameters: query);
   }
+
+  Uri _threadsUri(String collectionId) {
+    final base = _baseUrl.replaceFirst(RegExp(r'/$'), '');
+    return Uri.parse(
+      '$base/api/v1/collections/${Uri.encodeComponent(collectionId)}'
+      '/chat/threads',
+    );
+  }
+
+  /// The wire names match the private chat's (`saved_reel`, not the enum's
+  /// `savedReel`). A local file path is left behind: it points into this
+  /// phone and means nothing to anyone else in the collection.
+  Map<String, dynamic> _attachmentJson(ChatAttachment attachment) => {
+    'kind': switch (attachment.kind) {
+      AttachmentKind.photo => 'photo',
+      AttachmentKind.camera => 'camera',
+      AttachmentKind.file => 'file',
+      AttachmentKind.savedReel => 'saved_reel',
+      AttachmentKind.link => 'link',
+      AttachmentKind.collection => 'collection',
+    },
+    'display_name': attachment.displayName,
+    if (attachment.reelId != null) 'reel_id': attachment.reelId,
+    if (attachment.url != null) 'url': attachment.url,
+    if (attachment.collectionId != null)
+      'collection_id': attachment.collectionId,
+  };
 
   Map<String, String> _headers({String accept = 'application/json'}) {
     final accessToken = _accessTokenProvider()?.trim();
