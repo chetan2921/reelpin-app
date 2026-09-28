@@ -694,7 +694,15 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   Future<void> _refreshSavedContent() async {
-    await ref.read(entitlementsViewModelProvider).refresh(reloadContent: true);
+    await Future.wait([
+      ref.read(entitlementsViewModelProvider).refresh(reloadContent: true),
+      // Outside the entitlements reload, and the grid load is what warms each
+      // collection — so without this, a reel shared into one while the app was
+      // away would wait for that collection to be opened.
+      ref
+          .read(collectionsViewModelProvider)
+          .loadCollections(forceRefresh: true),
+    ]);
   }
 
   void _selectTab(int index) {

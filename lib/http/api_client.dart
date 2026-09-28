@@ -44,6 +44,7 @@ class ApiClient
   final String _baseUrl;
   final http.Client _client;
   final String? Function() _accessTokenProvider;
+  final Future<void> Function() _sessionRefresher;
   static const Duration _requestTimeout = Duration(seconds: 15);
   static const Duration _backgroundRequestTimeout = Duration(seconds: 5);
   static const Duration _jobPollingTimeout = Duration(minutes: 8);
@@ -52,8 +53,10 @@ class ApiClient
     http.Client? client,
     String? baseUrl,
     String? Function()? accessTokenProvider,
+    Future<void> Function()? sessionRefresher,
   }) : _client = client ?? http.Client(),
        _accessTokenProvider = accessTokenProvider ?? _currentAccessToken,
+       _sessionRefresher = sessionRefresher ?? _refreshCurrentSession,
        _baseUrl = (baseUrl ?? ApiConfig.baseUrl).trim();
 
   // ─── Health Check ───
@@ -1539,6 +1542,17 @@ class ApiClient
     Future<http.Response> Function(String baseUrl) request,
   ) async {
     try {
+      final sentToken = _accessTokenProvider();
+      final res = await request(_baseUrl);
+      if (res.statusCode != 401 || sentToken == null) return res;
+      // At launch the saved access token can be expired, and requests go out
+      // before Supabase finishes renewing it. Rejected, the screens that sent
+      // them silently stay on stale data — the SAVED grid's failed load meant
+      // no collection was warmed. Renew once, unless another request already
+      // did, and send it again.
+      if (_accessTokenProvider() == sentToken && !await _renewSession()) {
+        return res;
+      }
       return await request(_baseUrl);
     } on TimeoutException catch (e) {
       _logNetworkError(_baseUrl, e);
@@ -1605,6 +1619,24 @@ class ApiClient
     } catch (_) {
       return null;
     }
+  }
+
+  /// False when the session could not be renewed, so the caller surfaces the
+  /// original 401 instead of retrying.
+  Future<bool> _renewSession() async {
+    try {
+      await _sessionRefresher();
+      return true;
+    } catch (e) {
+      AppLogger.error('Session renewal after a 401 skipped: $e');
+      return false;
+    }
+  }
+
+  /// Concurrent calls share one refresh inside gotrue, so a burst of 401s at
+  /// launch still renews the session only once.
+  static Future<void> _refreshCurrentSession() async {
+    await Supabase.instance.client.auth.refreshSession();
   }
 
   ApiException _exceptionFromResponse(
