@@ -52,6 +52,16 @@ void main() {
               title: 'Saves by category',
               bars: [ChartBar(label: 'FOOD', value: 12, category: 'Food')],
             ),
+            SuggestionsBlock(
+              title: 'PICKED FOR YOUR TASTE',
+              items: [
+                Suggestion(
+                  title: 'Watch the Laver Cup',
+                  kind: 'event',
+                  why: 'You save a lot of tennis.',
+                ),
+              ],
+            ),
           ],
         ),
       ],
@@ -82,6 +92,7 @@ void main() {
       PlacesBlock,
       TableBlock,
       ChartBlock,
+      SuggestionsBlock,
     ]);
 
     expect((blocks[0] as TextBlock).text, 'You saved three ramen places.');
@@ -105,6 +116,12 @@ void main() {
     expect(chart.bars.single.label, 'FOOD');
     expect(chart.bars.single.value, 12);
     expect(chart.bars.single.category, 'Food');
+
+    final suggestions = blocks[5] as SuggestionsBlock;
+    expect(suggestions.title, 'PICKED FOR YOUR TASTE');
+    expect(suggestions.items.single.title, 'Watch the Laver Cup');
+    expect(suggestions.items.single.kind, 'event');
+    expect(suggestions.items.single.why, 'You save a lot of tennis.');
   });
 
   test('an unknown block type is dropped rather than crashing the thread', () {
@@ -168,6 +185,8 @@ void main() {
               {'type': 'table', 'columns': {}, 'rows': {}},
               // A number where a List was expected.
               {'type': 'chart', 'title': 'x', 'bars': 3},
+              // A number where a List was expected.
+              {'type': 'suggestions', 'title': 'x', 'items': 3},
             ],
           },
         ],
@@ -192,6 +211,9 @@ void main() {
 
       final chart = message.blocks[3] as ChartBlock;
       expect(chart.bars, isEmpty);
+
+      final suggestions = message.blocks[4] as SuggestionsBlock;
+      expect(suggestions.items, isEmpty);
     },
   );
 

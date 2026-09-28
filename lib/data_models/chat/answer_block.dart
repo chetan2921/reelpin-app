@@ -28,6 +28,11 @@ sealed class AnswerBlock {
           title: json['title']?.toString() ?? '',
           bars: _mapList(json['bars']).map(ChartBar.fromJson).toList(),
         );
+      case 'suggestions':
+        return SuggestionsBlock(
+          title: json['title']?.toString() ?? '',
+          items: _mapList(json['items']).map(Suggestion.fromJson).toList(),
+        );
       default:
         return null;
     }
@@ -120,6 +125,46 @@ class ChartBlock extends AnswerBlock {
     'title': title,
     'bars': bars.map((b) => b.toJson()).toList(),
   };
+}
+
+/// The model's own suggestions, from outside what the user saved, matched to
+/// their taste. Never carries a reel id, so it can never be mistaken for a
+/// citable save.
+class SuggestionsBlock extends AnswerBlock {
+  final String title;
+  final List<Suggestion> items;
+
+  const SuggestionsBlock({required this.title, required this.items});
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': 'suggestions',
+    'title': title,
+    'items': items.map((i) => i.toJson()).toList(),
+  };
+}
+
+class Suggestion {
+  final String title;
+
+  /// One lowercase word from the backend (place, video, product, person,
+  /// event, idea) — shown uppercased as a small tag.
+  final String kind;
+  final String why;
+
+  const Suggestion({
+    required this.title,
+    required this.kind,
+    required this.why,
+  });
+
+  factory Suggestion.fromJson(Map<String, dynamic> json) => Suggestion(
+    title: json['title']?.toString() ?? '',
+    kind: json['kind']?.toString() ?? '',
+    why: json['why']?.toString() ?? '',
+  );
+
+  Map<String, dynamic> toJson() => {'title': title, 'kind': kind, 'why': why};
 }
 
 class AnswerPlace {

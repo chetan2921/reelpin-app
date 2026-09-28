@@ -6,6 +6,7 @@ import 'package:reelpin/components/chat/chat_answer_text.dart';
 import 'package:reelpin/components/chat/chat_chart_block.dart';
 import 'package:reelpin/components/chat/chat_places_block.dart';
 import 'package:reelpin/components/chat/chat_reel_strip.dart';
+import 'package:reelpin/components/chat/chat_suggestions_block.dart';
 import 'package:reelpin/components/chat/chat_table_block.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/data_models/chat/answer_block.dart';
@@ -128,6 +129,11 @@ class ChatAnswerCard extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: ChatChartBlockView(block: block),
+        );
+      case SuggestionsBlock():
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: ChatSuggestionsBlockView(block: block),
         );
     }
   }

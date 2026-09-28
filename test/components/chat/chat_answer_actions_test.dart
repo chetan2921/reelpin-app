@@ -32,6 +32,27 @@ void main() {
     expect(text, isNot(contains('r1')));
   });
 
+  test('plain text includes suggestions beyond the saves', () {
+    final text = answerPlainText(
+      _answer(const [
+        SuggestionsBlock(
+          title: 'PICKED FOR YOUR TASTE',
+          items: [
+            Suggestion(
+              title: 'Watch the Laver Cup',
+              kind: 'event',
+              why: 'You save a lot of tennis.',
+            ),
+          ],
+        ),
+      ]),
+    );
+
+    expect(text, contains('PICKED FOR YOUR TASTE'));
+    expect(text, contains('Watch the Laver Cup'));
+    expect(text, contains('You save a lot of tennis.'));
+  });
+
   testWidgets('export destinations render disabled', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

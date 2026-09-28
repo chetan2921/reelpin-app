@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/components/chat/chat_chart_block.dart';
 import 'package:reelpin/components/chat/chat_reel_strip.dart';
+import 'package:reelpin/components/chat/chat_suggestions_block.dart';
 import 'package:reelpin/components/chat/chat_table_block.dart';
 import 'package:reelpin/data_models/chat/answer_block.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
@@ -212,4 +213,53 @@ void main() {
       }
     },
   );
+
+  testWidgets('renders nothing when there are no suggestions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const ChatSuggestionsBlockView(
+          block: SuggestionsBlock(title: 'PICKED FOR YOUR TASTE', items: []),
+        ),
+      ),
+    );
+
+    expect(find.byType(ChatSuggestionsBlockView), findsOneWidget);
+    expect(find.textContaining('PICKED FOR YOUR TASTE'), findsNothing);
+  });
+
+  testWidgets('renders the title and one card per suggestion', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const ChatSuggestionsBlockView(
+          block: SuggestionsBlock(
+            title: 'PICKED FOR YOUR TASTE',
+            items: [
+              Suggestion(
+                title: 'Watch the Laver Cup',
+                kind: 'event',
+                why: 'You save a lot of tennis.',
+              ),
+              Suggestion(
+                title: 'Try a padel session',
+                kind: 'idea',
+                why: 'Close to your tennis saves.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('PICKED FOR YOUR TASTE'), findsOneWidget);
+    expect(find.text('Watch the Laver Cup'), findsOneWidget);
+    expect(find.text('You save a lot of tennis.'), findsOneWidget);
+    expect(find.text('EVENT'), findsOneWidget);
+    expect(find.text('Try a padel session'), findsOneWidget);
+    expect(find.text('Close to your tennis saves.'), findsOneWidget);
+    expect(find.text('IDEA'), findsOneWidget);
+  });
 }

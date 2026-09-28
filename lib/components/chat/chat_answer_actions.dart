@@ -31,6 +31,11 @@ String answerPlainText(ChatMessage message) {
         for (final bar in bars) {
           buffer.writeln('${bar.label}: ${bar.value.toStringAsFixed(0)}');
         }
+      case SuggestionsBlock(:final title, :final items):
+        buffer.writeln(title);
+        for (final item in items) {
+          buffer.writeln('• ${item.title}: ${item.why}');
+        }
       case ReelRefsBlock():
         break;
     }

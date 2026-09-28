@@ -59,4 +59,35 @@ void main() {
     await tester.tap(find.text('RETRY'));
     expect(retried, 1);
   });
+
+  testWidgets('renders suggestions blocks', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        ChatAnswerCard(
+          message: _answer(
+            blocks: const [
+              SuggestionsBlock(
+                title: 'PICKED FOR YOUR TASTE',
+                items: [
+                  Suggestion(
+                    title: 'Watch the Laver Cup',
+                    kind: 'event',
+                    why: 'You save a lot of tennis.',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          onRetry: () {},
+          library: const [],
+          reelCache: _reelCache(),
+          onTapReel: (_) {},
+          onSaveToCollection: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('PICKED FOR YOUR TASTE'), findsOneWidget);
+    expect(find.text('Watch the Laver Cup'), findsOneWidget);
+  });
 }
