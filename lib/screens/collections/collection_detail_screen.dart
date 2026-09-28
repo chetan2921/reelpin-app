@@ -252,8 +252,12 @@ class _CollectionDetailScreenState
       collection = detail?.collection;
     }
 
-    final isLoading = widget.isShared ? _loadingShared : vm.isLoadingDetail;
-    final error = widget.isShared ? _sharedError : vm.detailError;
+    final isLoading = widget.isShared
+        ? _loadingShared
+        : vm.isLoadingDetailFor(widget.collectionId);
+    final error = widget.isShared
+        ? _sharedError
+        : vm.detailErrorFor(widget.collectionId);
     final canEdit = !widget.isShared && (detail?.canEdit ?? false);
     // A link visitor and an invited viewer are in the same position, so both
     // get the strip. Keyed off the role rather than the detail's can_edit
@@ -633,7 +637,8 @@ class _CollectionDetailScreenState
   Widget _buildPaginationState(BuildContext context, CollectionDetail detail) {
     final layout = AppLayout.of(context);
     final vm = ref.watch(collectionsViewModelProvider);
-    if (!vm.isLoadingDetail || !detail.pagination.hasMore) {
+    if (!vm.isLoadingDetailFor(widget.collectionId) ||
+        !detail.pagination.hasMore) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
     return SliverToBoxAdapter(

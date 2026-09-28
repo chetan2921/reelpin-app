@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:reelpin/services/cache/content_cache.dart';
@@ -82,7 +83,7 @@ void main() {
       // The placeholder is what keeps the full-screen spinner off while the
       // real payload is fetched.
       final pending = vm.loadCollectionDetail('a', forceRefresh: true);
-      expect(vm.isLoadingDetail, isFalse);
+      expect(vm.isLoadingDetailFor('a'), isFalse);
 
       await pending;
       expect(vm.isDetailPlaceholder('a'), isFalse);
@@ -169,6 +170,107 @@ void main() {
       await vm.hydrateFromCache();
 
       expect(vm.collections.single.id, 'live');
+    });
+  });
+
+  group('warm-up', () {
+    test('a grid load readies every collection before it is tapped', () async {
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a'), _summary('b')],
+      );
+      final vm = CollectionsViewModel(api, cache: _testCache());
+
+      await vm.loadCollections();
+      await vm.detailWarmUp;
+
+      expect(api.detailCalls, 2);
+      for (final id in ['a', 'b']) {
+        expect(vm.detailFor(id), isNotNull);
+        expect(vm.isDetailPlaceholder(id), isFalse);
+      }
+    });
+
+    test('an unchanged collection comes off disk with no request', () async {
+      final cache = _testCache();
+      await cache.write(
+        ContentCacheKeys.collectionDetail('a'),
+        _detail('a', reelIds: ['r1'], updatedAt: 't1').toJson(),
+      );
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a', updatedAt: 't1')],
+      );
+      final vm = CollectionsViewModel(api, cache: cache);
+
+      await vm.loadCollections();
+      await vm.detailWarmUp;
+
+      expect(api.detailCalls, 0);
+      expect(vm.detailFor('a')?.reels.map((r) => r.id), ['r1']);
+    });
+
+    test('a collection changed since its saved copy is refetched', () async {
+      final cache = _testCache();
+      await cache.write(
+        ContentCacheKeys.collectionDetail('a'),
+        _detail('a', reelIds: ['r1'], updatedAt: 't1').toJson(),
+      );
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a', updatedAt: 't2')],
+      );
+      api.detailQueue.add(_detail('a', reelIds: ['r1', 'r2'], updatedAt: 't2'));
+      final vm = CollectionsViewModel(api, cache: cache);
+
+      await vm.loadCollections();
+      await vm.detailWarmUp;
+
+      expect(api.detailCalls, 1);
+      expect(vm.detailFor('a')?.reels.map((r) => r.id), ['r1', 'r2']);
+    });
+
+    test('runs two requests at a time and stops at the cap', () async {
+      final api = _FakeCollectionsHttp(
+        collections: [for (var i = 0; i < 25; i++) _summary('c$i')],
+      );
+      final vm = CollectionsViewModel(api, cache: _testCache());
+
+      await vm.loadCollections();
+      await vm.detailWarmUp;
+
+      expect(api.maxConcurrentDetails, 2);
+      expect(api.detailCalls, 20);
+      expect(vm.detailFor('c19'), isNotNull);
+      expect(vm.detailFor('c20'), isNull);
+    });
+
+    test('one collection failing leaves the others untouched', () async {
+      final api = _FakeCollectionsHttp(
+        collections: [_summary('a'), _summary('b')],
+      )..failingDetailIds.add('b');
+      final vm = CollectionsViewModel(api, cache: _testCache());
+
+      await vm.loadCollections();
+      await vm.detailWarmUp;
+
+      expect(vm.detailErrorFor('b'), isNotNull);
+      expect(vm.detailErrorFor('a'), isNull);
+      expect(vm.isLoadingDetailFor('a'), isFalse);
+      expect(vm.detailFor('a'), isNotNull);
+    });
+
+    test('opening a collection mid warm-up joins the request', () async {
+      final api = _FakeCollectionsHttp(collections: [_summary('a')])
+        ..detailGate = Completer<void>();
+      final vm = CollectionsViewModel(api, cache: _testCache());
+
+      await vm.loadCollections();
+      // Let the warm-up get past its disk read and into the request.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final open = vm.loadCollectionDetail('a', forceRefresh: true);
+      api.detailGate!.complete();
+      await open;
+      await vm.detailWarmUp;
+
+      expect(api.detailCalls, 1);
     });
   });
 
@@ -301,15 +403,21 @@ void main() {
         await vm.loadCollectionDetail('a');
         final listBefore = api.getCollectionsCalls;
 
+        // Held open, so the save can be seen finishing without it.
+        api.detailGate = Completer<void>();
         await vm.addReelsToCollections(
           collectionIds: const ['a'],
           reelIds: const ['r9'],
         );
 
-        // The detail is dropped rather than refetched here: the next open of the
-        // collection loads it, instead of the save waiting on data nobody may look at.
+        // The stale detail is dropped, and the save does not wait on the
+        // refetch — that happens in the background, ahead of the next open.
         expect(vm.detailFor('a'), isNull);
         expect(api.getCollectionsCalls, greaterThan(listBefore));
+
+        api.detailGate!.complete();
+        await vm.detailWarmUp;
+        expect(vm.detailFor('a'), isNotNull);
       },
     );
 
@@ -446,12 +554,14 @@ CollectionSummary _summary(
   String visibility = 'private',
   int itemCount = 0,
   String? name,
+  String? updatedAt,
 }) {
   return CollectionSummary(
     id: id,
     name: name ?? 'Collection $id',
     visibility: visibility,
     itemCount: itemCount,
+    updatedAt: updatedAt,
   );
 }
 
@@ -479,9 +589,15 @@ CollectionDetail _detail(
   int? nextOffset,
   int itemCount = 0,
   String visibility = 'private',
+  String? updatedAt,
 }) {
   return CollectionDetail(
-    collection: _summary(id, itemCount: itemCount, visibility: visibility),
+    collection: _summary(
+      id,
+      itemCount: itemCount,
+      visibility: visibility,
+      updatedAt: updatedAt,
+    ),
     reels: reelIds.map(_reel).toList(),
     pagination: CollectionPagination(
       hasMore: hasMore,
@@ -504,8 +620,16 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   /// Consumed in order by getCollectionDetail; falls back to a bare detail.
   final List<CollectionDetail> detailQueue = [];
 
+  /// Detail fetches for these ids fail; every other id succeeds.
+  final Set<String> failingDetailIds = {};
+
+  /// While set, detail fetches wait on it, so a test can hold one in flight.
+  Completer<void>? detailGate;
+
   int getCollectionsCalls = 0;
   int detailCalls = 0;
+  int _concurrentDetails = 0;
+  int maxConcurrentDetails = 0;
   int addCalls = 0;
   int _concurrentAdds = 0;
   int maxConcurrentAdds = 0;
@@ -525,9 +649,22 @@ class _FakeCollectionsHttp implements CollectionsHttp {
     String? cursor,
   }) async {
     detailCalls += 1;
-    if (error != null) throw error!;
-    if (detailQueue.isNotEmpty) return detailQueue.removeAt(0);
-    return _detail(collectionId);
+    _concurrentDetails += 1;
+    if (_concurrentDetails > maxConcurrentDetails) {
+      maxConcurrentDetails = _concurrentDetails;
+    }
+    try {
+      await Future<void>.delayed(Duration.zero);
+      await detailGate?.future;
+      if (error != null) throw error!;
+      if (failingDetailIds.contains(collectionId)) {
+        throw const ApiException('detail failed', 500);
+      }
+      if (detailQueue.isNotEmpty) return detailQueue.removeAt(0);
+      return _detail(collectionId);
+    } finally {
+      _concurrentDetails -= 1;
+    }
   }
 
   @override

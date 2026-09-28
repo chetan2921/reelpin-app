@@ -121,6 +121,11 @@ void main() {
       // release that throw is skipped and the tree may build inconsistently.
       expect(tester.takeException(), isNull);
       expect(collections.isDetailPlaceholder('c-empty'), isTrue);
+
+      // The grid load warms each collection in the background; let that land
+      // while the view model is still alive.
+      await tester.runAsync(() => collections.detailWarmUp);
+      await tester.pump(const Duration(seconds: 1));
     },
   );
 

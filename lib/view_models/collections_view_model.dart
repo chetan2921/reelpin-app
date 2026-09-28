@@ -38,18 +38,31 @@ class CollectionsViewModel extends ChangeNotifier {
   /// had, with no reels behind it yet. Tracked so the screen can tell "nothing
   /// in here" apart from "not fetched yet".
   final Set<String> _placeholderDetailIds = {};
-  bool _isLoadingDetail = false;
-  String? _detailError;
+
+  /// Per collection, not shared: the warm-up loads several in the background,
+  /// and one of those finishing or failing must never flip the state of the
+  /// collection that is actually on screen.
+  final Set<String> _loadingDetailIds = {};
+  final Map<String, String> _detailErrors = {};
   final Map<String, Future<void>> _loadDetailFutures = {};
+
+  /// Enough to cover the top of the grid, without a large library costing a
+  /// request per collection on every launch.
+  static const _warmDetailLimit = 20;
+  Future<void>? _detailWarmUp;
 
   bool _isMutating = false;
 
   List<CollectionSummary> get collections => List.unmodifiable(_collections);
   bool get isLoadingCollections => _isLoadingCollections;
   String? get collectionsError => _collectionsError;
-  bool get isLoadingDetail => _isLoadingDetail;
-  String? get detailError => _detailError;
+  bool isLoadingDetailFor(String id) => _loadingDetailIds.contains(id);
+  String? detailErrorFor(String id) => _detailErrors[id];
   bool get isMutating => _isMutating;
+
+  /// Completes once the latest warm-up has finished.
+  @visibleForTesting
+  Future<void> get detailWarmUp => _detailWarmUp ?? Future<void>.value();
 
   CollectionDetail? detailFor(String id) => _details[id];
 
@@ -144,6 +157,7 @@ class CollectionsViewModel extends ChangeNotifier {
           'collections': result.map((c) => c.toJson()).toList(),
         }),
       );
+      _detailWarmUp = _warmDetails(result);
     } catch (e) {
       _collectionsError = userFacingErrorMessage(
         e,
@@ -175,6 +189,36 @@ class CollectionsViewModel extends ChangeNotifier {
   bool _hasRealDetail(String id) =>
       _details.containsKey(id) && !_placeholderDetailIds.contains(id);
 
+  /// Gets each collection's reels ready before it is tapped, the way Home and
+  /// Map are loaded before their tabs are opened. Opening one then paints on
+  /// its first frame instead of waiting on a spinner.
+  ///
+  /// The saved copy goes into memory first; only a collection with no copy,
+  /// or one whose `updated_at` moved since the copy was taken (reels added or
+  /// removed), is fetched. Two at a time, so launch never floods the backend.
+  Future<void> _warmDetails(List<CollectionSummary> summaries) {
+    final queue = summaries.take(_warmDetailLimit).toList();
+    Future<void> worker() async {
+      while (queue.isNotEmpty) {
+        await _warmDetail(queue.removeAt(0));
+      }
+    }
+
+    return Future.wait([worker(), worker()]);
+  }
+
+  Future<void> _warmDetail(CollectionSummary summary) async {
+    final id = summary.id;
+    await hydrateDetailFromCache(id);
+    // Deleted or left while the warm-up was queued behind others.
+    if (!_collections.any((c) => c.id == id)) return;
+    if (_hasRealDetail(id) &&
+        _details[id]!.collection.updatedAt == summary.updatedAt) {
+      return;
+    }
+    await loadCollectionDetail(id, forceRefresh: true);
+  }
+
   Future<void> loadCollectionDetail(String id, {bool forceRefresh = false}) {
     final existing = _loadDetailFutures[id];
     if (existing != null) return existing;
@@ -187,12 +231,12 @@ class CollectionsViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadCollectionDetail(String id) async {
-    // Same rule as the grid: with a cached detail on screen this stays false,
+    // Same rule as the grid: with a cached detail on screen this stays off,
     // so refreshing never replaces the reels with a spinner.
-    _isLoadingDetail = !_details.containsKey(id);
     // A placeholder counts as something to show, so the spinner stays off; the
     // screen renders the collection and fills the grid in when this lands.
-    _detailError = null;
+    if (!_details.containsKey(id)) _loadingDetailIds.add(id);
+    _detailErrors.remove(id);
     notifyListeners();
     try {
       final detail = await _api.getCollectionDetail(id);
@@ -202,12 +246,12 @@ class CollectionsViewModel extends ChangeNotifier {
         _cache.write(ContentCacheKeys.collectionDetail(id), detail.toJson()),
       );
     } catch (e) {
-      _detailError = userFacingErrorMessage(
+      _detailErrors[id] = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load this collection right now.',
       );
     } finally {
-      _isLoadingDetail = false;
+      _loadingDetailIds.remove(id);
       notifyListeners();
     }
   }
@@ -224,7 +268,7 @@ class CollectionsViewModel extends ChangeNotifier {
       _details[id] = current.append(next);
       notifyListeners();
     } catch (e) {
-      _detailError = userFacingErrorMessage(
+      _detailErrors[id] = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load more reels right now.',
       );
