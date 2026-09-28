@@ -12,6 +12,90 @@ import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/utils/error_message.dart';
 
 void main() {
+  group('an expired session', () {
+    /// The backend accepts only [validToken]; everything else is a 401.
+    MockClient backendAccepting(String validToken, List<String?> seen) {
+      return MockClient((request) async {
+        final auth = request.headers['Authorization'];
+        seen.add(auth);
+        return auth == 'Bearer $validToken'
+            ? http.Response(jsonEncode({'status': 'ok'}), 200)
+            : http.Response(jsonEncode({'detail': 'expired'}), 401);
+      });
+    }
+
+    test('is renewed once and the request sent again', () async {
+      var token = 'expired';
+      var renewals = 0;
+      final seen = <String?>[];
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => token,
+        sessionRefresher: () async {
+          renewals += 1;
+          token = 'fresh';
+        },
+        client: backendAccepting('fresh', seen),
+      );
+
+      expect(await service.healthCheck(), isTrue);
+      expect(renewals, 1);
+      expect(seen, ['Bearer expired', 'Bearer fresh']);
+    });
+
+    test('that cannot be renewed surfaces the 401 without looping', () async {
+      final seen = <String?>[];
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'revoked',
+        sessionRefresher: () async => throw Exception('refresh failed'),
+        client: backendAccepting('fresh', seen),
+      );
+
+      expect(await service.healthCheck(), isFalse);
+      expect(seen, ['Bearer revoked']);
+    });
+
+    test('already renewed by another request is not renewed again', () async {
+      var token = 'expired';
+      var renewals = 0;
+      final seen = <String?>[];
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => token,
+        sessionRefresher: () async => renewals += 1,
+        client: MockClient((request) async {
+          seen.add(request.headers['Authorization']);
+          if (request.headers['Authorization'] == 'Bearer fresh') {
+            return http.Response(jsonEncode({'status': 'ok'}), 200);
+          }
+          // Renewed elsewhere while this request was in flight.
+          token = 'fresh';
+          return http.Response(jsonEncode({'detail': 'expired'}), 401);
+        }),
+      );
+
+      expect(await service.healthCheck(), isTrue);
+      expect(renewals, 0);
+      expect(seen, ['Bearer expired', 'Bearer fresh']);
+    });
+
+    test('is not renewed for a request sent signed out', () async {
+      var renewals = 0;
+      final seen = <String?>[];
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => null,
+        sessionRefresher: () async => renewals += 1,
+        client: backendAccepting('fresh', seen),
+      );
+
+      expect(await service.healthCheck(), isFalse);
+      expect(renewals, 0);
+      expect(seen, [null]);
+    });
+  });
+
   test('healthCheck uses the backend health endpoint', () async {
     final service = ApiClient(
       baseUrl: 'https://example.com',
