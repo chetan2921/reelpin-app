@@ -132,6 +132,34 @@ void main() {
     viewModel.dispose();
     await auth.close();
   });
+
+  test('every auth change is passed on to billing', () async {
+    SharedPreferences.setMockInitialValues({});
+    final events = <String>[];
+    final auth = StreamController<AuthState>();
+    final synced = <String?>[];
+    final viewModel = SessionViewModel(
+      _FakeAuthService(events, stream: auth.stream),
+      ApiClient.new,
+      () => _FakeSharingHttp(events),
+      syncBillingUser: (userId) async => synced.add(userId),
+    );
+
+    // RevenueCat must hold the Supabase id while signed in and nothing after,
+    // or a purchase could land on an account the backend cannot see.
+    auth.add(
+      AuthState(
+        AuthChangeEvent.signedIn,
+        Session(accessToken: 'token', tokenType: 'bearer', user: _signedInUser),
+      ),
+    );
+    auth.add(const AuthState(AuthChangeEvent.signedOut, null));
+    await pumpEventQueue();
+
+    expect(synced, ['user-1', null]);
+    viewModel.dispose();
+    await auth.close();
+  });
 }
 
 const _signedInUser = User(

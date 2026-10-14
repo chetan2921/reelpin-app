@@ -181,6 +181,11 @@ class _CollectionChatPanelState extends ConsumerState<CollectionChatPanel> {
               excludeCollectionId: widget.collectionId,
             ),
           ),
+          // No auto-retry after buying: a shared thread only gets questions
+          // someone deliberately asks (see onRetry above).
+          onUpgrade: () => unawaited(
+            openPaywall(context, entryPoint: PaywallEntryPoint.chat),
+          ),
         );
       },
     );

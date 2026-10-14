@@ -8,6 +8,7 @@ import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/chat_thread.dart';
 import 'package:reelpin/data_models/chat/collection_chat_page.dart';
 import 'package:reelpin/data_models/chat/collection_chat_thread.dart';
+import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/http/chat_http.dart';
 import 'package:reelpin/http/collection_chat_http.dart';
 import 'package:reelpin/http/mock_collection_chat_http.dart';
@@ -51,6 +52,48 @@ class _FailingCollectionChatHttp implements CollectionChatHttp {
     required String collectionId,
     required String messageId,
   }) async => throw Exception('backend exploded');
+}
+
+/// What the backend answers once the asker's free messages are spent.
+class _QuotaCollectionChatHttp implements CollectionChatHttp {
+  @override
+  Future<List<CollectionChatThread>> fetchThreads(String collectionId) async =>
+      const [];
+
+  @override
+  Future<CollectionChatPage> fetchMessages(
+    String collectionId, {
+    required String threadId,
+    String? after,
+  }) async => const CollectionChatPage();
+
+  @override
+  Stream<ChatEvent> ask({
+    required String collectionId,
+    required String threadId,
+    required String text,
+    List<ChatAttachment> attachments = const [],
+  }) async* {
+    throw const ApiException(
+      "You've used today's free AI messages.",
+      402,
+      errorCode: 'chat_quota_exceeded',
+    );
+  }
+
+  @override
+  Future<void> shareAnswer({
+    required String collectionId,
+    required String threadId,
+    required String questionText,
+    required List<AnswerBlock> blocks,
+  }) async {}
+
+  @override
+  Future<void> deleteMessage({
+    required String collectionId,
+    required String messageId,
+  }) async {}
 }
 
 /// Holds the thread list back until [release], so a test can look at what
@@ -136,6 +179,17 @@ void main() {
 
   CollectionChatViewModel viewModelFor(CollectionChatHttp http) =>
       CollectionChatViewModel(http, 'c1', cache: cache());
+
+  test(
+    'a spent daily allowance marks the pending answer limitReached',
+    () async {
+      final viewModel = viewModelFor(_QuotaCollectionChatHttp());
+
+      await viewModel.ask('where do we start?');
+
+      expect(viewModel.messages.last.status, MessageStatus.limitReached);
+    },
+  );
 
   test('load opens the most recently active conversation', () async {
     final http = mock();

@@ -148,6 +148,10 @@ check_common_setup() {
     "SupabaseConfig must use the iOS OAuth callback scheme com.chetan.reelpin."
   require_text "$ROOT_DIR/lib/env.dart" "redirectHost = 'login-callback'" \
     "SupabaseConfig must use the OAuth callback host login-callback."
+  require_text "$ROOT_DIR/lib/env.dart" "appleApiKey = 'appl_" \
+    "RevenueCatConfig.appleApiKey is empty. Paste the Apple public SDK key from RevenueCat > API keys."
+  require_text "$ROOT_DIR/lib/env.dart" "googleApiKey = 'goog_" \
+    "RevenueCatConfig.googleApiKey is empty. Paste the Google public SDK key from RevenueCat > API keys."
 
   step "Checking development configuration"
   "$FLUTTER_WRAPPER" --reelpin-env=dev check-config

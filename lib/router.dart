@@ -8,10 +8,10 @@ import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/services/analytics/analytics_event.dart';
 import 'package:reelpin/services/analytics/analytics_service.dart';
+import 'package:reelpin/services/billing/billing_service.dart';
 import 'package:reelpin/screens/collections/collection_detail_screen.dart';
 import 'package:reelpin/screens/feature_announcement/feature_announcement_screen.dart';
 import 'package:reelpin/screens/how_to/how_to_use_screen.dart';
-import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/screens/profile/profile_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_loader_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
@@ -105,26 +105,49 @@ Route<void> sharedCollectionRoute(
   );
 }
 
-Route<void> paywallRoute({
-  PaywallEntryPoint entryPoint = PaywallEntryPoint.account,
-}) {
-  return MaterialPageRoute<void>(
-    builder: (_) => PaywallScreen(entryPoint: entryPoint),
-  );
-}
+/// Where a paywall was opened from, for analytics.
+enum PaywallEntryPoint { account, saveLimit, history, chat }
 
-Future<void> openPaywall(
+/// Shows RevenueCat's paywall. True when the user bought or restored Pro; the
+/// plan is then re-read with a backend sync, because the purchase webhook may
+/// not have landed yet and every screen gating on the plan should update now.
+Future<bool> openPaywall(
   BuildContext context, {
   PaywallEntryPoint entryPoint = PaywallEntryPoint.account,
-}) {
+}) async {
   unawaited(
     AnalyticsService.log(
       AnalyticsEvent.paywallViewed,
       parameters: {'entry_point': entryPoint.name},
     ),
   );
-  return Navigator.of(context).push(paywallRoute(entryPoint: entryPoint));
+  final container = ProviderScope.containerOf(context, listen: false);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final outcome = await BillingService.instance.presentPaywall();
+  if (outcome == PaywallOutcome.unavailable) {
+    messenger?.showSnackBar(const SnackBar(content: Text(_storeUnavailable)));
+  }
+  final unlocked = outcome == PaywallOutcome.unlocked;
+  if (unlocked) {
+    unawaited(
+      container
+          .read(entitlementsViewModelProvider)
+          .refresh(reloadContent: true, syncBilling: true),
+    );
+  }
+  return unlocked;
 }
+
+/// Opens RevenueCat's subscription management (cancel, change plan, restore).
+Future<void> openSubscriptionManagement(BuildContext context) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (!await BillingService.instance.manageSubscription()) {
+    messenger?.showSnackBar(const SnackBar(content: Text(_storeUnavailable)));
+  }
+}
+
+const _storeUnavailable =
+    "Couldn't reach the store right now. Please try again.";
 
 /// Every door into the chat funnels through here: seed the composer, then
 /// select the tab. One path, so a reel, a collection and the search bar cannot

@@ -278,6 +278,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           onSaveToCollection: () => unawaited(
             shareToCollectionChat(context, ref, blocks: message.blocks),
           ),
+          onUpgrade: () async {
+            final unlocked = await openPaywall(
+              context,
+              entryPoint: PaywallEntryPoint.chat,
+            );
+            // Pro now: the backend re-checks RevenueCat at the limit, so the
+            // same question goes through without the user typing it again.
+            if (unlocked && isLastMessage) unawaited(viewModel.retryLast());
+          },
         );
       },
     );

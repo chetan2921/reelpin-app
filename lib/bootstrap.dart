@@ -11,6 +11,7 @@ import 'package:reelpin/reelpin_app.dart';
 import 'package:reelpin/env.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/services/analytics/analytics_service.dart';
+import 'package:reelpin/services/billing/billing_service.dart';
 import 'package:reelpin/view_models/theme_view_model.dart';
 import 'package:reelpin/utils/app_logger.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
@@ -51,6 +52,9 @@ Future<void> bootstrap() async {
       ),
     );
   }
+  // Not awaited: it is not needed for the first frame, and BillingService
+  // makes every later call wait for it.
+  unawaited(BillingService.instance.configure());
   await pendingLink;
   final themeViewModel = await pendingTheme;
 

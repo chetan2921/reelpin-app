@@ -20,6 +20,7 @@ class SessionViewModel extends ChangeNotifier {
     this._accountHttpFactory,
     this._sharingHttpFactory, {
     Future<void> Function()? unregisterPushToken,
+    Future<void> Function(String? userId)? syncBillingUser,
   }) : _unregisterPushToken = unregisterPushToken {
     _session = _authService.currentSession;
     _subscription = _authService.authStateChanges.listen((state) {
@@ -31,6 +32,12 @@ class SessionViewModel extends ChangeNotifier {
       notifyListeners();
       _syncProfileSilently();
       unawaited(_syncShareHandoffState());
+      // RevenueCat holds the signed-in Supabase id (or nothing after
+      // sign-out), so a purchase is always made under the account the
+      // backend checks.
+      if (syncBillingUser != null) {
+        unawaited(syncBillingUser(state.session?.user.id));
+      }
     }, onError: AuthService.handleAuthStreamError);
     _bootstrap();
   }

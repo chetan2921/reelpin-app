@@ -29,6 +29,7 @@ class ChatAnswerCard extends StatelessWidget {
     required this.onTapReel,
     required this.onSaveToCollection,
     this.sharedByName,
+    this.onUpgrade,
   });
 
   final ChatMessage message;
@@ -48,6 +49,10 @@ class ChatAnswerCard extends StatelessWidget {
   /// resolved.
   final String? sharedByName;
 
+  /// Opens the paywall from a [MessageStatus.limitReached] answer. Null hides
+  /// GET PRO.
+  final VoidCallback? onUpgrade;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -58,17 +63,31 @@ class ChatAnswerCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: message.status == MessageStatus.failed
-            ? [_buildFailure(context)]
-            : [
-                if (message.isShared) _buildSharedMarker(context),
-                ...message.blocks.map((b) => _buildBlock(context, b)),
-                if (message.status == MessageStatus.complete)
-                  ChatAnswerActions(
-                    message: message,
-                    onSaveToCollection: onSaveToCollection,
-                  ),
-              ],
+        children: switch (message.status) {
+          MessageStatus.failed => [_buildFailure(context)],
+          MessageStatus.limitReached => [
+            _buildDailyLimit(
+              context,
+              "You've used today's free AI messages.",
+              onUpgrade: onUpgrade,
+            ),
+          ],
+          MessageStatus.capReached => [
+            _buildDailyLimit(
+              context,
+              "You've reached today's chat limit. It resets at midnight IST.",
+            ),
+          ],
+          _ => [
+            if (message.isShared) _buildSharedMarker(context),
+            ...message.blocks.map((b) => _buildBlock(context, b)),
+            if (message.status == MessageStatus.complete)
+              ChatAnswerActions(
+                message: message,
+                onSaveToCollection: onSaveToCollection,
+              ),
+          ],
+        },
       ),
     );
   }
@@ -172,6 +191,59 @@ class ChatAnswerCard extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+
+  /// The backend refused this question because a daily cap is spent. RETRY
+  /// stays for after the reset; GET PRO, only when [onUpgrade] is given,
+  /// opens the paywall.
+  Widget _buildDailyLimit(
+    BuildContext context,
+    String text, {
+    VoidCallback? onUpgrade,
+  }) {
+    final onRetry = this.onRetry;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          text,
+          style: GoogleFonts.spaceMono(
+            color: AppColors.textSec(context),
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (onUpgrade != null) _cardButton(context, 'GET PRO', onUpgrade),
+            if (onUpgrade != null && onRetry != null) const SizedBox(width: 8),
+            if (onRetry != null) _cardButton(context, 'RETRY', onRetry),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _cardButton(BuildContext context, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.yellow,
+          border: Border.all(color: AppColors.fg(context)),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.spaceMono(
+            color: AppColors.black,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+          ),
+        ),
+      ),
     );
   }
 }

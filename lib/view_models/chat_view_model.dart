@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:reelpin/utils/chat_error_status.dart';
 import 'package:reelpin/data_models/chat/answer_block.dart';
 import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/chat_thread.dart';
@@ -271,7 +272,7 @@ class ChatViewModel extends ChangeNotifier {
       }
     } catch (e) {
       AppLogger.error('Chat answer failed: $e');
-      _failAnswer(threadId, pendingId);
+      _failAnswer(threadId, pendingId, e);
     } finally {
       _answeringThreadIds.remove(threadId);
       // Stages are transient UI for whatever thread the user is watching.
@@ -311,11 +312,11 @@ class ChatViewModel extends ChangeNotifier {
     );
   }
 
-  void _failAnswer(String threadId, String pendingId) {
+  void _failAnswer(String threadId, String pendingId, Object error) {
     _updateMessage(
       threadId,
       pendingId,
-      (message) => message.copyWith(status: MessageStatus.failed),
+      (message) => message.copyWith(status: statusForChatError(error)),
     );
   }
 

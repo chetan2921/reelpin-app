@@ -41,6 +41,7 @@ class EntitlementsViewModel extends ChangeNotifier {
   String? _error;
   Future<void>? _refreshFuture;
   bool _pendingReloadContent = false;
+  bool _pendingSyncBilling = false;
 
   EntitlementsResponse? get response => _response;
   UserEntitlement? get entitlement => _response?.currentEntitlement;
@@ -71,29 +72,45 @@ class EntitlementsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> refresh({bool reloadContent = false}) {
+  /// [syncBilling] makes the backend re-read RevenueCat first; it is set
+  /// only right after a purchase.
+  Future<void> refresh({bool reloadContent = false, bool syncBilling = false}) {
     final activeRefresh = _refreshFuture;
     if (activeRefresh != null) {
       _pendingReloadContent = _pendingReloadContent || reloadContent;
+      // A refresh that started before the purchase must not swallow the
+      // post-purchase sync; it runs as soon as that one ends.
+      _pendingSyncBilling = _pendingSyncBilling || syncBilling;
       return activeRefresh;
     }
 
     final shouldReloadContent = reloadContent || _pendingReloadContent;
+    final shouldSyncBilling = syncBilling || _pendingSyncBilling;
     _pendingReloadContent = false;
-    final future = _refresh(reloadContent: shouldReloadContent);
+    _pendingSyncBilling = false;
+    final future = _refresh(
+      reloadContent: shouldReloadContent,
+      syncBilling: shouldSyncBilling,
+    );
     _refreshFuture = future;
     return future.whenComplete(() {
       if (identical(_refreshFuture, future)) {
         _refreshFuture = null;
-        if (_pendingReloadContent) {
+        final reload = _pendingReloadContent;
+        final sync = _pendingSyncBilling;
+        if (reload || sync) {
           _pendingReloadContent = false;
-          unawaited(refresh(reloadContent: true));
+          _pendingSyncBilling = false;
+          unawaited(refresh(reloadContent: reload, syncBilling: sync));
         }
       }
     });
   }
 
-  Future<void> _refresh({required bool reloadContent}) async {
+  Future<void> _refresh({
+    required bool reloadContent,
+    required bool syncBilling,
+  }) async {
     final userId = _authService.currentUser?.id;
     if (userId == null || userId.trim().isEmpty) {
       reset();
@@ -106,7 +123,10 @@ class EntitlementsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final next = await _accountHttp.getAccountEntitlements(userId: userId);
+      final next = await _accountHttp.getAccountEntitlements(
+        userId: userId,
+        sync: syncBilling,
+      );
       final isDifferentUser =
           previous != null &&
           previous.currentEntitlement.userId != next.currentEntitlement.userId;

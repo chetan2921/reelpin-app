@@ -5,6 +5,7 @@ import 'package:reelpin/data_models/chat/answer_block.dart';
 import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/chat_thread.dart';
 import 'package:reelpin/data_models/chat/thinking_stage.dart';
+import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/http/chat_http.dart';
 import 'package:reelpin/services/chat/chat_thread_store.dart';
 import 'package:reelpin/view_models/chat_view_model.dart';
@@ -69,6 +70,47 @@ class _FakeChatHttp implements ChatHttp {
     );
     if (shouldFail) throw Exception('backend exploded');
     yield AnswerEvent([TextBlock('answer to $text')]);
+  }
+}
+
+/// What the backend answers once a Pro user's daily fair-use cap is spent.
+class _FairUseChatHttp implements ChatHttp {
+  @override
+  Future<List<String>> fetchSuggestions() async => const [];
+
+  @override
+  Stream<ChatEvent> sendMessage({
+    required String threadId,
+    required String text,
+    List<ChatAttachment> attachments = const [],
+    List<ChatHistoryEntry> history = const [],
+  }) async* {
+    throw const ApiException(
+      "You've reached today's chat limit. It resets at midnight IST.",
+      429,
+      errorCode: 'chat_fair_use_limit',
+    );
+  }
+}
+
+/// What the backend answers once the day's free messages are spent: a plain
+/// JSON 402, surfaced by the HTTP layer as an [ApiException].
+class _QuotaChatHttp implements ChatHttp {
+  @override
+  Future<List<String>> fetchSuggestions() async => const [];
+
+  @override
+  Stream<ChatEvent> sendMessage({
+    required String threadId,
+    required String text,
+    List<ChatAttachment> attachments = const [],
+    List<ChatHistoryEntry> history = const [],
+  }) async* {
+    throw const ApiException(
+      "You've used today's free AI messages.",
+      402,
+      errorCode: 'chat_quota_exceeded',
+    );
   }
 }
 
@@ -144,6 +186,27 @@ void main() {
 
     expect(viewModel.stages, isEmpty);
     expect(viewModel.isAnswering, isFalse);
+  });
+
+  test('a spent daily allowance marks the answer limitReached', () async {
+    final viewModel = build(_QuotaChatHttp());
+
+    await viewModel.send('tennis');
+
+    final messages = viewModel.activeThread!.messages;
+    expect(messages.first.text, 'tennis');
+    expect(messages.last.status, MessageStatus.limitReached);
+  });
+
+  test('a spent Pro fair-use cap marks the answer capReached', () async {
+    final viewModel = build(_FairUseChatHttp());
+
+    await viewModel.send('tennis');
+
+    expect(
+      viewModel.activeThread!.messages.last.status,
+      MessageStatus.capReached,
+    );
   });
 
   test('a failure marks the answer failed and keeps the question', () async {

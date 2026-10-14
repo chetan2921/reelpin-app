@@ -1169,11 +1169,16 @@ class ApiClient
   @override
   Future<EntitlementsResponse> getAccountEntitlements({
     required String userId,
+    bool sync = false,
   }) async {
     final res = await _sendRequest((baseUrl) {
       return _client
           .get(
-            _apiUri(baseUrl, '/api/v1/account/entitlements'),
+            _apiUri(
+              baseUrl,
+              '/api/v1/account/entitlements',
+              queryParameters: {if (sync) 'sync': 'true'},
+            ),
             headers: _headers(),
           )
           .timeout(_requestTimeout);

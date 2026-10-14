@@ -24,7 +24,6 @@ import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/constants/source_platforms.dart';
 import 'package:reelpin/utils/app_store_links.dart';
-import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/components/sharing/share_card.dart';
 import 'package:reelpin/services/analytics/analytics_event.dart';
 import 'package:reelpin/services/analytics/analytics_service.dart';

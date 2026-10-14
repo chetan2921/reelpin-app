@@ -30,7 +30,6 @@ import 'package:reelpin/constants/app_theme.dart';
 import 'package:reelpin/constants/chat_feature.dart';
 import 'package:reelpin/screens/home/home_screen.dart';
 import 'package:reelpin/screens/map/map_screen.dart';
-import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/screens/splash/splash_screen.dart';
 import 'package:reelpin/screens/discover/discover_screen.dart';
 import 'package:reelpin/screens/collections/collections_screen.dart';

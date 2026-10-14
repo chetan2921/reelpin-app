@@ -96,6 +96,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final layout = AppLayout.of(context);
     final sessionVm = ref.watch(sessionViewModelProvider);
     final themeVm = ref.watch(themeViewModelProvider);
+    final isPro =
+        ref.watch(entitlementsViewModelProvider).entitlement?.isPro == true;
 
     return Scaffold(
       backgroundColor: AppColors.bg(context),
@@ -297,6 +299,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       child: Text(
                         'VIEW',
+                        style: GoogleFonts.spaceMono(
+                          color: AppColors.black,
+                          fontSize: layout.font(11),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: layout.gap(18)),
+                _sectionTitle(context, 'REELPIN PRO'),
+                SizedBox(height: layout.gap(10)),
+                GestureDetector(
+                  onTap: () => isPro
+                      ? unawaited(openSubscriptionManagement(context))
+                      : unawaited(openPaywall(context)),
+                  child: _actionCard(
+                    context,
+                    color: AppColors.bg(context),
+                    title: isPro ? 'YOU HAVE PRO' : 'GET REELPIN PRO',
+                    subtitle: isPro
+                        ? 'MANAGE, CHANGE OR CANCEL YOUR SUBSCRIPTION.'
+                        : 'MORE AI CHAT MESSAGES EVERY DAY.',
+                    trailing: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.inset(12),
+                        vertical: layout.gap(10),
+                      ),
+                      decoration: AppTheme.brutalBox(
+                        context,
+                        color: AppColors.yellow,
+                        shadow: false,
+                      ),
+                      child: Text(
+                        isPro ? 'MANAGE' : 'GET PRO',
                         style: GoogleFonts.spaceMono(
                           color: AppColors.black,
                           fontSize: layout.font(11),

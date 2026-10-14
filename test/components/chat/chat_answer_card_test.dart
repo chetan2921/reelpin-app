@@ -60,6 +60,80 @@ void main() {
     expect(retried, 1);
   });
 
+  testWidgets('a spent allowance offers Pro and retry', (tester) async {
+    var upgraded = 0;
+    var retried = 0;
+    await tester.pumpWidget(
+      _host(
+        ChatAnswerCard(
+          message: _answer(status: MessageStatus.limitReached),
+          onRetry: () => retried += 1,
+          onUpgrade: () => upgraded += 1,
+          library: const [],
+          reelCache: _reelCache(),
+          onTapReel: (_) {},
+          onSaveToCollection: () {},
+        ),
+      ),
+    );
+
+    expect(find.text("You've used today's free AI messages."), findsOneWidget);
+    expect(find.text("That didn't go through."), findsNothing);
+    await tester.tap(find.text('GET PRO'));
+    await tester.tap(find.text('RETRY'));
+    expect((upgraded, retried), (1, 1));
+  });
+
+  testWidgets('without an upgrade callback there is no GET PRO', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatAnswerCard(
+          message: _answer(status: MessageStatus.limitReached),
+          onRetry: null,
+          library: const [],
+          reelCache: _reelCache(),
+          onTapReel: (_) {},
+          onSaveToCollection: () {},
+        ),
+      ),
+    );
+
+    expect(find.text("You've used today's free AI messages."), findsOneWidget);
+    expect(find.text('GET PRO'), findsNothing);
+    expect(find.text('RETRY'), findsNothing);
+  });
+
+  testWidgets('a spent Pro cap says when it resets and offers no Pro', (
+    tester,
+  ) async {
+    var retried = 0;
+    await tester.pumpWidget(
+      _host(
+        ChatAnswerCard(
+          message: _answer(status: MessageStatus.capReached),
+          onRetry: () => retried += 1,
+          onUpgrade: () {},
+          library: const [],
+          reelCache: _reelCache(),
+          onTapReel: (_) {},
+          onSaveToCollection: () {},
+        ),
+      ),
+    );
+
+    expect(
+      find.text(
+        "You've reached today's chat limit. It resets at midnight IST.",
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('GET PRO'), findsNothing);
+    await tester.tap(find.text('RETRY'));
+    expect(retried, 1);
+  });
+
   testWidgets('renders suggestions blocks', (tester) async {
     await tester.pumpWidget(
       _host(

@@ -78,3 +78,23 @@ class SupabaseConfig {
     return 'com.chetan.reelpin';
   }
 }
+
+/// RevenueCat's public SDK keys (RevenueCat → Project settings → API keys).
+/// They are made to ship inside the app; the secret key that can read
+/// subscribers lives only on the backend. Committed rather than passed as
+/// --dart-define so a release build cannot be cut without them, and
+/// tool/reelpin.sh refuses to build while either is empty.
+class RevenueCatConfig {
+  RevenueCatConfig._();
+
+  static const String appleApiKey = 'appl_wTUJbWDicWTYQNgTbfgUYZJUrHb';
+  static const String googleApiKey = 'goog_ejaZXMrAltaxGHFIAqaxcZlaHau';
+
+  static String get apiKey => switch (defaultTargetPlatform) {
+    TargetPlatform.iOS => appleApiKey,
+    TargetPlatform.android => googleApiKey,
+    _ => '',
+  };
+
+  static bool get isConfigured => !kIsWeb && apiKey.isNotEmpty;
+}

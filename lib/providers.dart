@@ -8,6 +8,7 @@ import 'package:reelpin/http/collection_chat_http.dart';
 import 'package:reelpin/http/mock_chat_http.dart';
 import 'package:reelpin/http/mock_collection_chat_http.dart';
 import 'package:reelpin/screens/app_shell/app_shell.dart';
+import 'package:reelpin/services/billing/billing_service.dart';
 import 'package:reelpin/services/chat/chat_thread_store.dart';
 import 'package:reelpin/view_models/chat_view_model.dart';
 import 'package:reelpin/view_models/collection_chat_view_model.dart';
@@ -59,6 +60,7 @@ final sessionViewModelProvider = ChangeNotifierProvider<SessionViewModel>((
     ApiClient.new,
     unregisterPushToken: () =>
         ref.read(pushRegistrationServiceProvider).unregisterCurrentDevice(),
+    syncBillingUser: BillingService.instance.syncUser,
   );
 });
 

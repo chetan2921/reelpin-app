@@ -761,6 +761,34 @@ void main() {
     },
   );
 
+  test(
+    'getAccountEntitlements asks for a billing sync only when told to',
+    () async {
+      final urls = <String>[];
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          urls.add(request.url.toString());
+          return http.Response(jsonEncode({'detail': 'stop here'}), 500);
+        }),
+      );
+
+      await expectLater(
+        service.getAccountEntitlements(userId: 'user-123', sync: true),
+        throwsA(isA<ApiException>()),
+      );
+      await expectLater(
+        service.getAccountEntitlements(userId: 'user-123'),
+        throwsA(isA<ApiException>()),
+      );
+
+      expect(urls, [
+        'https://example.com/api/v1/account/entitlements?sync=true',
+        'https://example.com/api/v1/account/entitlements',
+      ]);
+    },
+  );
+
   test('getAccountEntitlements still reports non-404 failures', () async {
     final service = ApiClient(
       baseUrl: 'https://example.com',

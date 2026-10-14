@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:reelpin/utils/chat_error_status.dart';
 import 'package:reelpin/data_models/chat/answer_block.dart';
 import 'package:reelpin/data_models/chat/chat_attachment.dart';
 import 'package:reelpin/data_models/chat/chat_thread.dart';
@@ -239,7 +240,7 @@ class CollectionChatViewModel extends ChangeNotifier {
     } catch (e) {
       AppLogger.error('Collection chat: ask failed: $e');
       _error = userFacingErrorMessage(e);
-      _failPending(pendingId);
+      _failPending(pendingId, e);
     } finally {
       _isAsking = false;
       _stages = [];
@@ -360,8 +361,8 @@ class CollectionChatViewModel extends ChangeNotifier {
     (m) => m.copyWith(blocks: blocks, status: MessageStatus.complete),
   );
 
-  void _failPending(String pendingId) =>
-      _replace(pendingId, (m) => m.copyWith(status: MessageStatus.failed));
+  void _failPending(String pendingId, Object error) =>
+      _replace(pendingId, (m) => m.copyWith(status: statusForChatError(error)));
 
   void _replace(String id, ChatMessage Function(ChatMessage) transform) {
     final index = _messages.indexWhere((m) => m.id == id);

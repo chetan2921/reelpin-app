@@ -3,7 +3,11 @@ import 'package:reelpin/data_models/chat/chat_attachment.dart';
 
 enum MessageRole { user, assistant }
 
-enum MessageStatus { sending, complete, failed }
+/// [limitReached]: the backend refused the question because the asker's
+/// free daily chat messages are spent; the card offers Pro.
+/// [capReached]: a Pro user's daily fair-use cap is spent; the card says when
+/// it resets.
+enum MessageStatus { sending, complete, failed, limitReached, capReached }
 
 class ChatMessage {
   final String id;
