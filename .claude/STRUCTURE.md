@@ -16,6 +16,7 @@ so an unusual declaration can be missed; grep the code when unsure.
 .agent/
   skills/
      (22 files, not listed)
+.gitattributes
 .github/
   workflows/
     build-dev-apk.yml
@@ -240,6 +241,7 @@ lib/
       reel_filters.dart
       reel_page.dart
     sharing/
+      pending_share.dart
       share_resolve_response.dart
   env.dart
   http/
@@ -483,6 +485,8 @@ test/
       processing_job_test.dart
       reel_filters_test.dart
       reel_test.dart
+    sharing/
+      pending_share_test.dart
   env_test.dart
   http/
     api_client_test.dart
@@ -549,6 +553,7 @@ test/
     search_view_model_test.dart
     session_view_model_test.dart
     theme_view_model_test.dart
+    user_state_coordinator_test.dart
 tool/
   check_architecture.dart
   check_assets.dart
@@ -1391,6 +1396,12 @@ windows/
   - L4 `const ReelPage({ required this.reels, required this.hasMore, required this.totalCount, required this.limit, required this.offset, this.nextCursor, this.nextOffset, })`
   - L22 `factory ReelPage.fromJson(Map<String, dynamic> json)`
 
+### lib/data_models/sharing/pending_share.dart
+
+- L3 `class PendingShare`
+  - L4 `const PendingShare({required this.payload, this.collectionIds = const []})`
+  - L13 `static PendingShare? fromNative(Object? entry)`
+
 ### lib/data_models/sharing/share_resolve_response.dart
 
 - L1 `class ShareResolveResponse`
@@ -1795,44 +1806,44 @@ windows/
 
 ### lib/screens/app_shell/app_shell.dart
 
-- L42 `const _navIconSize = 27.0`
-- L44 `class AppShell extends ConsumerStatefulWidget`
-  - L45 `const AppShell({super.key, this.controller})`
-  - L50 `ConsumerState<AppShell> createState()`
-- L53 `class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver`
-  - L91 `void initState()`
-  - L117 `Future<void> _initCollectionDeepLinks()`
-  - L146 `Future<void> _handleDeferredLink()`
-  - L151 `Future<void> _handleIncomingUri(Uri uri)`
-  - L164 `void _routeCollectionUri(Uri uri)`
-  - L177 `Future<void> _openLaunchLink(CollectionLink link)`
-  - L191 `void _routeCollectionLink(CollectionLink link, {bool animate = true})`
-  - L207 `Future<void> _openSharedCollection( String token, { bool animate = true, String? url, })`
-  - L219 `Future<void> _acceptCollectionInvite( String token, { bool animate = true, })`
-  - L246 `void _initSharingIntent()`
-  - L270 `void _processSharedData(List<SharedMediaFile> files)`
-  - L278 `Future<void> _handleSharedPayload( String payload, { bool showConfirmation = true, List<String> collectionIds = const [], })`
-  - L328 `Future<void> _enqueueSharedReel( String url, { required bool showConfirmation, List<String> collectionIds = const [], })`
-  - L472 `void dispose()`
-  - L482 `void didChangeAppLifecycleState(AppLifecycleState state)`
-  - L512 `Future<void> _drainPendingNativeShares()`
-  - L558 `Future<void> _runFirstRunFlow()`
-  - L563 `Future<void> _maybeShowHowToGuide()`
-  - L591 `Future<bool> _accountHasSaves()`
-  - L597 `Future<void> _maybePromptInitialPermissions()`
-  - L615 `Future<bool> _enableReelPinPermissions()`
-  - L651 `Future<void> _syncPushTokenRegistrationIfPossible()`
-  - L665 `void _openSearchFromHome()`
-  - L673 `Future<void> _scrollHomeToTop()`
-  - L682 `void _showHomeAtTop()`
-  - L691 `void _selectControlledTab(int index)`
-  - L699 `bool _isHomeScrolledDown()`
-  - L704 `Future<void> _refreshSavedContent()`
-  - L716 `void _selectTab(int index)`
-  - L732 `void _refreshSelectedContent(int index)`
-  - L746 `Widget build(BuildContext context)`
-  - L795 `Widget _buildNavBar()`
-  - L843 `Widget _buildNavItem(int index, _NavItem item)`
+- L43 `const _navIconSize = 27.0`
+- L45 `class AppShell extends ConsumerStatefulWidget`
+  - L46 `const AppShell({super.key, this.controller})`
+  - L51 `ConsumerState<AppShell> createState()`
+- L54 `class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver`
+  - L92 `void initState()`
+  - L118 `Future<void> _initCollectionDeepLinks()`
+  - L147 `Future<void> _handleDeferredLink()`
+  - L152 `Future<void> _handleIncomingUri(Uri uri)`
+  - L165 `void _routeCollectionUri(Uri uri)`
+  - L178 `Future<void> _openLaunchLink(CollectionLink link)`
+  - L192 `void _routeCollectionLink(CollectionLink link, {bool animate = true})`
+  - L208 `Future<void> _openSharedCollection( String token, { bool animate = true, String? url, })`
+  - L220 `Future<void> _acceptCollectionInvite( String token, { bool animate = true, })`
+  - L247 `void _initSharingIntent()`
+  - L271 `void _processSharedData(List<SharedMediaFile> files)`
+  - L279 `Future<void> _handleSharedPayload( String payload, { bool showConfirmation = true, List<String> collectionIds = const [], })`
+  - L329 `Future<void> _enqueueSharedReel( String url, { required bool showConfirmation, List<String> collectionIds = const [], })`
+  - L473 `void dispose()`
+  - L483 `void didChangeAppLifecycleState(AppLifecycleState state)`
+  - L513 `Future<void> _drainPendingNativeShares()`
+  - L546 `Future<void> _runFirstRunFlow()`
+  - L551 `Future<void> _maybeShowHowToGuide()`
+  - L579 `Future<bool> _accountHasSaves()`
+  - L585 `Future<void> _maybePromptInitialPermissions()`
+  - L603 `Future<bool> _enableReelPinPermissions()`
+  - L639 `Future<void> _syncPushTokenRegistrationIfPossible()`
+  - L653 `void _openSearchFromHome()`
+  - L661 `Future<void> _scrollHomeToTop()`
+  - L670 `void _showHomeAtTop()`
+  - L679 `void _selectControlledTab(int index)`
+  - L687 `bool _isHomeScrolledDown()`
+  - L692 `Future<void> _refreshSavedContent()`
+  - L704 `void _selectTab(int index)`
+  - L720 `void _refreshSelectedContent(int index)`
+  - L734 `Widget build(BuildContext context)`
+  - L783 `Widget _buildNavBar()`
+  - L831 `Widget _buildNavItem(int index, _NavItem item)`
 
 ### lib/screens/app_shell/authenticated_shell.dart
 
@@ -2802,43 +2813,44 @@ windows/
 
 - L14 `class CollectionsViewModel extends ChangeNotifier`
   - L15 `CollectionsViewModel(this._api, {ContentCache? cache, this.renderShareTiles})`
-  - L56 `List<CollectionSummary> get collections`
-  - L57 `bool get isLoadingCollections`
-  - L58 `String? get collectionsError`
-  - L59 `bool isLoadingDetailFor(String id)`
-  - L60 `String? detailErrorFor(String id)`
-  - L61 `bool get isMutating`
-  - L65 `Future<void> get detailWarmUp`
-  - L67 `CollectionDetail? detailFor(String id)`
-  - L71 `bool isDetailPlaceholder(String id)`
-  - L79 `void bumpToFront(String collectionId)`
-  - L93 `void seedDetailFromSummary(String id)`
-  - L110 `Future<void> hydrateFromCache()`
-  - L132 `Future<void> loadCollections({bool forceRefresh = false})`
-  - L142 `Future<void> _loadCollections()`
-  - L175 `Future<void> hydrateDetailFromCache(String id)`
-  - L189 `bool _hasRealDetail(String id)`
-  - L199 `Future<void> _warmDetails(List<CollectionSummary> summaries)`
-  - L210 `Future<void> _warmDetail(CollectionSummary summary)`
-  - L222 `Future<void> loadCollectionDetail(String id, {bool forceRefresh = false})`
-  - L233 `Future<void> _loadCollectionDetail(String id)`
-  - L259 `Future<void> loadMore(String id)`
-  - L279 `Future<CollectionSummary?> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L299 `Future<void> updateCollection({ required String collectionId, String? name, String? description, })`
-  - L318 `Future<void> deleteCollection(String id)`
-  - L334 `Future<void> addReelsToCollections({ required List<String> collectionIds, required List<String> reelIds, })`
-  - L358 `Future<void> removeReel({ required String collectionId, required String reelId, })`
-  - L382 `Future<CollectionLink?> enableLink(String id)`
-  - L391 `Future<void> disableLink(String id)`
-  - L398 `Future<CollectionMembers?> loadMembers(String id)`
-  - L406 `Future<void> removeMember({ required String collectionId, required String memberUserId, })`
-  - L418 `Future<CollectionInvite?> createInvite({ required String collectionId, required String role, })`
-  - L432 `Future<void> leave(String id)`
-  - L441 `Future<CollectionSummary?> acceptInvite(String token)`
-  - L450 `Future<void> _mutate(Future<void> Function() action)`
-  - L465 `Future<void> _syncShareTargets()`
-  - L472 `void _upsert(CollectionSummary collection)`
-  - L481 `void _setVisibility(String id, String visibility)`
+  - L57 `List<CollectionSummary> get collections`
+  - L58 `bool get isLoadingCollections`
+  - L59 `String? get collectionsError`
+  - L60 `bool isLoadingDetailFor(String id)`
+  - L61 `String? detailErrorFor(String id)`
+  - L62 `bool get isMutating`
+  - L66 `Future<void> get detailWarmUp`
+  - L68 `CollectionDetail? detailFor(String id)`
+  - L72 `bool isDetailPlaceholder(String id)`
+  - L80 `void bumpToFront(String collectionId)`
+  - L94 `void seedDetailFromSummary(String id)`
+  - L111 `Future<void> hydrateFromCache()`
+  - L135 `void reset()`
+  - L152 `Future<void> loadCollections({bool forceRefresh = false})`
+  - L162 `Future<void> _loadCollections()`
+  - L200 `Future<void> hydrateDetailFromCache(String id)`
+  - L214 `bool _hasRealDetail(String id)`
+  - L224 `Future<void> _warmDetails(List<CollectionSummary> summaries)`
+  - L235 `Future<void> _warmDetail(CollectionSummary summary)`
+  - L247 `Future<void> loadCollectionDetail(String id, {bool forceRefresh = false})`
+  - L258 `Future<void> _loadCollectionDetail(String id)`
+  - L284 `Future<void> loadMore(String id)`
+  - L304 `Future<CollectionSummary?> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L324 `Future<void> updateCollection({ required String collectionId, String? name, String? description, })`
+  - L343 `Future<void> deleteCollection(String id)`
+  - L359 `Future<void> addReelsToCollections({ required List<String> collectionIds, required List<String> reelIds, })`
+  - L383 `Future<void> removeReel({ required String collectionId, required String reelId, })`
+  - L407 `Future<CollectionLink?> enableLink(String id)`
+  - L416 `Future<void> disableLink(String id)`
+  - L423 `Future<CollectionMembers?> loadMembers(String id)`
+  - L431 `Future<void> removeMember({ required String collectionId, required String memberUserId, })`
+  - L443 `Future<CollectionInvite?> createInvite({ required String collectionId, required String role, })`
+  - L457 `Future<void> leave(String id)`
+  - L466 `Future<CollectionSummary?> acceptInvite(String token)`
+  - L475 `Future<void> _mutate(Future<void> Function() action)`
+  - L490 `Future<void> _syncShareTargets()`
+  - L497 `void _upsert(CollectionSummary collection)`
+  - L506 `void _setVisibility(String id, String visibility)`
 
 ### lib/view_models/discover_view_model.dart
 
@@ -3100,11 +3112,11 @@ windows/
 
 ### lib/view_models/user_state_coordinator.dart
 
-- L16 `class UserStateCoordinator`
-  - L17 `UserStateCoordinator({ required SearchViewModel searchViewModel, required ReelFiltersViewModel reelFiltersViewModel, required MapViewModel mapViewModel, required HomeViewModel homeViewModel, required DiscoverViewModel discoverViewModel, required ReelRepository reelRepository, required EntitlementsViewModel entitlementsViewModel, required ProcessingJobsViewModel processingJobsViewModel, required ChatViewModel chatViewModel, })`
-  - L54 `Future<void> hydrate()`
-  - L63 `Future<void> _hydrate()`
-  - L81 `void reset()`
+- L17 `class UserStateCoordinator`
+  - L18 `UserStateCoordinator({ required SearchViewModel searchViewModel, required ReelFiltersViewModel reelFiltersViewModel, required MapViewModel mapViewModel, required HomeViewModel homeViewModel, required DiscoverViewModel discoverViewModel, required ReelRepository reelRepository, required EntitlementsViewModel entitlementsViewModel, required ProcessingJobsViewModel processingJobsViewModel, required ChatViewModel chatViewModel, required CollectionsViewModel collectionsViewModel, })`
+  - L58 `Future<void> hydrate()`
+  - L67 `Future<void> _hydrate()`
+  - L85 `void reset()`
 
 ### play-assets/phone/generate_store_screenshots.py
 
@@ -3246,6 +3258,10 @@ windows/
 
 - L4 `void main()`
 - L183 `Map<String, Object?> _reelJson(Map<String, Object?> overrides)`
+
+### test/data_models/sharing/pending_share_test.dart
+
+- L7 `void main()`
 
 ### test/env_test.dart
 
@@ -3566,27 +3582,27 @@ windows/
 ### test/view_models/collections_view_model_test.dart
 
 - L13 `void main()`
-- L543 `ContentCache _testCache()`
-- L552 `CollectionSummary _summary( String id, { String visibility = 'private', int itemCount = 0, String? name, String? updatedAt, })`
-- L568 `Reel _reel(String id)`
-- L585 `CollectionDetail _detail( String id, { List<String> reelIds = const [], bool hasMore = false, int? nextOffset, int itemCount = 0, String visibility = 'private', String? updatedAt, })`
-- L612 `class _FakeCollectionsHttp implements CollectionsHttp`
-  - L613 `_FakeCollectionsHttp({this.collections = const [], this.error})`
-  - L638 `Future<List<CollectionSummary>> getCollections()`
-  - L645 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
-  - L671 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L681 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
-  - L692 `Future<void> deleteCollection(String collectionId)`
-  - L697 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
-  - L713 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
-  - L721 `Future<CollectionLink> enableCollectionLink(String collectionId)`
-  - L730 `Future<void> disableCollectionLink(String collectionId)`
-  - L735 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
-  - L741 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
-  - L749 `Future<void> leaveCollection(String collectionId)`
-  - L754 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
-  - L767 `Future<CollectionSummary> acceptCollectionInvite(String token)`
-  - L777 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
+- L592 `ContentCache _testCache()`
+- L601 `CollectionSummary _summary( String id, { String visibility = 'private', int itemCount = 0, String? name, String? updatedAt, })`
+- L617 `Reel _reel(String id)`
+- L634 `CollectionDetail _detail( String id, { List<String> reelIds = const [], bool hasMore = false, int? nextOffset, int itemCount = 0, String visibility = 'private', String? updatedAt, })`
+- L661 `class _FakeCollectionsHttp implements CollectionsHttp`
+  - L662 `_FakeCollectionsHttp({this.collections = const [], this.error})`
+  - L690 `Future<List<CollectionSummary>> getCollections()`
+  - L699 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
+  - L725 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L735 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
+  - L746 `Future<void> deleteCollection(String collectionId)`
+  - L751 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
+  - L767 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
+  - L775 `Future<CollectionLink> enableCollectionLink(String collectionId)`
+  - L784 `Future<void> disableCollectionLink(String collectionId)`
+  - L789 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
+  - L795 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
+  - L803 `Future<void> leaveCollection(String collectionId)`
+  - L808 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
+  - L821 `Future<CollectionSummary> acceptCollectionInvite(String token)`
+  - L831 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
 
 ### test/view_models/discover_view_model_test.dart
 
@@ -3721,6 +3737,13 @@ windows/
 
 - L7 `void main()`
 
+### test/view_models/user_state_coordinator_test.dart
+
+- L11 `void main()`
+- L32 `class _FakeCollectionsHttp implements CollectionsHttp`
+  - L34 `Future<List<CollectionSummary>> getCollections()`
+  - L39 `dynamic noSuchMethod(Invocation invocation)`
+
 ### tool/check_architecture.dart
 
 - L16 `void main()`
@@ -3742,4 +3765,4 @@ windows/
 
 - L3 `void main()`
 
-<!-- mapped: reelpin-app@05094ba | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
+<!-- mapped: reelpin-app@8bd45ed | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->

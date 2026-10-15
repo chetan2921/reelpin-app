@@ -11,9 +11,7 @@ here, so every in-flight item names its owner and branch.
 ## Next
 
 - No milestone recorded (`SPEC.md`). Because chat stays off `main`, decide how `dev` and `main` reconcile before the next promotion (`AGENTS.md`, "Branches and release").
-- Known defects, none started (read from code, not run). The first two are live in the store build too:
-  - iOS shares that fall back to pending are lost (`.claude/contracts/share-intake.md`).
-  - Collections survive a sign-out into another account (`AGENTS.md` sharp edge 10).
+- Known defects, none started (read from code, not run):
   - A stale share token survives `invalid_share_token` (`.claude/contracts/share-intake.md`).
   - The backend never sends the plan-limit error codes the app waits for (`.claude/contracts/shared-values.md`).
   - TikTok is missing from `lib/constants/source_platforms.dart`.
@@ -28,3 +26,4 @@ here, so every in-flight item names its owner and branch.
 - 2026-09-22 Collection chat threads as their own ASK screen; share an answer into several collections; drop the card for a share the backend never finishes. `1.0.16+22` promoted without chat (PR 18).
 - 2026-09-28 Chat renders the backend's taste-based suggestions block.
 - 2026-09-29 Warm collections before they open; renew an expired session and resend on a 401. `1.0.17+23` promoted (PR 19).
+- 2026-10-16 iOS shares that fell back to pending are sent again (the drain now reads the extension's `url`), and collections reset when the signed-in user changes. Both bugs were in the store build too; the fixes are on `dev` only.

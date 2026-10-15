@@ -8,7 +8,7 @@ repos must agree on is in `.claude/contracts/`. `README.md` covers the screens,
 local setup, store builds, Firebase, maps, and signing in prose; this file is
 what to know on top of it.
 
-Mapped from `dev` @ `05094ba`.
+Mapped from `dev` @ `05094ba`; re-checked at `8bd45ed` after the share and collections fixes.
 
 ## Navigate
 
@@ -68,7 +68,7 @@ job is active and drops the finished reel straight into the grid.
 7. Dead code, do not extend it: the Folders HTTP, view model, and models; `processReel`, `_waitForProcessingJob`, `processVideo`, `healthCheck`; `ReelDetailViewModel`; the unused `webview_flutter` and `geocoding` dependencies.
 8. Firebase is skipped silently when its gitignored config files are missing: no push, no Crashlytics.
 9. Switching the API base URL drops the native share token.
-10. **Collections survive a sign-out**, on `main` and `dev` alike (read from code, not run). `UserStateCoordinator.reset()` resets every other view model but not `CollectionsViewModel`, and the one root `ProviderScope` is never invalidated. After signing out and into another account without restarting the app, SAVED shows the previous account's collection list (`hydrateFromCache` and `loadCollections` both return early while the old list is in memory) until a pull-to-refresh, an app resume, a share, or a restart. Only the list (names, covers, counts) leaks: opening one of those collections gets a 404 from the backend, which checks membership.
+10. **Every view model that holds per-user state must be reset in `UserStateCoordinator.reset()`.** There is one root `ProviderScope` that is never rebuilt, so anything left out survives a sign-out into another account. `CollectionsViewModel` was left out until 2026-10-16 and showed the previous account's collections.
 11. Line numbers in docs rot. Name the symbol and look its line up in `.claude/STRUCTURE.md`.
 
 ## Branches and release
@@ -174,4 +174,4 @@ files. Name the env var or config key instead.
 Tracking: committed to this repo, shared with every collaborator.
 Layout: per repo; reelpin-api carries its own tree.
 
-<!-- mapped: reelpin-app@05094ba | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
+<!-- mapped: reelpin-app@8bd45ed | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
