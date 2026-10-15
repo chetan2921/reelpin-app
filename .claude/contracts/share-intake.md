@@ -25,7 +25,7 @@ the pending-entry shape has to land in Kotlin, Swift, Dart, and the server
 together. The method channel names and native storage keys must match across
 Dart, Kotlin, and Swift inside reelpin-app.
 
-The two platforms store pending entries differently: Android `{raw_payload_text, collection_ids}`, iOS `{url, collection_ids}`. `PendingShare.fromNative` reads both, plus a bare string from older builds. Until 2026-10-16 it read only `raw_payload_text`, so every iOS pending share was dropped.
+The two platforms store pending entries differently: Android `{raw_payload_text, collection_ids}`, iOS `{url, collection_ids}`. `PendingShare.fromNative` reads both, plus a bare string from older builds. Until 2026-10-16 the drain read only `raw_payload_text`, so every iOS pending share was dropped.
 
 ## Known drift when this was written (2026-10-15; read from code, not run)
 
