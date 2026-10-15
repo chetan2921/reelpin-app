@@ -536,6 +536,55 @@ void main() {
       expect(await vm.loadMembers('a'), isNull);
     });
   });
+
+  group('account change', () {
+    test(
+      'reset forgets the previous account and the next load refetches',
+      () async {
+        final rows = [_summary('a')];
+        final api = _FakeCollectionsHttp(collections: rows);
+        final vm = CollectionsViewModel(api);
+        await vm.loadCollections();
+        vm.seedDetailFromSummary('a');
+
+        vm.reset();
+
+        expect(vm.collections, isEmpty);
+        expect(vm.detailFor('a'), isNull);
+
+        // The next account signs in and opens SAVED: a plain load must fetch
+        // their collections rather than treat the list as already loaded.
+        rows
+          ..clear()
+          ..add(_summary('b'));
+        await vm.loadCollections();
+
+        expect(vm.collections.map((c) => c.id), ['b']);
+        expect(api.getCollectionsCalls, 2);
+      },
+    );
+
+    test(
+      'a load still in flight at reset does not bring the old account back',
+      () async {
+        final api = _FakeCollectionsHttp(collections: [_summary('a')])
+          ..collectionsGate = Completer<void>();
+        final vm = CollectionsViewModel(api);
+        final stale = vm.loadCollections();
+
+        vm.reset();
+        api.collectionsGate!.complete();
+        await stale;
+
+        expect(vm.collections, isEmpty);
+
+        // And the next load is a fresh request, not the stale one replayed.
+        api.collectionsGate = null;
+        await vm.loadCollections();
+        expect(api.getCollectionsCalls, 2);
+      },
+    );
+  });
 }
 
 // ─── Fixtures ───
@@ -626,6 +675,9 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   /// While set, detail fetches wait on it, so a test can hold one in flight.
   Completer<void>? detailGate;
 
+  /// While set, list fetches wait on it, so a test can hold one in flight.
+  Completer<void>? collectionsGate;
+
   int getCollectionsCalls = 0;
   int detailCalls = 0;
   int _concurrentDetails = 0;
@@ -637,6 +689,8 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   @override
   Future<List<CollectionSummary>> getCollections() async {
     getCollectionsCalls += 1;
+    final gate = collectionsGate;
+    if (gate != null) await gate.future;
     if (error != null) throw error!;
     return collections;
   }

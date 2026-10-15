@@ -18,6 +18,7 @@ Tests need no dart-defines. CI (`validate.yml`) runs the same gate minus
 ## Known-good examples
 
 - HTTP with a fake client, including the 401 renew-and-resend: `test/http/api_client_test.dart`
+- Wiring through the real providers, faking only one HTTP layer with `ProviderContainer(overrides: ...)`: `test/view_models/user_state_coordinator_test.dart`
 - SSE streaming: `test/http/chat_api_http_test.dart`
 - View model with a fake repository or API: `test/view_models/processing_jobs_view_model_test.dart`, `test/view_models/collections_view_model_test.dart`
 - Widget test with provider overrides: `test/screens/home/home_filter_sheet_test.dart`, `test/screens/home/home_empty_state_test.dart`
@@ -44,11 +45,11 @@ Tests need no dart-defines. CI (`validate.yml`) runs the same gate minus
 ## Gaps
 
 - `EntitlementsViewModel`, `ReelDetailViewModel`, `FoldersViewModel`.
-- `AppShell`: the native share drain, deep-link routing, the resume throttle. This is how the iOS pending-share drop went unnoticed.
+- `AppShell`: deep-link routing, the resume throttle, and the drain loop itself (the entry parsing is tested in `test/data_models/sharing/pending_share_test.dart`). The untested drain is how the iOS pending-share drop went unnoticed.
 - `AuthenticatedShell`: push retry and notification routing.
 - `AuthService`, `ProfileService`, `NotificationService`, `LocationService`, `AnalyticsService`, `AppUpdateService`, `PendingDeepLink`, and `ShareHandoffService` beyond the collections sync.
 - Screens: auth, profile, paywall, map, discover.
 - The native `ShareEnqueueService` and `ShareReceiverActivity` flows and the iOS `ShareViewController` flow.
 - No `integration_test/`.
 
-<!-- mapped: reelpin-app@05094ba | paths: test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+<!-- mapped: reelpin-app@8bd45ed | paths: test/, tool/, android/app/src/test/, ios/RunnerTests/ -->

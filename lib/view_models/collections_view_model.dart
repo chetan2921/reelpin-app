@@ -31,6 +31,7 @@ class CollectionsViewModel extends ChangeNotifier {
   bool _collectionsLoaded = false;
   String? _collectionsError;
   Future<void>? _loadCollectionsFuture;
+  int _collectionsRequestId = 0;
 
   final Map<String, CollectionDetail> _details = {};
 
@@ -129,6 +130,25 @@ class CollectionsViewModel extends ChangeNotifier {
     }
   }
 
+  /// Drops everything belonging to the previous user. A list load still in
+  /// flight was made for that user, so its result is ignored when it lands.
+  void reset() {
+    _collectionsRequestId += 1;
+    _collections.clear();
+    _isLoadingCollections = false;
+    _collectionsLoaded = false;
+    _collectionsError = null;
+    _loadCollectionsFuture = null;
+    _details.clear();
+    _placeholderDetailIds.clear();
+    _loadingDetailIds.clear();
+    _detailErrors.clear();
+    _loadDetailFutures.clear();
+    _detailWarmUp = null;
+    _isMutating = false;
+    notifyListeners();
+  }
+
   Future<void> loadCollections({bool forceRefresh = false}) {
     if (_loadCollectionsFuture != null) return _loadCollectionsFuture!;
     if (_collectionsLoaded && !forceRefresh) return Future.value();
@@ -140,6 +160,7 @@ class CollectionsViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadCollections() async {
+    final requestId = _collectionsRequestId;
     // With cached rows on screen this stays false, so a refresh never replaces
     // a populated grid with a spinner.
     _isLoadingCollections = _collections.isEmpty;
@@ -147,6 +168,7 @@ class CollectionsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       final result = await _api.getCollections();
+      if (requestId != _collectionsRequestId) return;
       _collections
         ..clear()
         ..addAll(result);
@@ -159,13 +181,16 @@ class CollectionsViewModel extends ChangeNotifier {
       );
       _detailWarmUp = _warmDetails(result);
     } catch (e) {
+      if (requestId != _collectionsRequestId) return;
       _collectionsError = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load collections right now.',
       );
     } finally {
-      _isLoadingCollections = false;
-      notifyListeners();
+      if (requestId == _collectionsRequestId) {
+        _isLoadingCollections = false;
+        notifyListeners();
+      }
     }
   }
 

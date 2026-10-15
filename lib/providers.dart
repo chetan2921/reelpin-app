@@ -256,5 +256,6 @@ final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
     entitlementsViewModel: ref.read(entitlementsViewModelProvider),
     processingJobsViewModel: ref.read(processingJobsViewModelProvider),
     chatViewModel: ref.read(chatViewModelProvider),
+    collectionsViewModel: ref.read(collectionsViewModelProvider),
   );
 });
