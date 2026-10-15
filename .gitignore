@@ -58,3 +58,7 @@ assets/config/local.env.*
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 lib/firebase_options.dart
+
+# Per-person Claude Code state; the shared agent context in .claude/ is committed
+/.claude/worktrees/
+/.claude/settings.local.json

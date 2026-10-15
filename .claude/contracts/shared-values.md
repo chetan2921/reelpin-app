@@ -1,0 +1,31 @@
+# Shared values
+
+Strings and limits both repos hard-code and compare at runtime. This file is an
+identical copy in both repos at `.claude/contracts/shared-values.md`; change both
+together.
+
+| Value set | Server (reelpin-api) | Client (reelpin-app) |
+|-----------|----------------------|----------------------|
+| platform ids and labels | `app/services/platform_filters.py` (`PLATFORM_LABELS`, `PLATFORM_ALIASES`, `ALLOWED_PLATFORM_VALUES`), `app/services/source_identity.py` | `lib/constants/source_platforms.dart`; the iOS share extension keeps its own list in `ios/Share Extension/ShareViewController.swift` |
+| job status, step, failure codes | `app/models.py` (`ProcessingJobStatus`, `FailureCode`), poll hints in `app/services/api_responses.py` | `lib/data_models/reels/processing_job.dart` |
+| stale-job window | `WORKER_STALE_JOB_MINUTES` in `app/config.py` | the cutoff in `lib/view_models/processing_jobs_view_model.dart` |
+| content type, parse status | `source_content_type` and `parse_status` written by `app/pipeline.py` and `app/tasks.py` | `lib/data_models/reels/reel.dart` |
+| plans and limits | `app/services/display_data.py` (`FREE_LIMITS`, `PRO_LIMITS`, plan cards), `app/services/pro_plans.py`, table `user_entitlements` | `lib/data_models/account/user_entitlement.dart`, `lib/screens/paywall/paywall_screen.dart` |
+| error codes the app acts on | raised per route in `app/main.py`, `app/services/auth.py`, `app/services/cost_controls.py` | `lib/http/api_exception.dart`, then `lib/screens/app_shell/app_shell.dart` and `lib/screens/reel_detail/reel_detail_screen.dart` |
+| collection roles, visibility | collection models in `app/models.py` | `lib/data_models/collections/collection_models.dart` |
+| collection link URLs | `/c/{token}` and `/c/invite/{token}`, built from `COLLECTION_SHARE_BASE_URL` in `app/main.py` | `lib/services/sharing/collection_link.dart`, App Links in `android/app/src/main/AndroidManifest.xml`, associated domains in `ios/Runner/Runner.entitlements` |
+
+The website that serves the collection link pages and the app-association files
+lives outside both repos; a change to the link shape needs it too.
+
+## Rule
+
+These are compared as strings at runtime. Adding or renaming a value on one side
+does not fail any build: the app shows a wrong label, routes to the wrong place,
+or silently ignores the case. Search both repos for the old string before
+renaming it.
+
+## Known drift when this was written (2026-10-15)
+
+- The app opens the paywall on `monthly_reel_limit_reached` and the upgrade prompt on `history_upgrade_required` (`lib/http/api_exception.dart`), but nothing in reelpin-api `dev` sends either code.
+- The app's platform list has no TikTok entry, so TikTok saves show neutral text; the iOS share extension's list does include TikTok.
