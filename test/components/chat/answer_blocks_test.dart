@@ -214,9 +214,7 @@ void main() {
     },
   );
 
-  testWidgets('renders nothing when there are no suggestions', (
-    tester,
-  ) async {
+  testWidgets('renders nothing when there are no suggestions', (tester) async {
     await tester.pumpWidget(
       _host(
         const ChatSuggestionsBlockView(
@@ -229,9 +227,7 @@ void main() {
     expect(find.textContaining('PICKED FOR YOUR TASTE'), findsNothing);
   });
 
-  testWidgets('renders the title and one card per suggestion', (
-    tester,
-  ) async {
+  testWidgets('renders the title and one card per suggestion', (tester) async {
     await tester.pumpWidget(
       _host(
         const ChatSuggestionsBlockView(
