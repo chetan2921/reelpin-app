@@ -116,14 +116,15 @@ no app runtime code changes are needed for this fallback.
 
 Five valid-post processing jobs complete with three unique parsed saves: a
 canonical video, a photo, and a newer public vt share. Derived vm and /t variants
-of that working share resolve to the same numeric post and saved item. Historical
-short samples still fail or exhaust bounded retries; their availability is not
-established, and they do not become false saved content.
+of that working share resolve to the same numeric post and saved item. All eight test jobs are terminal: five valid jobs complete, two old short
+samples are reported unavailable/private, and one old sample exhausts three
+bounded attempts. Failed samples create no false saved content.
 
-The real ApiClient passes URL recognition for all 17 tested shapes, completed
+The real ApiClient passes URL recognition for all 19 tested shapes, completed
 job/detail/feed decoding for the three saves, five legacy/mobile/embed/player
 alias dedupe checks, selected-collection filing for video and photo, and short
-family dedupe. The temporary collection was deleted; valid test saves remain.
+family dedupe. Deployed v2/locale embed aliases reuse both the existing video
+and photo saves. Six real-client headless tests pass. The temporary collection was deleted; valid test saves remain.
 The photo has one-cover OCR, and stored video/photo thumbnails return HTTP 200.
 The new photo is returned by dev search.
 
@@ -135,4 +136,4 @@ unchanged. The full app suite remains 516 passing tests in CI. No emulator was
 started; device UI, real TikTok share sheets, and completion push delivery remain
 untested. Main, hosting, and all 25 original app edits remain unchanged.
 
-<!-- mapped: reelpin-app@56e692a | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+<!-- mapped: reelpin-app@73b2cfd | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->

@@ -37,7 +37,7 @@ See TESTING.md for covered cases and remaining gaps.
 
 - [x] User confirmed the original dev merges; both PRs are merged.
 - [x] Repeat live checks after the backend fixes. Initial redirect/status corrections exposed retrieval failure; the existing-provider fallback now completes five valid-post jobs with three unique saves and no false About-page content.
-- [x] Run the real Dart API client headlessly against dev: all 17 tested URL shapes accepted; completed jobs, parsed video/photo details, stored thumbnails, TikTok feed, alias dedupe, and selected-collection filing verified. The user requested no emulator.
+- [x] Run the real Dart API client headlessly against dev: all 19 tested URL shapes accepted, including v2/locale embeds; completed jobs, parsed video/photo details, stored thumbnails, TikTok feed, alias dedupe, and selected-collection filing verified. The user requested no emulator.
 - [x] Build Android for dev locally and in CI after freeing unused temporary-runner toolchains. Fix the test-only collection cache teardown race; all 516 app tests pass locally.
 - [ ] Run a dev build with the same Mumbai dev API/worker. Share full video/photo,
   vm/vt, /t, share, embed/player, legacy, and page links from Notes/browser.
@@ -78,4 +78,4 @@ See TESTING.md for covered cases and remaining gaps.
 - 2026-09-28 Chat renders the backend's taste-based suggestions block.
 - 2026-09-29 Warm collections before they open; renew an expired session and resend on a 401. `1.0.17+23` promoted (PR 19).
 
-<!-- mapped: reelpin-app@56e692a | paths: .github/workflows/, lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->
+<!-- mapped: reelpin-app@73b2cfd | paths: .github/workflows/, lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->

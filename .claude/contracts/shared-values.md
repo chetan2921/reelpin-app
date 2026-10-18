@@ -60,3 +60,7 @@ the requested numeric ID. Unresolved short shares may recover their canonical
 post through this path; the existing job and reel models remain unchanged.
 Videos still use Gemini audio transcription, photos still OCR one cover only,
 and non-post pages are not expanded into an account/feed import.
+
+TikTok `/embed/v2/<id>` URLs, including locale suffixes, normalize to the existing
+`/embed/<id>` identity before lookup. They keep the numeric post ID and still
+require video/photo type recovery in the worker.
