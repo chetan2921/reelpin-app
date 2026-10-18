@@ -70,4 +70,4 @@ See TESTING.md for covered cases and remaining gaps.
 - 2026-09-28 Chat renders the backend's taste-based suggestions block.
 - 2026-09-29 Warm collections before they open; renew an expired session and resend on a 401. `1.0.17+23` promoted (PR 19).
 
-<!-- mapped: reelpin-app@a042be9 | paths: lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->
+<!-- mapped: reelpin-app@8d09fad | paths: .github/workflows/, lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->

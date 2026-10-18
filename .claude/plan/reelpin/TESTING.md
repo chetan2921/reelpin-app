@@ -82,4 +82,4 @@ The original user's 25 modified/untracked app files remain untouched. No mobile
 device is connected; the native extension/activity-to-worker path is not tested.
 The first dev APK build failed with `System.IO.IOException: No space left on device` in the GitHub runner diagnostic log. A targeted workflow step frees unused preinstalled toolchains before Android build; the retry and post-fix live results will be recorded when available. This changes only the temporary CI runner, not hosting.
 
-<!-- mapped: reelpin-app@a042be9 | paths: test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+<!-- mapped: reelpin-app@8d09fad | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
