@@ -542,11 +542,48 @@ void main() {
 
 ContentCache _testCache() {
   final dir = Directory.systemTemp.createTempSync('collections_cache_test');
-  addTearDown(() => dir.deleteSync(recursive: true));
-  return ContentCache.forTesting(
-    directory: dir,
-    userIdProvider: () => 'user-1',
+  final cache = _TrackedContentCache(
+    ContentCache.forTesting(directory: dir, userIdProvider: () => 'user-1'),
   );
+  addTearDown(() async {
+    await cache.drain();
+    await dir.delete(recursive: true);
+  });
+  return cache;
+}
+
+class _TrackedContentCache implements ContentCache {
+  _TrackedContentCache(this._delegate);
+
+  final ContentCache _delegate;
+  final Set<Future<void>> _pending = {};
+
+  Future<void> _track(Future<void> operation) {
+    _pending.add(operation);
+    return operation.whenComplete(() => _pending.remove(operation));
+  }
+
+  Future<void> drain() async {
+    while (_pending.isNotEmpty) {
+      await Future.wait(_pending.toList());
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> read(String key) => _delegate.read(key);
+
+  @override
+  Future<void> write(String key, Map<String, dynamic> payload) =>
+      _track(_delegate.write(key, payload));
+
+  @override
+  Future<void> invalidate(String key) => _track(_delegate.invalidate(key));
+
+  @override
+  Future<void> invalidateContent() => _track(_delegate.invalidateContent());
+
+  @override
+  Future<void> clear() => _track(_delegate.clear());
 }
 
 CollectionSummary _summary(
