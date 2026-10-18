@@ -77,7 +77,7 @@ job is active and drops the finished reel straight into the grid.
 `README.md` "Branches And Promotion" has the rules: `dev` is the working
 branch, `main` is what ships to the stores, never push to `main` directly,
 promote with a merge, merge `main` back into `dev` afterwards, never force-push.
-A push to `dev` runs `validate.yml` and `build-dev-apk.yml`; a PR into `dev`
+The dev APK job removes unused preinstalled .NET, Haskell, and CodeQL toolchains from its temporary GitHub runner before building; Android/Java/Flutter tools and EC2 hosting are unchanged. A push to `dev` runs `validate.yml` and `build-dev-apk.yml`; a PR into `dev`
 runs `validate.yml`. Nothing runs on PRs into `main`.
 
 The history does not match those rules today: `main` was promoted through
