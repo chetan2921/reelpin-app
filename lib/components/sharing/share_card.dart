@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:reelpin/constants/source_platforms.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:reelpin/constants/app_colors.dart';
@@ -181,6 +182,25 @@ class ReelShareCard extends StatelessWidget {
   }
 
   static String _typeLabel(Reel reel) {
+    final sourceUrl =
+        [
+          reel.sourceUrl,
+          reel.originalUrl,
+          reel.normalizedUrl,
+          reel.url,
+        ].firstWhere(
+          (url) => SourcePlatform.fromTikTokUrl(url) != null,
+          orElse: () => reel.url,
+        );
+    final platform =
+        SourcePlatform.byId(reel.sourcePlatform) ??
+        SourcePlatform.fromTikTokUrl(sourceUrl);
+    if (platform == SourcePlatform.tiktok) {
+      return platform!.itemNoun(
+        contentType: reel.sourceContentType,
+        sourceUrl: sourceUrl,
+      );
+    }
     final contentType = switch (reel.contentType) {
       'reel' => 'REEL',
       'carousel' => 'CAROUSEL',

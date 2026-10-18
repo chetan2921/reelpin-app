@@ -20,8 +20,11 @@ object ShareIntentParser {
             }
         }
 
-        return parts.joinToString(separator = "\n").trim()
+        return formatPayload(parts)
     }
+
+    fun formatPayload(parts: Iterable<String>): String =
+        parts.distinct().joinToString(separator = "\n").trim()
 }
 
 enum class ShareRequestResult {

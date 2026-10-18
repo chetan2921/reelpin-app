@@ -71,7 +71,11 @@ Shipped: ingestion from many sources, feed, map, search, collections with
 sharing and members, the Pro plan backend. Dated lines are in each repo's
 `IMPLEMENTATION.md`.
 
-Next: not recorded. Ask the user before starting a new milestone.
+In flight: TikTok support on separate branches from `dev`, with existing
+architecture and Mumbai hosting. Videos use the existing media pipeline;
+photos use caption/author plus cover-image OCR only; other pages use readable
+public metadata. Merge into `dev` only after user confirmation. No production
+promotion or hosting change is part of this milestone.
 
 Not in scope: chat in a store build, and everything in the personal context
 engine design (taste-ranked answers, the action registry, preference learning).

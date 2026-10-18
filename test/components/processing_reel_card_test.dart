@@ -59,6 +59,12 @@ void main() {
     expect(find.text('TO REELPIN'), findsOneWidget);
   });
 
+  testWidgets('names TikTok while a shared post is processing', (tester) async {
+    await _pumpCard(tester, _job(progress: 10, platform: 'tiktok'));
+    expect(find.text('TIKTOK'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a progress jump slides the level instead of snapping', (
     tester,
   ) async {

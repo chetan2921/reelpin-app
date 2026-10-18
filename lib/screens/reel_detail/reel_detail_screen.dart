@@ -107,15 +107,25 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
   String? _reelLoadError;
 
   Reel get reel => _activeReel;
-  String get _savedItemNoun =>
-      SourcePlatform.byId(_sourcePlatform)?.savedItemNoun ?? 'REEL';
+  String get _savedItemNoun {
+    final platform = SourcePlatform.byId(_sourcePlatform);
+    if (platform != SourcePlatform.tiktok) {
+      return platform?.savedItemNoun ?? 'REEL';
+    }
+    return platform!.itemNoun(
+      contentType: reel.sourceContentType,
+      sourceUrl: _sourceUris
+          .firstWhere(_isTikTokUri, orElse: () => Uri())
+          .toString(),
+    );
+  }
+
   String get _untitledLabel => 'UNTITLED $_savedItemNoun';
   String get _openSourceLabel => 'OPEN $_openSourceNoun';
   String get _openSourceErrorLabel => 'COULD NOT OPEN $_openSourceNoun';
   String get _openSourceNoun {
     final platform = _sourcePlatform;
-    // Instagram and YouTube get a noun per content type; everything else has a
-    // single shape of content, so the platform's own noun is accurate.
+    // Platforms with several content types refine their default noun here.
     if (platform == 'youtube') {
       if (_isShortsSource) return 'SHORTS';
       return 'VIDEO';
@@ -124,6 +134,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
       if (_isInstagramPostSource) return 'POST';
       return 'REEL';
     }
+    if (platform == 'tiktok') return _savedItemNoun;
     return SourcePlatform.byId(platform)?.openSourceNoun ?? 'REEL';
   }
 
@@ -140,6 +151,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
     if (_hasSourceUri(_isPinterestUri)) return 'pinterest';
     if (_hasSourceUri(_isRedditUri)) return 'reddit';
     if (_hasSourceUri(_isLinkedInUri)) return 'linkedin';
+    if (_hasSourceUri(_isTikTokUri)) return 'tiktok';
     return explicit?.isEmpty == true ? null : explicit;
   }
 
@@ -188,6 +200,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         host == 'm.youtube.com' ||
         host == 'youtu.be';
   }
+
+  bool _isTikTokUri(Uri uri) =>
+      SourcePlatform.fromTikTokUrl(uri.toString()) != null;
 
   bool _isYoutubeShortsUri(Uri uri) {
     if (!_isYoutubeUri(uri)) return false;

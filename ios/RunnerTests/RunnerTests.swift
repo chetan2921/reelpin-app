@@ -1,6 +1,28 @@
 import XCTest
 
 class RunnerTests: XCTestCase {
+  func testTikTokShareVariantsKeepTheirPayloadAndParameters() {
+    let urls = [
+      "https://www.tiktok.com/@creator/video/123?_t=share",
+      "https://www.tiktok.com/@creator/photo/123",
+      "https://vm.tiktok.com/ABC/",
+      "https://vt.tiktok.com/ABC/",
+      "https://www.tiktok.com/t/ABC/",
+      "https://www.tiktok.com/@/video/123",
+      "https://www.tiktok.com/share/video/123",
+      "https://www.tiktokv.com/share/video/123",
+      "https://m.tiktok.com/v/123.html",
+      "https://www.tiktok.com/embed/123",
+      "https://www.tiktok.com/player/v1/123",
+      "https://www.tiktok.com/@creator/live",
+      "https://www.tiktok.com/tag/food",
+      "https://shop.tiktok.com/product/123",
+    ]
+    for url in urls {
+      XCTAssertEqual(ShareUrlExtractor.extractSupportedUrl(from: "Watch this \(url)."), url)
+    }
+  }
+
   func testAcceptsAnyHttpLinkWhateverTheHost() {
     let cases = [
       "https://www.instagram.com/reel/abc_123/": "https://www.instagram.com/reel/abc_123/",

@@ -357,7 +357,9 @@ class _ReelCardState extends State<ReelCard>
 
   Widget? _sourcePlatformBadge(BuildContext context, Reel reel) {
     final layout = AppLayout.of(context);
-    final platform = SourcePlatform.byId(reel.sourcePlatform);
+    final platform =
+        SourcePlatform.byId(reel.sourcePlatform) ??
+        SourcePlatform.fromTikTokUrl(_tikTokUrl(reel));
     if (platform == null) return null;
 
     return Semantics(
@@ -376,7 +378,24 @@ class _ReelCardState extends State<ReelCard>
   String _untitledLabel(Reel reel) => 'UNTITLED ${_savedItemLabel(reel)}';
 
   String _savedItemLabel(Reel reel) =>
-      SourcePlatform.byId(reel.sourcePlatform)?.savedItemNoun ?? 'REEL';
+      (SourcePlatform.byId(reel.sourcePlatform) ??
+              SourcePlatform.fromTikTokUrl(_tikTokUrl(reel)))
+          ?.itemNoun(
+            contentType: reel.sourceContentType,
+            sourceUrl: _tikTokUrl(reel),
+          ) ??
+      'REEL';
+
+  String _tikTokUrl(Reel reel) =>
+      [
+        reel.sourceUrl,
+        reel.originalUrl,
+        reel.normalizedUrl,
+        reel.url,
+      ].firstWhere(
+        (url) => SourcePlatform.fromTikTokUrl(url) != null,
+        orElse: () => reel.url,
+      );
 
   Widget _buildCategoryTag(BuildContext context, String label, Color catColor) {
     final layout = AppLayout.of(context);
