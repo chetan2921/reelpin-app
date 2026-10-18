@@ -53,3 +53,10 @@ URL support does not guarantee access to private, deleted, or restricted content
 TikTok About/login landing redirects cannot replace a requested post/profile.
 Post redirects must keep the same numeric ID. A short share redirected to a
 landing page keeps its original unresolved identity for the existing retry flow.
+
+When direct TikTok post retrieval is blocked, the worker may use the existing
+Apify provider to recover that same public post. Provider results must match
+the requested numeric ID. Unresolved short shares may recover their canonical
+post through this path; the existing job and reel models remain unchanged.
+Videos still use Gemini audio transcription, photos still OCR one cover only,
+and non-post pages are not expanded into an account/feed import.

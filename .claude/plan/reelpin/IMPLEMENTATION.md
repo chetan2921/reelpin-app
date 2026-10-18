@@ -12,7 +12,9 @@ here, so every in-flight item names its owner and branch.
 ### TikTok support (dev acceptance 2026-10-18)
 
 Owner: Chetan. App PRs 22 and 23 merged into dev; backend PRs 36, 37, and 38 deployed to dev.
-Follow-up notes/contracts: `codex/tiktok-dev-validation`.
+Retrieval follow-up notes/contracts: `codex/tiktok-retrieval-contracts`.
+The backend now has an existing-provider Apify fallback for blocked public posts;
+its live dev validation is pending. No app runtime change is needed.
 Work lives in an isolated checkout; the user's original rate/support changes
 are preserved. No main change, hosting change, or production release.
 Backend scope and the complete URL matrix are in reelpin-api's implementation

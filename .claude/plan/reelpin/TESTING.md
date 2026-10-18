@@ -106,4 +106,9 @@ or real-device extension/activity test passed. Earlier native unit checks are
 Android 3 and Swift 8; real TikTok sharing, UI, and push behavior remain untested.
 All 25 original app edits are preserved; main and hosting are unchanged.
 
+The backend retrieval follow-up reuses the existing Apify provider for blocked
+public posts and unresolved short links. Models, share payloads, polling, and
+one-cover photo OCR stay the same. Live dev results are pending; see the backend
+TESTING.md. No app runtime code changes are needed for this fallback.
+
 <!-- mapped: reelpin-app@dbee86b | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
