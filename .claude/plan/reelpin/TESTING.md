@@ -44,11 +44,31 @@ Tests need no dart-defines. CI (`validate.yml`) runs the same gate minus
 ## Gaps
 
 - `EntitlementsViewModel`, `ReelDetailViewModel`, `FoldersViewModel`.
-- `AppShell`: the native share drain, deep-link routing, the resume throttle. This is how the iOS pending-share drop went unnoticed.
+- `AppShell`: complete native drain lifecycle, deep-link routing, and resume throttle. PendingShare now has decoder tests, but full native-to-Flutter recovery has no integration test.
 - `AuthenticatedShell`: push retry and notification routing.
 - `AuthService`, `ProfileService`, `NotificationService`, `LocationService`, `AnalyticsService`, `AppUpdateService`, `PendingDeepLink`, and `ShareHandoffService` beyond the collections sync.
 - Screens: auth, profile, paywall, map, discover.
 - The native `ShareEnqueueService` and `ShareReceiverActivity` flows and the iOS `ShareViewController` flow.
 - No `integration_test/`.
 
-<!-- mapped: reelpin-app@05094ba | paths: test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+## TikTok checks (2026-10-18)
+
+- `test/constants/source_platforms_test.dart`: registry/artwork, content-type
+  nouns, legacy URLs, and lookalike host rejection.
+- `test/data_models/sharing/pending_share_test.dart`: Android raw text, iOS URL,
+  legacy strings, blank/invalid entries, and retained selected collections.
+- Existing home-empty-state, processing-card, and reel-share-card widget tests
+  cover TikTok hints/badges and VIDEO/POST/LINK wording, including older photos.
+- `tool/reelpin.sh verify` passed all checks and 516 Dart tests. No new package
+  was added. `android/gradlew :app:testDebugUnitTest` passed 3 JVM parser tests,
+  including the TikTok link-family fixture. Swift RunnerTests passed 8 tests in
+  a macOS XCTest bundle built from the actual Foundation extractor/classifier
+  and RunnerTests sources, including 14 TikTok raw-share URL cases.
+- Swift parser tests do not exercise the iOS share extension UI, App Group,
+  network enqueue, APNs, or an installed dev build. Android JVM tests likewise
+  do not exercise ShareReceiverActivity/ShareEnqueueService on a phone.
+- Remaining device/live acceptance is in IMPLEMENTATION.md. Copied links from
+  Notes/browser can test intake without local TikTok; real TikTok sharing and
+  backend connectivity are separate checks. No device-cloud result is claimed.
+
+<!-- mapped: reelpin-app@b51cba3 | paths: test/, tool/, android/app/src/test/, ios/RunnerTests/ -->

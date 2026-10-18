@@ -8,7 +8,7 @@ repos must agree on is in `.claude/contracts/`. `README.md` covers the screens,
 local setup, store builds, Firebase, maps, and signing in prose; this file is
 what to know on top of it.
 
-Mapped from `dev` @ `05094ba`.
+Mapped from `codex/tiktok-support` @ `b51cba3`.
 
 ## Navigate
 
@@ -43,6 +43,7 @@ Read what the task needs, never the whole tree.
 - `lib/repositories/reel_repository.dart`: the only repository (paged reels, search, processing jobs). Other view models call `lib/http/` interfaces directly.
 - `lib/http/`: `ApiClient` (every REST call), the `*_http.dart` interfaces, separate SSE clients for chat, and in-memory mocks.
 - `lib/data_models/`: `fromJson` classes by area. `lib/services/`: auth, `ContentCache`, chat, notifications, sharing (native handoff, push registration, deep links), analytics, location, app update. `lib/constants/` and `lib/utils/`: theme, flags, pure helpers.
+- `lib/constants/source_platforms.dart`: shared platform artwork and nouns, including TikTok VIDEO/POST/LINK and legacy URL labels. `lib/data_models/sharing/pending_share.dart` decodes Android raw payloads, iOS URLs, and legacy pending strings for AppShell.
 - Native share intake, a subsystem of its own (`.claude/contracts/share-intake.md`): `android/app/src/main/kotlin/com/chetanjain/reelpin/`, `ios/Share Extension/`, and the method channels in `ios/Runner/AppDelegate.swift`.
 - `tool/`: `reelpin.sh` (doctor, verify, run, build), `reelpin_flutter.sh` (`local.env` to dart-defines), and the `check_architecture.dart`, `check_assets.dart`, `verify_project.dart` gates.
 - `test/` mirrors `lib/`. `web/`, `macos/`, `linux/`, `windows/` are Flutter defaults; Firebase, push, and native share are skipped off mobile. `play-assets/`: store listing graphics. `docs/`: privacy and delete-account pages, screenshots, the design spec.
@@ -174,4 +175,4 @@ files. Name the env var or config key instead.
 Tracking: committed to this repo, shared with every collaborator.
 Layout: per repo; reelpin-api carries its own tree.
 
-<!-- mapped: reelpin-app@05094ba | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
+<!-- mapped: reelpin-app@b51cba3 | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->

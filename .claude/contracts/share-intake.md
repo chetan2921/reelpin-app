@@ -12,7 +12,7 @@ together.
 | server share tokens | reelpin-api `POST` and `DELETE /api/v1/share-tokens` in `app/main.py`; check in `app/services/auth.py` (raises `invalid_share_token`) |
 | client Android | reelpin-app `android/app/src/main/kotlin/com/chetanjain/reelpin/`: `ShareReceiverActivity.kt`, `ShareEnqueueService.kt`, `ShareIntentParser.kt`, `MainActivity.kt` (method channels) |
 | client iOS | reelpin-app `ios/Share Extension/ShareViewController.swift`, `ios/Share Extension/ShareUrlExtractor.swift`, `ios/Runner/AppDelegate.swift` (method channels) |
-| client Flutter | reelpin-app `lib/screens/app_shell/app_shell.dart` (drains pending native shares, then resolve and enqueue), `lib/services/sharing/share_handoff_service.dart` (mirrors share token, base URL, push token, and collections into native storage), `lib/view_models/session_view_model.dart` (mints the share token) |
+| client Flutter | reelpin-app `lib/screens/app_shell/app_shell.dart` (drains pending native shares, then resolve and enqueue), `lib/data_models/sharing/pending_share.dart` (reads either platform's pending entry), `lib/services/sharing/share_handoff_service.dart` (mirrors share token, base URL, push token, and collections into native storage), `lib/view_models/session_view_model.dart` (mints the share token) |
 
 ## Rule
 
@@ -25,7 +25,19 @@ the pending-entry shape has to land in Kotlin, Swift, Dart, and the server
 together. The method channel names and native storage keys must match across
 Dart, Kotlin, and Swift inside reelpin-app.
 
+The two platforms store pending entries differently: Android `{raw_payload_text, collection_ids}`, iOS `{url, collection_ids}`. `PendingShare.fromNative` reads both, plus a bare string from older builds. The app TikTok branch includes this decoder because its dev baseline still read only `raw_payload_text` and dropped iOS pending shares.
+
 ## Known drift when this was written (2026-10-15; read from code, not run)
 
-- iOS fallback shares are lost, on `main` (the store build) and `dev` alike, since commit `0cf5ac8` (2026-08-15). A normal iOS share posts straight to the server and works. Only when that post cannot happen (no share token or base URL yet, `invalid_share_token`, no network, a 5xx, or a 429) does the extension save the share as pending and tell the user "Open ReelPin to sync." It saves `{"url": ..., "collection_ids": ...}`, but the Flutter drain in `app_shell.dart` reads only `raw_payload_text`, gets an empty string, and skips the entry; `AppDelegate.drainPendingShares` has already deleted it. Android saves `raw_payload_text` and is not affected.
 - After `invalid_share_token`, native code clears its token but Flutter keeps the old one and pushes it back to native, so the token may never be re-minted.
+
+## TikTok intake
+
+Keep HTTP(S) links and caption-plus-link text in the existing payload. Native
+parsers do not normalize post identity or require TikTok to be installed.
+Resolver coverage includes video/photo, vm/vt and /t short links, share/video,
+embed/player, and legacy tiktokv/mobile aliases. Query parameters remain in
+native payloads; the server chooses the canonical post identity. The API runs
+resolution off the event loop; short expansion uses the existing safe redirect
+helper with a 1.5-second budget and a bounded success cache. Slow requests still
+use the native pending/retry flow and server deduplication.

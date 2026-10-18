@@ -16,6 +16,7 @@ so an unusual declaration can be missed; grep the code when unsure.
 .agent/
   skills/
      (22 files, not listed)
+.gitattributes
 .github/
   workflows/
     build-dev-apk.yml
@@ -89,7 +90,7 @@ assets/
   fonts/
      (4 image, font or media files)
   images/
-     (10 image, font or media files)
+     (11 image, font or media files)
     guide/
        (8 image, font or media files)
 docs/
@@ -240,6 +241,7 @@ lib/
       reel_filters.dart
       reel_page.dart
     sharing/
+      pending_share.dart
       share_resolve_response.dart
   env.dart
   http/
@@ -468,6 +470,8 @@ test/
     collections/
       collection_folder_tile_test.dart
     processing_reel_card_test.dart
+  constants/
+    source_platforms_test.dart
   data_models/
     account/
       user_entitlement_test.dart
@@ -483,6 +487,8 @@ test/
       processing_job_test.dart
       reel_filters_test.dart
       reel_test.dart
+    sharing/
+      pending_share_test.dart
   env_test.dart
   http/
     api_client_test.dart
@@ -947,61 +953,62 @@ windows/
   - L293 `Widget _buildBottomInfoRow( BuildContext context, Reel reel, { required Color textColor, required Color secondaryColor, required Color borderColor, List<Shadow>? shadows, })`
   - L333 `Widget _buildUnparsedBadge(BuildContext context)`
   - L358 `Widget? _sourcePlatformBadge(BuildContext context, Reel reel)`
-  - L376 `String _untitledLabel(Reel reel)`
-  - L378 `String _savedItemLabel(Reel reel)`
-  - L381 `Widget _buildCategoryTag(BuildContext context, String label, Color catColor)`
-  - L427 `void _showDeleteSheet(BuildContext context)`
-  - L506 `Future<void> _confirmDelete(BuildContext context)`
-- L528 `class _ReelThumbnail extends StatelessWidget`
-  - L529 `const _ReelThumbnail({required this.url, required this.fallbackColor})`
-  - L540 `Widget build(BuildContext context)`
-- L568 `class _UnselectedTick extends StatelessWidget`
-  - L569 `const _UnselectedTick()`
-  - L572 `Widget build(BuildContext context)`
+  - L378 `String _untitledLabel(Reel reel)`
+  - L380 `String _savedItemLabel(Reel reel)`
+  - L389 `String _tikTokUrl(Reel reel)`
+  - L400 `Widget _buildCategoryTag(BuildContext context, String label, Color catColor)`
+  - L446 `void _showDeleteSheet(BuildContext context)`
+  - L525 `Future<void> _confirmDelete(BuildContext context)`
+- L547 `class _ReelThumbnail extends StatelessWidget`
+  - L548 `const _ReelThumbnail({required this.url, required this.fallbackColor})`
+  - L559 `Widget build(BuildContext context)`
+- L587 `class _UnselectedTick extends StatelessWidget`
+  - L588 `const _UnselectedTick()`
+  - L591 `Widget build(BuildContext context)`
 
 ### lib/components/sharing/share_card.dart
 
-- L8 `class ReelShareCard extends StatelessWidget`
-  - L11 `const ReelShareCard({super.key, required this.reel})`
-  - L14 `Widget build(BuildContext context)`
-  - L183 `static String _typeLabel(Reel reel)`
-  - L192 `static String _shareSummary(String value)`
-- L211 `class CollectionShareCard extends StatelessWidget`
-  - L212 `const CollectionShareCard({ super.key, required this.name, required this.note, required this.itemCount, required this.role, this.ownerName, this.memberCount = 0, })`
-  - L237 `Widget build(BuildContext context)`
-- L424 `class _CollectionStats extends StatelessWidget`
-  - L425 `const _CollectionStats({required this.itemCount, required this.memberCount})`
-  - L431 `Widget build(BuildContext context)`
-- L458 `class _StatBlock extends StatelessWidget`
-  - L459 `const _StatBlock({required this.value, required this.label})`
-  - L465 `Widget build(BuildContext context)`
-- L501 `class _ShareBadge extends StatelessWidget`
-  - L506 `const _ShareBadge({ required this.label, required this.color, required this.textColor, })`
-  - L513 `Widget build(BuildContext context)`
-- L535 `class _ShareHeader extends StatelessWidget`
-  - L539 `const _ShareHeader({required this.kicker, required this.badge})`
-  - L542 `Widget build(BuildContext context)`
-- L600 `class _PinnedNote extends StatelessWidget`
-  - L608 `const _PinnedNote({ required this.child, required this.color, required this.pinAlignment, required this.angle, required this.childPadding, this.height, })`
-  - L618 `Widget build(BuildContext context)`
-- L667 `class _ShareSummaryNote extends StatelessWidget`
-  - L671 `const _ShareSummaryNote({required this.summary, required this.maxLines})`
-  - L674 `Widget build(BuildContext context)`
-- L706 `class _NoteTitle extends StatelessWidget`
-  - L711 `const _NoteTitle({ required this.label, required this.color, this.fontSize = 12, })`
-  - L718 `Widget build(BuildContext context)`
-- L737 `class _ShareActionNote extends StatelessWidget`
-  - L741 `const _ShareActionNote({required this.actions, this.isPrimary = false})`
-  - L744 `Widget build(BuildContext context)`
-- L757 `class _ShareMiniNote extends StatelessWidget`
-  - L766 `const _ShareMiniNote({ required this.label, required this.items, required this.color, required this.textColor, required this.angle, required this.height, required this.fontSize, })`
-  - L777 `Widget build(BuildContext context)`
-  - L876 `double _heightForItems(int itemCount)`
-- L885 `class _ShareFooter extends StatelessWidget`
-  - L887 `Widget build(BuildContext context)`
-- L926 `class _ShareStickyNoteClipper extends CustomClipper<Path>`
-  - L928 `Path getClip(Size size)`
-  - L943 `bool shouldReclip(covariant CustomClipper<Path> oldClipper)`
+- L9 `class ReelShareCard extends StatelessWidget`
+  - L12 `const ReelShareCard({super.key, required this.reel})`
+  - L15 `Widget build(BuildContext context)`
+  - L184 `static String _typeLabel(Reel reel)`
+  - L212 `static String _shareSummary(String value)`
+- L231 `class CollectionShareCard extends StatelessWidget`
+  - L232 `const CollectionShareCard({ super.key, required this.name, required this.note, required this.itemCount, required this.role, this.ownerName, this.memberCount = 0, })`
+  - L257 `Widget build(BuildContext context)`
+- L444 `class _CollectionStats extends StatelessWidget`
+  - L445 `const _CollectionStats({required this.itemCount, required this.memberCount})`
+  - L451 `Widget build(BuildContext context)`
+- L478 `class _StatBlock extends StatelessWidget`
+  - L479 `const _StatBlock({required this.value, required this.label})`
+  - L485 `Widget build(BuildContext context)`
+- L521 `class _ShareBadge extends StatelessWidget`
+  - L526 `const _ShareBadge({ required this.label, required this.color, required this.textColor, })`
+  - L533 `Widget build(BuildContext context)`
+- L555 `class _ShareHeader extends StatelessWidget`
+  - L559 `const _ShareHeader({required this.kicker, required this.badge})`
+  - L562 `Widget build(BuildContext context)`
+- L620 `class _PinnedNote extends StatelessWidget`
+  - L628 `const _PinnedNote({ required this.child, required this.color, required this.pinAlignment, required this.angle, required this.childPadding, this.height, })`
+  - L638 `Widget build(BuildContext context)`
+- L687 `class _ShareSummaryNote extends StatelessWidget`
+  - L691 `const _ShareSummaryNote({required this.summary, required this.maxLines})`
+  - L694 `Widget build(BuildContext context)`
+- L726 `class _NoteTitle extends StatelessWidget`
+  - L731 `const _NoteTitle({ required this.label, required this.color, this.fontSize = 12, })`
+  - L738 `Widget build(BuildContext context)`
+- L757 `class _ShareActionNote extends StatelessWidget`
+  - L761 `const _ShareActionNote({required this.actions, this.isPrimary = false})`
+  - L764 `Widget build(BuildContext context)`
+- L777 `class _ShareMiniNote extends StatelessWidget`
+  - L786 `const _ShareMiniNote({ required this.label, required this.items, required this.color, required this.textColor, required this.angle, required this.height, required this.fontSize, })`
+  - L797 `Widget build(BuildContext context)`
+  - L896 `double _heightForItems(int itemCount)`
+- L905 `class _ShareFooter extends StatelessWidget`
+  - L907 `Widget build(BuildContext context)`
+- L946 `class _ShareStickyNoteClipper extends CustomClipper<Path>`
+  - L948 `Path getClip(Size size)`
+  - L963 `bool shouldReclip(covariant CustomClipper<Path> oldClipper)`
 
 ### lib/constants/app_colors.dart
 
@@ -1065,7 +1072,9 @@ windows/
 - L7 `class SourcePlatform`
   - L8 `const SourcePlatform._({ required this.id, required this.name, required this.assetPath, required this.savedItemNoun, required this.openSourceNoun, })`
   - L34 `String get label`
-  - L97 `static SourcePlatform? byId(String? id)`
+  - L103 `String itemNoun({String? contentType, String? sourceUrl})`
+  - L129 `static SourcePlatform? fromTikTokUrl(String? value)`
+  - L147 `static SourcePlatform? byId(String? id)`
 
 ### lib/data_models/account/library_stats.dart
 
@@ -1390,6 +1399,12 @@ windows/
 - L3 `class ReelPage`
   - L4 `const ReelPage({ required this.reels, required this.hasMore, required this.totalCount, required this.limit, required this.offset, this.nextCursor, this.nextOffset, })`
   - L22 `factory ReelPage.fromJson(Map<String, dynamic> json)`
+
+### lib/data_models/sharing/pending_share.dart
+
+- L1 `class PendingShare`
+  - L2 `const PendingShare({ required this.rawPayloadText, this.collectionIds = const [], })`
+  - L10 `static PendingShare? fromNative(Object? value)`
 
 ### lib/data_models/sharing/share_resolve_response.dart
 
@@ -1795,44 +1810,44 @@ windows/
 
 ### lib/screens/app_shell/app_shell.dart
 
-- L42 `const _navIconSize = 27.0`
-- L44 `class AppShell extends ConsumerStatefulWidget`
-  - L45 `const AppShell({super.key, this.controller})`
-  - L50 `ConsumerState<AppShell> createState()`
-- L53 `class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver`
-  - L91 `void initState()`
-  - L117 `Future<void> _initCollectionDeepLinks()`
-  - L146 `Future<void> _handleDeferredLink()`
-  - L151 `Future<void> _handleIncomingUri(Uri uri)`
-  - L164 `void _routeCollectionUri(Uri uri)`
-  - L177 `Future<void> _openLaunchLink(CollectionLink link)`
-  - L191 `void _routeCollectionLink(CollectionLink link, {bool animate = true})`
-  - L207 `Future<void> _openSharedCollection( String token, { bool animate = true, String? url, })`
-  - L219 `Future<void> _acceptCollectionInvite( String token, { bool animate = true, })`
-  - L246 `void _initSharingIntent()`
-  - L270 `void _processSharedData(List<SharedMediaFile> files)`
-  - L278 `Future<void> _handleSharedPayload( String payload, { bool showConfirmation = true, List<String> collectionIds = const [], })`
-  - L328 `Future<void> _enqueueSharedReel( String url, { required bool showConfirmation, List<String> collectionIds = const [], })`
-  - L472 `void dispose()`
-  - L482 `void didChangeAppLifecycleState(AppLifecycleState state)`
-  - L512 `Future<void> _drainPendingNativeShares()`
-  - L558 `Future<void> _runFirstRunFlow()`
-  - L563 `Future<void> _maybeShowHowToGuide()`
-  - L591 `Future<bool> _accountHasSaves()`
-  - L597 `Future<void> _maybePromptInitialPermissions()`
-  - L615 `Future<bool> _enableReelPinPermissions()`
-  - L651 `Future<void> _syncPushTokenRegistrationIfPossible()`
-  - L665 `void _openSearchFromHome()`
-  - L673 `Future<void> _scrollHomeToTop()`
-  - L682 `void _showHomeAtTop()`
-  - L691 `void _selectControlledTab(int index)`
-  - L699 `bool _isHomeScrolledDown()`
-  - L704 `Future<void> _refreshSavedContent()`
-  - L716 `void _selectTab(int index)`
-  - L732 `void _refreshSelectedContent(int index)`
-  - L746 `Widget build(BuildContext context)`
-  - L795 `Widget _buildNavBar()`
-  - L843 `Widget _buildNavItem(int index, _NavItem item)`
+- L43 `const _navIconSize = 27.0`
+- L45 `class AppShell extends ConsumerStatefulWidget`
+  - L46 `const AppShell({super.key, this.controller})`
+  - L51 `ConsumerState<AppShell> createState()`
+- L54 `class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver`
+  - L92 `void initState()`
+  - L118 `Future<void> _initCollectionDeepLinks()`
+  - L147 `Future<void> _handleDeferredLink()`
+  - L152 `Future<void> _handleIncomingUri(Uri uri)`
+  - L165 `void _routeCollectionUri(Uri uri)`
+  - L178 `Future<void> _openLaunchLink(CollectionLink link)`
+  - L192 `void _routeCollectionLink(CollectionLink link, {bool animate = true})`
+  - L208 `Future<void> _openSharedCollection( String token, { bool animate = true, String? url, })`
+  - L220 `Future<void> _acceptCollectionInvite( String token, { bool animate = true, })`
+  - L247 `void _initSharingIntent()`
+  - L271 `void _processSharedData(List<SharedMediaFile> files)`
+  - L279 `Future<void> _handleSharedPayload( String payload, { bool showConfirmation = true, List<String> collectionIds = const [], })`
+  - L329 `Future<void> _enqueueSharedReel( String url, { required bool showConfirmation, List<String> collectionIds = const [], })`
+  - L473 `void dispose()`
+  - L483 `void didChangeAppLifecycleState(AppLifecycleState state)`
+  - L513 `Future<void> _drainPendingNativeShares()`
+  - L546 `Future<void> _runFirstRunFlow()`
+  - L551 `Future<void> _maybeShowHowToGuide()`
+  - L579 `Future<bool> _accountHasSaves()`
+  - L585 `Future<void> _maybePromptInitialPermissions()`
+  - L603 `Future<bool> _enableReelPinPermissions()`
+  - L639 `Future<void> _syncPushTokenRegistrationIfPossible()`
+  - L653 `void _openSearchFromHome()`
+  - L661 `Future<void> _scrollHomeToTop()`
+  - L670 `void _showHomeAtTop()`
+  - L679 `void _selectControlledTab(int index)`
+  - L687 `bool _isHomeScrolledDown()`
+  - L692 `Future<void> _refreshSavedContent()`
+  - L704 `void _selectTab(int index)`
+  - L720 `void _refreshSelectedContent(int index)`
+  - L734 `Widget build(BuildContext context)`
+  - L783 `Widget _buildNavBar()`
+  - L831 `Widget _buildNavItem(int index, _NavItem item)`
 
 ### lib/screens/app_shell/authenticated_shell.dart
 
@@ -2364,49 +2379,50 @@ windows/
 - L101 `class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen>`
   - L109 `Reel get reel`
   - L110 `String get _savedItemNoun`
-  - L112 `String get _untitledLabel`
-  - L113 `String get _openSourceLabel`
-  - L114 `String get _openSourceErrorLabel`
-  - L115 `String get _openSourceNoun`
-  - L130 `String? get _sourcePlatform`
-  - L146 `bool get _isShortsSource`
-  - L152 `bool get _isInstagramPostSource`
-  - L168 `Iterable<Uri> get _sourceUris sync*`
-  - L182 `bool _hasSourceUri(bool Function(Uri uri) test)`
-  - L184 `bool _isYoutubeUri(Uri uri)`
-  - L192 `bool _isYoutubeShortsUri(Uri uri)`
-  - L198 `bool _isInstagramUri(Uri uri)`
-  - L203 `bool _isXUri(Uri uri)`
-  - L214 `bool _isPinterestUri(Uri uri)`
-  - L219 `bool _isRedditUri(Uri uri)`
-  - L224 `bool _isLinkedInUri(Uri uri)`
-  - L227 `bool _isHostOrSubdomainOf(String host, String domain)`
-  - L230 `bool _isInstagramPostUri(Uri uri)`
-  - L236 `bool _isInstagramReelUri(Uri uri)`
-  - L242 `Color get _detailTextColor`
-  - L247 `void initState()`
-  - L259 `Widget build(BuildContext context)`
-  - L841 `Color _contrastText(Color bg)`
-  - L845 `Widget _sectionTitle(String title)`
-  - L868 `Widget _section(String title, String body)`
-  - L887 `Widget _buildLockedHistoryState(BuildContext context)`
-  - L945 `Future<void> _shareReel()`
-  - L1005 `String get _shareTitle`
-  - L1012 `String _shareText(String? reelUrl)`
-  - L1052 `List<_ShareLocationLink> _shareLocationLinks()`
-  - L1068 `String _shareLocationLabel(Location location)`
-  - L1077 `String? get _shareReelUrl`
-  - L1092 `Widget _shareButton(AppLayout layout, {required EdgeInsetsGeometry margin})`
-  - L1138 `Widget _askAboutButton(AppLayout layout)`
-  - L1166 `Future<void> _confirmDelete(BuildContext context)`
-  - L1211 `T? _maybeRead<T>(ProviderListenable<T> provider)`
-  - L1219 `Uri? _locationMapsUri(Location loc)`
-  - L1223 `Future<void> _openLocation(Uri uri)`
-  - L1229 `Future<void> _openReel()`
-  - L1243 `Uri? get _openReelUrl`
-  - L1258 `Uri? _externalUri(String rawUrl)`
-  - L1271 `void _showOpenReelError()`
-  - L1286 `Future<void> _refreshReel()`
+  - L123 `String get _untitledLabel`
+  - L124 `String get _openSourceLabel`
+  - L125 `String get _openSourceErrorLabel`
+  - L126 `String get _openSourceNoun`
+  - L141 `String? get _sourcePlatform`
+  - L158 `bool get _isShortsSource`
+  - L164 `bool get _isInstagramPostSource`
+  - L180 `Iterable<Uri> get _sourceUris sync*`
+  - L194 `bool _hasSourceUri(bool Function(Uri uri) test)`
+  - L196 `bool _isYoutubeUri(Uri uri)`
+  - L204 `bool _isTikTokUri(Uri uri)`
+  - L207 `bool _isYoutubeShortsUri(Uri uri)`
+  - L213 `bool _isInstagramUri(Uri uri)`
+  - L218 `bool _isXUri(Uri uri)`
+  - L229 `bool _isPinterestUri(Uri uri)`
+  - L234 `bool _isRedditUri(Uri uri)`
+  - L239 `bool _isLinkedInUri(Uri uri)`
+  - L242 `bool _isHostOrSubdomainOf(String host, String domain)`
+  - L245 `bool _isInstagramPostUri(Uri uri)`
+  - L251 `bool _isInstagramReelUri(Uri uri)`
+  - L257 `Color get _detailTextColor`
+  - L262 `void initState()`
+  - L274 `Widget build(BuildContext context)`
+  - L856 `Color _contrastText(Color bg)`
+  - L860 `Widget _sectionTitle(String title)`
+  - L883 `Widget _section(String title, String body)`
+  - L902 `Widget _buildLockedHistoryState(BuildContext context)`
+  - L960 `Future<void> _shareReel()`
+  - L1020 `String get _shareTitle`
+  - L1027 `String _shareText(String? reelUrl)`
+  - L1067 `List<_ShareLocationLink> _shareLocationLinks()`
+  - L1083 `String _shareLocationLabel(Location location)`
+  - L1092 `String? get _shareReelUrl`
+  - L1107 `Widget _shareButton(AppLayout layout, {required EdgeInsetsGeometry margin})`
+  - L1153 `Widget _askAboutButton(AppLayout layout)`
+  - L1181 `Future<void> _confirmDelete(BuildContext context)`
+  - L1226 `T? _maybeRead<T>(ProviderListenable<T> provider)`
+  - L1234 `Uri? _locationMapsUri(Location loc)`
+  - L1238 `Future<void> _openLocation(Uri uri)`
+  - L1244 `Future<void> _openReel()`
+  - L1258 `Uri? get _openReelUrl`
+  - L1273 `Uri? _externalUri(String rawUrl)`
+  - L1286 `void _showOpenReelError()`
+  - L1301 `Future<void> _refreshReel()`
 
 ### lib/screens/setup_required/setup_required_screen.dart
 
@@ -3207,6 +3223,10 @@ windows/
 - L17 `Future<void> _pumpCard(WidgetTester tester, ProcessingJob job)`
 - L38 `void main()`
 
+### test/constants/source_platforms_test.dart
+
+- L4 `void main()`
+
 ### test/data_models/account/user_entitlement_test.dart
 
 - L5 `EntitlementsResponse _response({ int reelsSaved = 3, int? reelsRemaining = 17, int? reelsPerMonth = 20, String plan = 'free', })`
@@ -3246,6 +3266,10 @@ windows/
 
 - L4 `void main()`
 - L183 `Map<String, Object?> _reelJson(Map<String, Object?> overrides)`
+
+### test/data_models/sharing/pending_share_test.dart
+
+- L4 `void main()`
 
 ### test/env_test.dart
 
@@ -3455,7 +3479,7 @@ windows/
 ### test/screens/reel_detail/reel_share_card_test.dart
 
 - L7 `void main()`
-- L220 `Reel _shareReel({ String contentType = 'reel', String? sourcePlatform, String title = 'A saved reel worth remembering', String summary = 'This reel has a clear summary that should be readable on the share card.', List<String> keyFacts = const [ 'The reel highlights three spots that can be visited in one afternoon.', 'The creator recommends starting early to avoid crowds.', ], List<String> actionableItems = const [ 'Book the first stop before noon.', 'Walk between each stop instead of driving.', ], })`
+- L270 `Reel _shareReel({ String contentType = 'reel', String? sourcePlatform, String title = 'A saved reel worth remembering', String summary = 'This reel has a clear summary that should be readable on the share card.', List<String> keyFacts = const [ 'The reel highlights three spots that can be visited in one afternoon.', 'The creator recommends starting early to avoid crowds.', ], List<String> actionableItems = const [ 'Book the first stop before noon.', 'Walk between each stop instead of driving.', ], })`
 
 ### test/services/cache/content_cache_test.dart
 
@@ -3742,4 +3766,4 @@ windows/
 
 - L3 `void main()`
 
-<!-- mapped: reelpin-app@05094ba | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
+<!-- mapped: reelpin-app@b51cba3 | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->

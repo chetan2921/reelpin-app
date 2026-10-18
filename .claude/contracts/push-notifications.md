@@ -23,6 +23,9 @@ required key is a change on both sides, and changing `schema_version` on the
 server breaks taps on every installed app version. The Android channel id must
 match in `notifications.py` and the manifest.
 
+TikTok completion titles use Video, Post, or Link from the existing content
+type. Push keys, target, and schema version do not change.
+
 ## Known drift when this was written (2026-10-15)
 
 - Reminder and price-drop pushes (`app/tasks.py`) carry only their own ids, no `type` or `target`, so the app treats them as malformed and opens Home.

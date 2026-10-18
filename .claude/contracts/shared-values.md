@@ -28,4 +28,24 @@ renaming it.
 ## Known drift when this was written (2026-10-15)
 
 - The app opens the paywall on `monthly_reel_limit_reached` and the upgrade prompt on `history_upgrade_required` (`lib/http/api_exception.dart`), but nothing in reelpin-api `dev` sends either code.
-- The app's platform list has no TikTok entry, so TikTok saves show neutral text; the iOS share extension's list does include TikTok.
+
+## TikTok
+
+The existing platform id is `tiktok`, label `TikTok`. Both registries include it.
+Public posts use numeric `source_content_id` across canonical, short, share,
+legacy, embed, and player aliases. Photos use `source_content_type=post`, videos
+`video`, and non-post pages `link` with a URL-derived identity. Embed/player
+links keep their ID while the worker determines video versus photo from public
+metadata. A temporarily unresolved short link keeps its host and no ID; the
+worker resolves it before media processing and saves the recovered identity.
+
+Photos use caption/author and one cover image's OCR only. Other TikTok pages
+use readable public metadata, without profile crawling or LIVE recording.
+Existing `parse_status`, failure codes, queue lanes, and response fields remain
+in use. Timeout/rate-limit failures remain retryable. Video metadata fallback
+is labeled `ingestion_method=tiktok_metadata_only` and is not shared-cached as
+full video processing. Photo metadata/cover results may be cached normally.
+
+TikTok cards and detail/share actions use VIDEO, POST, or LINK. Older saves
+without platform metadata can use their TikTok URL for labeling. Public post
+URL support does not guarantee access to private, deleted, or restricted content.
