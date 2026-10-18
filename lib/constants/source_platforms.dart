@@ -49,6 +49,14 @@ class SourcePlatform {
     openSourceNoun: 'VIDEO',
   );
 
+  static const tiktok = SourcePlatform._(
+    id: 'tiktok',
+    name: 'TikTok',
+    assetPath: 'assets/images/tiktok.png',
+    savedItemNoun: 'VIDEO',
+    openSourceNoun: 'VIDEO',
+  );
+
   static const x = SourcePlatform._(
     id: 'x',
     name: 'X',
@@ -85,11 +93,53 @@ class SourcePlatform {
   static const List<SourcePlatform> all = [
     instagram,
     youtube,
+    tiktok,
     x,
     pinterest,
     reddit,
     linkedin,
   ];
+
+  String itemNoun({String? contentType, String? sourceUrl}) {
+    if (id != 'tiktok') return savedItemNoun;
+    switch (contentType?.trim().toLowerCase()) {
+      case 'post':
+      case 'carousel':
+        return 'POST';
+      case 'link':
+        return 'LINK';
+      case 'video':
+        return 'VIDEO';
+    }
+    final uri = Uri.tryParse(sourceUrl ?? '');
+    if (uri != null && fromTikTokUrl(sourceUrl) != null) {
+      if (uri.pathSegments.contains('photo')) return 'POST';
+      if (uri.host == 'vm.tiktok.com' || uri.host == 'vt.tiktok.com') {
+        return 'VIDEO';
+      }
+      if (!uri.pathSegments.any(
+        (part) => const ['video', 'embed', 'player', 'v', 't'].contains(part),
+      )) {
+        return 'LINK';
+      }
+    }
+    return 'VIDEO';
+  }
+
+  static SourcePlatform? fromTikTokUrl(String? value) {
+    final uri = Uri.tryParse(value?.trim() ?? '');
+    if (uri == null || !const ['https', 'http'].contains(uri.scheme)) {
+      return null;
+    }
+    final host = uri.host.toLowerCase();
+    if (host == 'tiktok.com' ||
+        host.endsWith('.tiktok.com') ||
+        host == 'tiktokv.com' ||
+        host == 'www.tiktokv.com') {
+      return tiktok;
+    }
+    return null;
+  }
 
   /// Resolves a backend `source_platform` value. Returns null for anything the
   /// app has no artwork or copy for, so callers can fall back to neutral text

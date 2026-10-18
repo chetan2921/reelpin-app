@@ -74,7 +74,7 @@ void main() {
 
       expect(
         find.text(
-          'SHARE FROM INSTAGRAM, YOUTUBE, X, PINTEREST, REDDIT, OR LINKEDIN',
+          'SHARE FROM INSTAGRAM, YOUTUBE, TIKTOK, X, PINTEREST, REDDIT, OR LINKEDIN',
         ),
         findsOneWidget,
       );

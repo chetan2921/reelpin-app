@@ -5,6 +5,56 @@ import 'package:reelpin/components/sharing/share_card.dart';
 import 'package:reelpin/components/reels/reel_card.dart';
 
 void main() {
+  for (final entry in {
+    'video': 'VIDEO',
+    'post': 'POST',
+    'link': 'LINK',
+  }.entries) {
+    testWidgets('TikTok ${entry.key} share card uses ${entry.value}', (
+      tester,
+    ) async {
+      final reel = Reel.fromJson({
+        'id': 'tiktok-${entry.key}',
+        'url': 'https://www.tiktok.com/@creator/video/123',
+        'source_platform': 'tiktok',
+        'source_content_type': entry.key,
+        'title': 'A saved TikTok item',
+        'summary': 'A useful saved item.',
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: UnconstrainedBox(child: ReelShareCard(reel: reel)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(entry.value), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('legacy TikTok photo uses its URL for share-card copy', (
+    tester,
+  ) async {
+    final reel = Reel.fromJson({
+      'id': 'legacy-photo',
+      'url': 'https://www.tiktok.com/@creator/photo/123',
+      'title': 'A saved photo',
+      'summary': 'Cover-image notes.',
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UnconstrainedBox(child: ReelShareCard(reel: reel)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('POST'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('share card renders long reel details without overflow', (
     WidgetTester tester,
   ) async {

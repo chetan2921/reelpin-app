@@ -12,6 +12,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reelpin/providers.dart';
+import 'package:reelpin/data_models/sharing/pending_share.dart';
 import 'package:reelpin/router.dart';
 import 'package:reelpin/utils/app_logger.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
@@ -522,29 +523,16 @@ class _AppShellState extends ConsumerState<AppShell>
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
       for (final entry in decoded) {
-        // Native stashes {raw_payload_text, collection_ids}. Anything already
-        // on disk from an older build is a bare string, and still has to drain.
-        final blob =
-            (entry is Map ? entry['raw_payload_text'] : entry)
-                ?.toString()
-                .trim() ??
-            '';
-        if (blob.isEmpty) continue;
-        final collectionIds = entry is Map
-            ? (entry['collection_ids'] as List?)
-                      ?.map((id) => id.toString())
-                      .where((id) => id.isNotEmpty)
-                      .toList(growable: false) ??
-                  const <String>[]
-            : const <String>[];
+        final pending = PendingShare.fromNative(entry);
+        if (pending == null) continue;
         // Reset the per-payload dedupe so each pending share is processed.
         _lastHandledSharedPayload = null;
         // Pending entries are raw share blobs, so route them through the same
         // backend extraction path as a live share.
         await _handleSharedPayload(
-          blob,
+          pending.rawPayloadText,
           showConfirmation: false,
-          collectionIds: collectionIds,
+          collectionIds: pending.collectionIds,
         );
       }
     } catch (e) {
