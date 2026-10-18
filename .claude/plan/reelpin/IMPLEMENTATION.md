@@ -11,7 +11,7 @@ here, so every in-flight item names its owner and branch.
 
 ### TikTok support (dev acceptance 2026-10-18)
 
-Owner: Chetan. App PR 22 merged into dev at `a042be9`; backend PR 36 deployed to dev.
+Owner: Chetan. App PRs 22 and 23 merged into dev; backend PRs 36, 37, and 38 deployed to dev.
 Follow-up notes/contracts: `codex/tiktok-dev-validation`.
 Work lives in an isolated checkout; the user's original rate/support changes
 are preserved. No main change, hosting change, or production release.
@@ -32,11 +32,15 @@ These checks do not establish real-device extension or live TikTok connectivity.
 See TESTING.md for covered cases and remaining gaps.
 
 - [x] User confirmed the original dev merges; both PRs are merged.
-- [ ] Repeat live checks after the backend landing-redirect and unparsed-response fixes. First live samples did not yield video transcription or photo cover OCR.
+- [x] Repeat live checks after the backend landing-redirect and unparsed-response fixes. Seven unique jobs reached terminal failure: four auth failures and three exhausted short-link retries; zero saved TikTok items. No false About-page save.
+- [x] Run the real Dart API client headlessly against dev: all 17 tested URL shapes accepted, seven failed jobs decoded, and the TikTok feed empty. The user requested no emulator.
+- [x] Build Android for dev locally and in CI after freeing unused temporary-runner toolchains. Fix the test-only collection cache teardown race; all 516 app tests pass locally.
 - [ ] Run a dev build with the same Mumbai dev API/worker. Share full video/photo,
   vm/vt, /t, share, embed/player, legacy, and page links from Notes/browser.
   Inspect completed saves, summary/transcript, single-cover OCR, stable thumbnail,
   full/short dedupe, collections, platform filtering/search, and push navigation.
+  Blocked on successful TikTok retrieval from the existing Mumbai connection.
+  Link acceptance alone does not establish successful content ingestion.
 - [ ] Exercise slow/offline enqueue, lost responses, relaunch/resume recovery,
   selected collections, and current invalid-token behavior. Inspect small-screen
   layouts with seven platforms and missing-thumbnail/unparsed/failure states.
@@ -70,4 +74,4 @@ See TESTING.md for covered cases and remaining gaps.
 - 2026-09-28 Chat renders the backend's taste-based suggestions block.
 - 2026-09-29 Warm collections before they open; renew an expired session and resend on a 401. `1.0.17+23` promoted (PR 19).
 
-<!-- mapped: reelpin-app@8d09fad | paths: .github/workflows/, lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->
+<!-- mapped: reelpin-app@dbee86b | paths: .github/workflows/, lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->

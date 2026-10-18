@@ -3591,26 +3591,35 @@ windows/
 
 - L13 `void main()`
 - L543 `ContentCache _testCache()`
-- L552 `CollectionSummary _summary( String id, { String visibility = 'private', int itemCount = 0, String? name, String? updatedAt, })`
-- L568 `Reel _reel(String id)`
-- L585 `CollectionDetail _detail( String id, { List<String> reelIds = const [], bool hasMore = false, int? nextOffset, int itemCount = 0, String visibility = 'private', String? updatedAt, })`
-- L612 `class _FakeCollectionsHttp implements CollectionsHttp`
-  - L613 `_FakeCollectionsHttp({this.collections = const [], this.error})`
-  - L638 `Future<List<CollectionSummary>> getCollections()`
-  - L645 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
-  - L671 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L681 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
-  - L692 `Future<void> deleteCollection(String collectionId)`
-  - L697 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
-  - L713 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
-  - L721 `Future<CollectionLink> enableCollectionLink(String collectionId)`
-  - L730 `Future<void> disableCollectionLink(String collectionId)`
-  - L735 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
-  - L741 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
-  - L749 `Future<void> leaveCollection(String collectionId)`
-  - L754 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
-  - L767 `Future<CollectionSummary> acceptCollectionInvite(String token)`
-  - L777 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
+- L555 `class _TrackedContentCache implements ContentCache`
+  - L556 `_TrackedContentCache(this._delegate)`
+  - L561 `Future<void> _track(Future<void> operation)`
+  - L566 `Future<void> drain()`
+  - L573 `Future<Map<String, dynamic>?> read(String key)`
+  - L576 `Future<void> write(String key, Map<String, dynamic> payload)`
+  - L580 `Future<void> invalidate(String key)`
+  - L583 `Future<void> invalidateContent()`
+  - L586 `Future<void> clear()`
+- L589 `CollectionSummary _summary( String id, { String visibility = 'private', int itemCount = 0, String? name, String? updatedAt, })`
+- L605 `Reel _reel(String id)`
+- L622 `CollectionDetail _detail( String id, { List<String> reelIds = const [], bool hasMore = false, int? nextOffset, int itemCount = 0, String visibility = 'private', String? updatedAt, })`
+- L649 `class _FakeCollectionsHttp implements CollectionsHttp`
+  - L650 `_FakeCollectionsHttp({this.collections = const [], this.error})`
+  - L675 `Future<List<CollectionSummary>> getCollections()`
+  - L682 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
+  - L708 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L718 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
+  - L729 `Future<void> deleteCollection(String collectionId)`
+  - L734 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
+  - L750 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
+  - L758 `Future<CollectionLink> enableCollectionLink(String collectionId)`
+  - L767 `Future<void> disableCollectionLink(String collectionId)`
+  - L772 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
+  - L778 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
+  - L786 `Future<void> leaveCollection(String collectionId)`
+  - L791 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
+  - L804 `Future<CollectionSummary> acceptCollectionInvite(String token)`
+  - L814 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
 
 ### test/view_models/discover_view_model_test.dart
 
@@ -3766,4 +3775,4 @@ windows/
 
 - L3 `void main()`
 
-<!-- mapped: reelpin-app@8d09fad | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
+<!-- mapped: reelpin-app@dbee86b | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->

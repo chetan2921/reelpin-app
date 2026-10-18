@@ -73,13 +73,37 @@ Tests need no dart-defines. CI (`validate.yml`) runs the same gate minus
 
 ## Dev acceptance checkpoint (2026-10-18)
 
-App PR 22 and backend PR 36 merged into dev. Merged-dev app validation passed.
-Backend deployment/readiness passed, but authenticated live link tests exposed
-TikTok redirects to About pages and a dropped unparsed flag in job/detail reads.
-The backend follow-up restores the existing parse_status contract; the Dart
-model already reads and round-trips it, so no app runtime change is needed.
-The original user's 25 modified/untracked app files remain untouched. No mobile
-device is connected; the native extension/activity-to-worker path is not tested.
-The first dev APK build failed with `System.IO.IOException: No space left on device` in the GitHub runner diagnostic log. A targeted workflow step frees unused preinstalled toolchains before Android build; the retry and post-fix live results will be recorded when available. This changes only the temporary CI runner, not hosting.
+App PRs 22 and 23 and backend PRs 36, 37, and 38 merged into dev. Backend
+readiness/deployment passed. Live testing first exposed About-page false saves
+and missing parse_status in detail/job responses; the backend fixes are deployed
+and the shared contracts match. No app runtime change was needed for parse_status.
 
-<!-- mapped: reelpin-app@8d09fad | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+Post-fix live checks: seven unique TikTok jobs failed, four with auth_failure
+and three with provider_timeout after three attempts. No TikTok saves were
+created. Video transcription, photo cover OCR, search, collection filing, and
+completion pushes are still unvalidated because retrieval did not succeed.
+
+A temporary headless Flutter test used the real ApiClient, real HTTP transport,
+explicit dev base URL, and the dedicated test account. Both tests passed: all
+17 URL shapes resolved as supported TikTok links; the client decoded seven
+terminal failures and an empty TikTok feed. Shapes cover video/photo, tracking,
+bare HTTP, username-less posts, share, legacy tiktokv/mobile HTML, embed/player,
+vm/vt/t short links, and a profile. Short redirects retain their original URL
+when TikTok sends them to an About page. This does not mean content was saved.
+
+Local verify passes all 516 Dart tests. A pre-existing collections test cleanup
+race failed twice in merged-dev CI with Directory not empty: background cache
+writes were still running when teardown deleted their directory. The test-only
+cache wrapper now drains pending writes before deletion. All 35 collection
+tests and the complete verify gate pass. Production cache code is unchanged.
+
+The initial dev APK runner ran out of disk. Freeing unused temporary-runner
+toolchains fixed it: the merged-dev APK workflow passed, as did a local debug
+APK built with the explicit dev API override. Hosting is unchanged.
+
+The user stopped the emulator and requested headless checks only. No emulator
+or real-device extension/activity test passed. Earlier native unit checks are
+Android 3 and Swift 8; real TikTok sharing, UI, and push behavior remain untested.
+All 25 original app edits are preserved; main and hosting are unchanged.
+
+<!-- mapped: reelpin-app@dbee86b | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
