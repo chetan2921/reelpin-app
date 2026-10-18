@@ -14,7 +14,8 @@ here, so every in-flight item names its owner and branch.
 Owner: Chetan. App PRs 22 and 23 merged into dev; backend PRs 36, 37, and 38 deployed to dev.
 Retrieval follow-up notes/contracts: `codex/tiktok-retrieval-contracts`.
 The backend now has an existing-provider Apify fallback for blocked public posts;
-its live dev validation is pending. No app runtime change is needed.
+backend PRs 39 and 40 are deployed to dev. Direct video, cover-OCR photo, and
+vm/vt/t shares now save successfully. No app runtime change is needed.
 Work lives in an isolated checkout; the user's original rate/support changes
 are preserved. No main change, hosting change, or production release.
 Backend scope and the complete URL matrix are in reelpin-api's implementation
@@ -30,19 +31,20 @@ on the backend; non-post pages save readable public metadata.
 
 Local checks passed: `tool/reelpin.sh verify` including 516 Dart tests, Android
 Gradle unit tests (3), and Swift Foundation/XCTest parser/classifier tests (8).
-These checks do not establish real-device extension or live TikTok connectivity.
+Headless live checks now establish successful dev ingestion and app-client
+reads; these checks do not establish real-device extension or UI behavior.
 See TESTING.md for covered cases and remaining gaps.
 
 - [x] User confirmed the original dev merges; both PRs are merged.
-- [x] Repeat live checks after the backend landing-redirect and unparsed-response fixes. Seven unique jobs reached terminal failure: four auth failures and three exhausted short-link retries; zero saved TikTok items. No false About-page save.
-- [x] Run the real Dart API client headlessly against dev: all 17 tested URL shapes accepted, seven failed jobs decoded, and the TikTok feed empty. The user requested no emulator.
+- [x] Repeat live checks after the backend fixes. Initial redirect/status corrections exposed retrieval failure; the existing-provider fallback now completes five valid-post jobs with three unique saves and no false About-page content.
+- [x] Run the real Dart API client headlessly against dev: all 17 tested URL shapes accepted; completed jobs, parsed video/photo details, stored thumbnails, TikTok feed, alias dedupe, and selected-collection filing verified. The user requested no emulator.
 - [x] Build Android for dev locally and in CI after freeing unused temporary-runner toolchains. Fix the test-only collection cache teardown race; all 516 app tests pass locally.
 - [ ] Run a dev build with the same Mumbai dev API/worker. Share full video/photo,
   vm/vt, /t, share, embed/player, legacy, and page links from Notes/browser.
   Inspect completed saves, summary/transcript, single-cover OCR, stable thumbnail,
   full/short dedupe, collections, platform filtering/search, and push navigation.
-  Blocked on successful TikTok retrieval from the existing Mumbai connection.
-  Link acceptance alone does not establish successful content ingestion.
+  Headless ingestion and data checks passed on the same Mumbai hosts. Native
+  Notes/browser sharing, UI, and push navigation remain untested by request.
 - [ ] Exercise slow/offline enqueue, lost responses, relaunch/resume recovery,
   selected collections, and current invalid-token behavior. Inspect small-screen
   layouts with seven platforms and missing-thumbnail/unparsed/failure states.
@@ -50,8 +52,8 @@ See TESTING.md for covered cases and remaining gaps.
   available. Verify both apps, network, iOS extension/App Group, and push support
   before choosing a device cloud. This is separate from sharing copied links.
 - [ ] Verify open-original behavior separately from stored thumbnail rendering.
-  Local TikTok network probes timed out; neither live ingestion nor device
-  sharing has passed yet. Backend network access still governs retrieval.
+  Local direct TikTok probes time out; the provider fallback now passes live
+  ingestion on dev. Device open-original and sharing remain untested.
 - [ ] Stop at dev validation. Leave main, production config/store releases,
   hosting, and existing dev/main divergence untouched.
 
@@ -66,7 +68,7 @@ See TESTING.md for covered cases and remaining gaps.
 
 ## Done
 
-- 2026-10-18 TikTok app surfaces and pending-share recovery implemented and locally checked on `codex/tiktok-support`; merged into dev; live acceptance in flight.
+- 2026-10-18 TikTok app surfaces and pending-share recovery implemented and locally checked on `codex/tiktok-support`; merged into dev; headless dev ingestion verified; real-device acceptance remains deferred.
 
 - 2026-08-18 Collections on `dev` (PR 15), a shared link handled once rather than per recreate (PR 16), then promoted (PR 17).
 - 2026-08-22 Collection links open from in-app browsers; instant collection save; stable collection colours.
@@ -76,4 +78,4 @@ See TESTING.md for covered cases and remaining gaps.
 - 2026-09-28 Chat renders the backend's taste-based suggestions block.
 - 2026-09-29 Warm collections before they open; renew an expired session and resend on a 401. `1.0.17+23` promoted (PR 19).
 
-<!-- mapped: reelpin-app@dbee86b | paths: .github/workflows/, lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->
+<!-- mapped: reelpin-app@56e692a | paths: .github/workflows/, lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->

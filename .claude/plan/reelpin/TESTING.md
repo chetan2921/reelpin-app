@@ -78,10 +78,11 @@ readiness/deployment passed. Live testing first exposed About-page false saves
 and missing parse_status in detail/job responses; the backend fixes are deployed
 and the shared contracts match. No app runtime change was needed for parse_status.
 
-Post-fix live checks: seven unique TikTok jobs failed, four with auth_failure
+Before the provider fallback, seven unique TikTok jobs failed, four with auth_failure
 and three with provider_timeout after three attempts. No TikTok saves were
 created. Video transcription, photo cover OCR, search, collection filing, and
-completion pushes are still unvalidated because retrieval did not succeed.
+completion pushes were unvalidated at that checkpoint; the successful
+retrieval follow-up is recorded below.
 
 A temporary headless Flutter test used the real ApiClient, real HTTP transport,
 explicit dev base URL, and the dedicated test account. Both tests passed: all
@@ -108,7 +109,30 @@ All 25 original app edits are preserved; main and hosting are unchanged.
 
 The backend retrieval follow-up reuses the existing Apify provider for blocked
 public posts and unresolved short links. Models, share payloads, polling, and
-one-cover photo OCR stay the same. Live dev results are pending; see the backend
-TESTING.md. No app runtime code changes are needed for this fallback.
+one-cover photo OCR stay the same. Backend PRs 39 and 40 are deployed to dev;
+no app runtime code changes are needed for this fallback.
 
-<!-- mapped: reelpin-app@dbee86b | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+## Successful headless dev checks (2026-10-19)
+
+Five valid-post processing jobs complete with three unique parsed saves: a
+canonical video, a photo, and a newer public vt share. Derived vm and /t variants
+of that working share resolve to the same numeric post and saved item. Historical
+short samples still fail or exhaust bounded retries; their availability is not
+established, and they do not become false saved content.
+
+The real ApiClient passes URL recognition for all 17 tested shapes, completed
+job/detail/feed decoding for the three saves, five legacy/mobile/embed/player
+alias dedupe checks, selected-collection filing for video and photo, and short
+family dedupe. The temporary collection was deleted; valid test saves remain.
+The photo has one-cover OCR, and stored video/photo thumbnails return HTTP 200.
+The new photo is returned by dev search.
+
+A live polling test overlapped the dev restart and received HTTP 502; its
+post-deployment replacement passed. A separate temporary harness initially hit
+its default aggregate 30-second limit across sequential real HTTP calls; the
+same checks passed with a two-minute test limit. App request timeouts are
+unchanged. The full app suite remains 516 passing tests in CI. No emulator was
+started; device UI, real TikTok share sheets, and completion push delivery remain
+untested. Main, hosting, and all 25 original app edits remain unchanged.
+
+<!-- mapped: reelpin-app@56e692a | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
