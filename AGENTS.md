@@ -8,7 +8,7 @@ repos must agree on is in `.claude/contracts/`. `README.md` covers the screens,
 local setup, store builds, Firebase, maps, and signing in prose; this file is
 what to know on top of it.
 
-Mapped from `codex/tiktok-support` @ `b51cba3`.
+Mapped from `codex/tiktok-dev-validation` @ `8d09fad`.
 
 ## Navigate
 
@@ -77,7 +77,7 @@ job is active and drops the finished reel straight into the grid.
 `README.md` "Branches And Promotion" has the rules: `dev` is the working
 branch, `main` is what ships to the stores, never push to `main` directly,
 promote with a merge, merge `main` back into `dev` afterwards, never force-push.
-A push to `dev` runs `validate.yml` and `build-dev-apk.yml`; a PR into `dev`
+The dev APK job removes unused preinstalled .NET, Haskell, and CodeQL toolchains from its temporary GitHub runner before building; Android/Java/Flutter tools and EC2 hosting are unchanged. A push to `dev` runs `validate.yml` and `build-dev-apk.yml`; a PR into `dev`
 runs `validate.yml`. Nothing runs on PRs into `main`.
 
 The history does not match those rules today: `main` was promoted through
@@ -175,4 +175,4 @@ files. Name the env var or config key instead.
 Tracking: committed to this repo, shared with every collaborator.
 Layout: per repo; reelpin-api carries its own tree.
 
-<!-- mapped: reelpin-app@b51cba3 | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
+<!-- mapped: reelpin-app@8d09fad | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->

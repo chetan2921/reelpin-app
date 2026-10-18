@@ -26,6 +26,7 @@ List every server route from the reelpin-api root with:
 - Errors use one envelope (`ApiErrorResponse`: `success`, `error_code`, `message`, `detail`, `retryable`, optional `allowed`). The client shows only `message`, falling back to its own text. Exceptions: the folder-conflict 409 has its own shape, and SSE errors arrive as an `error` event.
 - JSON is snake_case. Some inputs also accept camelCase, and the client relies on it for `POST /map/pins`. Display models say `sub_category` where `ReelResponse` and search say `subcategory`. Do not "fix" naming on one side.
 - Pagination: `offset`, `cursor`, `limit` in; `PaginationMetadata` out. `GET /processing-jobs` returns a bare list; collection chat pages with `after`.
+- Reel detail and search responses carry `parse_status`, as do display reels nested in processing jobs and feeds. Keep the stored `unparsed` value across database projections and conversion; the app already reads it. Missing values default to `parsed` for older records.
 - The client polls `GET /processing-jobs` at the largest `recommended_poll_after_seconds` the server returns, clamped on the client.
 - Chat SSE: `stage` events, then exactly one `answer` (with `blocks`) or `error`. The server's answer schema is in reelpin-api `app/services/chat.py`; the client drops block types it does not know, so a new block type needs both sides.
 

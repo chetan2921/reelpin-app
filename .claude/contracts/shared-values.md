@@ -49,3 +49,7 @@ full video processing. Photo metadata/cover results may be cached normally.
 TikTok cards and detail/share actions use VIDEO, POST, or LINK. Older saves
 without platform metadata can use their TikTok URL for labeling. Public post
 URL support does not guarantee access to private, deleted, or restricted content.
+
+TikTok About/login landing redirects cannot replace a requested post/profile.
+Post redirects must keep the same numeric ID. A short share redirected to a
+landing page keeps its original unresolved identity for the existing retry flow.

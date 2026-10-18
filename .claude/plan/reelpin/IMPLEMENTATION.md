@@ -9,11 +9,12 @@ here, so every in-flight item names its owner and branch.
 - On GitHub but not on `dev`: `feature/paywall` (chetan2921, last commit 2026-10-14) sells Pro through a RevenueCat paywall. It pairs with reelpin-api's `user_entitlements` table, where Pro is granted by hand until this ships.
 
 
-### TikTok support (review pending 2026-10-18)
+### TikTok support (dev acceptance 2026-10-18)
 
-Owner: Chetan. Branch: `codex/tiktok-support`, cut from `origin/dev` at `a4ae9dd`.
+Owner: Chetan. App PR 22 merged into dev at `a042be9`; backend PR 36 deployed to dev.
+Follow-up notes/contracts: `codex/tiktok-dev-validation`.
 Work lives in an isolated checkout; the user's original rate/support changes
-are preserved. No dev/main merge, hosting change, or production release.
+are preserved. No main change, hosting change, or production release.
 Backend scope and the complete URL matrix are in reelpin-api's implementation
 plan and the shared contracts.
 
@@ -30,7 +31,8 @@ Gradle unit tests (3), and Swift Foundation/XCTest parser/classifier tests (8).
 These checks do not establish real-device extension or live TikTok connectivity.
 See TESTING.md for covered cases and remaining gaps.
 
-- [ ] Review both branches; merge into `dev` only after user confirmation.
+- [x] User confirmed the original dev merges; both PRs are merged.
+- [ ] Repeat live checks after the backend landing-redirect and unparsed-response fixes. First live samples did not yield video transcription or photo cover OCR.
 - [ ] Run a dev build with the same Mumbai dev API/worker. Share full video/photo,
   vm/vt, /t, share, embed/player, legacy, and page links from Notes/browser.
   Inspect completed saves, summary/transcript, single-cover OCR, stable thumbnail,
@@ -58,7 +60,7 @@ See TESTING.md for covered cases and remaining gaps.
 
 ## Done
 
-- 2026-10-18 TikTok app surfaces and pending-share recovery implemented and locally checked on `codex/tiktok-support`; review, dev merge, and live acceptance pending.
+- 2026-10-18 TikTok app surfaces and pending-share recovery implemented and locally checked on `codex/tiktok-support`; merged into dev; live acceptance in flight.
 
 - 2026-08-18 Collections on `dev` (PR 15), a shared link handled once rather than per recreate (PR 16), then promoted (PR 17).
 - 2026-08-22 Collection links open from in-app browsers; instant collection save; stable collection colours.
@@ -68,4 +70,4 @@ See TESTING.md for covered cases and remaining gaps.
 - 2026-09-28 Chat renders the backend's taste-based suggestions block.
 - 2026-09-29 Warm collections before they open; renew an expired session and resend on a 401. `1.0.17+23` promoted (PR 19).
 
-<!-- mapped: reelpin-app@b51cba3 | paths: lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->
+<!-- mapped: reelpin-app@8d09fad | paths: .github/workflows/, lib/constants/source_platforms.dart, lib/screens/reel_detail/, lib/components/reels/, lib/screens/home/, lib/screens/onboarding/, lib/data_models/reels/, lib/data_models/sharing/, lib/screens/app_shell/, lib/services/sharing/, lib/http/, android/app/src/, ios/, assets/images/, test/, tool/ -->
