@@ -44,7 +44,7 @@ Established by reading the code, not assumed:
 - **The answer pipeline is structured.** `app/services/chat.py` retrieves, asks
   Gemini for a `ChatAnswerPlan`, and assembles typed blocks.
 - **Block rendering is forward compatible.** `AnswerBlock.fromJson`
-  (`lib/data_models/chat/answer_block.dart:11`) returns `null` for an unknown
+  (formerly `lib/data_models/chat/answer_block.dart`; chat was removed from the app on `go-backend`, so the file no longer exists there) returns `null` for an unknown
   `type`, with the comment stating this explicitly: a thread written by a newer
   build still opens on an older one with its other blocks intact. **New block
   types can therefore ship server-first without breaking installed clients.**
