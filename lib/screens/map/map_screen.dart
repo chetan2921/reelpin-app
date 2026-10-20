@@ -75,7 +75,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _initUserLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true);
+        final mapVm = ref.read(mapViewModelProvider);
+        mapVm.loadMapReels(forceRefresh: true);
+        unawaited(mapVm.loadLibraryStats());
       }
     });
   }
@@ -130,33 +132,35 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  /// Frames the user with their nearest saved places, or zooms in on the user
-  /// alone when there are none close by.
+  /// Zooms in on the user at once, then widens to frame their nearest saved
+  /// places if that lookup answers in time.
   Future<void> _recenterToUserLocation() async {
     final userLatLng = _userLatLng;
     if (_mapController == null || userLatLng == null) return;
 
-    final nearby = await ref
+    await ref
         .read(mapViewModelProvider)
-        .nearbyMapItems(userLatLng.latitude, userLatLng.longitude);
-    if (!mounted || _mapController == null) return;
-
-    if (nearby.isEmpty) {
-      _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: userLatLng, zoom: 13.0),
-        ),
-      );
-      return;
-    }
-
-    // The two corners about 500 m either side of the user keep a pin a few
-    // metres away from zooming the map to street level.
-    _fitPositions([
-      LatLng(userLatLng.latitude - 0.005, userLatLng.longitude - 0.005),
-      LatLng(userLatLng.latitude + 0.005, userLatLng.longitude + 0.005),
-      for (final item in nearby) LatLng(item.latitude, item.longitude),
-    ]);
+        .recenterOnUser(
+          latitude: userLatLng.latitude,
+          longitude: userLatLng.longitude,
+          moveToUser: () {
+            _mapController?.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(target: userLatLng, zoom: 13.0),
+              ),
+            );
+          },
+          fitNearby: (nearby) {
+            if (!mounted) return;
+            // The two corners about 500 m either side of the user keep a pin
+            // a few metres away from zooming the map to street level.
+            _fitPositions([
+              LatLng(userLatLng.latitude - 0.005, userLatLng.longitude - 0.005),
+              LatLng(userLatLng.latitude + 0.005, userLatLng.longitude + 0.005),
+              for (final item in nearby) LatLng(item.latitude, item.longitude),
+            ]);
+          },
+        );
   }
 
   Future<void> _reportViewport() async {
@@ -336,27 +340,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             return Stack(
               children: [
                 // ── Google Map ──
-                GoogleMap(
-                  initialCameraPosition: const CameraPosition(
-                    target: _defaultLatLng,
-                    zoom: 2,
+                Listener(
+                  onPointerDown: (_) => vm.userMovedCamera(),
+                  child: GoogleMap(
+                    initialCameraPosition: const CameraPosition(
+                      target: _defaultLatLng,
+                      zoom: 2,
+                    ),
+                    style: themeVm.isDarkMode ? _darkMapStyle : null,
+                    markers: markers,
+                    onCameraIdle: () {
+                      unawaited(_reportViewport());
+                    },
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                      _centerMapOnUserCountry();
+                      if (!_hasCenteredOnCountry && markers.isNotEmpty) {
+                        _fitMarkers(markers);
+                      }
+                    },
+                    myLocationEnabled: _canShowUserLocation,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
                   ),
-                  style: themeVm.isDarkMode ? _darkMapStyle : null,
-                  markers: markers,
-                  onCameraIdle: () {
-                    unawaited(_reportViewport());
-                  },
-                  onMapCreated: (controller) {
-                    _mapController = controller;
-                    _centerMapOnUserCountry();
-                    if (!_hasCenteredOnCountry && markers.isNotEmpty) {
-                      _fitMarkers(markers);
-                    }
-                  },
-                  myLocationEnabled: _canShowUserLocation,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  mapToolbarEnabled: false,
                 ),
 
                 // ── Top overlay ──
@@ -401,7 +408,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                   SizedBox(width: layout.inset(8)),
                                   Expanded(
                                     child: Text(
-                                      '$totalPins ${totalPins == 1 ? 'PLACE' : 'PLACES'} PINNED',
+                                      totalPins == null
+                                          ? 'PLACES PINNED'
+                                          : '$totalPins ${totalPins == 1 ? 'PLACE' : 'PLACES'} PINNED',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.spaceMono(
@@ -446,6 +455,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           },
                         ),
                       ),
+                      if (vm.showsEmptyViewportHint) ...[
+                        SizedBox(height: layout.gap(8)),
+                        _mapNotice('No pins in this area'),
+                      ] else if (vm.isTruncated) ...[
+                        SizedBox(height: layout.gap(8)),
+                        _mapNotice('Zoom in to see all pins'),
+                      ],
                     ],
                   ),
                 ),
@@ -550,7 +566,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
 
                 // ── Empty ──
-                if (!vm.isLoading && vm.error == null && markers.isEmpty)
+                if (vm.showsEmptyLibrary)
                   Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -641,6 +657,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _mapNotice(String message) {
+    final layout = AppLayout.of(context);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.inset(10),
+        vertical: layout.gap(6),
+      ),
+      decoration: AppTheme.brutalBox(
+        context,
+        color: AppColors.bg(context),
+        shadow: false,
+      ),
+      child: Text(
+        message,
+        style: GoogleFonts.spaceMono(
+          color: AppColors.fg(context),
+          fontSize: layout.font(10),
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

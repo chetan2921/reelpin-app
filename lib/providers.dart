@@ -134,7 +134,7 @@ final homeViewModelProvider = ChangeNotifierProvider<HomeViewModel>((ref) {
 });
 
 final mapViewModelProvider = ChangeNotifierProvider<MapViewModel>((ref) {
-  return MapViewModel(ref.read(mapHttpProvider));
+  return MapViewModel(ref.read(mapHttpProvider), ref.read(accountHttpProvider));
 });
 
 final reelFiltersViewModelProvider =

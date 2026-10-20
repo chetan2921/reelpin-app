@@ -46,6 +46,22 @@ void main() {
     expect(pin.reelId, '22222222-2222-4222-8222-222222222222');
   });
 
+  test('reads a capped answer as truncated', () {
+    final body = Map<String, dynamic>.from(ApiV2Fixture('map_pins').body)
+      ..['truncated'] = true;
+
+    final response = MapResponse.fromJson(body);
+
+    expect(response.truncated, isTrue);
+    expect(response.mapItems, hasLength(1));
+  });
+
+  test('an answer without truncated is not capped', () {
+    final response = MapResponse.fromJson(ApiV2Fixture('map_pins').body);
+
+    expect(response.truncated, isFalse);
+  });
+
   test('a content pin is hidden through its bare location id', () {
     final pin = MapResponse.fromJson(
       ApiV2Fixture('map_pins').body,

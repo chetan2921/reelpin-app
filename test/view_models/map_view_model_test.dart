@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:reelpin/data_models/account/library_stats.dart';
 import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
+import 'package:reelpin/http/account_http.dart';
 import 'package:reelpin/http/map_http.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/data_models/discover/search_response.dart';
@@ -17,6 +19,8 @@ import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../fixtures/api_v2.dart';
 
 void main() {
   test(
@@ -40,7 +44,7 @@ void main() {
     final repository = _FakeReelRepository.empty(
       mapResponse: const MapResponse(mapItems: [_travelMapItem]),
     );
-    final viewModel = MapViewModel(repository);
+    final viewModel = MapViewModel(repository, _FakeAccountHttp());
     await viewModel.loadMapReels(forceRefresh: true);
     viewModel.selectMapItem(_travelMapItem);
 
@@ -100,7 +104,7 @@ void main() {
             ],
           ),
     );
-    final viewModel = MapViewModel(repository);
+    final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
     await viewModel.searchMapPlaces('brew');
 
@@ -112,7 +116,8 @@ void main() {
 
   test('pinPlace upserts and selects manual map pin', () async {
     final repository = _FakeReelRepository.empty(pinnedMapItem: _manualMapItem);
-    final viewModel = MapViewModel(repository);
+    final accountHttp = _FakeAccountHttp(totalPinnedLocations: 4);
+    final viewModel = MapViewModel(repository, accountHttp);
 
     final item = await viewModel.pinPlace(
       const MapPlaceSearchResult(
@@ -129,7 +134,9 @@ void main() {
     expect(item?.mapItemId, 'manual:pin-1');
     expect(viewModel.mapItems.map((item) => item.mapItemId), ['manual:pin-1']);
     expect(viewModel.selectedMapItem?.mapItemId, 'manual:pin-1');
-    expect(viewModel.totalPinnedLocations, 1);
+    await Future<void>.delayed(Duration.zero);
+    expect(accountHttp.statsCalls, 1);
+    expect(viewModel.totalPinnedLocations, 4);
   });
 
   test('removeMapItem deletes a manual pin through its manual: id', () async {
@@ -138,7 +145,8 @@ void main() {
         mapItems: [_travelMapItem, _manualMapItem],
       ),
     );
-    final viewModel = MapViewModel(repository);
+    final accountHttp = _FakeAccountHttp(totalPinnedLocations: 2);
+    final viewModel = MapViewModel(repository, accountHttp);
     await viewModel.loadMapReels(forceRefresh: true);
     viewModel.selectMapItem(_manualMapItem);
 
@@ -148,14 +156,15 @@ void main() {
     expect(repository.removedMapItemIds, ['manual:pin-1']);
     expect(viewModel.mapItems.map((item) => item.mapItemId), [_locationId]);
     expect(viewModel.selectedMapItem, isNull);
-    expect(viewModel.totalPinnedLocations, 1);
+    await Future<void>.delayed(Duration.zero);
+    expect(accountHttp.statsCalls, 1);
   });
 
   test('removeMapItem hides a content pin through its location id', () async {
     final repository = _FakeReelRepository.empty(
       mapResponse: const MapResponse(mapItems: [_travelMapItem]),
     );
-    final viewModel = MapViewModel(repository);
+    final viewModel = MapViewModel(repository, _FakeAccountHttp());
     await viewModel.loadMapReels(forceRefresh: true);
 
     final success = await viewModel.removeMapItem(_travelMapItem);
@@ -167,7 +176,7 @@ void main() {
 
   test('removeMapItem sends nothing for a pin it may not change', () async {
     final repository = _FakeReelRepository.empty();
-    final viewModel = MapViewModel(repository);
+    final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
     final success = await viewModel.removeMapItem(_lockedMapItem);
 
@@ -178,7 +187,7 @@ void main() {
   group('viewport', () {
     test('loads the whole world before the camera reports a box', () async {
       final repository = _FakeReelRepository.empty();
-      final viewModel = MapViewModel(repository);
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
       await viewModel.loadMapReels();
 
@@ -190,7 +199,7 @@ void main() {
       tester,
     ) async {
       final repository = _FakeReelRepository.empty();
-      final viewModel = MapViewModel(repository);
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
       viewModel.updateViewport(_goa);
       await tester.pump(const Duration(milliseconds: 100));
@@ -206,7 +215,7 @@ void main() {
 
     testWidgets('ignores a box with no height', (tester) async {
       final repository = _FakeReelRepository.empty();
-      final viewModel = MapViewModel(repository);
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
       viewModel.updateViewport(
         const MapBounds(south: 0, west: 0, north: 0, east: 0),
@@ -221,7 +230,7 @@ void main() {
       tester,
     ) async {
       final repository = _FakeReelRepository.empty();
-      final viewModel = MapViewModel(repository);
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
       viewModel.updateViewport(_goa);
       await tester.pump(MapViewModel.viewportDebounce);
 
@@ -241,7 +250,7 @@ void main() {
             ? goaPins.future
             : Future.value(const MapResponse(mapItems: [_manualMapItem])),
       );
-      final viewModel = MapViewModel(repository);
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
       viewModel.updateViewport(_goa);
       final goaLoad = viewModel.loadMapReels();
@@ -260,7 +269,7 @@ void main() {
       final repository = _FakeReelRepository.empty(
         onGetMapData: (_, _) => pins.future,
       );
-      final viewModel = MapViewModel(repository);
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
       final first = viewModel.loadMapReels();
       final second = viewModel.loadMapReels();
@@ -270,11 +279,71 @@ void main() {
       expect(repository.mapDataCalls, hasLength(1));
     });
 
+    testWidgets('the first box waits for the whole-world load to answer', (
+      tester,
+    ) async {
+      final worldPins = Completer<MapResponse>();
+      final goaPins = Completer<MapResponse>();
+      final repository = _FakeReelRepository.empty(
+        onGetMapData: (bounds, _) =>
+            bounds == MapBounds.world ? worldPins.future : goaPins.future,
+      );
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
+
+      unawaited(viewModel.loadMapReels());
+      viewModel.updateViewport(_goa);
+      await tester.pump(MapViewModel.viewportDebounce);
+      expect(repository.mapDataCalls.map((call) => call.bounds), [
+        MapBounds.world,
+      ]);
+
+      worldPins.complete(const MapResponse(mapItems: [_travelMapItem]));
+      await tester.pump();
+      expect(viewModel.mapItems.single.mapItemId, _locationId);
+      expect(repository.mapDataCalls.map((call) => call.bounds), [
+        MapBounds.world,
+        _goa,
+      ]);
+
+      goaPins.complete(const MapResponse(mapItems: [_manualMapItem]));
+      await tester.pump();
+      expect(viewModel.mapItems.single.mapItemId, 'manual:pin-1');
+      viewModel.dispose();
+    });
+
+    testWidgets('the first box stops waiting for a slow whole-world load', (
+      tester,
+    ) async {
+      final worldPins = Completer<MapResponse>();
+      final repository = _FakeReelRepository.empty(
+        onGetMapData: (bounds, _) => bounds == MapBounds.world
+            ? worldPins.future
+            : Future.value(const MapResponse(mapItems: [_manualMapItem])),
+      );
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
+
+      unawaited(viewModel.loadMapReels());
+      viewModel.updateViewport(_goa);
+      await tester.pump(MapViewModel.viewportDebounce);
+      await tester.pump(MapViewModel.initialLoadGuard);
+
+      expect(repository.mapDataCalls.map((call) => call.bounds), [
+        MapBounds.world,
+        _goa,
+      ]);
+      expect(viewModel.mapItems.single.mapItemId, 'manual:pin-1');
+
+      worldPins.complete(const MapResponse(mapItems: [_travelMapItem]));
+      await tester.pump();
+      expect(viewModel.mapItems.single.mapItemId, 'manual:pin-1');
+      viewModel.dispose();
+    });
+
     test('keeps the selected pin when a new box leaves it out', () async {
       final repository = _FakeReelRepository.empty(
         mapResponse: const MapResponse(mapItems: []),
       );
-      final viewModel = MapViewModel(repository);
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
       viewModel.selectMapItem(_travelMapItem);
 
       await viewModel.loadMapReels();
@@ -288,7 +357,7 @@ void main() {
       final repository = _FakeReelRepository.empty(
         nearbyResponse: const MapResponse(mapItems: [_travelMapItem]),
       );
-      final viewModel = MapViewModel(repository);
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
       final nearby = await viewModel.nearbyMapItems(12.9, 77.6);
 
@@ -300,7 +369,7 @@ void main() {
       'answers empty when the lookup fails, so recenter still works',
       () async {
         final repository = _FakeReelRepository.empty(nearbyFails: true);
-        final viewModel = MapViewModel(repository);
+        final viewModel = MapViewModel(repository, _FakeAccountHttp());
 
         final nearby = await viewModel.nearbyMapItems(12.9, 77.6);
 
@@ -308,6 +377,185 @@ void main() {
       },
     );
   });
+
+  group('recenter', () {
+    testWidgets('moves to the user before the nearby lookup answers', (
+      tester,
+    ) async {
+      final nearbyPins = Completer<MapResponse>();
+      final repository = _FakeReelRepository.empty(
+        onGetNearbyPins: () => nearbyPins.future,
+      );
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
+      var moves = 0;
+      final fits = <List<MapItem>>[];
+
+      unawaited(
+        viewModel.recenterOnUser(
+          latitude: 12.9,
+          longitude: 77.6,
+          moveToUser: () => moves += 1,
+          fitNearby: fits.add,
+        ),
+      );
+      expect(moves, 1);
+      expect(fits, isEmpty);
+
+      nearbyPins.complete(const MapResponse(mapItems: [_travelMapItem]));
+      await tester.pump();
+      expect(fits.single.single.mapItemId, _locationId);
+    });
+
+    testWidgets('skips the framing once the user has moved the map', (
+      tester,
+    ) async {
+      final nearbyPins = Completer<MapResponse>();
+      final repository = _FakeReelRepository.empty(
+        onGetNearbyPins: () => nearbyPins.future,
+      );
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
+      final fits = <List<MapItem>>[];
+
+      unawaited(
+        viewModel.recenterOnUser(
+          latitude: 12.9,
+          longitude: 77.6,
+          moveToUser: () {},
+          fitNearby: fits.add,
+        ),
+      );
+      viewModel.userMovedCamera();
+      nearbyPins.complete(const MapResponse(mapItems: [_travelMapItem]));
+      await tester.pump();
+
+      expect(fits, isEmpty);
+    });
+
+    testWidgets('skips the framing when the answer comes after the timeout', (
+      tester,
+    ) async {
+      final nearbyPins = Completer<MapResponse>();
+      final repository = _FakeReelRepository.empty(
+        onGetNearbyPins: () => nearbyPins.future,
+      );
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
+      var moves = 0;
+      final fits = <List<MapItem>>[];
+
+      unawaited(
+        viewModel.recenterOnUser(
+          latitude: 12.9,
+          longitude: 77.6,
+          moveToUser: () => moves += 1,
+          fitNearby: fits.add,
+        ),
+      );
+      await tester.pump(MapViewModel.nearbyTimeout);
+      nearbyPins.complete(const MapResponse(mapItems: [_travelMapItem]));
+      await tester.pump();
+
+      expect(moves, 1);
+      expect(fits, isEmpty);
+    });
+  });
+
+  group('account totals', () {
+    test('an account with no pins shows the empty card', () async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(
+        repository,
+        _FakeAccountHttp(totalPinnedLocations: 0),
+      );
+
+      await viewModel.loadMapReels();
+      await viewModel.loadLibraryStats();
+
+      expect(viewModel.totalPinnedLocations, 0);
+      expect(viewModel.showsEmptyLibrary, isTrue);
+      expect(viewModel.showsEmptyViewportHint, isFalse);
+    });
+
+    test('an empty box on an account with pins shows the area hint', () async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(
+        repository,
+        _FakeAccountHttp(totalPinnedLocations: 7),
+      );
+      viewModel.updateViewport(_goa);
+
+      await viewModel.loadMapReels();
+      await viewModel.loadLibraryStats();
+
+      expect(viewModel.totalPinnedLocations, 7);
+      expect(viewModel.showsEmptyLibrary, isFalse);
+      expect(viewModel.showsEmptyViewportHint, isTrue);
+    });
+
+    test('the header count is the account total, not the box', () async {
+      final repository = _FakeReelRepository.empty(
+        mapResponse: const MapResponse(mapItems: [_travelMapItem]),
+      );
+      final viewModel = MapViewModel(
+        repository,
+        _FakeAccountHttp(totalPinnedLocations: 42),
+      );
+
+      await viewModel.loadMapReels();
+      await viewModel.loadLibraryStats();
+
+      expect(viewModel.mapItems, hasLength(1));
+      expect(viewModel.totalPinnedLocations, 42);
+      expect(viewModel.showsEmptyLibrary, isFalse);
+      expect(viewModel.showsEmptyViewportHint, isFalse);
+    });
+
+    test('a capped box is flagged and leaves the total alone', () async {
+      final fixture = Map<String, dynamic>.from(ApiV2Fixture('map_pins').body)
+        ..['truncated'] = true;
+      final repository = _FakeReelRepository.empty(
+        mapResponse: MapResponse.fromJson(fixture),
+      );
+      final viewModel = MapViewModel(
+        repository,
+        _FakeAccountHttp(totalPinnedLocations: 900),
+      );
+      viewModel.updateViewport(_goa);
+
+      await viewModel.loadMapReels();
+      await viewModel.loadLibraryStats();
+
+      expect(viewModel.isTruncated, isTrue);
+      expect(viewModel.mapItems, hasLength(1));
+      expect(viewModel.totalPinnedLocations, 900);
+    });
+  });
+}
+
+class _FakeAccountHttp implements AccountHttp {
+  _FakeAccountHttp({this.totalPinnedLocations = 0});
+
+  final int totalPinnedLocations;
+  int statsCalls = 0;
+
+  @override
+  Future<LibraryStats> getLibraryStats() async {
+    statsCalls += 1;
+    return LibraryStats(
+      totalReels: 0,
+      totalPinnedLocations: totalPinnedLocations,
+      totalTags: 0,
+      totalCategories: 0,
+      totalSubcategories: 0,
+    );
+  }
+
+  @override
+  Future<EntitlementsResponse> getAccountEntitlements({
+    required String userId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> deleteAccount() => throw UnimplementedError();
 }
 
 class _FakeReelRepository extends ReelRepository implements MapHttp {
@@ -315,6 +563,7 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
     : cachedReels = const [],
       mapResponse = null,
       onGetMapData = null,
+      onGetNearbyPins = null,
       nearbyResponse = null,
       nearbyFails = false,
       onMapSearch = null,
@@ -325,6 +574,7 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
     this.cachedReels = const [],
     this.mapResponse,
     this.onGetMapData,
+    this.onGetNearbyPins,
     this.nearbyResponse,
     this.nearbyFails = false,
     this.onMapSearch,
@@ -352,6 +602,7 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
   final MapResponse? mapResponse;
   final Future<MapResponse> Function(MapBounds bounds, String? category)?
   onGetMapData;
+  final Future<MapResponse> Function()? onGetNearbyPins;
   final MapResponse? nearbyResponse;
   final bool nearbyFails;
   final MapItem? pinnedMapItem;
@@ -407,6 +658,8 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
   }) async {
     nearbyCalls.add((latitude, longitude));
     if (nearbyFails) throw Exception('nearby failed');
+    final handler = onGetNearbyPins;
+    if (handler != null) return handler();
     return nearbyResponse ?? const MapResponse(mapItems: []);
   }
 

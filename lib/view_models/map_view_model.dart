@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:reelpin/services/cache/content_cache.dart';
 import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/http/account_http.dart';
 import 'package:reelpin/http/map_http.dart';
 import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
@@ -13,19 +14,29 @@ import 'package:reelpin/utils/error_message.dart';
 
 class MapViewModel extends ChangeNotifier {
   final MapHttp _mapHttp;
+  final AccountHttp _accountHttp;
 
-  MapViewModel(this._mapHttp);
+  MapViewModel(this._mapHttp, this._accountHttp);
 
   /// How long the camera must stay settled before its viewport is queried, so
   /// a fling followed by a nudge is one request.
   static const viewportDebounce = Duration(milliseconds: 400);
 
-  /// The my-location button waits on the nearby lookup, so it gives up
-  /// quickly and recentres without it.
-  static const _nearbyTimeout = Duration(seconds: 3);
+  /// How long the my-location button's framing waits on the nearby lookup;
+  /// an answer after this would move a camera the user is already reading.
+  static const nearbyTimeout = Duration(seconds: 3);
+
+  /// The longest a viewport query waits for the whole-world load that opens
+  /// the map before it takes over.
+  static const initialLoadGuard = Duration(seconds: 2);
 
   List<MapItem> _mapItems = [];
   bool _isLoading = false;
+  bool _isTruncated = false;
+  int? _totalPinnedLocations;
+  int _statsRequestId = 0;
+  Completer<void>? _initialLoad;
+  int _recenterId = 0;
   bool _isLoadingMore = false;
   String? _error;
   String? _selectedCategory;
@@ -53,8 +64,27 @@ class MapViewModel extends ChangeNotifier {
   String? get selectedCategory => _selectedCategory;
   MapItem? get selectedMapItem => _selectedMapItem;
 
-  /// The pins in the current viewport and category.
-  int get totalPinnedLocations => _mapItems.length;
+  /// Every pin on the account, from library stats; null until they arrive.
+  /// The viewport's pins are not a count of anything, since the server caps
+  /// them and a category or pan narrows them.
+  int? get totalPinnedLocations => _totalPinnedLocations;
+
+  /// The server capped this viewport's pins.
+  bool get isTruncated => _isTruncated;
+
+  /// The account has no pins at all.
+  bool get showsEmptyLibrary =>
+      !_isLoading &&
+      _error == null &&
+      _mapItems.isEmpty &&
+      _totalPinnedLocations == 0;
+
+  /// The account has pins, just none in this viewport and category.
+  bool get showsEmptyViewportHint =>
+      !_isLoading &&
+      _error == null &&
+      _mapItems.isEmpty &&
+      (_totalPinnedLocations ?? 0) > 0;
   List<MapPlaceSearchResult> get placeSearchResults =>
       List.unmodifiable(_placeSearchResults);
   bool get isSearchingPlaces => _isSearchingPlaces;
@@ -90,6 +120,7 @@ class MapViewModel extends ChangeNotifier {
       if (response.mapItems.isEmpty) return;
 
       _mapItems = response.mapItems;
+      _isTruncated = response.truncated;
       notifyListeners();
     } catch (e) {
       AppLogger.error('Cached map data could not be restored: $e');
@@ -99,7 +130,8 @@ class MapViewModel extends ChangeNotifier {
 
   /// Loads the pins for the last viewport the camera reported, or the whole
   /// world before it has reported one. A newer query supersedes one in
-  /// flight; the same query in flight is not sent twice.
+  /// flight; the same query in flight is not sent twice. The whole-world load
+  /// is the initial one, which the first viewport query waits for.
   ///
   /// The selected pin is kept even when it falls outside the new viewport:
   /// panning away is not a reason to close its sheet.
@@ -114,6 +146,8 @@ class MapViewModel extends ChangeNotifier {
     }
 
     final requestId = ++_pinsRequestId;
+    final initialLoad = _viewport == null ? Completer<void>() : null;
+    if (initialLoad != null) _initialLoad = initialLoad;
     _loadingBounds = bounds;
     _loadingCategory = category;
     _isLoading = true;
@@ -127,6 +161,7 @@ class MapViewModel extends ChangeNotifier {
       );
       if (requestId != _pinsRequestId) return;
       _mapItems = response.mapItems;
+      _isTruncated = response.truncated;
     } catch (e) {
       if (requestId != _pinsRequestId) return;
       _error = userFacingErrorMessage(
@@ -134,6 +169,7 @@ class MapViewModel extends ChangeNotifier {
         fallbackMessage: 'Could not load map data right now.',
       );
     } finally {
+      initialLoad?.complete();
       if (requestId == _pinsRequestId) {
         _isLoading = false;
         notifyListeners();
@@ -148,8 +184,33 @@ class MapViewModel extends ChangeNotifier {
     _viewport = bounds;
     _viewportTimer?.cancel();
     _viewportTimer = Timer(viewportDebounce, () {
-      unawaited(loadMapReels());
+      unawaited(_loadViewportPins());
     });
+  }
+
+  /// The camera settles as the map opens, before the whole-world load has
+  /// answered; superseding it then would leave the map empty for longer.
+  Future<void> _loadViewportPins() async {
+    final initialLoad = _initialLoad;
+    if (initialLoad != null) {
+      await initialLoad.future.timeout(initialLoadGuard, onTimeout: () {});
+      _initialLoad = null;
+    }
+    await loadMapReels();
+  }
+
+  /// Reads the account's pin total, once per map open and again after a pin
+  /// is added or removed. A failure leaves the last total in place.
+  Future<void> loadLibraryStats() async {
+    final requestId = ++_statsRequestId;
+    try {
+      final stats = await _accountHttp.getLibraryStats();
+      if (requestId != _statsRequestId) return;
+      _totalPinnedLocations = stats.totalPinnedLocations;
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Library stats for the map could not be loaded: $e');
+    }
   }
 
   /// The saved places nearest a point, for framing the my-location recenter.
@@ -162,12 +223,35 @@ class MapViewModel extends ChangeNotifier {
     try {
       final response = await _mapHttp
           .getNearbyPins(latitude: latitude, longitude: longitude)
-          .timeout(_nearbyTimeout);
+          .timeout(nearbyTimeout);
       return response.mapItems;
     } catch (e) {
       AppLogger.error('Nearby map pins could not be loaded: $e');
       return const [];
     }
+  }
+
+  /// Moves the camera to the user at once, then frames their nearest places
+  /// when the lookup answers within [nearbyTimeout]. The framing is dropped
+  /// if the user has moved the map since, or another recenter started.
+  Future<void> recenterOnUser({
+    required double latitude,
+    required double longitude,
+    required void Function() moveToUser,
+    required void Function(List<MapItem> nearby) fitNearby,
+  }) async {
+    final recenterId = ++_recenterId;
+    moveToUser();
+
+    final nearby = await nearbyMapItems(latitude, longitude);
+    if (recenterId != _recenterId || nearby.isEmpty) return;
+    fitNearby(nearby);
+  }
+
+  /// The user touched the map, so a pending recenter framing would yank the
+  /// camera away from where they are looking.
+  void userMovedCamera() {
+    _recenterId += 1;
   }
 
   Future<void> loadMoreReels() async {}
@@ -198,6 +282,10 @@ class MapViewModel extends ChangeNotifier {
     _pinsRequestId += 1;
     _mapItems = const [];
     _isLoading = false;
+    _isTruncated = false;
+    _totalPinnedLocations = null;
+    _statsRequestId += 1;
+    _recenterId += 1;
     _isLoadingMore = false;
     _error = null;
     _selectedCategory = null;
@@ -280,6 +368,7 @@ class MapViewModel extends ChangeNotifier {
       _placeSearchSessionToken = '';
       _mapPinActionError = null;
       unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+      unawaited(loadLibraryStats());
       return item;
     } catch (e) {
       _mapPinActionError = userFacingErrorMessage(
@@ -317,6 +406,7 @@ class MapViewModel extends ChangeNotifier {
           .toList(growable: false);
       _mapPinActionError = null;
       unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+      unawaited(loadLibraryStats());
       return true;
     } catch (e) {
       _mapPinActionError = userFacingErrorMessage(

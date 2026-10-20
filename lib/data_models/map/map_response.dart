@@ -1,17 +1,23 @@
 import 'package:reelpin/data_models/reels/reel.dart';
 
 class MapResponse {
-  const MapResponse({required this.mapItems});
+  const MapResponse({required this.mapItems, this.truncated = false});
 
   final List<MapItem> mapItems;
 
+  /// True when the server hit its pin cap, so [mapItems] is not every pin in
+  /// the box.
+  final bool truncated;
+
   /// Reads a `{pins: [...]}` answer from `/map/pins` or `/map/nearby`. Any
-  /// category filter was already applied by the server.
+  /// category filter was already applied by the server. A server that does
+  /// not send `truncated` never caps the answer.
   factory MapResponse.fromJson(Map<String, dynamic> json) {
     return MapResponse(
       mapItems: (json['pins'] as List<dynamic>? ?? const [])
           .map((row) => MapItem.fromJson(Map<String, dynamic>.from(row as Map)))
           .toList(growable: false),
+      truncated: json['truncated'] == true,
     );
   }
 }
