@@ -1,25 +1,22 @@
 class ShareResolveResponse {
   const ShareResolveResponse({
     required this.supported,
-    this.extractedUrl,
-    this.normalizedUrl,
-    this.provider,
-    this.errorMessage,
+    this.url,
+    this.sourcePlatform,
+    this.sourceContentType,
   });
 
   final bool supported;
-  final String? extractedUrl;
-  final String? normalizedUrl;
-  final String? provider;
-  final String? errorMessage;
+  final String? url;
+  final String? sourcePlatform;
+  final String? sourceContentType;
 
   factory ShareResolveResponse.fromJson(Map<String, dynamic> json) {
     return ShareResolveResponse(
       supported: json['supported'] == true,
-      extractedUrl: json['extracted_url']?.toString(),
-      normalizedUrl: json['normalized_url']?.toString(),
-      provider: json['provider']?.toString(),
-      errorMessage: json['error_message']?.toString(),
+      url: json['url']?.toString(),
+      sourcePlatform: json['source_platform']?.toString(),
+      sourceContentType: json['source_content_type']?.toString(),
     );
   }
 }

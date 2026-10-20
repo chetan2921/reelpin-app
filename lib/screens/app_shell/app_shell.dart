@@ -299,13 +299,10 @@ class _AppShellState extends ConsumerState<AppShell>
       // decides which is the intended, supported one.
       final resolved = await ref
           .read(sharingHttpProvider)
-          .resolveSharePayload(
-            rawPayloadText: normalizedPayload,
-            platform: Theme.of(context).platform.name,
-          );
+          .resolveSharePayload(rawPayloadText: normalizedPayload);
       if (!mounted || !resolved.supported) return;
 
-      final resolvedUrl = resolved.normalizedUrl ?? resolved.extractedUrl;
+      final resolvedUrl = resolved.url;
       if (resolvedUrl == null || resolvedUrl.trim().isEmpty) {
         return;
       }

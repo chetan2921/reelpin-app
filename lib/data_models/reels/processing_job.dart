@@ -15,6 +15,9 @@ class ProcessingJob {
   final bool retryScheduled;
   final String? statusLabel;
   final String? statusMessage;
+  final String? stage;
+  final int? estimatedSecondsRemaining;
+  final String? summary;
   final DateTime? nextRetryAt;
 
   /// When the backend first queued this share. Null from an API that does not
@@ -29,6 +32,10 @@ class ProcessingJob {
   /// collection merges onto the existing job rather than replacing it.
   final List<String> collectionIds;
   final Reel? reel;
+
+  /// Only on a submission's answer: the user already had this link, saved or
+  /// still processing, before this submission.
+  final bool alreadySaved;
 
   const ProcessingJob({
     required this.id,
@@ -45,6 +52,9 @@ class ProcessingJob {
     this.retryScheduled = false,
     this.statusLabel,
     this.statusMessage,
+    this.stage,
+    this.estimatedSecondsRemaining,
+    this.summary,
     this.nextRetryAt,
     this.createdAt,
     this.recommendedPollAfterSeconds,
@@ -52,6 +62,7 @@ class ProcessingJob {
     this.resultReelId,
     this.collectionIds = const [],
     this.reel,
+    this.alreadySaved = false,
   });
 
   factory ProcessingJob.fromJson(Map<String, dynamic> json) {
@@ -69,7 +80,7 @@ class ProcessingJob {
         json['retry_scheduled'] == true ||
         (status == 'queued' && currentStep == 'retry_scheduled');
     return ProcessingJob(
-      id: (json['id'] ?? json['job_id'])?.toString() ?? '',
+      id: json['id']?.toString() ?? '',
       normalizedUrl: json['normalized_url']?.toString(),
       sourcePlatform: _normalizedNullableString(json['source_platform']),
       sourceContentType: _normalizedNullableString(json['source_content_type']),
@@ -89,6 +100,9 @@ class ProcessingJob {
       retryScheduled: retryScheduled,
       statusLabel: json['status_label']?.toString(),
       statusMessage: json['status_message']?.toString(),
+      stage: json['stage']?.toString(),
+      estimatedSecondsRemaining: _parseInt(json['estimated_seconds_remaining']),
+      summary: json['summary']?.toString(),
       nextRetryAt: parseDate(json['next_retry_at']),
       createdAt: parseDate(json['created_at']),
       recommendedPollAfterSeconds: _parseInt(
@@ -107,6 +121,7 @@ class ProcessingJob {
       reel: reelPayload is Map<String, dynamic>
           ? Reel.fromJson(reelPayload)
           : null,
+      alreadySaved: json['already_saved'] == true,
     );
   }
 

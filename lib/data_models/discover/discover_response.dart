@@ -26,13 +26,7 @@ class DiscoverResponse {
       recentSaves: _reels(json['recent_saves']),
       recentSavesCount: (json['recent_saves_count'] as num?)?.toInt() ?? 0,
       savedDates: (json['saved_dates'] as List<dynamic>? ?? const [])
-          .map((row) {
-            if (row is Map) {
-              return SavedDateOption.fromJson(Map<String, dynamic>.from(row));
-            }
-            final value = row.toString();
-            return SavedDateOption(value: value, label: value);
-          })
+          .map((row) => SavedDateOption(value: '$row', label: '$row'))
           .toList(growable: false),
       selectedDate: json['selected_date']?.toString(),
       reelsForSelectedDate: _reels(json['reels_for_selected_date']),
@@ -66,21 +60,6 @@ class SavedDateOption {
 
   final String value;
   final String label;
-
-  factory SavedDateOption.fromJson(Map<String, dynamic> json) {
-    return SavedDateOption(
-      value:
-          json['saved_date_key']?.toString() ??
-          json['date']?.toString() ??
-          json['value']?.toString() ??
-          '',
-      label:
-          json['display_label']?.toString() ??
-          json['label']?.toString() ??
-          json['date']?.toString() ??
-          '',
-    );
-  }
 }
 
 class DiscoverCategory {
@@ -105,27 +84,17 @@ class DiscoverCategory {
 }
 
 class DiscoverPagination {
-  const DiscoverPagination({
-    this.nextCursor,
-    this.nextOffset,
-    this.hasMore = false,
-    this.limit = 0,
-    this.offset = 0,
-  });
+  const DiscoverPagination({this.nextCursor, this.limit = 0});
 
   final String? nextCursor;
-  final int? nextOffset;
-  final bool hasMore;
   final int limit;
-  final int offset;
+
+  bool get hasMore => nextCursor != null;
 
   factory DiscoverPagination.fromJson(Map<String, dynamic> json) {
     return DiscoverPagination(
       nextCursor: json['next_cursor']?.toString(),
-      nextOffset: (json['next_offset'] as num?)?.toInt(),
-      hasMore: json['has_more'] == true,
       limit: (json['limit'] as num?)?.toInt() ?? 0,
-      offset: (json['offset'] as num?)?.toInt() ?? 0,
     );
   }
 }

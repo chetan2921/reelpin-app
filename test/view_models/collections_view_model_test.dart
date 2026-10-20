@@ -278,8 +278,8 @@ void main() {
     test('loadMore appends the next page and keeps the new cursor', () async {
       final api = _FakeCollectionsHttp(collections: [_summary('a')]);
       api.detailQueue.addAll([
-        _detail('a', reelIds: ['r1', 'r2'], hasMore: true, nextOffset: 2),
-        _detail('a', reelIds: ['r3'], hasMore: false),
+        _detail('a', reelIds: ['r1', 'r2'], nextCursor: 'opaque-2'),
+        _detail('a', reelIds: ['r3']),
       ]);
       final vm = CollectionsViewModel(api);
 
@@ -288,13 +288,14 @@ void main() {
 
       await vm.loadMore('a');
 
+      expect(api.detailCursors, [null, 'opaque-2']);
       expect(vm.detailFor('a')?.reels.map((r) => r.id), ['r1', 'r2', 'r3']);
       expect(vm.detailFor('a')?.pagination.hasMore, isFalse);
     });
 
     test('loadMore is a no-op when there is no next page', () async {
       final api = _FakeCollectionsHttp(collections: [_summary('a')]);
-      api.detailQueue.add(_detail('a', reelIds: ['r1'], hasMore: false));
+      api.detailQueue.add(_detail('a', reelIds: ['r1']));
       final vm = CollectionsViewModel(api);
 
       await vm.loadCollectionDetail('a');
@@ -622,8 +623,7 @@ Reel _reel(String id) => Reel.fromJson({
 CollectionDetail _detail(
   String id, {
   List<String> reelIds = const [],
-  bool hasMore = false,
-  int? nextOffset,
+  String? nextCursor,
   int itemCount = 0,
   String visibility = 'private',
   String? updatedAt,
@@ -636,12 +636,7 @@ CollectionDetail _detail(
       updatedAt: updatedAt,
     ),
     reels: reelIds.map(_reel).toList(),
-    pagination: CollectionPagination(
-      hasMore: hasMore,
-      nextOffset: nextOffset,
-      nextCursor: nextOffset?.toString(),
-      totalCount: itemCount,
-    ),
+    pagination: CollectionPagination(nextCursor: nextCursor),
     canEdit: true,
   );
 }
@@ -665,6 +660,7 @@ class _FakeCollectionsHttp implements CollectionsHttp {
 
   int getCollectionsCalls = 0;
   int detailCalls = 0;
+  final List<String?> detailCursors = [];
   int _concurrentDetails = 0;
   int maxConcurrentDetails = 0;
   int addCalls = 0;
@@ -682,10 +678,10 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   Future<CollectionDetail> getCollectionDetail(
     String collectionId, {
     int limit = 25,
-    int? offset,
     String? cursor,
   }) async {
     detailCalls += 1;
+    detailCursors.add(cursor);
     _concurrentDetails += 1;
     if (_concurrentDetails > maxConcurrentDetails) {
       maxConcurrentDetails = _concurrentDetails;
@@ -814,7 +810,7 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   Future<CollectionDetail> getSharedCollection(
     String token, {
     int limit = 25,
-    int? offset,
+    String? cursor,
   }) async {
     if (error != null) throw error!;
     return _detail('shared');

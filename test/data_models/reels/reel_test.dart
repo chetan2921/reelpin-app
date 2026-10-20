@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 
+import '../../fixtures/api_v2.dart';
+
 void main() {
   test('preserves backend source URLs for opening the original reel', () {
     final reel = Reel.fromJson({
@@ -34,25 +36,52 @@ void main() {
     );
   });
 
-  test('accepts common backend thumbnail aliases', () {
+  test('reads a list reel from the v2 reel page', () {
+    final json = (ApiV2Fixture('reel_page').body['reels'] as List).single;
+    final reel = Reel.fromJson(Map<String, dynamic>.from(json as Map));
+
+    expect(reel.id, '22222222-2222-4222-8222-222222222222');
     expect(
-      Reel.fromJson(
-        _reelJson({'thumbnailUrl': 'https://example.com/a.jpg'}),
-      ).thumbnailUrl,
-      'https://example.com/a.jpg',
+      reel.webUrl,
+      'https://reelpin.in/r/22222222-2222-4222-8222-222222222222',
     );
-    expect(
-      Reel.fromJson(
-        _reelJson({'cover_url': 'https://example.com/b.jpg'}),
-      ).thumbnailUrl,
-      'https://example.com/b.jpg',
+    expect(reel.subCategory, 'cafes');
+    expect(reel.categoryLabel, 'Food And Drink');
+    expect(reel.subCategoryLabel, 'Cafes');
+    expect(reel.relativeDate, '2 days ago');
+    expect(reel.savedDateKey, '2026-09-02');
+    expect(reel.transcript, isEmpty);
+    final location = reel.mappableLocations.single;
+    expect(location.name, 'Artjuna Cafe');
+    expect(location.address, 'Anjuna');
+    expect(location.displayLabel, 'Artjuna Cafe');
+    expect(location.latitude, 15.5834);
+  });
+
+  test('reads a single reel from the v2 detail', () {
+    final reel = Reel.fromJson(ApiV2Fixture('reel_detail').body);
+
+    expect(reel.userId, '11111111-1111-4111-8111-111111111111');
+    expect(reel.subCategory, 'cafes');
+    expect(reel.transcript, 'spoken words');
+    expect(reel.locations.map((l) => l.name), [
+      'Artjuna Cafe',
+      'No coordinates',
+    ]);
+    expect(reel.locations.first.address, 'Anjuna');
+    expect(reel.locations.last.latitude, isNull);
+  });
+
+  test('ignores names the API does not send', () {
+    final reel = Reel.fromJson(
+      _reelJson({
+        'thumbnailUrl': 'https://example.com/a.jpg',
+        'transcript_text': 'Alias transcript',
+      }),
     );
-    expect(
-      Reel.fromJson(
-        _reelJson({'poster_url': 'https://example.com/c.jpg'}),
-      ).thumbnailUrl,
-      'https://example.com/c.jpg',
-    );
+
+    expect(reel.thumbnailUrl, isEmpty);
+    expect(reel.transcript, isEmpty);
   });
 
   test('normalizes backend content type values', () {
@@ -119,64 +148,14 @@ void main() {
     expect(reel.thumbnailUrl, isEmpty);
   });
 
-  test('prefers backend transcript over YouTube transcript aliases', () {
-    final reel = Reel.fromJson(
-      _reelJson({
-        'transcript': 'Stored transcript',
-        'transcript_text': 'Alias transcript',
-      }),
-    );
+  test('a location round-trips through its cache form', () {
+    final reel = Reel.fromJson(ApiV2Fixture('reel_detail').body);
 
-    expect(reel.transcript, 'Stored transcript');
-  });
+    final restored = Reel.fromJson(reel.toJson());
 
-  test('accepts YouTube transcript text alias', () {
-    final reel = Reel.fromJson(
-      _reelJson({'transcript_text': 'YouTube transcript'}),
-    );
-
-    expect(reel.transcript, 'YouTube transcript');
-  });
-
-  test('flattens YouTube caption segment lists', () {
-    final reel = Reel.fromJson(
-      _reelJson({
-        'captions': [
-          {'text': 'First line'},
-          {'caption': 'Second line'},
-        ],
-      }),
-    );
-
-    expect(reel.transcript, 'First line\nSecond line');
-  });
-
-  test('flattens YouTube transcripts segment lists', () {
-    final reel = Reel.fromJson(
-      _reelJson({
-        'transcripts': [
-          {
-            'lines': [
-              {'text': 'First transcript line'},
-              {'text': 'Second transcript line'},
-            ],
-          },
-        ],
-      }),
-    );
-
-    expect(reel.transcript, 'First transcript line\nSecond transcript line');
-  });
-
-  test('accepts encoded YouTube transcript segment lists', () {
-    final reel = Reel.fromJson(
-      _reelJson({
-        'transcription':
-            '[{"text":"First encoded line"},{"text":"Second encoded line"}]',
-      }),
-    );
-
-    expect(reel.transcript, 'First encoded line\nSecond encoded line');
+    expect(restored.locations.first.address, 'Anjuna');
+    expect(restored.webUrl, reel.webUrl);
+    expect(restored.subCategory, 'cafes');
   });
 }
 

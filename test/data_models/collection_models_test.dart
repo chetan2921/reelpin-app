@@ -16,26 +16,17 @@ void main() {
         'member_count': 3,
         'created_at': '2026-08-01T00:00:00Z',
         'updated_at': '2026-08-02T00:00:00Z',
+        'web_url': 'https://reelpin.in/collections/col-1',
       });
 
       expect(summary.id, 'col-1');
+      expect(summary.webUrl, 'https://reelpin.in/collections/col-1');
       expect(summary.coverReelId, 'reel-9');
       expect(summary.itemCount, 12);
       expect(summary.memberCount, 3);
       expect(summary.hasLink, isTrue);
       expect(summary.canEdit, isTrue);
       expect(summary.isOwner, isFalse);
-    });
-
-    test('falls back to collection_id and items_count aliases', () {
-      final summary = CollectionSummary.fromJson(const {
-        'collection_id': 'col-2',
-        'name': 'Aliased',
-        'items_count': 7,
-      });
-
-      expect(summary.id, 'col-2');
-      expect(summary.itemCount, 7);
     });
 
     test('applies defaults when fields are missing', () {
@@ -81,64 +72,79 @@ void main() {
   });
 
   group('CollectionDetail', () {
-    test('parses the nested envelope', () {
+    test('parses item cards and the cursor page', () {
       final detail = CollectionDetail.fromJson({
         'collection': const {'id': 'col-1', 'name': 'Tokyo'},
-        'reels': [_reelJson],
-        'pagination': const {
-          'next_cursor': '26',
-          'next_offset': 26,
+        'items': [_itemJson],
+        'page': const {
+          'next_cursor': 'opaque-cursor',
           'has_more': true,
-          'total_count': 12,
           'limit': 25,
-          'offset': 0,
         },
         'can_edit': true,
-        'owner_name': 'Chetan',
       });
 
       expect(detail.collection.id, 'col-1');
-      expect(detail.reels.single.id, 'reel-123');
+      final reel = detail.reels.single;
+      expect(reel.id, 'reel-123');
+      expect(reel.title, 'Test reel');
+      expect(reel.url, 'https://instagram.com/reel/abc');
+      expect(reel.webUrl, 'https://reelpin.in/r/reel-123');
+      expect(reel.thumbnailUrl, 'https://cdn.example/thumb.jpg');
+      expect(reel.sourcePlatform, 'instagram');
       expect(detail.canEdit, isTrue);
-      expect(detail.ownerName, 'Chetan');
       expect(detail.pagination.hasMore, isTrue);
-      expect(detail.pagination.nextOffset, 26);
+      expect(detail.pagination.nextCursor, 'opaque-cursor');
     });
 
-    test('falls back to a flat body with no collection key', () {
-      final detail = CollectionDetail.fromJson(const {
-        'id': 'col-1',
-        'name': 'Flat',
+    test('a page with no next_cursor is the last one', () {
+      final detail = CollectionDetail.fromJson({
+        'collection': const {'id': 'col-1', 'name': 'Tokyo'},
+        'items': const <Map<String, Object?>>[],
+        'page': const {'next_cursor': null, 'has_more': false, 'limit': 25},
+        'can_edit': false,
       });
 
-      expect(detail.collection.id, 'col-1');
       expect(detail.reels, isEmpty);
       expect(detail.canEdit, isFalse);
       expect(detail.pagination.hasMore, isFalse);
     });
 
+    test('restores from its own cache form', () {
+      final detail = CollectionDetail.fromJson({
+        'collection': const {'id': 'col-1', 'name': 'Tokyo'},
+        'items': [_itemJson],
+        'page': const {'next_cursor': 'opaque-cursor', 'limit': 25},
+        'can_edit': true,
+      });
+
+      final restored = CollectionDetail.fromJson(detail.toJson());
+
+      expect(restored.reels.single.id, 'reel-123');
+      expect(restored.reels.single.webUrl, 'https://reelpin.in/r/reel-123');
+      expect(restored.pagination.nextCursor, 'opaque-cursor');
+      expect(restored.canEdit, isTrue);
+    });
+
     test('append concatenates reels and takes the newer pagination', () {
       final first = CollectionDetail.fromJson({
         'collection': const {'id': 'col-1', 'name': 'Tokyo'},
-        'reels': [_reelJson],
-        'pagination': const {'has_more': true, 'next_offset': 1},
+        'items': [_itemJson],
+        'page': const {'next_cursor': 'opaque-cursor'},
         'can_edit': true,
-        'owner_name': 'Chetan',
       });
       final second = CollectionDetail.fromJson({
         'collection': const {'id': 'col-1', 'name': 'Tokyo'},
-        'reels': [
-          {..._reelJson, 'id': 'reel-456'},
+        'items': [
+          {..._itemJson, 'reel_id': 'reel-456'},
         ],
-        'pagination': const {'has_more': false},
+        'page': const {'next_cursor': null},
       });
 
       final merged = first.append(second);
 
       expect(merged.reels.map((r) => r.id), ['reel-123', 'reel-456']);
       expect(merged.pagination.hasMore, isFalse);
-      // ownerName only arrives on the first page of a shared view.
-      expect(merged.ownerName, 'Chetan');
     });
   });
 
@@ -181,19 +187,16 @@ void main() {
   });
 }
 
-const _reelJson = {
-  'id': 'reel-123',
-  'user_id': 'user-123',
-  'url': 'https://instagram.com/reel/abc',
+/// A CollectionItem card as the v2 API sends it.
+const _itemJson = {
+  'reel_id': 'reel-123',
   'title': 'Test reel',
   'summary': 'Short summary',
-  'caption': '',
-  'transcript': '',
-  'category': 'Travel',
-  'sub_category': 'Coffee Shops',
-  'key_facts': <String>[],
-  'locations': <Map<String, Object?>>[],
-  'people_mentioned': <String>[],
-  'actionable_items': <String>[],
-  'created_at': '2026-05-23T00:00:00Z',
+  'url': 'https://instagram.com/reel/abc',
+  'web_url': 'https://reelpin.in/r/reel-123',
+  'thumbnail_url': 'https://cdn.example/thumb.jpg',
+  'source_platform': 'instagram',
+  'saved_at': '2026-05-23T00:00:00Z',
+  'added_at': '2026-05-24T00:00:00Z',
+  'added_by': 'user-123',
 };

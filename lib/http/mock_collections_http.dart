@@ -175,19 +175,18 @@ class MockCollectionsHttp implements CollectionsHttp {
   Future<CollectionDetail> getCollectionDetail(
     String collectionId, {
     int limit = 25,
-    int? offset,
     String? cursor,
   }) async {
     await _wait();
     final collection = _require(collectionId);
-    return _detail(collection, limit: limit, offset: offset ?? 0);
+    return _detail(collection, limit: limit, cursor: cursor);
   }
 
   @override
   Future<CollectionDetail> getSharedCollection(
     String token, {
     int limit = 25,
-    int? offset,
+    String? cursor,
   }) async {
     await _wait();
     final id = _linkTokens.entries
@@ -197,39 +196,35 @@ class MockCollectionsHttp implements CollectionsHttp {
     if (id == null) {
       throw ApiException('This shared collection is no longer available.', 404);
     }
-    // A shared viewer is not a member: read-only, and the owner is named.
+    // A shared viewer is not a member: read-only.
     return _detail(
       _require(id).copyWith(role: 'viewer'),
       limit: limit,
-      offset: offset ?? 0,
+      cursor: cursor,
       canEdit: false,
-      ownerName: 'Mock Owner',
     );
   }
 
+  /// The mock's cursor is the next offset as text. Callers treat it as opaque,
+  /// the same as the real one.
   CollectionDetail _detail(
     CollectionSummary collection, {
     required int limit,
-    required int offset,
+    String? cursor,
     bool? canEdit,
-    String? ownerName,
   }) {
     final all = _reels[collection.id] ?? const <Reel>[];
-    final start = offset.clamp(0, all.length);
+    final start = (int.tryParse(cursor ?? '') ?? 0).clamp(0, all.length);
     final end = (start + limit).clamp(0, all.length);
     final page = all.sublist(start, end);
     return CollectionDetail(
       collection: collection,
       reels: page,
       pagination: CollectionPagination(
-        nextOffset: end < all.length ? end : null,
-        hasMore: end < all.length,
+        nextCursor: end < all.length ? '$end' : null,
         limit: limit,
-        offset: start,
-        totalCount: all.length,
       ),
       canEdit: canEdit ?? collection.canEdit,
-      ownerName: ownerName,
     );
   }
 

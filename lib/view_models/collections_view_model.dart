@@ -262,7 +262,6 @@ class CollectionsViewModel extends ChangeNotifier {
     try {
       final next = await _api.getCollectionDetail(
         id,
-        offset: current.pagination.nextOffset,
         cursor: current.pagination.nextCursor,
       );
       _details[id] = current.append(next);

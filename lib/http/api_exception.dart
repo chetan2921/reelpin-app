@@ -3,14 +3,16 @@ class ApiException implements Exception {
     this.message,
     this.statusCode, {
     this.errorCode,
-    this.detail,
+    this.requestId,
+    this.details = const {},
     this.retryable = false,
   });
 
   final String message;
   final int statusCode;
   final String? errorCode;
-  final String? detail;
+  final String? requestId;
+  final Map<String, dynamic> details;
   final bool retryable;
 
   bool get isUpgradeRequired => statusCode == 402;

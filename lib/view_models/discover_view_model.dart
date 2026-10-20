@@ -246,14 +246,8 @@ class DiscoverViewModel extends ChangeNotifier {
       if (categoryReels.length != categoryPage.reels.length) {
         _categoryReelsPage = ReelPage(
           reels: categoryReels,
-          hasMore: categoryPage.hasMore,
-          totalCount: categoryPage.totalCount > 0
-              ? categoryPage.totalCount - 1
-              : 0,
           limit: categoryPage.limit,
-          offset: categoryPage.offset,
           nextCursor: categoryPage.nextCursor,
-          nextOffset: categoryPage.nextOffset,
         );
         _selectedCategoryExpectedCount =
             _selectedCategoryExpectedCount != null &&

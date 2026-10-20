@@ -4,6 +4,7 @@ class CollectionSummary {
   const CollectionSummary({
     required this.id,
     required this.name,
+    this.webUrl = '',
     this.description = '',
     this.coverReelId,
     this.visibility = 'private',
@@ -16,6 +17,7 @@ class CollectionSummary {
 
   final String id;
   final String name;
+  final String webUrl;
   final String description;
   final String? coverReelId;
   final String visibility; // 'private' | 'link'
@@ -31,16 +33,14 @@ class CollectionSummary {
 
   factory CollectionSummary.fromJson(Map<String, dynamic> json) {
     return CollectionSummary(
-      id: (json['id'] ?? json['collection_id'])?.toString() ?? '',
+      id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
+      webUrl: json['web_url']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       coverReelId: json['cover_reel_id']?.toString(),
       visibility: json['visibility']?.toString() ?? 'private',
       role: json['role']?.toString() ?? 'owner',
-      itemCount:
-          (json['item_count'] as num?)?.toInt() ??
-          (json['items_count'] as num?)?.toInt() ??
-          0,
+      itemCount: (json['item_count'] as num?)?.toInt() ?? 0,
       memberCount: (json['member_count'] as num?)?.toInt() ?? 0,
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
@@ -51,6 +51,7 @@ class CollectionSummary {
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    'web_url': webUrl,
     'description': description,
     'cover_reel_id': coverReelId,
     'visibility': visibility,
@@ -73,6 +74,7 @@ class CollectionSummary {
     return CollectionSummary(
       id: id,
       name: name ?? this.name,
+      webUrl: webUrl,
       description: description ?? this.description,
       coverReelId: coverReelId ?? this.coverReelId,
       visibility: visibility ?? this.visibility,
@@ -86,40 +88,24 @@ class CollectionSummary {
 }
 
 class CollectionPagination {
-  const CollectionPagination({
-    this.nextCursor,
-    this.nextOffset,
-    this.hasMore = false,
-    this.limit = 25,
-    this.offset = 0,
-    this.totalCount = 0,
-  });
+  const CollectionPagination({this.nextCursor, this.limit = 25});
 
   final String? nextCursor;
-  final int? nextOffset;
-  final bool hasMore;
   final int limit;
-  final int offset;
-  final int totalCount;
+
+  bool get hasMore => nextCursor != null;
 
   /// Mirrors [fromJson] so a cached detail restores exactly as it arrived.
   Map<String, dynamic> toJson() => {
     'next_cursor': nextCursor,
-    'next_offset': nextOffset,
     'has_more': hasMore,
     'limit': limit,
-    'offset': offset,
-    'total_count': totalCount,
   };
 
   factory CollectionPagination.fromJson(Map<String, dynamic> json) {
     return CollectionPagination(
       nextCursor: json['next_cursor']?.toString(),
-      nextOffset: (json['next_offset'] as num?)?.toInt(),
-      hasMore: json['has_more'] == true,
       limit: (json['limit'] as num?)?.toInt() ?? 25,
-      offset: (json['offset'] as num?)?.toInt() ?? 0,
-      totalCount: (json['total_count'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -130,43 +116,42 @@ class CollectionDetail {
     required this.reels,
     required this.pagination,
     this.canEdit = false,
-    this.ownerName,
   });
 
   final CollectionSummary collection;
+
+  /// The collection's items. The API sends cards (id, title, summary, links,
+  /// thumbnail, platform), not full reels, so everything else on these is a
+  /// default until the reel itself is fetched.
   final List<Reel> reels;
   final CollectionPagination pagination;
   final bool canEdit;
-  final String? ownerName;
 
   /// Mirrors [fromJson] so a cached detail restores exactly as it arrived.
   Map<String, dynamic> toJson() => {
     'collection': collection.toJson(),
-    'reels': reels.map((reel) => reel.toJson()).toList(),
-    'pagination': pagination.toJson(),
+    'items': reels.map(_itemFromReel).toList(),
+    'page': pagination.toJson(),
     'can_edit': canEdit,
-    'owner_name': ownerName,
   };
 
   factory CollectionDetail.fromJson(Map<String, dynamic> json) {
-    final collectionPayload = json['collection'];
-    final reelsPayload = json['reels'];
-    final paginationPayload = json['pagination'];
+    final itemsPayload = json['items'];
+    final pagePayload = json['page'];
     return CollectionDetail(
-      collection: collectionPayload is Map<String, dynamic>
-          ? CollectionSummary.fromJson(collectionPayload)
-          : CollectionSummary.fromJson(json),
-      reels: reelsPayload is List
-          ? reelsPayload
+      collection: CollectionSummary.fromJson(
+        Map<String, dynamic>.from(json['collection'] as Map? ?? const {}),
+      ),
+      reels: itemsPayload is List
+          ? itemsPayload
                 .whereType<Map>()
-                .map((item) => Reel.fromJson(Map<String, dynamic>.from(item)))
+                .map((item) => _reelFromItem(Map<String, dynamic>.from(item)))
                 .toList(growable: false)
           : const [],
-      pagination: paginationPayload is Map<String, dynamic>
-          ? CollectionPagination.fromJson(paginationPayload)
+      pagination: pagePayload is Map<String, dynamic>
+          ? CollectionPagination.fromJson(pagePayload)
           : const CollectionPagination(),
       canEdit: json['can_edit'] == true,
-      ownerName: json['owner_name']?.toString(),
     );
   }
 
@@ -176,7 +161,6 @@ class CollectionDetail {
       reels: [...reels, ...next.reels],
       pagination: next.pagination,
       canEdit: next.canEdit,
-      ownerName: next.ownerName ?? ownerName,
     );
   }
 
@@ -190,9 +174,44 @@ class CollectionDetail {
       reels: reels ?? this.reels,
       pagination: pagination ?? this.pagination,
       canEdit: canEdit,
-      ownerName: ownerName,
     );
   }
+
+  static Reel _reelFromItem(Map<String, dynamic> json) {
+    final sourcePlatform = json['source_platform']?.toString().trim();
+    return Reel(
+      id: json['reel_id']?.toString() ?? '',
+      userId: '',
+      url: json['url']?.toString() ?? '',
+      webUrl: json['web_url']?.toString() ?? '',
+      thumbnailUrl: json['thumbnail_url']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      summary: json['summary']?.toString() ?? '',
+      caption: '',
+      transcript: '',
+      category: 'Other',
+      subCategory: 'Other',
+      sourcePlatform: sourcePlatform == null || sourcePlatform.isEmpty
+          ? null
+          : sourcePlatform,
+      createdAt: json['saved_at']?.toString(),
+      keyFacts: const [],
+      locations: const [],
+      peopleMentioned: const [],
+      actionableItems: const [],
+    );
+  }
+
+  static Map<String, dynamic> _itemFromReel(Reel reel) => {
+    'reel_id': reel.id,
+    'title': reel.title,
+    'summary': reel.summary,
+    'url': reel.url,
+    'web_url': reel.webUrl,
+    'thumbnail_url': reel.thumbnailUrl,
+    'source_platform': reel.sourcePlatform,
+    'saved_at': reel.createdAt,
+  };
 }
 
 class CollectionMember {
@@ -200,22 +219,15 @@ class CollectionMember {
     required this.userId,
     required this.role,
     this.createdAt,
-    this.displayName,
   });
 
   final String userId;
   final String role;
   final String? createdAt;
 
-  /// The name the account was created with. Null for accounts that have none,
-  /// and for any build talking to an API that predates it.
-  final String? displayName;
-
-  /// What to put in front of a person: their name, or a short form of their id
-  /// when there is no name to show. A full uuid tells the owner nothing.
+  /// The API sends no names, so a person is a short form of their id. A full
+  /// uuid tells the owner nothing.
   String get label {
-    final name = displayName?.trim();
-    if (name != null && name.isNotEmpty) return name;
     final id = userId.trim();
     return id.length > 8 ? 'USER ${id.substring(0, 8)}' : id;
   }
@@ -225,7 +237,6 @@ class CollectionMember {
       userId: json['user_id']?.toString() ?? '',
       role: json['role']?.toString() ?? 'viewer',
       createdAt: json['created_at']?.toString(),
-      displayName: json['display_name']?.toString(),
     );
   }
 }

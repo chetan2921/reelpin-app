@@ -131,12 +131,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: thread == null
                   ? ChatEmptyState(
                       // Same source as Discover's RECENT SAVES count, so the
-                      // two screens never disagree. Falls back to the reel
-                      // repository's own total while Discover's data is
-                      // still loading, rather than showing 0.
+                      // two screens never disagree. Falls back to the reels
+                      // already loaded while Discover's data is still
+                      // loading, rather than showing 0.
                       savedCount:
                           discoverViewModel.discover?.recentSavesCount ??
-                          ref.read(reelRepositoryProvider).totalCount,
+                          ref.read(reelRepositoryProvider).cachedReels.length,
                       // Backend suggestions are personalized to the user's
                       // actual saves (recency, categories); the local ones
                       // are a generic fallback for when that call hasn't

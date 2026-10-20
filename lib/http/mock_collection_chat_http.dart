@@ -9,8 +9,8 @@ import 'package:reelpin/data_models/chat/thinking_stage.dart';
 import 'package:reelpin/http/chat_http.dart';
 import 'package:reelpin/http/collection_chat_http.dart';
 
-/// In-memory collection chats, for working on the shared-chat UI without the
-/// backend (`--dart-define=MOCK_CHAT=true`).
+/// In-memory collection chats, for working on the shared-chat UI without a
+/// backend.
 ///
 /// State lives for the life of the process — long enough to watch a thread
 /// grow, short enough that nothing here is mistaken for storage.
