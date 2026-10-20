@@ -268,7 +268,6 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   }) async {
     lastCategory = category;
     lastSubcategory = subcategory;
@@ -363,14 +362,7 @@ const _travelReel = Reel(
   category: 'Travel',
   subCategory: 'Coffee Shops',
   keyFacts: [],
-  locations: [
-    Location(
-      name: 'Brew Lab',
-      latitude: 12.97,
-      longitude: 77.59,
-      isDirectMention: true,
-    ),
-  ],
+  locations: [Location(name: 'Brew Lab', latitude: 12.97, longitude: 77.59)],
   peopleMentioned: [],
   actionableItems: [],
   createdAt: '2026-04-20T00:00:00Z',
@@ -407,7 +399,6 @@ const _manualMapItem = MapItem(
   longitude: 77.61,
   mapItemId: 'manual:pin-1',
   sourceType: 'manual',
-  sourceId: 'pin-1',
   displayTitle: 'Manual Cafe',
   shortDetail: '12 Market Street',
   locationName: 'Manual Cafe',

@@ -1312,7 +1312,7 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
         return;
       }
       setState(() {
-        _activeReel = latest;
+        _activeReel = latest.withDisplayFieldsFrom(_activeReel);
       });
     } on ApiException catch (error) {
       if (!mounted) {

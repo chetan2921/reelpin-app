@@ -199,4 +199,23 @@ void main() {
     expect(subcategories.map((item) => item.name), ['Tennis']);
     expect(subcategories.single.count, 0);
   });
+
+  test('reads a subcategory filter named sub_category', () {
+    final filter = ReelSubcategoryFilter.fromJson(const {
+      'sub_category': 'Trailers',
+      'count': 4,
+    });
+
+    expect(filter.name, 'Trailers');
+    expect(filter.label, 'Trailers');
+  });
+
+  test('falls back to the deprecated subcategory name', () {
+    final filter = ReelSubcategoryFilter.fromJson(const {
+      'subcategory': 'Reviews',
+      'count': 2,
+    });
+
+    expect(filter.name, 'Reviews');
+  });
 }

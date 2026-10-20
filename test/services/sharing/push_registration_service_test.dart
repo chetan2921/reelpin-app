@@ -13,7 +13,7 @@ import 'package:reelpin/services/sharing/push_registration_service.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('registers startup and refreshed tokens with device metadata', () async {
+  test('registers startup and refreshed tokens', () async {
     SharedPreferences.setMockInitialValues({});
     final requests = <http.Request>[];
     final api = ApiClient(
@@ -35,13 +35,10 @@ void main() {
 
     expect(requests, hasLength(2));
     expect(requests.first.headers['Authorization'], 'Bearer access-token');
+    // The API rejects any field beyond these two.
     expect(jsonDecode(requests.first.body), {
       'token': 'startup-token',
       'platform': 'android',
-      'app_version': '1.0.8',
-      'app_build': '14',
-      'timezone': 'Asia/Kolkata',
-      'locale': 'en-IN',
     });
     expect(jsonDecode(requests.last.body)['token'], 'refresh-token');
   });

@@ -73,7 +73,9 @@ class ContentCache {
     );
   }
 
-  static const _schemaVersion = 1;
+  // 2: payloads are /api/v2 shapes. A v1 snapshot parses without throwing but
+  // restores the wrong fields, so it has to be dropped rather than read.
+  static const _schemaVersion = 2;
   static const _directoryName = 'content_cache';
   static const _defaultMaxAge = Duration(days: 7);
 

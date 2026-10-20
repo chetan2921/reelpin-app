@@ -6,13 +6,6 @@ import 'package:reelpin/data_models/chat/thinking_stage.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/http/chat_http.dart';
 
-/// Whether chat answers come from [MockChatHttp].
-///
-/// Defaults to **false** now that the real backend is live. Pass
-/// `--dart-define=MOCK_CHAT=true` to fall back to the mock — useful when
-/// working offline or without a dev-backend session.
-const bool useMockChat = bool.fromEnvironment('MOCK_CHAT', defaultValue: false);
-
 /// Answers from the user's own library so the feature can be demonstrated
 /// before any backend exists.
 ///

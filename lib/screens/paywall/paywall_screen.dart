@@ -8,7 +8,16 @@ import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
 
-enum PaywallEntryPoint { account, saveLimit, history }
+enum PaywallEntryPoint {
+  account('account'),
+  saveLimit('save_limit'),
+  history('history');
+
+  const PaywallEntryPoint(this.messageKey);
+
+  /// The key of this entry point's copy in the entitlements paywall messages.
+  final String messageKey;
+}
 
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key, required this.entryPoint});
@@ -22,7 +31,7 @@ class PaywallScreen extends ConsumerWidget {
     final entitlementResponse = entitlementVm.response;
     final entitlements = entitlementVm.entitlement;
     final isRefreshing = entitlementVm.isLoading;
-    final message = entitlementResponse?.messageFor(entryPoint.name);
+    final message = entitlementResponse?.messageFor(entryPoint.messageKey);
 
     return Scaffold(
       backgroundColor: AppColors.bg(context),
@@ -70,7 +79,7 @@ class PaywallScreen extends ConsumerWidget {
                       ),
                     ),
                     child: Text(
-                      (message?.title ?? entryPoint.name).toUpperCase(),
+                      entryPoint.messageKey.replaceAll('_', ' ').toUpperCase(),
                       style: GoogleFonts.spaceMono(
                         color: AppColors.black,
                         fontSize: layout.font(10),
@@ -81,7 +90,7 @@ class PaywallScreen extends ConsumerWidget {
                   ),
                   SizedBox(height: layout.gap(14)),
                   Text(
-                    (message?.headline ?? '').toUpperCase(),
+                    (message ?? '').toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: AppColors.white,
                       fontSize: layout.font(20),
@@ -89,17 +98,6 @@ class PaywallScreen extends ConsumerWidget {
                       height: 1.25,
                     ),
                   ),
-                  SizedBox(height: layout.gap(10)),
-                  if (message?.body.isNotEmpty == true)
-                    Text(
-                      message!.body,
-                      style: GoogleFonts.spaceMono(
-                        color: const Color(0xFFD6F3EF),
-                        fontSize: layout.font(11),
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -203,9 +201,9 @@ class PaywallScreen extends ConsumerWidget {
       );
     }
 
-    final usageText = response!.limits.reelsPerMonth == null
-        ? '${response.usage.reelsSavedThisMonth} reels used this month'
-        : '${response.usage.reelsSavedThisMonth}/${response.limits.reelsPerMonth} reels used this month';
+    final usageText = response!.limits.savedReels == null
+        ? '${response.usage.savedReels} reels saved'
+        : '${response.usage.savedReels}/${response.limits.savedReels} reels saved';
 
     return Container(
       decoration: AppTheme.brutalCard(
@@ -236,21 +234,10 @@ class PaywallScreen extends ConsumerWidget {
                     ),
                   ),
                   child: Text(
-                    entitlements.planLabel,
+                    entitlements.plan.toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: AppColors.black,
                       fontSize: layout.font(10),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                SizedBox(width: layout.inset(10)),
-                Expanded(
-                  child: Text(
-                    '${entitlements.searchModeLabel} SEARCH',
-                    style: GoogleFonts.spaceMono(
-                      color: AppColors.fg(context),
-                      fontSize: layout.font(12),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -266,17 +253,6 @@ class PaywallScreen extends ConsumerWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            if (response.limits.accessibleHistoryDays != null) ...[
-              SizedBox(height: layout.gap(6)),
-              Text(
-                'History window: last ${response.limits.accessibleHistoryDays} days',
-                style: GoogleFonts.spaceMono(
-                  color: AppColors.textSec(context),
-                  fontSize: layout.font(11),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -345,7 +321,7 @@ class PaywallScreen extends ConsumerWidget {
                     ),
                   ),
                   child: Text(
-                    card.title.toUpperCase(),
+                    card.name.toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: accent.computeLuminance() > 0.5
                           ? AppColors.black
@@ -358,7 +334,7 @@ class PaywallScreen extends ConsumerWidget {
                 SizedBox(width: layout.inset(10)),
                 Expanded(
                   child: Text(
-                    card.priceLabel.toUpperCase(),
+                    card.price.toUpperCase(),
                     style: GoogleFonts.spaceMono(
                       color: AppColors.fg(context),
                       fontSize: layout.font(13),

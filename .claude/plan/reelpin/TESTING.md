@@ -18,7 +18,7 @@ Tests need no dart-defines. CI (`validate.yml`) runs the same gate minus
 ## Known-good examples
 
 - HTTP with a fake client, including the 401 renew-and-resend: `test/http/api_client_test.dart`
-- SSE streaming: `test/http/chat_api_http_test.dart`
+- API payloads: `test/fixtures/api_v2/` holds verbatim copies of reelpin-go `api/fixtures/`, read through `ApiV2Fixture` in `test/fixtures/api_v2.dart`. Use them wherever a payload shape matters, and re-copy them when the Go contract moves.
 - View model with a fake repository or API: `test/view_models/processing_jobs_view_model_test.dart`, `test/view_models/collections_view_model_test.dart`
 - Widget test with provider overrides: `test/screens/home/home_filter_sheet_test.dart`, `test/screens/home/home_empty_state_test.dart`
 - Repository and disk cache: `test/repositories/reel_repository_cache_test.dart`, `test/services/cache/content_cache_test.dart`
@@ -36,14 +36,14 @@ Tests need no dart-defines. CI (`validate.yml`) runs the same gate minus
 | Area | Unit | Integration | E2E | Notes |
 |------|------|-------------|-----|-------|
 | `lib/http`, data models, repositories, utils | yes | no | no | fake clients |
-| view models | most | no | no | not Entitlements, ReelDetail, Folders |
+| view models | most | no | no | not Entitlements, ReelDetail |
 | components and screens | some | no | no | widget tests with overrides |
 | sharing services | partial | no | no | collections sync, links, push registration |
 | native share (Kotlin, Swift) | parser and classifier only | no | no | |
 
 ## Gaps
 
-- `EntitlementsViewModel`, `ReelDetailViewModel`, `FoldersViewModel`.
+- `EntitlementsViewModel`, `ReelDetailViewModel`.
 - `AppShell`: complete native drain lifecycle, deep-link routing, and resume throttle. PendingShare now has decoder tests, but full native-to-Flutter recovery has no integration test.
 - `AuthenticatedShell`: push retry and notification routing.
 - `AuthService`, `ProfileService`, `NotificationService`, `LocationService`, `AnalyticsService`, `AppUpdateService`, `PendingDeepLink`, and `ShareHandoffService` beyond the collections sync.

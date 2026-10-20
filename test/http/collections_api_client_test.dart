@@ -7,7 +7,7 @@ import 'package:reelpin/http/api_client.dart';
 import 'package:reelpin/http/api_exception.dart';
 
 /// Contract tests for the collections half of [ApiClient], pinned against the
-/// shapes `app/main.py` actually returns. Every request is asserted on method,
+/// shapes the Go service's `api/openapi.yaml` declares. Every request is asserted on method,
 /// path, query and body so a backend rename cannot pass silently.
 void main() {
   ApiClient clientFor(MockClient mock) => ApiClient(
@@ -34,7 +34,7 @@ void main() {
       final collections = await service.getCollections();
 
       expect(seen.method, 'GET');
-      expect(seen.url.path, '/api/v1/collections');
+      expect(seen.url.path, '/api/v2/collections');
       expect(seen.headers['Authorization'], 'Bearer token-123');
       expect(collections, hasLength(2));
       expect(collections.first.id, 'col-1');
@@ -44,48 +44,41 @@ void main() {
       expect(collections.first.hasLink, isTrue);
     });
 
-    test('getCollections tolerates a bare list and a junk body', () async {
-      final asList = clientFor(
-        MockClient((_) async => http.Response(jsonEncode([_summaryJson]), 200)),
-      );
-      expect(await asList.getCollections(), hasLength(1));
+    test(
+      'getCollectionDetail sends the cursor and parses item cards',
+      () async {
+        late http.Request seen;
+        final service = clientFor(
+          MockClient((request) async {
+            seen = request;
+            return http.Response(jsonEncode(_detailJson), 200);
+          }),
+        );
 
-      final asJunk = clientFor(
-        MockClient((_) async => http.Response(jsonEncode({'ok': true}), 200)),
-      );
-      expect(await asJunk.getCollections(), isEmpty);
-    });
+        final detail = await service.getCollectionDetail(
+          'col-1',
+          limit: 10,
+          cursor: 'opaque-cursor',
+        );
 
-    test('getCollectionDetail sends paging and parses reels', () async {
-      late http.Request seen;
-      final service = clientFor(
-        MockClient((request) async {
-          seen = request;
-          return http.Response(jsonEncode(_detailJson), 200);
-        }),
-      );
-
-      final detail = await service.getCollectionDetail(
-        'col-1',
-        limit: 10,
-        offset: 25,
-        cursor: '25',
-      );
-
-      expect(seen.method, 'GET');
-      expect(seen.url.path, '/api/v1/collections/col-1');
-      expect(seen.url.queryParameters, {
-        'limit': '10',
-        'offset': '25',
-        'cursor': '25',
-      });
-      expect(detail.collection.id, 'col-1');
-      expect(detail.reels.single.id, 'reel-123');
-      expect(detail.canEdit, isTrue);
-      expect(detail.pagination.hasMore, isTrue);
-      expect(detail.pagination.nextOffset, 26);
-      expect(detail.pagination.totalCount, 12);
-    });
+        expect(seen.method, 'GET');
+        expect(seen.url.path, '/api/v2/collections/col-1');
+        expect(seen.url.queryParameters, {
+          'limit': '10',
+          'cursor': 'opaque-cursor',
+        });
+        expect(detail.collection.id, 'col-1');
+        expect(
+          detail.collection.webUrl,
+          'https://reelpin.in/collections/col-1',
+        );
+        expect(detail.reels.single.id, 'reel-123');
+        expect(detail.reels.single.webUrl, 'https://reelpin.in/r/reel-123');
+        expect(detail.canEdit, isTrue);
+        expect(detail.pagination.hasMore, isTrue);
+        expect(detail.pagination.nextCursor, 'next-page');
+      },
+    );
 
     test('getCollectionDetail omits absent paging params', () async {
       late http.Request seen;
@@ -103,29 +96,45 @@ void main() {
       expect(seen.url.queryParameters.containsKey('offset'), isFalse);
     });
 
-    test('getSharedCollection uses the public token path', () async {
+    test('getSharedCollection uses the shared-collections path', () async {
       late http.Request seen;
       final service = clientFor(
         MockClient((request) async {
           seen = request;
-          return http.Response(
-            jsonEncode({..._detailJson, 'owner_name': 'Chetan'}),
-            200,
-          );
+          final shared = Map<String, Object?>.from(_detailJson)
+            ..remove('can_edit');
+          return http.Response(jsonEncode(shared), 200);
         }),
       );
 
       final detail = await service.getSharedCollection(
         'tok-abc',
         limit: 50,
-        offset: 10,
+        cursor: 'opaque-cursor',
       );
 
       expect(seen.method, 'GET');
-      expect(seen.url.path, '/api/v1/collections/shared/tok-abc');
-      expect(seen.url.queryParameters, {'limit': '50', 'offset': '10'});
-      expect(detail.ownerName, 'Chetan');
+      expect(seen.url.path, '/api/v2/shared-collections/tok-abc');
+      expect(seen.url.queryParameters, {
+        'limit': '50',
+        'cursor': 'opaque-cursor',
+      });
+      expect(detail.canEdit, isFalse);
       expect(detail.reels, hasLength(1));
+    });
+
+    test('caps the page size at the contract maximum', () async {
+      late http.Request seen;
+      final service = clientFor(
+        MockClient((request) async {
+          seen = request;
+          return http.Response(jsonEncode(_detailJson), 200);
+        }),
+      );
+
+      await service.getCollectionDetail('col-1', limit: 500);
+
+      expect(seen.url.queryParameters['limit'], '100');
     });
 
     test('getCollectionMembers parses owner and members', () async {
@@ -151,7 +160,7 @@ void main() {
 
       final members = await service.getCollectionMembers('col-1');
 
-      expect(seen.url.path, '/api/v1/collections/col-1/members');
+      expect(seen.url.path, '/api/v2/collections/col-1/members');
       expect(members.ownerId, 'user-owner');
       expect(members.members.single.userId, 'user-2');
       expect(members.members.single.role, 'editor');
@@ -178,7 +187,7 @@ void main() {
       );
 
       expect(seen.method, 'POST');
-      expect(seen.url.path, '/api/v1/collections');
+      expect(seen.url.path, '/api/v2/collections');
       expect(seen.headers['Content-Type'], contains('application/json'));
       expect(jsonDecode(seen.body), {
         'name': 'Tokyo Food Crawl',
@@ -200,7 +209,7 @@ void main() {
       await service.updateCollection(collectionId: 'col-1', name: 'Renamed');
 
       expect(seen.method, 'PATCH');
-      expect(seen.url.path, '/api/v1/collections/col-1');
+      expect(seen.url.path, '/api/v2/collections/col-1');
       // description / cover_reel_id must be absent, not null — the backend
       // treats a present null as "clear this field".
       expect(jsonDecode(seen.body), {'name': 'Renamed'});
@@ -241,7 +250,7 @@ void main() {
       await service.deleteCollection('col-1');
 
       expect(seen.method, 'DELETE');
-      expect(seen.url.path, '/api/v1/collections/col-1');
+      expect(seen.url.path, '/api/v2/collections/col-1');
     });
 
     test('addReelsToCollection returns added_count', () async {
@@ -262,7 +271,7 @@ void main() {
       );
 
       expect(seen.method, 'POST');
-      expect(seen.url.path, '/api/v1/collections/col-1/items');
+      expect(seen.url.path, '/api/v2/collections/col-1/items');
       expect(jsonDecode(seen.body), {
         'reel_ids': ['reel-1', 'reel-2', 'reel-3'],
       });
@@ -301,7 +310,7 @@ void main() {
       );
 
       expect(seen.method, 'DELETE');
-      expect(seen.url.path, '/api/v1/collections/col-1/items/reel-7');
+      expect(seen.url.path, '/api/v2/collections/col-1/items/reel-7');
     });
   });
 
@@ -324,7 +333,7 @@ void main() {
       final link = await service.enableCollectionLink('col-1');
 
       expect(seen.method, 'POST');
-      expect(seen.url.path, '/api/v1/collections/col-1/link');
+      expect(seen.url.path, '/api/v2/collections/col-1/link');
       expect(link.url, 'https://reelpin.in/c/tok-abc');
       expect(link.token, 'tok-abc');
     });
@@ -341,7 +350,7 @@ void main() {
       await service.disableCollectionLink('col-1');
 
       expect(seen.method, 'DELETE');
-      expect(seen.url.path, '/api/v1/collections/col-1/link');
+      expect(seen.url.path, '/api/v2/collections/col-1/link');
     });
 
     test('createCollectionInvite posts the role', () async {
@@ -367,7 +376,7 @@ void main() {
       );
 
       expect(seen.method, 'POST');
-      expect(seen.url.path, '/api/v1/collections/col-1/invites');
+      expect(seen.url.path, '/api/v2/collections/col-1/invites');
       expect(jsonDecode(seen.body), {'role': 'editor'});
       expect(invite.role, 'editor');
       expect(invite.token, 'inv-1');
@@ -391,7 +400,7 @@ void main() {
       final joined = await service.acceptCollectionInvite('inv-1');
 
       expect(seen.method, 'POST');
-      expect(seen.url.path, '/api/v1/collections/invites/inv-1/accept');
+      expect(seen.url.path, '/api/v2/collection-invites/inv-1/accept');
       expect(joined.role, 'editor');
       expect(joined.canEdit, isTrue);
       expect(joined.isOwner, isFalse);
@@ -412,7 +421,7 @@ void main() {
       );
 
       expect(seen.method, 'DELETE');
-      expect(seen.url.path, '/api/v1/collections/col-1/members/user-2');
+      expect(seen.url.path, '/api/v2/collections/col-1/members/user-2');
     });
 
     test('leaveCollection posts to leave', () async {
@@ -427,7 +436,7 @@ void main() {
       await service.leaveCollection('col-1');
 
       expect(seen.method, 'POST');
-      expect(seen.url.path, '/api/v1/collections/col-1/leave');
+      expect(seen.url.path, '/api/v2/collections/col-1/leave');
     });
   });
 
@@ -436,11 +445,12 @@ void main() {
       final service = clientFor(
         MockClient(
           (_) async => http.Response(
-            jsonEncode({
-              'success': false,
-              'error_code': 'collection_forbidden',
-              'message': 'Only the collection owner can do that.',
-            }),
+            jsonEncode(
+              _error(
+                'collection_forbidden',
+                'Only the collection owner can do that.',
+              ),
+            ),
             403,
           ),
         ),
@@ -467,11 +477,12 @@ void main() {
         final service = clientFor(
           MockClient(
             (_) async => http.Response(
-              jsonEncode({
-                'success': false,
-                'error_code': 'collection_not_found',
-                'message': 'That collection was not found.',
-              }),
+              jsonEncode(
+                _error(
+                  'collection_not_found',
+                  'The requested record was not found.',
+                ),
+              ),
               404,
             ),
           ),
@@ -492,16 +503,14 @@ void main() {
       },
     );
 
-    test('an invite gone 410 keeps its error code', () async {
+    test('an invalid invite keeps its error code', () async {
       final service = clientFor(
         MockClient(
           (_) async => http.Response(
-            jsonEncode({
-              'success': false,
-              'error_code': 'invite_expired',
-              'message': 'This invite has expired.',
-            }),
-            410,
+            jsonEncode(
+              _error('collection_invite_invalid', 'This invite is not valid.'),
+            ),
+            400,
           ),
         ),
       );
@@ -510,13 +519,26 @@ void main() {
         service.acceptCollectionInvite('inv-1'),
         throwsA(
           isA<ApiException>()
-              .having((e) => e.statusCode, 'statusCode', 410)
-              .having((e) => e.errorCode, 'errorCode', 'invite_expired'),
+              .having((e) => e.statusCode, 'statusCode', 400)
+              .having(
+                (e) => e.errorCode,
+                'errorCode',
+                'collection_invite_invalid',
+              ),
         ),
       );
     });
   });
 }
+
+Map<String, Object?> _error(String code, String message) => {
+  'error': {
+    'code': code,
+    'message': message,
+    'request_id': 'fixture-request-id',
+    'retryable': false,
+  },
+};
 
 const _summaryJson = {
   'id': 'col-1',
@@ -529,35 +551,25 @@ const _summaryJson = {
   'member_count': 2,
   'created_at': '2026-08-01T00:00:00Z',
   'updated_at': '2026-08-02T00:00:00Z',
+  'web_url': 'https://reelpin.in/collections/col-1',
 };
 
-const _reelJson = {
-  'id': 'reel-123',
-  'user_id': 'user-123',
-  'url': 'https://instagram.com/reel/abc',
+const _itemJson = {
+  'reel_id': 'reel-123',
   'title': 'Test reel',
   'summary': 'Short summary',
-  'caption': '',
-  'transcript': '',
-  'category': 'Travel',
-  'sub_category': 'Coffee Shops',
-  'key_facts': <String>[],
-  'locations': <Map<String, Object?>>[],
-  'people_mentioned': <String>[],
-  'actionable_items': <String>[],
-  'created_at': '2026-05-23T00:00:00Z',
+  'url': 'https://instagram.com/reel/abc',
+  'web_url': 'https://reelpin.in/r/reel-123',
+  'thumbnail_url': null,
+  'source_platform': 'instagram',
+  'saved_at': '2026-05-23T00:00:00Z',
+  'added_at': '2026-05-24T00:00:00Z',
+  'added_by': 'user-123',
 };
 
 const _detailJson = {
   'collection': _summaryJson,
-  'reels': [_reelJson],
-  'pagination': {
-    'next_cursor': '26',
-    'next_offset': 26,
-    'has_more': true,
-    'total_count': 12,
-    'limit': 25,
-    'offset': 0,
-  },
+  'items': [_itemJson],
+  'page': {'next_cursor': 'next-page', 'has_more': true, 'limit': 25},
   'can_edit': true,
 };

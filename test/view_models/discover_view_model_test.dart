@@ -72,13 +72,7 @@ void main() {
   test('openCategory loads reels for the selected category', () async {
     final repository = _FakeReelRepository(
       onReelsPage: ({required category, required limit}) async {
-        return ReelPage(
-          reels: const [_reelB],
-          hasMore: false,
-          totalCount: 1,
-          limit: limit,
-          offset: 0,
-        );
+        return ReelPage(reels: const [_reelB], limit: limit);
       },
     );
     final viewModel = DiscoverViewModel(repository);
@@ -97,13 +91,7 @@ void main() {
     final repository = _FakeReelRepository(
       onDiscover: (_) async => _discoverResponse(recentSaves: [_reelA, _reelB]),
       onReelsPage: ({required category, required limit}) async {
-        return const ReelPage(
-          reels: [_reelA, _reelB],
-          hasMore: false,
-          totalCount: 2,
-          limit: 2,
-          offset: 0,
-        );
+        return const ReelPage(reels: [_reelA, _reelB], limit: 2);
       },
     );
     final viewModel = DiscoverViewModel(repository);
@@ -118,7 +106,7 @@ void main() {
     expect(viewModel.categoryReelsPage?.reels.map((reel) => reel.id), [
       'reel-b',
     ]);
-    expect(viewModel.categoryReelsPage?.totalCount, 1);
+    expect(viewModel.selectedCategoryExpectedCount, 1);
   });
 }
 
@@ -141,7 +129,6 @@ class _FakeReelRepository extends ReelRepository {
   @override
   Future<DiscoverResponse> getDiscover({
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 25,
   }) {
@@ -160,10 +147,8 @@ class _FakeReelRepository extends ReelRepository {
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 25,
-    String? sort,
   }) {
     lastCategory = category;
     lastLimit = limit;
@@ -171,15 +156,7 @@ class _FakeReelRepository extends ReelRepository {
     if (handler != null) {
       return handler(category: category ?? '', limit: limit);
     }
-    return Future.value(
-      ReelPage(
-        reels: const [],
-        hasMore: false,
-        totalCount: 0,
-        limit: limit,
-        offset: 0,
-      ),
-    );
+    return Future.value(ReelPage(reels: const [], limit: limit));
   }
 }
 
@@ -213,7 +190,7 @@ DiscoverResponse _discoverResponse({
       DiscoverCategory(category: 'Travel', label: 'Travel', count: 1),
     ],
     quickSearchPrompts: const ['coffee'],
-    pagination: const DiscoverPagination(hasMore: false, limit: 25, offset: 0),
+    pagination: const DiscoverPagination(limit: 25),
     selectedDate: selectedDate,
   );
 }

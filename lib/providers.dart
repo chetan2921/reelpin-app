@@ -1,9 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reelpin/http/account_http.dart';
-import 'package:reelpin/http/chat_api_http.dart';
 import 'package:reelpin/http/chat_http.dart';
-import 'package:reelpin/http/collection_chat_api_http.dart';
 import 'package:reelpin/http/collection_chat_http.dart';
 import 'package:reelpin/http/mock_chat_http.dart';
 import 'package:reelpin/http/mock_collection_chat_http.dart';
@@ -23,12 +21,10 @@ import 'package:reelpin/services/sharing/share_flow_analytics_service.dart';
 import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/entitlements_view_model.dart';
-import 'package:reelpin/view_models/folders_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/view_models/processing_jobs_view_model.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/http/map_http.dart';
-import 'package:reelpin/http/folders_http.dart';
 import 'package:reelpin/http/sharing_http.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:reelpin/view_models/session_view_model.dart';
@@ -81,10 +77,6 @@ final reelsHttpProvider = Provider<ReelsHttp>((ref) {
 });
 
 final mapHttpProvider = Provider<MapHttp>((ref) {
-  return ref.read(apiClientProvider);
-});
-
-final foldersHttpProvider = Provider<FoldersHttp>((ref) {
   return ref.read(apiClientProvider);
 });
 
@@ -157,12 +149,6 @@ final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>((ref) {
   return SearchViewModel(ref.read(reelRepositoryProvider));
 });
 
-final foldersViewModelProvider = ChangeNotifierProvider<FoldersViewModel>((
-  ref,
-) {
-  return FoldersViewModel(ref.read(foldersHttpProvider));
-});
-
 final entitlementsViewModelProvider =
     ChangeNotifierProvider<EntitlementsViewModel>((ref) {
       return EntitlementsViewModel(
@@ -206,18 +192,15 @@ final chatThreadStoreProvider = Provider<ChatThreadStore>((ref) {
   return ChatThreadStore();
 });
 
+/// The API has no chat routes, so only the in-memory mock is left; the chat
+/// UI is reachable only in a build with CHAT_ENABLED.
 final chatHttpProvider = Provider<ChatHttp>((ref) {
-  if (!useMockChat) return ChatApiHttp();
   return MockChatHttp(
     reelsSource: () => ref.read(reelRepositoryProvider).cachedReels,
   );
 });
 
-/// The real backend by default; `--dart-define=MOCK_CHAT=true` falls back to
-/// the in-memory mock — the same switch, and the same default, as the private
-/// chat's [chatHttpProvider].
 final collectionChatHttpProvider = Provider<CollectionChatHttp>((ref) {
-  if (!useMockChat) return CollectionChatApiHttp();
   return MockCollectionChatHttp();
 });
 

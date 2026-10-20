@@ -98,19 +98,11 @@ class _FakeApiService extends ApiClient {
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 50,
-    String? sort,
   }) async {
     pageCalls += 1;
-    return ReelPage(
-      reels: List.unmodifiable(_serverReels),
-      hasMore: false,
-      totalCount: _serverReels.length,
-      limit: 25,
-      offset: 0,
-    );
+    return ReelPage(reels: List.unmodifiable(_serverReels), limit: 25);
   }
 
   @override
@@ -200,24 +192,14 @@ class _DelayedApiService extends ApiClient {
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 50,
-    String? sort,
   }) {
     return _completer.future;
   }
 
   void complete() {
-    _completer.complete(
-      const ReelPage(
-        reels: [_reelA],
-        hasMore: false,
-        totalCount: 1,
-        limit: 25,
-        offset: 0,
-      ),
-    );
+    _completer.complete(const ReelPage(reels: [_reelA], limit: 25));
   }
 }
 

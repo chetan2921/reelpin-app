@@ -6,7 +6,6 @@ abstract interface class CollectionsHttp {
   Future<CollectionDetail> getCollectionDetail(
     String collectionId, {
     int limit = 25,
-    int? offset,
     String? cursor,
   });
 
@@ -58,6 +57,6 @@ abstract interface class CollectionsHttp {
   Future<CollectionDetail> getSharedCollection(
     String token, {
     int limit = 25,
-    int? offset,
+    String? cursor,
   });
 }

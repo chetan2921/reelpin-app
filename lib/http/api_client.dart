@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -13,8 +14,6 @@ import 'package:reelpin/http/api_exception.dart';
 import 'package:reelpin/http/account_http.dart';
 import 'package:reelpin/data_models/discover/discover_response.dart';
 import 'package:reelpin/http/discover_http.dart';
-import 'package:reelpin/http/folders_http.dart';
-import 'package:reelpin/data_models/folders/folder_models.dart';
 import 'package:reelpin/http/reels_http.dart';
 import 'package:reelpin/http/map_http.dart';
 import 'package:reelpin/http/sharing_http.dart';
@@ -37,7 +36,6 @@ class ApiClient
         ReelsHttp,
         DiscoverHttp,
         MapHttp,
-        FoldersHttp,
         CollectionsHttp,
         AccountHttp,
         SharingHttp {
@@ -49,6 +47,10 @@ class ApiClient
   static const Duration _backgroundRequestTimeout = Duration(seconds: 5);
   static const Duration _jobPollingTimeout = Duration(minutes: 8);
 
+  /// The API rejects a page size outside this range rather than capping it.
+  static const int _maxPageSize = 100;
+  static final Random _random = Random.secure();
+
   ApiClient({
     http.Client? client,
     String? baseUrl,
@@ -59,21 +61,6 @@ class ApiClient
        _sessionRefresher = sessionRefresher ?? _refreshCurrentSession,
        _baseUrl = (baseUrl ?? ApiConfig.baseUrl).trim();
 
-  // ─── Health Check ───
-
-  Future<bool> healthCheck() async {
-    try {
-      final res = await _sendRequest(
-        (baseUrl) => _client
-            .get(_apiUri(baseUrl, '/api/v1/health'), headers: _headers())
-            .timeout(const Duration(seconds: 5)),
-      );
-      return res.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
-  }
-
   // ─── Process Reel from URL ───
 
   @override
@@ -82,17 +69,7 @@ class ApiClient
     String userId = 'default-user',
     void Function(ProcessingJob job)? onJobUpdate,
   }) async {
-    // Only the enqueue is guarded: the 404/405 fallback exists because older
-    // backends lack the endpoint, and polling has nothing to do with that.
-    // Returning the poll from inside the try also left its errors uncaught,
-    // which is what the analyzer flags.
-    ProcessingJob job;
-    try {
-      job = await _enqueueReelProcessing(url, userId: userId);
-    } on ApiException catch (e) {
-      if (e.statusCode != 404 && e.statusCode != 405) rethrow;
-      job = await _startProcessReelJob(url, userId: userId);
-    }
+    final job = await _submitReel(url);
     return _waitForProcessingJob(
       job.id,
       initialJob: job,
@@ -105,54 +82,25 @@ class ApiClient
     String url, {
     String userId = 'default-user',
     List<String> collectionIds = const [],
-  }) async {
-    try {
-      return await _enqueueReelProcessing(
-        url,
-        userId: userId,
-        collectionIds: collectionIds,
-      );
-    } on ApiException catch (e) {
-      if (e.statusCode == 404 || e.statusCode == 405) {
-        return _startProcessReelJob(url, userId: userId);
-      }
-      rethrow;
-    }
+  }) {
+    return _submitReel(url, collectionIds: collectionIds);
   }
 
-  Future<ProcessingJob> _startProcessReelJob(
+  Future<ProcessingJob> _submitReel(
     String url, {
-    String userId = 'default-user',
-  }) async {
-    final res = await _sendRequest(
-      (baseUrl) => _client
-          .post(
-            _apiUri(baseUrl, '/api/v1/process-reel'),
-            headers: _headers(json: true),
-            body: jsonEncode({'url': url}),
-          )
-          .timeout(_requestTimeout),
-    );
-
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _exceptionFromResponse(
-        res,
-        fallbackMessage: 'Could not save this reel right now.',
-      );
-    }
-    return ProcessingJob.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
-  }
-
-  Future<ProcessingJob> _enqueueReelProcessing(
-    String url, {
-    String userId = 'default-user',
     List<String> collectionIds = const [],
   }) async {
+    // One key per submission attempt. The session renewal in _sendRequest
+    // resends the same attempt, so it has to carry the same key.
+    final idempotencyKey = _newIdempotencyKey();
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/processing-jobs/reels'),
-            headers: _headers(json: true),
+            _apiUri(baseUrl, '/api/v2/processing-jobs/reels'),
+            headers: {
+              ..._headers(json: true),
+              'Idempotency-Key': idempotencyKey,
+            },
             // Same field the native share extensions post, so a share that
             // falls back to the app files itself the same way.
             body: jsonEncode({
@@ -163,7 +111,21 @@ class ApiClient
           .timeout(_requestTimeout),
     );
 
-    if (res.statusCode < 200 || res.statusCode >= 300) {
+    if (res.statusCode == 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final reel = Reel.fromJson(body);
+      // The reel is ready and there is no job to poll, so it is handed on as
+      // a job that has already completed.
+      return ProcessingJob(
+        id: '',
+        status: 'completed',
+        terminal: true,
+        resultReelId: reel.id,
+        reel: reel,
+        alreadySaved: body['already_saved'] == true,
+      );
+    }
+    if (res.statusCode != 202) {
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not queue this reel right now.',
@@ -183,7 +145,7 @@ class ApiClient
           .get(
             _apiUri(
               baseUrl,
-              '/api/v1/processing-jobs',
+              '/api/v2/processing-jobs',
               queryParameters: {
                 'active_only': activeOnly.toString(),
                 'limit': limit.toString(),
@@ -201,9 +163,8 @@ class ApiClient
       );
     }
 
-    final decoded = jsonDecode(res.body);
-    if (decoded is! List) return const <ProcessingJob>[];
-    return decoded
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    return (decoded['jobs'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
         .map(ProcessingJob.fromJson)
         .toList(growable: false);
@@ -213,7 +174,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .get(
-            _apiUri(baseUrl, '/api/v1/processing-jobs/$jobId'),
+            _apiUri(baseUrl, '/api/v2/processing-jobs/$jobId'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
@@ -371,38 +332,6 @@ class ApiClient
         : message;
   }
 
-  // ─── Process Video File ───
-
-  @override
-  Future<Reel> processVideo(
-    File videoFile, {
-    String userId = 'default-user',
-    String url = '',
-  }) async {
-    final res = await _sendRequest((baseUrl) async {
-      final request = http.MultipartRequest(
-        'POST',
-        _apiUri(baseUrl, '/api/v1/process-video'),
-      );
-      request.headers.addAll(_headers());
-      request.fields['url'] = url;
-      request.files.add(
-        await http.MultipartFile.fromPath('video', videoFile.path),
-      );
-
-      final streamedRes = await request.send().timeout(_requestTimeout);
-      return http.Response.fromStream(streamedRes);
-    });
-
-    if (res.statusCode != 200) {
-      throw _exceptionFromResponse(
-        res,
-        fallbackMessage: 'Could not process this video right now.',
-      );
-    }
-    return Reel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
-  }
-
   // ─── List Saved Reels ───
 
   @override
@@ -412,14 +341,13 @@ class ApiClient
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 50,
-    String? sort,
   }) async {
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
-        'limit': limit.toString(),
+        'limit': _pageLimit(limit),
+        'view': 'concise',
         if (platform != null && platform.trim().isNotEmpty)
           'platform': platform,
         if (category != null && category.trim().isNotEmpty)
@@ -428,13 +356,11 @@ class ApiClient
           'subcategory': subcategory,
         if (savedDate != null && savedDate.trim().isNotEmpty)
           'saved_date': savedDate,
-        if (offset != null) 'offset': offset.toString(),
         if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
-        if (sort != null && sort.trim().isNotEmpty) 'sort': sort,
       };
       return _client
           .get(
-            _apiUri(baseUrl, '/api/v1/reels', queryParameters: params),
+            _apiUri(baseUrl, '/api/v2/reels', queryParameters: params),
             headers: _headers(),
           )
           .timeout(_requestTimeout);
@@ -452,9 +378,7 @@ class ApiClient
         _isBlank(category) &&
         _isBlank(subcategory) &&
         _isBlank(savedDate) &&
-        _isBlank(sort) &&
-        _isBlank(cursor) &&
-        (offset == null || offset == 0);
+        _isBlank(cursor);
     if (isUnfilteredFirstPage) {
       unawaited(
         ContentCache.instance.write(ContentCacheKeys.reelsFirstPage, decoded),
@@ -489,7 +413,7 @@ class ApiClient
   Future<Reel> getReel(String reelId) async {
     final res = await _sendRequest(
       (baseUrl) => _client
-          .get(_apiUri(baseUrl, '/api/v1/reels/$reelId'), headers: _headers())
+          .get(_apiUri(baseUrl, '/api/v2/reels/$reelId'), headers: _headers())
           .timeout(_requestTimeout),
     );
 
@@ -511,180 +435,15 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .delete(
-            _apiUri(baseUrl, '/api/v1/reels/$reelId'),
+            _apiUri(baseUrl, '/api/v2/reels/$reelId'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
     );
-    if (res.statusCode != 200) {
+    if (res.statusCode != 204) {
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not delete this reel right now.',
-      );
-    }
-  }
-
-  // ─── Folders ───
-
-  @override
-  Future<List<FolderSummary>> getFolders() async {
-    final res = await _sendRequest(
-      (baseUrl) => _client
-          .get(_apiUri(baseUrl, '/api/v1/folders'), headers: _headers())
-          .timeout(_requestTimeout),
-    );
-
-    if (res.statusCode != 200) {
-      throw _exceptionFromResponse(
-        res,
-        fallbackMessage: 'Could not load folders right now.',
-      );
-    }
-
-    final decoded = jsonDecode(res.body);
-    final folders = decoded is List
-        ? decoded
-        : decoded is Map<String, dynamic>
-        ? decoded['folders']
-        : null;
-    if (folders is! List) return const [];
-    return folders
-        .whereType<Map>()
-        .map((item) => FolderSummary.fromJson(Map<String, dynamic>.from(item)))
-        .toList(growable: false);
-  }
-
-  @override
-  Future<FolderDetailResponse> getFolderDetail(
-    String folderId, {
-    int limit = 25,
-    int? offset,
-    String? cursor,
-  }) async {
-    final res = await _sendRequest((baseUrl) {
-      final params = <String, String>{
-        'limit': limit.toString(),
-        if (offset != null) 'offset': offset.toString(),
-        if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
-      };
-      return _client
-          .get(
-            _apiUri(
-              baseUrl,
-              '/api/v1/folders/$folderId',
-              queryParameters: params,
-            ),
-            headers: _headers(),
-          )
-          .timeout(_requestTimeout);
-    });
-
-    if (res.statusCode != 200) {
-      throw _exceptionFromResponse(
-        res,
-        fallbackMessage: 'Could not load this folder right now.',
-      );
-    }
-
-    return FolderDetailResponse.fromJson(
-      jsonDecode(res.body) as Map<String, dynamic>,
-    );
-  }
-
-  @override
-  Future<FolderSummary> updateFolder({
-    required String folderId,
-    required String name,
-    required String note,
-  }) async {
-    final res = await _sendRequest(
-      (baseUrl) => _client
-          .patch(
-            _apiUri(baseUrl, '/api/v1/folders/$folderId'),
-            headers: _headers(json: true),
-            body: jsonEncode({'name': name, 'note': note}),
-          )
-          .timeout(_requestTimeout),
-    );
-
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _exceptionFromResponse(
-        res,
-        fallbackMessage: 'Could not update this folder right now.',
-      );
-    }
-
-    final decoded = jsonDecode(res.body);
-    final folder = decoded is Map<String, dynamic> ? decoded['folder'] : null;
-    return FolderSummary.fromJson(
-      folder is Map<String, dynamic> ? folder : decoded as Map<String, dynamic>,
-    );
-  }
-
-  @override
-  Future<void> deleteFolder(String folderId) async {
-    final res = await _sendRequest(
-      (baseUrl) => _client
-          .delete(
-            _apiUri(baseUrl, '/api/v1/folders/$folderId'),
-            headers: _headers(),
-          )
-          .timeout(_requestTimeout),
-    );
-
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _exceptionFromResponse(
-        res,
-        fallbackMessage: 'Could not delete this folder right now.',
-      );
-    }
-  }
-
-  @override
-  Future<void> addReelsToFolder({
-    required String folderId,
-    required List<String> reelIds,
-    bool moveExisting = false,
-  }) async {
-    final res = await _sendRequest(
-      (baseUrl) => _client
-          .post(
-            _apiUri(baseUrl, '/api/v1/folders/$folderId/reels'),
-            headers: _headers(json: true),
-            body: jsonEncode({
-              'reel_ids': reelIds,
-              'move_existing': moveExisting,
-            }),
-          )
-          .timeout(_requestTimeout),
-    );
-
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _exceptionFromResponse(
-        res,
-        fallbackMessage: 'Could not add reels to this folder right now.',
-      );
-    }
-  }
-
-  @override
-  Future<void> removeReelFromFolder({
-    required String folderId,
-    required String reelId,
-  }) async {
-    final res = await _sendRequest(
-      (baseUrl) => _client
-          .delete(
-            _apiUri(baseUrl, '/api/v1/folders/$folderId/reels/$reelId'),
-            headers: _headers(),
-          )
-          .timeout(_requestTimeout),
-    );
-
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _exceptionFromResponse(
-        res,
-        fallbackMessage: 'Could not remove this reel from the folder.',
       );
     }
   }
@@ -695,7 +454,7 @@ class ApiClient
   Future<List<CollectionSummary>> getCollections() async {
     final res = await _sendRequest(
       (baseUrl) => _client
-          .get(_apiUri(baseUrl, '/api/v1/collections'), headers: _headers())
+          .get(_apiUri(baseUrl, '/api/v2/collections'), headers: _headers())
           .timeout(_requestTimeout),
     );
     if (res.statusCode != 200) {
@@ -704,12 +463,8 @@ class ApiClient
         fallbackMessage: 'Could not load collections right now.',
       );
     }
-    final decoded = jsonDecode(res.body);
-    final list = decoded is Map<String, dynamic>
-        ? decoded['collections']
-        : decoded;
-    if (list is! List) return const [];
-    return list
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    return (decoded['collections'] as List<dynamic>? ?? const [])
         .whereType<Map>()
         .map(
           (item) => CollectionSummary.fromJson(Map<String, dynamic>.from(item)),
@@ -721,20 +476,18 @@ class ApiClient
   Future<CollectionDetail> getCollectionDetail(
     String collectionId, {
     int limit = 25,
-    int? offset,
     String? cursor,
   }) async {
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
-        'limit': limit.toString(),
-        if (offset != null) 'offset': offset.toString(),
+        'limit': _pageLimit(limit),
         if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
       };
       return _client
           .get(
             _apiUri(
               baseUrl,
-              '/api/v1/collections/$collectionId',
+              '/api/v2/collections/$collectionId',
               queryParameters: params,
             ),
             headers: _headers(),
@@ -761,7 +514,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/collections'),
+            _apiUri(baseUrl, '/api/v2/collections'),
             headers: _headers(json: true),
             body: jsonEncode({
               'name': name,
@@ -790,7 +543,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .patch(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId'),
             headers: _headers(json: true),
             body: jsonEncode({
               'name': ?name,
@@ -814,7 +567,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .delete(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
@@ -835,7 +588,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId/items'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId/items'),
             headers: _headers(json: true),
             body: jsonEncode({'reel_ids': reelIds}),
           )
@@ -847,11 +600,8 @@ class ApiClient
         fallbackMessage: 'Could not add reels to this collection right now.',
       );
     }
-    final decoded = jsonDecode(res.body);
-    if (decoded is Map<String, dynamic>) {
-      return (decoded['added_count'] as num?)?.toInt() ?? 0;
-    }
-    return 0;
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    return (decoded['added_count'] as num?)?.toInt() ?? 0;
   }
 
   @override
@@ -862,7 +612,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .delete(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId/items/$reelId'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId/items/$reelId'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
@@ -880,7 +630,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId/link'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId/link'),
             headers: _headers(json: true),
           )
           .timeout(_requestTimeout),
@@ -901,7 +651,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .delete(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId/link'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId/link'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
@@ -919,7 +669,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .get(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId/members'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId/members'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
@@ -945,7 +695,7 @@ class ApiClient
           .delete(
             _apiUri(
               baseUrl,
-              '/api/v1/collections/$collectionId/members/$memberUserId',
+              '/api/v2/collections/$collectionId/members/$memberUserId',
             ),
             headers: _headers(),
           )
@@ -964,7 +714,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId/leave'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId/leave'),
             headers: _headers(json: true),
           )
           .timeout(_requestTimeout),
@@ -985,7 +735,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/collections/$collectionId/invites'),
+            _apiUri(baseUrl, '/api/v2/collections/$collectionId/invites'),
             headers: _headers(json: true),
             body: jsonEncode({'role': role}),
           )
@@ -1007,7 +757,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/collections/invites/$token/accept'),
+            _apiUri(baseUrl, '/api/v2/collection-invites/$token/accept'),
             headers: _headers(json: true),
           )
           .timeout(_requestTimeout),
@@ -1025,18 +775,18 @@ class ApiClient
   Future<CollectionDetail> getSharedCollection(
     String token, {
     int limit = 25,
-    int? offset,
+    String? cursor,
   }) async {
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
-        'limit': limit.toString(),
-        if (offset != null) 'offset': offset.toString(),
+        'limit': _pageLimit(limit),
+        if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
       };
       return _client
           .get(
             _apiUri(
               baseUrl,
-              '/api/v1/collections/shared/$token',
+              '/api/v2/shared-collections/$token',
               queryParameters: params,
             ),
             headers: _headers(),
@@ -1055,14 +805,9 @@ class ApiClient
   }
 
   CollectionSummary _collectionFromMutation(http.Response res) {
-    final decoded = jsonDecode(res.body);
-    final collection = decoded is Map<String, dynamic>
-        ? decoded['collection']
-        : null;
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
     return CollectionSummary.fromJson(
-      collection is Map<String, dynamic>
-          ? collection
-          : decoded as Map<String, dynamic>,
+      Map<String, dynamic>.from(decoded['collection'] as Map),
     );
   }
 
@@ -1086,7 +831,7 @@ class ApiClient
       };
       return _client
           .get(
-            _apiUri(baseUrl, '/api/v1/reels/filters', queryParameters: params),
+            _apiUri(baseUrl, '/api/v2/reels/filters', queryParameters: params),
             headers: _headers(),
           )
           .timeout(_requestTimeout);
@@ -1124,7 +869,11 @@ class ApiClient
         ? await _sendRequest(
             (baseUrl) => _client
                 .post(
-                  _apiUri(baseUrl, '/api/v1/search'),
+                  _apiUri(
+                    baseUrl,
+                    '/api/v2/search',
+                    queryParameters: const {'view': 'concise'},
+                  ),
                   headers: _headers(json: true),
                   body: jsonEncode({
                     'query': query,
@@ -1141,7 +890,11 @@ class ApiClient
             client,
             (baseUrl, activeClient) => activeClient
                 .post(
-                  _apiUri(baseUrl, '/api/v1/search'),
+                  _apiUri(
+                    baseUrl,
+                    '/api/v2/search',
+                    queryParameters: const {'view': 'concise'},
+                  ),
                   headers: _headers(json: true),
                   body: jsonEncode({
                     'query': query,
@@ -1173,7 +926,7 @@ class ApiClient
     final res = await _sendRequest((baseUrl) {
       return _client
           .get(
-            _apiUri(baseUrl, '/api/v1/account/entitlements'),
+            _apiUri(baseUrl, '/api/v2/account/entitlements'),
             headers: _headers(),
           )
           .timeout(_requestTimeout);
@@ -1193,20 +946,27 @@ class ApiClient
     return EntitlementsResponse.fromJson(decoded);
   }
 
+  /// Every pin the user has. The pins endpoint answers a viewport, and the map
+  /// still loads everything at once, so the viewport is the whole world.
   @override
   Future<MapResponse> getMapData({String? category}) async {
-    final res = await _sendRequest((baseUrl) {
-      final params = <String, String>{
-        if (category != null && category.trim().isNotEmpty)
-          'category': category,
-      };
-      return _client
+    final res = await _sendRequest(
+      (baseUrl) => _client
           .get(
-            _apiUri(baseUrl, '/api/v1/map', queryParameters: params),
+            _apiUri(
+              baseUrl,
+              '/api/v2/map/pins',
+              queryParameters: const {
+                'south': '-90',
+                'west': '-180',
+                'north': '90',
+                'east': '180',
+              },
+            ),
             headers: _headers(),
           )
-          .timeout(_requestTimeout);
-    });
+          .timeout(_requestTimeout),
+    );
 
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
@@ -1221,7 +981,7 @@ class ApiClient
         ContentCache.instance.write(ContentCacheKeys.mapOverview, decoded),
       );
     }
-    return MapResponse.fromJson(decoded);
+    return MapResponse.fromJson(decoded, category: category);
   }
 
   @override
@@ -1242,7 +1002,7 @@ class ApiClient
       };
       return _client
           .get(
-            _apiUri(baseUrl, '/api/v1/map/search', queryParameters: params),
+            _apiUri(baseUrl, '/api/v2/map/search', queryParameters: params),
             headers: _headers(),
           )
           .timeout(_requestTimeout);
@@ -1260,6 +1020,7 @@ class ApiClient
     );
   }
 
+  /// 201 is a new pin; 200 is the pin this user already had for the place.
   @override
   Future<MapItem> pinMapPlace(
     String googlePlaceId, {
@@ -1268,18 +1029,18 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/map/pins'),
+            _apiUri(baseUrl, '/api/v2/map/pins'),
             headers: _headers(json: true),
             body: jsonEncode({
-              'googlePlaceId': googlePlaceId,
+              'google_place_id': googlePlaceId,
               if (sessionToken != null && sessionToken.trim().isNotEmpty)
-                'sessionToken': sessionToken,
+                'session_token': sessionToken,
             }),
           )
           .timeout(_requestTimeout),
     );
 
-    if (res.statusCode != 200) {
+    if (res.statusCode != 200 && res.statusCode != 201) {
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not save this map pin right now.',
@@ -1289,18 +1050,20 @@ class ApiClient
     return MapItem.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// [mapItemId] is a bare location id, `reel:{reel_id}:{index}` or
+  /// `manual:{pin_id}`.
   @override
   Future<void> removeMapItem(String mapItemId) async {
     final res = await _sendRequest(
       (baseUrl) => _client
           .delete(
-            _apiUri(baseUrl, '/api/v1/map/items/$mapItemId'),
+            _apiUri(baseUrl, '/api/v2/map/items/$mapItemId'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
     );
 
-    if (res.statusCode != 200) {
+    if (res.statusCode != 204) {
       throw _exceptionFromResponse(
         res,
         fallbackMessage: 'Could not remove this map pin right now.',
@@ -1311,21 +1074,19 @@ class ApiClient
   @override
   Future<DiscoverResponse> getDiscover({
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 25,
   }) async {
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
-        'limit': limit.toString(),
+        'limit': _pageLimit(limit),
         if (savedDate != null && savedDate.trim().isNotEmpty)
           'saved_date': savedDate,
-        if (offset != null) 'offset': offset.toString(),
         if (cursor != null && cursor.trim().isNotEmpty) 'cursor': cursor,
       };
       return _client
           .get(
-            _apiUri(baseUrl, '/api/v1/discover', queryParameters: params),
+            _apiUri(baseUrl, '/api/v2/discover', queryParameters: params),
             headers: _headers(),
           )
           .timeout(_requestTimeout);
@@ -1339,11 +1100,7 @@ class ApiClient
     }
 
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
-    final isUnfilteredFirstPage =
-        _isBlank(savedDate) &&
-        _isBlank(cursor) &&
-        (offset == null || offset == 0);
-    if (isUnfilteredFirstPage) {
+    if (_isBlank(savedDate) && _isBlank(cursor)) {
       unawaited(
         ContentCache.instance.write(ContentCacheKeys.discoverOverview, decoded),
       );
@@ -1356,7 +1113,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .get(
-            _apiUri(baseUrl, '/api/v1/account/library-stats'),
+            _apiUri(baseUrl, '/api/v2/account/library-stats'),
             headers: _headers(),
           )
           .timeout(_requestTimeout),
@@ -1376,7 +1133,7 @@ class ApiClient
   Future<void> deleteAccount() async {
     final res = await _sendRequest(
       (baseUrl) => _client
-          .delete(_apiUri(baseUrl, '/api/v1/account'), headers: _headers())
+          .delete(_apiUri(baseUrl, '/api/v2/account'), headers: _headers())
           .timeout(_requestTimeout),
     );
 
@@ -1388,22 +1145,17 @@ class ApiClient
     }
   }
 
+  /// An unsupported link is a 200 with `supported: false`, not an error.
   @override
   Future<ShareResolveResponse> resolveSharePayload({
     required String rawPayloadText,
-    required String platform,
-    Map<String, dynamic> metadata = const {},
   }) async {
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/share/resolve'),
+            _apiUri(baseUrl, '/api/v2/share/resolve'),
             headers: _headers(json: true),
-            body: jsonEncode({
-              'raw_payload_text': rawPayloadText,
-              'platform': platform,
-              'metadata': metadata,
-            }),
+            body: jsonEncode({'raw_payload_text': rawPayloadText}),
           )
           .timeout(_requestTimeout),
     );
@@ -1422,6 +1174,7 @@ class ApiClient
 
   // ─── Helpers ───
 
+  /// Only the token and platform are sent: the API rejects any other field.
   @override
   Future<void> registerPushToken({
     required String userId,
@@ -1435,16 +1188,9 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/device-push-tokens'),
+            _apiUri(baseUrl, '/api/v2/device-push-tokens'),
             headers: _headers(json: true),
-            body: jsonEncode({
-              'token': token,
-              'platform': platform,
-              'app_version': appVersion,
-              'app_build': appBuild,
-              'timezone': timezone,
-              'locale': locale,
-            }),
+            body: jsonEncode({'token': token, 'platform': platform}),
           )
           .timeout(_backgroundRequestTimeout),
     );
@@ -1462,7 +1208,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .delete(
-            _apiUri(baseUrl, '/api/v1/device-push-tokens'),
+            _apiUri(baseUrl, '/api/v2/device-push-tokens'),
             headers: _headers(json: true),
             body: jsonEncode({'token': token}),
           )
@@ -1484,7 +1230,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/notifications/$notificationId/opened'),
+            _apiUri(baseUrl, '/api/v2/notifications/$notificationId/opened'),
             headers: _headers(),
           )
           .timeout(_backgroundRequestTimeout),
@@ -1506,7 +1252,7 @@ class ApiClient
     final res = await _sendRequest(
       (baseUrl) => _client
           .post(
-            _apiUri(baseUrl, '/api/v1/share-tokens'),
+            _apiUri(baseUrl, '/api/v2/share-tokens'),
             headers: _headers(json: true),
           )
           .timeout(_requestTimeout),
@@ -1518,14 +1264,14 @@ class ApiClient
       );
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
-    return (body['share_token'] ?? '').toString();
+    return (body['token'] ?? '').toString();
   }
 
   @override
   Future<void> revokeShareToken() async {
     final res = await _sendRequest(
       (baseUrl) => _client
-          .delete(_apiUri(baseUrl, '/api/v1/share-tokens'), headers: _headers())
+          .delete(_apiUri(baseUrl, '/api/v2/share-tokens'), headers: _headers())
           .timeout(_requestTimeout),
     );
     if (res.statusCode != 200) {
@@ -1574,8 +1320,8 @@ class ApiClient
     final base = baseUrl.trim().replaceFirst(RegExp(r'/$'), '');
     final normalizedPath = path.startsWith('/') ? path : '/$path';
     final effectivePath =
-        base.endsWith('/api/v1') && normalizedPath.startsWith('/api/v1/')
-        ? normalizedPath.substring('/api/v1'.length)
+        base.endsWith('/api/v2') && normalizedPath.startsWith('/api/v2/')
+        ? normalizedPath.substring('/api/v2'.length)
         : normalizedPath;
     return Uri.parse('$base$effectivePath').replace(
       queryParameters: queryParameters == null || queryParameters.isEmpty
@@ -1613,6 +1359,22 @@ class ApiClient
 
   static bool _isBlank(String? value) => value == null || value.trim().isEmpty;
 
+  static String _pageLimit(int limit) =>
+      limit.clamp(1, _maxPageSize).toString();
+
+  /// A random (version 4) UUID.
+  static String _newIdempotencyKey() {
+    final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final hex = bytes
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+        '${hex.substring(20)}';
+  }
+
   static String? _currentAccessToken() {
     try {
       return Supabase.instance.client.auth.currentSession?.accessToken;
@@ -1639,45 +1401,30 @@ class ApiClient
     await Supabase.instance.client.auth.refreshSession();
   }
 
+  /// Every error body is `{error: {code, message, request_id, retryable,
+  /// details}}`. Anything else, such as a proxy's HTML page, gets the
+  /// caller's message.
   ApiException _exceptionFromResponse(
     http.Response res, {
     required String fallbackMessage,
   }) {
-    final payload = _extractErrorPayload(res);
+    Map<String, dynamic> error = const {};
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map && body['error'] is Map) {
+        error = Map<String, dynamic>.from(body['error'] as Map);
+      }
+    } on FormatException {
+      // Not JSON; fall through to the caller's message.
+    }
+    final details = error['details'];
     return ApiException(
-      payload.message ?? fallbackMessage,
+      error['message']?.toString() ?? fallbackMessage,
       res.statusCode,
-      errorCode: payload.errorCode,
-      detail: payload.detail,
-      retryable: payload.retryable,
+      errorCode: error['code']?.toString(),
+      requestId: error['request_id']?.toString(),
+      details: details is Map ? Map<String, dynamic>.from(details) : const {},
+      retryable: error['retryable'] == true,
     );
   }
-
-  _ApiErrorPayload _extractErrorPayload(http.Response res) {
-    try {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      return _ApiErrorPayload(
-        message: body['message']?.toString(),
-        detail: body['detail']?.toString(),
-        errorCode: body['error_code']?.toString(),
-        retryable: body['retryable'] == true,
-      );
-    } catch (_) {
-      return _ApiErrorPayload(message: 'Request failed (${res.statusCode})');
-    }
-  }
-}
-
-class _ApiErrorPayload {
-  const _ApiErrorPayload({
-    this.message,
-    this.detail,
-    this.errorCode,
-    this.retryable = false,
-  });
-
-  final String? message;
-  final String? detail;
-  final String? errorCode;
-  final bool retryable;
 }

@@ -287,7 +287,7 @@ class _RecordingCollectionsHttp extends MockCollectionsHttp {
   Future<CollectionDetail> getSharedCollection(
     String token, {
     int limit = 25,
-    int? offset,
+    String? cursor,
   }) async {
     onFetch(token);
     return CollectionDetail(

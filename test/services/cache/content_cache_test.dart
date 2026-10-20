@@ -31,7 +31,7 @@ void main() {
     String key, {
     required String forUserId,
     required DateTime savedAt,
-    int schema = 1,
+    int schema = 2,
     Map<String, dynamic> payload = const {'reels': <dynamic>[]},
   }) {
     fileFor(key).writeAsStringSync(
@@ -106,12 +106,12 @@ void main() {
     expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNotNull);
   });
 
-  test('drops a payload written by an older schema', () async {
+  test('drops a payload written in the /api/v1 shapes', () async {
     writeEnvelope(
       ContentCacheKeys.reelsFirstPage,
       forUserId: 'user-a',
       savedAt: DateTime.now().toUtc(),
-      schema: 0,
+      schema: 1,
     );
 
     expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);

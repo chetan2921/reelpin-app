@@ -304,7 +304,6 @@ class _CollectionDetailScreenState
                       vm,
                       collection,
                       canEdit: canEdit,
-                      ownerName: detail?.ownerName,
                     ),
                   ),
                 ),
@@ -333,7 +332,7 @@ class _CollectionDetailScreenState
                         layout.inset(20),
                         layout.gap(16),
                       ),
-                      child: _SharedBanner(ownerName: detail.ownerName),
+                      child: const _SharedBanner(),
                     ),
                   ),
                 if (collection != null &&
@@ -392,19 +391,12 @@ class _CollectionDetailScreenState
     CollectionsViewModel vm,
     CollectionSummary? collection, {
     required bool canEdit,
-    required String? ownerName,
   }) {
     final layout = AppLayout.of(context);
     final title = collection?.name ?? widget.initialName ?? 'COLLECTION';
     final count = collection?.itemCount ?? 0;
     final isOwner = !widget.isShared && (collection?.isOwner ?? false);
-    // Whose collection this is, for everyone it was shared with. An editor
-    // needs it as much as a viewer, so it sits in the header rather than in
-    // the view-only strip.
-    final owner = isOwner ? null : ownerName?.trim();
-    final subtitle = owner == null || owner.isEmpty
-        ? '$count PIN${count == 1 ? '' : 'S'}'
-        : '$count PIN${count == 1 ? '' : 'S'} · BY ${owner.toUpperCase()}';
+    final subtitle = '$count PIN${count == 1 ? '' : 'S'}';
 
     return Row(
       children: [
@@ -707,9 +699,7 @@ class _HeaderAction extends StatelessWidget {
 
 /// Read-only strip shown when the collection was opened from a share link.
 class _SharedBanner extends StatelessWidget {
-  const _SharedBanner({this.ownerName});
-
-  final String? ownerName;
+  const _SharedBanner();
 
   @override
   Widget build(BuildContext context) {
@@ -726,9 +716,7 @@ class _SharedBanner extends StatelessWidget {
           SizedBox(width: layout.inset(8)),
           Expanded(
             child: Text(
-              ownerName != null
-                  ? 'SHARED BY ${ownerName!.toUpperCase()} · VIEW ONLY'
-                  : 'SHARED COLLECTION · VIEW ONLY',
+              'SHARED COLLECTION · VIEW ONLY',
               style: GoogleFonts.spaceMono(
                 color: AppColors.white,
                 fontSize: layout.font(10),

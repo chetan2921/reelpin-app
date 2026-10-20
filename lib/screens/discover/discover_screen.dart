@@ -743,10 +743,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         discoverVm.selectedCategoryLabel ??
         discoverVm.selectedCategory ??
         'CATEGORY';
-    final expectedCount =
-        discoverVm.selectedCategoryExpectedCount ?? page?.totalCount ?? 0;
-    final totalCount = page?.totalCount ?? expectedCount;
     final reels = page?.reels ?? const <Reel>[];
+    final totalCount = discoverVm.selectedCategoryExpectedCount ?? reels.length;
 
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),

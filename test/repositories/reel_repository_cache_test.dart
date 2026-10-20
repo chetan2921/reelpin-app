@@ -32,11 +32,9 @@ void main() {
   Future<void> seedCache() {
     return cache.write(ContentCacheKeys.reelsFirstPage, {
       'reels': [_cachedReelJson],
+      'next_cursor': 'opaque-cursor',
       'has_more': true,
-      'total_count': 9,
       'limit': 25,
-      'offset': 0,
-      'next_offset': 25,
     });
   }
 
@@ -51,7 +49,6 @@ void main() {
     await repository.hydrateCache();
 
     expect(repository.cachedReels.map((reel) => reel.id), ['cached-reel']);
-    expect(repository.totalCount, 9);
     expect(repository.hasMoreReels, isTrue);
     expect(repository.cacheUserId, 'user-123');
   });
@@ -75,7 +72,6 @@ void main() {
     await load;
 
     expect(repository.cachedReels.map((reel) => reel.id), ['live-reel']);
-    expect(repository.totalCount, 1);
   });
 
   test('a filtered load does not restore the unfiltered snapshot', () async {
@@ -193,10 +189,8 @@ class _PendingApiService extends ApiClient {
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 50,
-    String? sort,
   }) {
     return _completer.future;
   }
@@ -206,15 +200,7 @@ class _PendingApiService extends ApiClient {
 
   void complete() {
     if (_completer.isCompleted) return;
-    _completer.complete(
-      const ReelPage(
-        reels: [_liveReel],
-        hasMore: false,
-        totalCount: 1,
-        limit: 25,
-        offset: 0,
-      ),
-    );
+    _completer.complete(const ReelPage(reels: [_liveReel], limit: 25));
   }
 }
 

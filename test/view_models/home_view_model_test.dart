@@ -134,7 +134,6 @@ class _FakeRepository extends ReelRepository {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   }) async {
     lastInitialPlatform = platform;
     lastInitialCategory = category;
@@ -147,7 +146,6 @@ class _FakeRepository extends ReelRepository {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   }) async {
     lastMorePlatform = platform;
     lastMoreCategory = category;
@@ -167,18 +165,10 @@ class _FakeApiService extends ApiClient {
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 50,
-    String? sort,
   }) async {
-    return const ReelPage(
-      reels: [],
-      hasMore: false,
-      totalCount: 0,
-      limit: 25,
-      offset: 0,
-    );
+    return const ReelPage(reels: [], limit: 25);
   }
 }
 
