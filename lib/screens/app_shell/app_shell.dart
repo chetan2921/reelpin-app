@@ -28,14 +28,12 @@ import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/share_handoff_service.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
-import 'package:reelpin/constants/chat_feature.dart';
 import 'package:reelpin/screens/home/home_screen.dart';
 import 'package:reelpin/screens/map/map_screen.dart';
 import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/screens/splash/splash_screen.dart';
 import 'package:reelpin/screens/discover/discover_screen.dart';
 import 'package:reelpin/screens/collections/collections_screen.dart';
-import 'package:reelpin/screens/chat/chat_screen.dart';
 
 part 'partials/app_shell_controller.dart';
 part 'partials/nav_item.dart';
@@ -59,12 +57,8 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _resumeRefreshInterval = Duration(minutes: 5);
   static const _floatingNavHeight = 56.0;
   static const _floatingNavBottomInset = 14.0;
-  // Five tabs need a narrower inset to fit; without the ASK tab the bar
-  // still has just four, so it keeps the original wider inset.
-  static const _floatingNavHorizontalInset = chatEnabled ? 26.0 : 60.0;
-  // Single source of truth for tab indices; the ASK tab's own existence
-  // below is gated on the same `chatEnabled` const, so the two stay in sync.
-  static final _tabLayout = AppTabLayout.forChatEnabled(chatEnabled);
+  static const _floatingNavHorizontalInset = 60.0;
+  static const _tabLayout = AppTabLayout();
 
   int _currentIndex = _tabLayout.home;
   StreamSubscription? _mediaIntentSub;
@@ -83,7 +77,6 @@ class _AppShellState extends ConsumerState<AppShell>
   static const _navItems = [
     _NavItem(icon: HugeIcons.strokeRoundedHome04, label: 'HOME'),
     _NavItem(icon: HugeIcons.strokeRoundedLocation03, label: 'MAP'),
-    if (chatEnabled) _NavItem(assetPath: 'assets/images/pin.png', label: 'ASK'),
     _NavItem(icon: HugeIcons.strokeRoundedFolderPin, label: 'SAVED'),
     _NavItem(icon: HugeIcons.strokeRoundedDiscoverSquare, label: 'DISCOVER'),
   ];
@@ -766,7 +759,6 @@ class _AppShellState extends ConsumerState<AppShell>
                       scrollController: _homeScrollController,
                     ),
                     const MapScreen(),
-                    if (chatEnabled) const ChatScreen(),
                     const CollectionsScreen(),
                     DiscoverScreen(focusRequestId: _searchFocusRequestId),
                   ],

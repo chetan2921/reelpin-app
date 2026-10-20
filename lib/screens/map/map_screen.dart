@@ -233,9 +233,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  /// Brutalist map pin: flat colored square with thick black border. Shared
-  /// with the chat places block via `lib/utils/category_marker_icon.dart` so
-  /// both draw the same pin.
+  /// Brutalist map pin: flat colored square with thick black border.
   Future<BitmapDescriptor> _createCustomPin(String category) =>
       createCategoryMarkerIcon(category);
 

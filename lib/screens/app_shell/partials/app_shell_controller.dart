@@ -1,46 +1,18 @@
 part of '../app_shell.dart';
 
-/// Index layout for the shell's tabs, computed from whether the chat tab
-/// exists in this build. Kept as a pure function of a bool — rather than
-/// reading the `chatEnabled` compile-time const directly — so both tab
-/// configurations can be pinned by a test without a second build.
+/// Index of each tab in the shell's [IndexedStack].
 @visibleForTesting
 class AppTabLayout {
-  const AppTabLayout._({
-    required this.home,
-    required this.map,
-    required this.ask,
-    required this.saved,
-    required this.discover,
-  });
+  const AppTabLayout();
 
-  factory AppTabLayout.forChatEnabled(bool chatEnabled) {
-    return chatEnabled
-        ? const AppTabLayout._(home: 0, map: 1, ask: 2, saved: 3, discover: 4)
-        : const AppTabLayout._(
-            home: 0,
-            map: 1,
-            ask: null,
-            saved: 2,
-            discover: 3,
-          );
-  }
-
-  final int home;
-  final int map;
-  final int? ask; // null when the chat tab does not exist in this build.
-  final int saved;
-  final int discover;
+  final int home = 0;
+  final int map = 1;
+  final int saved = 2;
+  final int discover = 3;
 }
 
 class AppShellController {
-  AppShellController() : _layout = AppTabLayout.forChatEnabled(chatEnabled);
-
-  @visibleForTesting
-  AppShellController.forTest({required bool chatEnabled})
-    : _layout = AppTabLayout.forChatEnabled(chatEnabled);
-
-  final AppTabLayout _layout;
+  final AppTabLayout _layout = const AppTabLayout();
   ValueChanged<int>? _selectTab;
   int? _pendingTabIndex;
 
@@ -58,15 +30,6 @@ class AppShellController {
 
   void showDiscover() {
     _select(_layout.discover);
-  }
-
-  void showAsk() {
-    // A stale deep link or queued notification can still target ASK after a
-    // build without the chat tab; treat that as a no-op rather than an
-    // out-of-range index.
-    final index = _layout.ask;
-    if (index == null) return;
-    _select(index);
   }
 
   void _select(int index) {

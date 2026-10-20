@@ -12,14 +12,12 @@ import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
-import 'package:reelpin/constants/chat_feature.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/components/collections/collection_form_sheet.dart';
 import 'package:reelpin/components/collections/share_collection_sheet.dart';
-import 'package:reelpin/screens/collections/collection_ask_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_loader_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
 import 'package:reelpin/services/sharing/collection_link_cache.dart';
@@ -28,7 +26,6 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
 part 'partials/collection_sticky_note.dart';
-part 'partials/collection_tab_bar.dart';
 
 class CollectionDetailScreen extends ConsumerStatefulWidget {
   const CollectionDetailScreen({
@@ -37,7 +34,6 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
     this.sharedToken,
     this.sharedUrl,
     this.initialName,
-    this.offerChat = chatEnabled,
   });
 
   final String collectionId;
@@ -50,12 +46,6 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
   /// a reel from inside it.
   final String? sharedUrl;
   final String? initialName;
-
-  /// Whether to offer the collection's shared AI thread. Defaults to this
-  /// build's [chatEnabled]; tests pass true — the same way
-  /// `AppShellController.forTest` injects it — since the const is always
-  /// false under `flutter test`.
-  final bool offerChat;
 
   bool get isShared => sharedToken != null;
 
@@ -266,11 +256,6 @@ class _CollectionDetailScreenState
     final isViewOnly =
         widget.isShared || (collection != null && !collection.canEdit);
     final ownsReels = !widget.isShared && (collection?.isOwner ?? false);
-    // A link visitor has no identity to attribute a question to, so the shared
-    // thread is offered to members only.
-    final showChatTab =
-        widget.offerChat && !widget.isShared && collection != null;
-
     return Scaffold(
       backgroundColor: AppColors.bg(context),
       body: SafeArea(
@@ -308,22 +293,6 @@ class _CollectionDetailScreenState
                     ),
                   ),
                 ),
-                if (showChatTab)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        layout.inset(20),
-                        0,
-                        layout.inset(20),
-                        layout.gap(16),
-                      ),
-                      child: _CollectionTabBar(
-                        // `collection!`: null-promotion from showChatTab
-                        // doesn't survive into this closure.
-                        onAsk: () => _openAsk(collection!, canEdit: canEdit),
-                      ),
-                    ),
-                  ),
                 if (detail != null && isViewOnly)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -368,20 +337,6 @@ class _CollectionDetailScreenState
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  /// ASK is its own screen, laid out like the private chat — sidebar,
-  /// new-chat button, thread and composer — pushed over this one.
-  void _openAsk(CollectionSummary collection, {required bool canEdit}) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CollectionAskScreen(
-          collectionId: collection.id,
-          collectionName: collection.name,
-          canEdit: canEdit,
         ),
       ),
     );

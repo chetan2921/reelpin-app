@@ -7,10 +7,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:reelpin/constants/app_colors.dart';
 
 /// Brutalist map pin: flat colored square with thick black border.
-///
-/// Shared by the Map tab and the chat places block so a category is drawn
-/// identically — same shape, same `AppColors.getCategoryColor` fill — in
-/// both places.
 Future<BitmapDescriptor> createCategoryMarkerIcon(String category) async {
   return BitmapDescriptor.bytes(await createCategoryMarkerPng(category));
 }
