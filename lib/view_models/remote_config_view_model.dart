@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:reelpin/data_models/app_config/remote_config.dart';
@@ -9,8 +11,9 @@ import 'package:reelpin/services/remote_config/remote_config_service.dart';
 ///
 /// Until a document arrives every answer is the open one (no gate, no
 /// announcement, paywall hidden), and a launch never waits on the network for
-/// it. The cached copy usually lands within a frame or two; a fresh fetch
-/// replaces it when it lands, at most [RemoteConfigService.timeout] later.
+/// it. [localCopyLoaded] completes once the build number and the cached copy
+/// are read; a fresh fetch replaces the cached copy when it lands, at most
+/// [RemoteConfigService.timeout] later.
 class RemoteConfigViewModel extends ChangeNotifier {
   RemoteConfigViewModel(
     this._service, {
@@ -25,7 +28,14 @@ class RemoteConfigViewModel extends ChangeNotifier {
   bool _hasStarted = false;
   bool _updateNudgeTaken = false;
   final Set<String> _announcementsTaken = {};
+  final Completer<void> _localCopy = Completer<void>();
   Future<void>? _inFlightRefresh;
+
+  bool get hasLoadedLocalCopy => _localCopy.isCompleted;
+
+  /// Local reads only, so a launch can afford a short wait on it before it
+  /// picks between the app and the update screen.
+  Future<void> get localCopyLoaded => _localCopy.future;
 
   bool get paywallVisible => _config.paywallVisible;
 
@@ -48,7 +58,10 @@ class RemoteConfigViewModel extends ChangeNotifier {
   Future<void> start() async {
     if (_hasStarted) return;
     _hasStarted = true;
-    if (!_service.isEnabled) return;
+    if (!_service.isEnabled) {
+      _localCopy.complete();
+      return;
+    }
 
     _buildNumber = await _loadBuildNumber();
     final cached = await _service.readCached();
@@ -56,6 +69,7 @@ class RemoteConfigViewModel extends ChangeNotifier {
       _config = cached;
       notifyListeners();
     }
+    _localCopy.complete();
     await refresh();
   }
 
@@ -86,16 +100,30 @@ class RemoteConfigViewModel extends ChangeNotifier {
   }
 
   /// The configured announcement if it is owed: once per id for good when
-  /// `show_once` is set, otherwise once per app session.
+  /// `show_once` is set, otherwise once per app session. Never while a hard
+  /// update gate is up. Taking it only claims it for this session; call
+  /// [markAnnouncementShown] once it is on screen.
   Future<FeatureAnnouncement?> takeAnnouncement() async {
+    if (blockingUpdate != null) return null;
     final announcement = _config.featureAnnouncement;
     if (!announcement.isShowable) return null;
-    // Claimed before the await so two callers cannot both show it.
+    if (_announcementsTaken.contains(announcement.id)) return null;
+    if (announcement.showOnce &&
+        await _service.wasAnnouncementShown(announcement.id)) {
+      return null;
+    }
+    // Checked again after the await: a hard gate can land meanwhile, and a
+    // second caller can have claimed the same id.
+    if (blockingUpdate != null) return null;
     if (!_announcementsTaken.add(announcement.id)) return null;
-    if (!announcement.showOnce) return announcement;
-    if (await _service.wasAnnouncementShown(announcement.id)) return null;
-    await _service.markAnnouncementShown(announcement.id);
     return announcement;
+  }
+
+  /// Records a `show_once` announcement for good, so it is called only after
+  /// the announcement was actually put in front of the user.
+  Future<void> markAnnouncementShown(FeatureAnnouncement announcement) async {
+    if (!announcement.showOnce) return;
+    await _service.markAnnouncementShown(announcement.id);
   }
 
   static Future<int?> _nativeBuildNumber() async {

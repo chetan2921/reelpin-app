@@ -182,12 +182,55 @@ void main() {
       final shown = await first.takeAnnouncement();
       expect(shown?.id, 'maps-v2');
       expect(shown?.title, 'NEW MAP');
+      await first.markAnnouncementShown(shown!);
       expect(await first.takeAnnouncement(), isNull);
 
       // A cold start: a new view model over the same device storage.
       final second = _viewModel(_serving(document));
       await second.start();
       expect(await second.takeAnnouncement(), isNull);
+    });
+
+    test('taking it is not recorded until it is marked shown', () async {
+      final document = {'feature_announcement': _announcement};
+      final first = _viewModel(_serving(document));
+      await first.start();
+      expect(await first.takeAnnouncement(), isNotNull);
+
+      // Taken but never put on screen, so the next cold start still owes it.
+      final second = _viewModel(_serving(document));
+      await second.start();
+      expect((await second.takeAnnouncement())?.id, 'maps-v2');
+    });
+
+    test('a hard gate holds it back until the build is updated', () async {
+      final document = {
+        'update_required': _update(hard: true),
+        'feature_announcement': _announcement,
+      };
+      final blocked = _viewModel(_serving(document));
+      await blocked.start();
+
+      expect(blocked.blockingUpdate, isNotNull);
+      expect(await blocked.takeAnnouncement(), isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getStringList('remote_config_shown_announcements_v1'),
+        isNull,
+      );
+
+      // The user updated past min_build: the gate lifts and the announcement
+      // shows once.
+      final updated = _viewModel(_serving(document), build: 24);
+      await updated.start();
+      expect(updated.blockingUpdate, isNull);
+      final shown = await updated.takeAnnouncement();
+      expect(shown?.id, 'maps-v2');
+      await updated.markAnnouncementShown(shown!);
+
+      final later = _viewModel(_serving(document), build: 24);
+      await later.start();
+      expect(await later.takeAnnouncement(), isNull);
     });
 
     test('a new id is shown even after an earlier one was', () async {

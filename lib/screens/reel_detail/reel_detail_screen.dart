@@ -922,7 +922,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
             ),
             SizedBox(height: layout.gap(10)),
             Text(
-              'This saved ${_savedItemNoun.toLowerCase()} is outside the Free history window. Upgrade to Pro to open older saves again.',
+              paywallVisible
+                  ? 'This saved ${_savedItemNoun.toLowerCase()} is outside the Free history window. Upgrade to Pro to open older saves again.'
+                  : 'This saved ${_savedItemNoun.toLowerCase()} is outside the Free history window.',
               style: GoogleFonts.spaceMono(
                 color: AppColors.black,
                 fontSize: layout.font(12),

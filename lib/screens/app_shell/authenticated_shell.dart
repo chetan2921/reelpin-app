@@ -262,9 +262,10 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     );
   }
 
-  /// The soft update nudge first, then the configured announcement. Each is
-  /// handed out once, so the loop ends; looping catches a config that lands
-  /// while one of them is still on screen.
+  /// The soft update nudge first, then the configured announcement, which is
+  /// recorded as shown only once it is on screen. Each is handed out once, so
+  /// the loop ends; looping catches a config that lands while one of them is
+  /// still on screen.
   void _showRemotePrompts() {
     if (!mounted || _isShowingRemotePrompts) return;
     _isShowingRemotePrompts = true;
@@ -286,12 +287,14 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
       final announcement = await _remoteConfig.takeAnnouncement();
       if (!mounted) return;
       if (announcement == null) return;
-      await Navigator.of(context).push(
+      final dismissed = Navigator.of(context).push(
         featureAnnouncementRoute(
           title: announcement.title,
           body: announcement.body,
         ),
       );
+      await _remoteConfig.markAnnouncementShown(announcement);
+      await dismissed;
     }
   }
 
