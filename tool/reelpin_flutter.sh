@@ -105,6 +105,11 @@ missing_or_placeholder() {
   [[ -z "$value" || "$value" == *"YOUR_"* ]]
 }
 
+is_store_build() {
+  [[ "${2:-}" == "appbundle" || "${2:-}" == "ipa" ]] && return 0
+  [[ "${2:-}" == "apk" && ( "$REELPIN_ENV" == "prod" || "$REELPIN_ENV" == "production" ) ]]
+}
+
 dart_define_value() {
   local key="$1"
   shift
@@ -279,8 +284,12 @@ REMOTE_CONFIG_URL_VALUE="$(dart_define_value REMOTE_CONFIG_URL "$@" || value_for
 
 reject_placeholder SUPABASE_URL "$SUPABASE_URL_VALUE"
 reject_placeholder SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY_VALUE"
-if [[ -n "$REMOTE_CONFIG_URL_VALUE" ]]; then
+if [[ "${1:-}" == "build" ]] && is_store_build "$@"; then
   reject_placeholder REMOTE_CONFIG_URL "$REMOTE_CONFIG_URL_VALUE"
+elif [[ -n "$REMOTE_CONFIG_URL_VALUE" ]]; then
+  reject_placeholder REMOTE_CONFIG_URL "$REMOTE_CONFIG_URL_VALUE"
+else
+  printf 'reelpin_flutter: warning: REMOTE_CONFIG_URL is not set, this build has no update gate.\n' >&2
 fi
 
 if API_BASE_URL_VALUE="$(dart_define_value API_BASE_URL "$@")"; then

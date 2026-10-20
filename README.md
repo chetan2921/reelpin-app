@@ -276,7 +276,10 @@ on `run` and on every build, so `tool/reelpin.sh apk-dev`, `apk-production`,
 `ios/Flutter/Secrets.xcconfig` for Xcode builds. An exported
 `REMOTE_CONFIG_URL` overrides the file, and an explicit
 `--dart-define=REMOTE_CONFIG_URL=...` overrides both. A release built without
-it has no update gate, so check `local.env` before cutting a store build.
+it has no update gate, so the wrapper refuses to build an app bundle, an IPA,
+or a production APK (`playstore`, `appstore`, `stores`, `apk-production`) when
+`REMOTE_CONFIG_URL` is missing or still a `YOUR_` placeholder. Debug and dev
+builds go ahead with a one-line warning.
 
 The app fetches the document with a 5 second timeout on launch and on resume,
 at most once an hour after a successful fetch, and keeps the last good copy on
