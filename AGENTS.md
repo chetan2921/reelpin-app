@@ -1,8 +1,8 @@
 # reelpin-app
 
 Flutter client (Android and iOS) for ReelPin. A user shares a reel, post, or
-link into the app; the backend, the separate repo `reelpin-api` (GitHub
-`XploY04/reelpin-api`), processes it; the app shows the result as a grid, a map,
+link into the app; the backend, the Go service in the separate repo
+`reelpin-go` (`/api/v2`), processes it; the app shows the result as a grid, a map,
 search, collections, and, behind a build flag, an AI chat. Everything the two
 repos must agree on is in `.claude/contracts/`. `README.md` covers the screens,
 local setup, store builds, Firebase, maps, and signing in prose; this file is
@@ -28,7 +28,7 @@ Read what the task needs, never the whole tree.
 
 - Config: put `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `API_BASE_URL`, and `MAPS_API_KEY` in the gitignored `assets/config/local.env` (README "Runtime Config"). `lib/env.dart` reads only `--dart-define`s; `tool/reelpin_flutter.sh` turns `local.env` into them.
 - Run: `tool/reelpin.sh run-dev` (dev backend) or `tool/reelpin.sh run-production`, plus `-d <device-id>` from `flutter devices`. With no `API_BASE_URL`, debug and profile builds hit dev and release builds hit prod.
-- Chat is off unless built with `--dart-define=CHAT_ENABLED=true`; pass it through `tool/reelpin_flutter.sh`, since `tool/reelpin.sh apk-dev` rejects extra arguments. `MOCK_CHAT` and `MOCK_COLLECTIONS` (debug only) swap in fakes.
+- Chat is off unless built with `--dart-define=CHAT_ENABLED=true`; pass it through `tool/reelpin_flutter.sh`, since `tool/reelpin.sh apk-dev` rejects extra arguments. Chat always answers from in-memory mocks; `MOCK_COLLECTIONS` (debug only) swaps in fake collections.
 - Before pushing: `tool/reelpin.sh verify` (format check, project check, architecture and asset checks, analyze, tests). Tests alone: `flutter test`. Details in `.claude/plan/reelpin/TESTING.md`.
 - Store builds: `tool/reelpin.sh playstore`, `appstore`, or `stores` build locally into `artifacts/releases/<version>/`; nothing uploads. Bump `version:` in `pubspec.yaml` by hand in its own commit ("Bump the version to X+Y"); the build number must rise for every store upload.
 
@@ -41,7 +41,7 @@ Read what the task needs, never the whole tree.
 - `lib/components/`: widgets shared by more than one screen (chat, collections, common, reels, sharing).
 - `lib/view_models/`: `ChangeNotifier` state, plus `user_state_coordinator.dart` (hydrate from disk, reset on user change).
 - `lib/repositories/reel_repository.dart`: the only repository (paged reels, search, processing jobs). Other view models call `lib/http/` interfaces directly.
-- `lib/http/`: `ApiClient` (every REST call), the `*_http.dart` interfaces, separate SSE clients for chat, and in-memory mocks.
+- `lib/http/`: `ApiClient` (every REST call, all under `/api/v2`), the `*_http.dart` interfaces, and in-memory mocks.
 - `lib/data_models/`: `fromJson` classes by area. `lib/services/`: auth, `ContentCache`, chat, notifications, sharing (native handoff, push registration, deep links), analytics, location, app update. `lib/constants/` and `lib/utils/`: theme, flags, pure helpers.
 - `lib/constants/source_platforms.dart`: shared platform artwork and nouns, including TikTok VIDEO/POST/LINK and legacy URL labels. `lib/data_models/sharing/pending_share.dart` decodes Android raw payloads, iOS URLs, and legacy pending strings for AppShell.
 - Native share intake, a subsystem of its own (`.claude/contracts/share-intake.md`): `android/app/src/main/kotlin/com/chetanjain/reelpin/`, `ios/Share Extension/`, and the method channels in `ios/Runner/AppDelegate.swift`.
@@ -51,7 +51,7 @@ Read what the task needs, never the whole tree.
 ## How data moves
 
 Screen, then view model, then `ReelRepository` (reels only) or a `lib/http/`
-interface, then `ApiClient`, then reelpin-api. `EntitlementsViewModel.refresh`
+interface, then `ApiClient`, then the Go API. `EntitlementsViewModel.refresh`
 is the hub: after entitlements load it reloads Home, map, filters, and Discover.
 `ContentCache` keeps first pages on disk for 7 days (entitlements for 24 hours)
 and is cleared on sign-out. `ProcessingJobsViewModel` polls the job list while a
@@ -62,11 +62,11 @@ job is active and drops the finished reel straight into the grid.
 
 1. **CI enforces the layers** (`tool/check_architecture.dart`): lower layers never import screens or components, a screen imports only its own `partials/`, and files are named `*_view_model.dart` and `*_http.dart`. Imports must be package imports, and `dart format` is checked on `lib`, `test`, and `tool`.
 2. **Chat is parked behind a compile-time flag.** It is not going to the store build and gets no new work (`.claude/plan/reelpin/SPEC.md`); leave the chat code alone unless asked. Without `CHAT_ENABLED` there is no ASK tab and the tab indexes shift (`lib/screens/app_shell/partials/app_shell_controller.dart`), so never hard-code a tab index. `MOCK_CHAT` is not limited to debug builds.
-3. **The chat clients bypass `ApiClient`** (`chat_api_http.dart`, `collection_chat_api_http.dart`): no 401 renewal, no `/api/v1` dedupe, their own error text.
+3. **The app speaks the Go `/api/v2` contract** (`.claude/contracts/api-surface.md`): cursor paging, the `{error: {...}}` envelope, an `Idempotency-Key` on every submission, and strict request bodies, so an extra field is a `422`.
 4. **Share intake is native on Android and iOS**; Flutter's `receive_sharing_intent` runs only on desktop. A change to the share payload lands in Kotlin, Swift, Dart, and the backend together.
 5. The backend reads the user from the token and ignores the many `userId` parameters. Never add `user_id` to a request.
 6. `ReelRepository` takes the concrete `ApiClient`, so test fakes subclass `ApiClient`.
-7. Dead code, do not extend it: the Folders HTTP, view model, and models; `processReel`, `_waitForProcessingJob`, `processVideo`, `healthCheck`; `ReelDetailViewModel`; the unused `webview_flutter` and `geocoding` dependencies.
+7. Dead code, do not extend it: `processReel`, `_waitForProcessingJob`; `ReelDetailViewModel`; the unused `webview_flutter` and `geocoding` dependencies.
 8. Firebase is skipped silently when its gitignored config files are missing: no push, no Crashlytics.
 9. Switching the API base URL drops the native share token.
 10. **Collections survive a sign-out**, on `main` and `dev` alike (read from code, not run). `UserStateCoordinator.reset()` resets every other view model but not `CollectionsViewModel`, and the one root `ProviderScope` is never invalidated. After signing out and into another account without restarting the app, SAVED shows the previous account's collection list (`hydrateFromCache` and `loadCollections` both return early while the old list is in memory) until a pull-to-refresh, an app resume, a share, or a restart. Only the list (names, covers, counts) leaks: opening one of those collections gets a 404 from the backend, which checks membership.
