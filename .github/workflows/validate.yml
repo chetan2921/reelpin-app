@@ -2,7 +2,7 @@ name: Validate dev
 
 on:
   pull_request:
-    branches: [dev]
+    branches: [dev, go-backend]
   push:
     branches: [dev]
 

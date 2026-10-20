@@ -2,7 +2,7 @@ name: Build dev APK
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, go-backend]
   workflow_dispatch:
 
 concurrency:
