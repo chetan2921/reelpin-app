@@ -35,16 +35,29 @@ enum class ShareRequestResult {
     FAILURE,
 }
 
+/** 200 (reel ready) and 202 (job queued or in flight) are both a save; every v2 failure is the error envelope. */
 object ShareResponseClassifier {
+    // A regex rather than org.json, which is a throwing stub in JVM unit tests.
+    private val errorCodePattern = Regex(""""code"\s*:\s*"([^"]*)"""")
+    private val errorFieldPattern = Regex(""""field"\s*:\s*"([^"]*)"""")
+
     fun classify(statusCode: Int, responseBody: String?): ShareRequestResult {
         if (statusCode in 200..299) return ShareRequestResult.SUCCESS
+        val body = responseBody.orEmpty()
+        val errorCode = errorCodePattern.find(body)?.groupValues?.get(1)
         if (
-            statusCode in setOf(401, 403) &&
-            responseBody?.lowercase()?.contains("invalid_share_token") == true
+            statusCode == 401 &&
+            errorCode in setOf("invalid_share_token", "share_token_required")
         ) {
             return ShareRequestResult.INVALID_SHARE_TOKEN
         }
-        if (statusCode == 400) return ShareRequestResult.UNSUPPORTED
+        if (
+            statusCode == 422 &&
+            errorCode == "validation_error" &&
+            errorFieldPattern.find(body)?.groupValues?.get(1) == "url"
+        ) {
+            return ShareRequestResult.UNSUPPORTED
+        }
         if (statusCode == 429) return ShareRequestResult.RATE_LIMITED
         return ShareRequestResult.FAILURE
     }

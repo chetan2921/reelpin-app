@@ -58,17 +58,30 @@ enum ShareRequestResult: Equatable {
   case failure
 }
 
+/// 200 (reel ready) and 202 (job queued or in flight) are both a save; every v2
+/// failure is the `{"error": {"code", ...}}` envelope.
 struct ShareResponseClassifier {
+  private static let shareTokenErrors: Set<String> = ["invalid_share_token", "share_token_required"]
+
   static func classify(statusCode: Int, data: Data?) -> ShareRequestResult {
     if (200...299).contains(statusCode) {
       return .success
     }
 
-    let responseBody = data.flatMap { String(data: $0, encoding: .utf8) }?.lowercased()
-    if (statusCode == 401 || statusCode == 403),
-       responseBody?.contains("invalid_share_token") == true {
+    if statusCode == 401, let code = errorCode(from: data), shareTokenErrors.contains(code) {
       return .invalidShareToken
     }
     return .failure
+  }
+
+  private static func errorCode(from data: Data?) -> String? {
+    guard
+      let data,
+      let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let error = body["error"] as? [String: Any]
+    else {
+      return nil
+    }
+    return error["code"] as? String
   }
 }

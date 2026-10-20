@@ -4,8 +4,6 @@ class ShareViewController: UIViewController {
   private let pendingSharesKey = "pending_urls"
   private let shareTokenKey = "share_token"
   private let baseUrlKey = "base_url"
-  private let pushTokenKey = "push_token"
-  private let pushPlatformKey = "push_platform"
   private let collectionsKey = "collections"
   private let collectionsDirKey = "collections_dir"
   private var hasStartedProcessing = false
@@ -161,11 +159,11 @@ class ShareViewController: UIViewController {
 
     postJson(
       baseUrl: baseUrl,
-      path: "processing-jobs/reels",
+      path: "native-shares/reels",
       shareToken: shareToken,
       body: collectionIds.isEmpty
-        ? ["url": sharedUrl]
-        : ["url": sharedUrl, "collection_ids": collectionIds]
+        ? ["raw_payload_text": sharedUrl]
+        : ["raw_payload_text": sharedUrl, "collection_ids": collectionIds]
     ) { [weak self] result in
       guard let self else {
         return
@@ -173,7 +171,6 @@ class ShareViewController: UIViewController {
 
       switch result {
       case .success:
-        self.registerStoredPushToken(defaults: defaults, baseUrl: baseUrl, shareToken: shareToken)
         self.showStatusAndComplete("Saved. Processing.")
       case .invalidShareToken:
         defaults.removeObject(forKey: self.shareTokenKey)
@@ -185,23 +182,6 @@ class ShareViewController: UIViewController {
         self.showStatusAndComplete("Open ReelPin to sync.")
       }
     }
-  }
-
-  private func registerStoredPushToken(
-    defaults: UserDefaults,
-    baseUrl: String,
-    shareToken: String
-  ) {
-    guard let token = cleanedString(defaults.string(forKey: pushTokenKey)) else {
-      return
-    }
-    let platform = cleanedString(defaults.string(forKey: pushPlatformKey)) ?? "ios"
-    postJson(
-      baseUrl: baseUrl,
-      path: "device-push-tokens",
-      shareToken: shareToken,
-      body: ["token": token, "platform": platform]
-    ) { _ in }
   }
 
   private func postJson(
@@ -222,6 +202,7 @@ class ShareViewController: UIViewController {
     request.timeoutInterval = 5
     request.setValue("application/json; charset=UTF-8", forHTTPHeaderField: "Content-Type")
     request.setValue(shareToken, forHTTPHeaderField: "X-Share-Token")
+    request.setValue(UUID().uuidString.lowercased(), forHTTPHeaderField: "Idempotency-Key")
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
     URLSession.shared.dataTask(with: request) { data, response, _ in
@@ -499,7 +480,7 @@ class ShareViewController: UIViewController {
       .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     let cleanPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
       .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-    let prefix = cleanBase.hasSuffix("/api/v1") ? "" : "/api/v1"
+    let prefix = cleanBase.hasSuffix("/api/v2") ? "" : "/api/v2"
     return "\(cleanBase)\(prefix)/\(cleanPath)"
   }
 
