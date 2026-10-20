@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:reelpin/data_models/discover/discover_response.dart';
 import 'package:reelpin/data_models/account/library_stats.dart';
+import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
@@ -340,8 +341,23 @@ class ReelRepository extends ChangeNotifier {
     );
   }
 
-  Future<MapResponse> getMapData({String? category}) {
-    return _apiService.getMapData(category: category);
+  Future<MapResponse> getMapData({
+    required MapBounds bounds,
+    String? category,
+  }) {
+    return _apiService.getMapData(bounds: bounds, category: category);
+  }
+
+  Future<MapResponse> getNearbyPins({
+    required double latitude,
+    required double longitude,
+    int limit = 5,
+  }) {
+    return _apiService.getNearbyPins(
+      latitude: latitude,
+      longitude: longitude,
+      limit: limit,
+    );
   }
 
   Future<MapPlaceSearchResponse> searchMapPlaces(

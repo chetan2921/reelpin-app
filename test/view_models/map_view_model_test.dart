@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/http/map_http.dart';
@@ -35,11 +38,7 @@ void main() {
 
   test('map removal clears selected map item state', () async {
     final repository = _FakeReelRepository.empty(
-      mapResponse: const MapResponse(
-        totalPinnedLocations: 1,
-        visiblePinnedLocations: 1,
-        mapItems: [_travelMapItem],
-      ),
+      mapResponse: const MapResponse(mapItems: [_travelMapItem]),
     );
     final viewModel = MapViewModel(repository);
     await viewModel.loadMapReels(forceRefresh: true);
@@ -108,58 +107,8 @@ void main() {
     expect(repository.lastMapSearchQuery, 'brew');
     expect(repository.lastMapSearchSessionToken, isNotEmpty);
     expect(viewModel.placeSearchResults.single.isExisting, isTrue);
-    expect(
-      viewModel.placeSearchResults.single.mapItem?.markerId,
-      'travel-1-brew-lab',
-    );
+    expect(viewModel.placeSearchResults.single.mapItem?.markerId, _locationId);
   });
-
-  test('map place search flags unavailable google suggestions', () async {
-    final repository = _FakeReelRepository.empty(
-      onMapSearch:
-          ({
-            required String query,
-            String? category,
-            String? sessionToken,
-          }) async => const MapPlaceSearchResponse(
-            query: 'brew',
-            searchMode: 'existing',
-            googleStatus: 'failed',
-            total: 1,
-            results: [
-              MapPlaceSearchResult(
-                resultType: 'existing',
-                sourceType: 'reel',
-                mapItem: _travelMapItem,
-                displayTitle: 'Brew Lab',
-                displayAddress: 'Brew Lab',
-                placeName: 'Brew Lab',
-                placeTypes: [],
-                canPin: false,
-              ),
-            ],
-          ),
-    );
-    final viewModel = MapViewModel(repository);
-
-    await viewModel.searchMapPlaces('brew');
-
-    expect(viewModel.isPlaceSuggestionUnavailable, isTrue);
-    expect(viewModel.placeSearchResults, hasLength(1));
-    expect(viewModel.placeSearchError, isNull);
-  });
-
-  test(
-    'map place search clears the unavailable flag on a healthy reply',
-    () async {
-      final repository = _FakeReelRepository.empty();
-      final viewModel = MapViewModel(repository);
-
-      await viewModel.searchMapPlaces('brew');
-
-      expect(viewModel.isPlaceSuggestionUnavailable, isFalse);
-    },
-  );
 
   test('pinPlace upserts and selects manual map pin', () async {
     final repository = _FakeReelRepository.empty(pinnedMapItem: _manualMapItem);
@@ -183,11 +132,9 @@ void main() {
     expect(viewModel.totalPinnedLocations, 1);
   });
 
-  test('removeMapItem hides selected pin locally', () async {
+  test('removeMapItem deletes a manual pin through its manual: id', () async {
     final repository = _FakeReelRepository.empty(
       mapResponse: const MapResponse(
-        totalPinnedLocations: 2,
-        visiblePinnedLocations: 2,
         mapItems: [_travelMapItem, _manualMapItem],
       ),
     );
@@ -199,12 +146,167 @@ void main() {
 
     expect(success, isTrue);
     expect(repository.removedMapItemIds, ['manual:pin-1']);
-    expect(viewModel.mapItems.map((item) => item.mapItemId), [
-      'reel:travel-1:0',
-    ]);
+    expect(viewModel.mapItems.map((item) => item.mapItemId), [_locationId]);
     expect(viewModel.selectedMapItem, isNull);
     expect(viewModel.totalPinnedLocations, 1);
-    expect(viewModel.visiblePinnedLocations, 1);
+  });
+
+  test('removeMapItem hides a content pin through its location id', () async {
+    final repository = _FakeReelRepository.empty(
+      mapResponse: const MapResponse(mapItems: [_travelMapItem]),
+    );
+    final viewModel = MapViewModel(repository);
+    await viewModel.loadMapReels(forceRefresh: true);
+
+    final success = await viewModel.removeMapItem(_travelMapItem);
+
+    expect(success, isTrue);
+    expect(repository.removedMapItemIds, [_locationId]);
+    expect(viewModel.mapItems, isEmpty);
+  });
+
+  test('removeMapItem sends nothing for a pin it may not change', () async {
+    final repository = _FakeReelRepository.empty();
+    final viewModel = MapViewModel(repository);
+
+    final success = await viewModel.removeMapItem(_lockedMapItem);
+
+    expect(success, isFalse);
+    expect(repository.removedMapItemIds, isEmpty);
+  });
+
+  group('viewport', () {
+    test('loads the whole world before the camera reports a box', () async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(repository);
+
+      await viewModel.loadMapReels();
+
+      expect(repository.mapDataCalls.single.bounds, MapBounds.world);
+      expect(repository.mapDataCalls.single.category, isNull);
+    });
+
+    testWidgets('queries only the last box of quick camera settles', (
+      tester,
+    ) async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(repository);
+
+      viewModel.updateViewport(_goa);
+      await tester.pump(const Duration(milliseconds: 100));
+      viewModel.updateViewport(_mumbai);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(repository.mapDataCalls, isEmpty);
+
+      await tester.pump(MapViewModel.viewportDebounce);
+
+      expect(repository.mapDataCalls.map((call) => call.bounds), [_mumbai]);
+      viewModel.dispose();
+    });
+
+    testWidgets('ignores a box with no height', (tester) async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(repository);
+
+      viewModel.updateViewport(
+        const MapBounds(south: 0, west: 0, north: 0, east: 0),
+      );
+      await tester.pump(MapViewModel.viewportDebounce);
+
+      expect(repository.mapDataCalls, isEmpty);
+      viewModel.dispose();
+    });
+
+    testWidgets('a category filter is sent for the current box', (
+      tester,
+    ) async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(repository);
+      viewModel.updateViewport(_goa);
+      await tester.pump(MapViewModel.viewportDebounce);
+
+      viewModel.filterByCategory('Travel');
+      await tester.pump();
+
+      final last = repository.mapDataCalls.last;
+      expect(last.bounds, _goa);
+      expect(last.category, 'Travel');
+      viewModel.dispose();
+    });
+
+    test('an older answer does not replace a newer one', () async {
+      final goaPins = Completer<MapResponse>();
+      final repository = _FakeReelRepository.empty(
+        onGetMapData: (bounds, category) => bounds == _goa
+            ? goaPins.future
+            : Future.value(const MapResponse(mapItems: [_manualMapItem])),
+      );
+      final viewModel = MapViewModel(repository);
+
+      viewModel.updateViewport(_goa);
+      final goaLoad = viewModel.loadMapReels();
+      viewModel.updateViewport(_mumbai);
+      await viewModel.loadMapReels();
+      goaPins.complete(const MapResponse(mapItems: [_travelMapItem]));
+      await goaLoad;
+
+      expect(viewModel.mapItems.single.mapItemId, 'manual:pin-1');
+      expect(viewModel.isLoading, isFalse);
+      viewModel.dispose();
+    });
+
+    test('the same query in flight is not sent twice', () async {
+      final pins = Completer<MapResponse>();
+      final repository = _FakeReelRepository.empty(
+        onGetMapData: (_, _) => pins.future,
+      );
+      final viewModel = MapViewModel(repository);
+
+      final first = viewModel.loadMapReels();
+      final second = viewModel.loadMapReels();
+      pins.complete(const MapResponse(mapItems: []));
+      await Future.wait([first, second]);
+
+      expect(repository.mapDataCalls, hasLength(1));
+    });
+
+    test('keeps the selected pin when a new box leaves it out', () async {
+      final repository = _FakeReelRepository.empty(
+        mapResponse: const MapResponse(mapItems: []),
+      );
+      final viewModel = MapViewModel(repository);
+      viewModel.selectMapItem(_travelMapItem);
+
+      await viewModel.loadMapReels();
+
+      expect(viewModel.selectedMapItem, _travelMapItem);
+    });
+  });
+
+  group('nearby', () {
+    test('returns the nearest pins for a point', () async {
+      final repository = _FakeReelRepository.empty(
+        nearbyResponse: const MapResponse(mapItems: [_travelMapItem]),
+      );
+      final viewModel = MapViewModel(repository);
+
+      final nearby = await viewModel.nearbyMapItems(12.9, 77.6);
+
+      expect(nearby.single.mapItemId, _locationId);
+      expect(repository.nearbyCalls, [(12.9, 77.6)]);
+    });
+
+    test(
+      'answers empty when the lookup fails, so recenter still works',
+      () async {
+        final repository = _FakeReelRepository.empty(nearbyFails: true);
+        final viewModel = MapViewModel(repository);
+
+        final nearby = await viewModel.nearbyMapItems(12.9, 77.6);
+
+        expect(nearby, isEmpty);
+      },
+    );
   });
 }
 
@@ -212,6 +314,9 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
   _FakeReelRepository({required this.onSearch})
     : cachedReels = const [],
       mapResponse = null,
+      onGetMapData = null,
+      nearbyResponse = null,
+      nearbyFails = false,
       onMapSearch = null,
       pinnedMapItem = null,
       super(ApiClient(baseUrl: 'https://example.com'), _FakeAuthService());
@@ -219,6 +324,9 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
   _FakeReelRepository.empty({
     this.cachedReels = const [],
     this.mapResponse,
+    this.onGetMapData,
+    this.nearbyResponse,
+    this.nearbyFails = false,
     this.onMapSearch,
     this.pinnedMapItem,
   }) : onSearch = _emptySearch,
@@ -242,7 +350,13 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
   final List<Reel> cachedReels;
 
   final MapResponse? mapResponse;
+  final Future<MapResponse> Function(MapBounds bounds, String? category)?
+  onGetMapData;
+  final MapResponse? nearbyResponse;
+  final bool nearbyFails;
   final MapItem? pinnedMapItem;
+  final List<({MapBounds bounds, String? category})> mapDataCalls = [];
+  final List<(double, double)> nearbyCalls = [];
   final List<String> removedMapItemIds = [];
   String? lastCategory;
   String? lastSubcategory;
@@ -275,13 +389,25 @@ class _FakeReelRepository extends ReelRepository implements MapHttp {
   }
 
   @override
-  Future<MapResponse> getMapData({String? category}) async {
-    return mapResponse ??
-        const MapResponse(
-          totalPinnedLocations: 0,
-          visiblePinnedLocations: 0,
-          mapItems: [],
-        );
+  Future<MapResponse> getMapData({
+    required MapBounds bounds,
+    String? category,
+  }) {
+    mapDataCalls.add((bounds: bounds, category: category));
+    final handler = onGetMapData;
+    if (handler != null) return handler(bounds, category);
+    return Future.value(mapResponse ?? const MapResponse(mapItems: []));
+  }
+
+  @override
+  Future<MapResponse> getNearbyPins({
+    required double latitude,
+    required double longitude,
+    int limit = 5,
+  }) async {
+    nearbyCalls.add((latitude, longitude));
+    if (nearbyFails) throw Exception('nearby failed');
+    return nearbyResponse ?? const MapResponse(mapItems: []);
   }
 
   @override
@@ -376,13 +502,14 @@ const _travelMapItem = MapItem(
   subCategory: 'Coffee Shops',
   categoryLabel: 'Travel',
   locations: [],
-  markerId: 'travel-1-brew-lab',
+  markerId: _locationId,
   latitude: 12.97,
   longitude: 77.59,
-  mapItemId: 'reel:travel-1:0',
+  mapItemId: _locationId,
   locationName: 'Brew Lab',
   locationDisplayLabel: 'Brew Lab',
   googleMapsUrl: 'https://maps.example/brew-lab',
+  canRemove: false,
 );
 
 const _manualMapItem = MapItem(
@@ -405,7 +532,31 @@ const _manualMapItem = MapItem(
   locationDisplayLabel: '12 Market Street',
   googleMapsUrl: 'https://maps.example/manual-cafe',
   googlePlaceId: 'place-1',
+  canHide: false,
 );
+
+const _lockedMapItem = MapItem(
+  reelId: 'travel-1',
+  title: 'Coffee crawl',
+  summary: '',
+  category: 'Travel',
+  subCategory: '',
+  categoryLabel: 'Travel',
+  locations: [],
+  markerId: 'locked-1',
+  latitude: 12.97,
+  longitude: 77.59,
+  locationName: 'Brew Lab',
+  locationDisplayLabel: 'Brew Lab',
+  canHide: false,
+  canRemove: false,
+);
+
+const _locationId = '66666666-6666-4666-8666-666666666666';
+
+const _goa = MapBounds(south: 15, west: 73, north: 16, east: 74);
+
+const _mumbai = MapBounds(south: 18.8, west: 72.7, north: 19.3, east: 73.1);
 
 const _foodReel = Reel(
   id: 'food-1',

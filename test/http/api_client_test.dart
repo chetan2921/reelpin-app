@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/http/api_client.dart';
@@ -948,13 +949,78 @@ void main() {
       'place_types': <String>[],
     };
 
-    test('getMapData asks for every pin in the world', () async {
+    test('getMapData sends the viewport and the category', () async {
+      final fixture = ApiV2Fixture('map_pins');
       late http.Request seen;
       final service = ApiClient(
         baseUrl: 'https://example.com',
         client: MockClient((request) async {
           seen = request;
-          return http.Response(
+          return fixture.toResponse();
+        }),
+      );
+
+      final map = await service.getMapData(
+        bounds: const MapBounds(south: 15, west: 73, north: 16, east: 74),
+        category: 'food_and_drink',
+      );
+
+      // The fixture's own request is south=15&west=73&north=16&east=74.
+      expect(seen.url.path, '/api/v2/map/pins');
+      expect(seen.url.queryParameters, {
+        'south': '15.0',
+        'west': '73.0',
+        'north': '16.0',
+        'east': '74.0',
+        'category': 'food_and_drink',
+      });
+      expect(
+        map.mapItems.single.effectiveMapItemId,
+        '66666666-6666-4666-8666-666666666666',
+      );
+    });
+
+    test('getMapData leaves an empty category out', () async {
+      late http.Request seen;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(jsonEncode({'pins': []}), 200);
+        }),
+      );
+
+      await service.getMapData(
+        bounds: const MapBounds(south: 15, west: 73, north: 16, east: 74),
+        category: ' ',
+      );
+
+      expect(seen.url.queryParameters.containsKey('category'), isFalse);
+    });
+
+    test('getMapData sends an antimeridian box unchanged', () async {
+      late http.Request seen;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(jsonEncode({'pins': []}), 200);
+        }),
+      );
+
+      await service.getMapData(
+        bounds: const MapBounds(south: -20, west: 170, north: 20, east: -170),
+      );
+
+      expect(seen.url.queryParameters['west'], '170.0');
+      expect(seen.url.queryParameters['east'], '-170.0');
+    });
+
+    test('getMapData reads both pin kinds with their removal ids', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async => http.Response(
             jsonEncode({
               'pins': [
                 pin(
@@ -967,20 +1033,12 @@ void main() {
               ],
             }),
             200,
-          );
-        }),
+          ),
+        ),
       );
 
-      final map = await service.getMapData();
+      final map = await service.getMapData(bounds: MapBounds.world);
 
-      expect(seen.url.path, '/api/v2/map/pins');
-      expect(seen.url.queryParameters, {
-        'south': '-90',
-        'west': '-180',
-        'north': '90',
-        'east': '180',
-      });
-      expect(map.totalPinnedLocations, 2);
       final content = map.mapItems.first;
       expect(content.reelId, 'reel-1');
       expect(content.canOpenDetails, isTrue);
@@ -992,28 +1050,33 @@ void main() {
       expect(manual.effectiveMapItemId, 'manual:pin-1');
     });
 
-    test('getMapData narrows to a category on the client', () async {
+    test('getNearbyPins sends the point and the limit', () async {
+      late http.Request seen;
       final service = ApiClient(
         baseUrl: 'https://example.com',
-        client: MockClient(
-          (_) async => http.Response(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(
             jsonEncode({
-              'pins': [
-                pin(id: 'loc-1', kind: 'content', category: 'food_and_drink'),
-                pin(id: 'loc-2', kind: 'content', category: 'travel'),
-              ],
+              'pins': [pin(id: 'loc-1', kind: 'content', reelId: 'reel-1')],
             }),
             200,
-          ),
-        ),
+          );
+        }),
       );
 
-      final map = await service.getMapData(category: 'travel');
+      final nearby = await service.getNearbyPins(
+        latitude: 15.5,
+        longitude: 73.7,
+      );
 
-      expect(map.mapItems.map((item) => item.markerId), ['loc-2']);
-      expect(map.totalPinnedLocations, 2);
-      expect(map.visiblePinnedLocations, 1);
-      expect(map.selectedCategory, 'travel');
+      expect(seen.url.path, '/api/v2/map/nearby');
+      expect(seen.url.queryParameters, {
+        'latitude': '15.5',
+        'longitude': '73.7',
+        'limit': '5',
+      });
+      expect(nearby.mapItems.single.effectiveMapItemId, 'loc-1');
     });
 
     test('searchMapPlaces sends auth header and search params', () async {
@@ -1148,6 +1211,25 @@ void main() {
       );
 
       await service.removeMapItem('manual:pin-1');
+    });
+
+    test('removeMapItem hides a content pin by its bare location id', () async {
+      late http.Request seen;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await service.removeMapItem('66666666-6666-4666-8666-666666666666');
+
+      expect(seen.method, 'DELETE');
+      expect(
+        seen.url.path,
+        '/api/v2/map/items/66666666-6666-4666-8666-666666666666',
+      );
     });
   });
 

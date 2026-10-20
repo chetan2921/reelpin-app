@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:reelpin/services/cache/content_cache.dart';
 import 'package:reelpin/utils/app_logger.dart';
 import 'package:reelpin/http/map_http.dart';
+import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
@@ -15,17 +16,27 @@ class MapViewModel extends ChangeNotifier {
 
   MapViewModel(this._mapHttp);
 
+  /// How long the camera must stay settled before its viewport is queried, so
+  /// a fling followed by a nudge is one request.
+  static const viewportDebounce = Duration(milliseconds: 400);
+
+  /// The my-location button waits on the nearby lookup, so it gives up
+  /// quickly and recentres without it.
+  static const _nearbyTimeout = Duration(seconds: 3);
+
   List<MapItem> _mapItems = [];
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _error;
   String? _selectedCategory;
   MapItem? _selectedMapItem;
-  int _totalPinnedLocations = 0;
-  int _visiblePinnedLocations = 0;
+  MapBounds? _viewport;
+  Timer? _viewportTimer;
+  int _pinsRequestId = 0;
+  MapBounds? _loadingBounds;
+  String? _loadingCategory;
   List<MapPlaceSearchResult> _placeSearchResults = [];
   bool _isSearchingPlaces = false;
-  bool _isPlaceSuggestionUnavailable = false;
   bool _isSavingMapPin = false;
   bool _isRemovingMapPin = false;
   String? _placeSearchError;
@@ -41,12 +52,12 @@ class MapViewModel extends ChangeNotifier {
   String? get error => _error;
   String? get selectedCategory => _selectedCategory;
   MapItem? get selectedMapItem => _selectedMapItem;
-  int get totalPinnedLocations => _totalPinnedLocations;
-  int get visiblePinnedLocations => _visiblePinnedLocations;
+
+  /// The pins in the current viewport and category.
+  int get totalPinnedLocations => _mapItems.length;
   List<MapPlaceSearchResult> get placeSearchResults =>
       List.unmodifiable(_placeSearchResults);
   bool get isSearchingPlaces => _isSearchingPlaces;
-  bool get isPlaceSuggestionUnavailable => _isPlaceSuggestionUnavailable;
   bool get isSavingMapPin => _isSavingMapPin;
   bool get isRemovingMapPin => _isRemovingMapPin;
   String? get placeSearchError => _placeSearchError;
@@ -79,8 +90,6 @@ class MapViewModel extends ChangeNotifier {
       if (response.mapItems.isEmpty) return;
 
       _mapItems = response.mapItems;
-      _totalPinnedLocations = response.totalPinnedLocations;
-      _visiblePinnedLocations = response.visiblePinnedLocations;
       notifyListeners();
     } catch (e) {
       AppLogger.error('Cached map data could not be restored: $e');
@@ -88,33 +97,76 @@ class MapViewModel extends ChangeNotifier {
     }
   }
 
+  /// Loads the pins for the last viewport the camera reported, or the whole
+  /// world before it has reported one. A newer query supersedes one in
+  /// flight; the same query in flight is not sent twice.
+  ///
+  /// The selected pin is kept even when it falls outside the new viewport:
+  /// panning away is not a reason to close its sheet.
   Future<void> loadMapReels({bool forceRefresh = false}) async {
-    if (_isLoading) return;
+    _viewportTimer?.cancel();
+    final bounds = _viewport ?? MapBounds.world;
+    final category = _selectedCategory;
+    if (_isLoading &&
+        _loadingBounds == bounds &&
+        _loadingCategory == category) {
+      return;
+    }
 
+    final requestId = ++_pinsRequestId;
+    _loadingBounds = bounds;
+    _loadingCategory = category;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final response = await _mapHttp.getMapData(category: _selectedCategory);
+      final response = await _mapHttp.getMapData(
+        bounds: bounds,
+        category: category,
+      );
+      if (requestId != _pinsRequestId) return;
       _mapItems = response.mapItems;
-      _totalPinnedLocations = response.totalPinnedLocations;
-      _visiblePinnedLocations = response.visiblePinnedLocations;
-      _selectedCategory = response.selectedCategory ?? _selectedCategory;
-      if (_selectedMapItem != null &&
-          _mapItems.every(
-            (item) => item.markerId != _selectedMapItem!.markerId,
-          )) {
-        _selectedMapItem = null;
-      }
     } catch (e) {
+      if (requestId != _pinsRequestId) return;
       _error = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load map data right now.',
       );
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (requestId == _pinsRequestId) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Called each time the camera settles. The query waits for
+  /// [viewportDebounce] so only the last of several quick settles is sent.
+  void updateViewport(MapBounds bounds) {
+    if (!bounds.hasArea || bounds == _viewport) return;
+    _viewport = bounds;
+    _viewportTimer?.cancel();
+    _viewportTimer = Timer(viewportDebounce, () {
+      unawaited(loadMapReels());
+    });
+  }
+
+  /// The saved places nearest a point, for framing the my-location recenter.
+  /// An empty list means "just recenter": the button still has to work when
+  /// this lookup fails or is slow, so the failure is logged, not shown.
+  Future<List<MapItem>> nearbyMapItems(
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      final response = await _mapHttp
+          .getNearbyPins(latitude: latitude, longitude: longitude)
+          .timeout(_nearbyTimeout);
+      return response.mapItems;
+    } catch (e) {
+      AppLogger.error('Nearby map pins could not be loaded: $e');
+      return const [];
     }
   }
 
@@ -139,18 +191,19 @@ class MapViewModel extends ChangeNotifier {
     }
   }
 
+  /// Clears this user's map. The viewport is the camera's, not the user's, so
+  /// it is kept for the next load.
   void reset() {
+    _viewportTimer?.cancel();
+    _pinsRequestId += 1;
     _mapItems = const [];
     _isLoading = false;
     _isLoadingMore = false;
     _error = null;
     _selectedCategory = null;
     _selectedMapItem = null;
-    _totalPinnedLocations = 0;
-    _visiblePinnedLocations = 0;
     _placeSearchResults = const [];
     _isSearchingPlaces = false;
-    _isPlaceSuggestionUnavailable = false;
     _isSavingMapPin = false;
     _isRemovingMapPin = false;
     _placeSearchError = null;
@@ -169,7 +222,6 @@ class MapViewModel extends ChangeNotifier {
       _placeSearchRequestId += 1;
       _placeSearchResults = const [];
       _placeSearchError = null;
-      _isPlaceSuggestionUnavailable = false;
       _isSearchingPlaces = false;
       notifyListeners();
       return;
@@ -195,7 +247,6 @@ class MapViewModel extends ChangeNotifier {
 
       _placeSearchResults = response.results;
       _placeSearchError = null;
-      _isPlaceSuggestionUnavailable = response.isGoogleSearchUnavailable;
     } catch (e) {
       if (requestId != _placeSearchRequestId) return;
 
@@ -203,7 +254,6 @@ class MapViewModel extends ChangeNotifier {
         e,
         fallbackMessage: 'Could not search map places right now.',
       );
-      _isPlaceSuggestionUnavailable = false;
     } finally {
       if (requestId == _placeSearchRequestId) {
         _isSearchingPlaces = false;
@@ -227,8 +277,6 @@ class MapViewModel extends ChangeNotifier {
       );
       _upsertMapItem(item);
       _selectedMapItem = item;
-      _totalPinnedLocations = _mapItems.length;
-      _visiblePinnedLocations = _mapItems.length;
       _placeSearchSessionToken = '';
       _mapPinActionError = null;
       unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
@@ -245,7 +293,10 @@ class MapViewModel extends ChangeNotifier {
     }
   }
 
+  /// Hides a content pin or deletes a manual one, through the id form
+  /// [MapItem.effectiveMapItemId] carries for its kind.
   Future<bool> removeMapItem(MapItem item) async {
+    if (!item.canHide && !item.canRemove) return false;
     final mapItemId = item.effectiveMapItemId.trim();
     if (mapItemId.isEmpty) return false;
 
@@ -260,12 +311,6 @@ class MapViewModel extends ChangeNotifier {
           .toList(growable: false);
       if (_selectedMapItem?.effectiveMapItemId == mapItemId) {
         _selectedMapItem = null;
-      }
-      if (_totalPinnedLocations > 0) {
-        _totalPinnedLocations -= 1;
-      }
-      if (_visiblePinnedLocations > 0) {
-        _visiblePinnedLocations -= 1;
       }
       _placeSearchResults = _placeSearchResults
           .where((result) => result.mapItem?.effectiveMapItemId != mapItemId)
@@ -289,7 +334,6 @@ class MapViewModel extends ChangeNotifier {
     _placeSearchRequestId += 1;
     _placeSearchResults = const [];
     _isSearchingPlaces = false;
-    _isPlaceSuggestionUnavailable = false;
     _placeSearchError = null;
     _mapPinActionError = null;
     _lastPlaceQuery = '';
@@ -323,5 +367,11 @@ class MapViewModel extends ChangeNotifier {
       _selectedMapItem = null;
     }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _viewportTimer?.cancel();
+    super.dispose();
   }
 }

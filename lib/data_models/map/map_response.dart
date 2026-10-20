@@ -1,33 +1,17 @@
 import 'package:reelpin/data_models/reels/reel.dart';
 
 class MapResponse {
-  const MapResponse({
-    required this.totalPinnedLocations,
-    required this.visiblePinnedLocations,
-    required this.mapItems,
-    this.selectedCategory,
-  });
+  const MapResponse({required this.mapItems});
 
-  final int totalPinnedLocations;
-  final int visiblePinnedLocations;
-  final String? selectedCategory;
   final List<MapItem> mapItems;
 
-  /// Reads a `{pins: [...]}` answer. The pins endpoint has no category filter,
-  /// so [category] narrows the pins here, the way the server used to.
-  factory MapResponse.fromJson(Map<String, dynamic> json, {String? category}) {
-    final pins = (json['pins'] as List<dynamic>? ?? const [])
-        .map((row) => MapItem.fromJson(Map<String, dynamic>.from(row as Map)))
-        .toList(growable: false);
-    final hasCategory = category != null && category.trim().isNotEmpty;
-    final visible = hasCategory
-        ? pins.where((pin) => pin.category == category).toList(growable: false)
-        : pins;
+  /// Reads a `{pins: [...]}` answer from `/map/pins` or `/map/nearby`. Any
+  /// category filter was already applied by the server.
+  factory MapResponse.fromJson(Map<String, dynamic> json) {
     return MapResponse(
-      totalPinnedLocations: pins.length,
-      visiblePinnedLocations: visible.length,
-      selectedCategory: hasCategory ? category : null,
-      mapItems: visible,
+      mapItems: (json['pins'] as List<dynamic>? ?? const [])
+          .map((row) => MapItem.fromJson(Map<String, dynamic>.from(row as Map)))
+          .toList(growable: false),
     );
   }
 }
@@ -136,6 +120,10 @@ class MapItem {
       // through its prefixed form.
       mapItemId: kind == 'manual' ? 'manual:$id' : id,
       sourceType: kind,
+      // Removing a content pin hides the place for this user only; removing a
+      // manual pin deletes it.
+      canHide: kind == 'content',
+      canRemove: kind == 'manual',
       displayTitle: name,
       shortDetail: address ?? '',
       locationName: name,
