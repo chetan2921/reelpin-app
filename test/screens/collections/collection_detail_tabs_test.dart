@@ -7,12 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reelpin/http/api_client.dart';
-import 'package:reelpin/http/mock_collection_chat_http.dart';
 import 'package:reelpin/http/mock_collections_http.dart';
 import 'package:reelpin/providers.dart';
-import 'package:reelpin/components/chat/chat_composer.dart';
-import 'package:reelpin/screens/collections/collection_ask_screen.dart';
-import 'package:reelpin/screens/collections/partials/collection_chat_panel.dart';
 import 'package:reelpin/screens/collections/collection_detail_screen.dart';
 import 'package:reelpin/services/auth/auth_service.dart';
 import 'package:reelpin/services/auth/profile_service.dart';
@@ -61,7 +57,6 @@ void main() {
   /// there, and returns once the screen has mounted.
   Future<CollectionsViewModel> pumpDetail(
     WidgetTester tester, {
-    required bool offerChat,
     bool gridOnly = false,
   }) async {
     final collectionsHttp = MockCollectionsHttp();
@@ -87,15 +82,9 @@ void main() {
           authServiceProvider.overrideWithValue(_FakeAuthService()),
           collectionsHttpProvider.overrideWithValue(collectionsHttp),
           collectionsViewModelProvider.overrideWith((ref) => collections),
-          collectionChatHttpProvider.overrideWithValue(
-            MockCollectionChatHttp(stageDelay: Duration.zero),
-          ),
         ],
         child: MaterialApp(
-          home: CollectionDetailScreen(
-            collectionId: 'c-empty',
-            offerChat: offerChat,
-          ),
+          home: const CollectionDetailScreen(collectionId: 'c-empty'),
         ),
       ),
     );
@@ -111,11 +100,7 @@ void main() {
     'opening from the grid seeds the collection without modifying a provider '
     'mid-build',
     (tester) async {
-      final collections = await pumpDetail(
-        tester,
-        offerChat: false,
-        gridOnly: true,
-      );
+      final collections = await pumpDetail(tester, gridOnly: true);
 
       // Riverpod throws when initState notifies a provider's listeners; in
       // release that throw is skipped and the tree may build inconsistently.
@@ -128,34 +113,4 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     },
   );
-
-  testWidgets('ASK opens the collection chat screen, back returns to PINS', (
-    tester,
-  ) async {
-    await pumpDetail(tester, offerChat: true);
-
-    expect(find.byType(CollectionAskScreen), findsNothing);
-
-    await tester.tap(find.text('ASK'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(CollectionAskScreen), findsOneWidget);
-    // An owner can ask, and gets the private chat's sidebar button.
-    expect(find.byType(ChatComposer), findsOneWidget);
-    expect(find.byIcon(Icons.menu), findsOneWidget);
-
-    // AppBackButton, the app's one shared back control, draws a chevron.
-    await tester.tap(find.byIcon(Icons.chevron_left));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(CollectionAskScreen), findsNothing);
-    expect(find.text('PINS'), findsOneWidget);
-  });
-
-  testWidgets('no tab bar at all when chat is off', (tester) async {
-    await pumpDetail(tester, offerChat: false);
-
-    expect(find.text('ASK'), findsNothing);
-    expect(find.byType(CollectionChatPanel), findsNothing);
-  });
 }

@@ -1,14 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reelpin/http/account_http.dart';
-import 'package:reelpin/http/chat_http.dart';
-import 'package:reelpin/http/collection_chat_http.dart';
-import 'package:reelpin/http/mock_chat_http.dart';
-import 'package:reelpin/http/mock_collection_chat_http.dart';
 import 'package:reelpin/screens/app_shell/app_shell.dart';
-import 'package:reelpin/services/chat/chat_thread_store.dart';
-import 'package:reelpin/view_models/chat_view_model.dart';
-import 'package:reelpin/view_models/collection_chat_view_model.dart';
 import 'package:reelpin/view_models/user_state_coordinator.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/http/reels_http.dart';
@@ -188,40 +181,6 @@ final processingJobsViewModelProvider =
       );
     });
 
-final chatThreadStoreProvider = Provider<ChatThreadStore>((ref) {
-  return ChatThreadStore();
-});
-
-/// The API has no chat routes, so only the in-memory mock is left; the chat
-/// UI is reachable only in a build with CHAT_ENABLED.
-final chatHttpProvider = Provider<ChatHttp>((ref) {
-  return MockChatHttp(
-    reelsSource: () => ref.read(reelRepositoryProvider).cachedReels,
-  );
-});
-
-final collectionChatHttpProvider = Provider<CollectionChatHttp>((ref) {
-  return MockCollectionChatHttp();
-});
-
-final chatViewModelProvider = ChangeNotifierProvider<ChatViewModel>((ref) {
-  return ChatViewModel(
-    ref.read(chatHttpProvider),
-    ref.read(chatThreadStoreProvider),
-    currentUserId: () => ref.read(authServiceProvider).currentUser?.id ?? '',
-  );
-});
-
-/// Per collection, and auto-disposed: the poll timer has to die with the
-/// screen that started it.
-final collectionChatViewModelProvider = ChangeNotifierProvider.autoDispose
-    .family<CollectionChatViewModel, String>((ref, collectionId) {
-      return CollectionChatViewModel(
-        ref.read(collectionChatHttpProvider),
-        collectionId,
-      );
-    });
-
 /// Holds the shell's controller so screens outside the shell can select a tab.
 /// Set by AuthenticatedShell when it builds its controller.
 final appShellControllerProvider = StateProvider<AppShellController?>(
@@ -238,6 +197,5 @@ final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
     reelRepository: ref.read(reelRepositoryProvider),
     entitlementsViewModel: ref.read(entitlementsViewModelProvider),
     processingJobsViewModel: ref.read(processingJobsViewModelProvider),
-    chatViewModel: ref.read(chatViewModelProvider),
   );
 });
