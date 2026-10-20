@@ -72,6 +72,54 @@ void main() {
     expect(reel.locations.last.latitude, isNull);
   });
 
+  group('a refreshed detail keeps the list display fields', () {
+    final listJson = Map<String, dynamic>.from(
+      (ApiV2Fixture('reel_page').body['reels'] as List).single as Map,
+    );
+    final listed = Reel.fromJson(listJson);
+
+    test('that the detail lacks', () {
+      final detail = Reel.fromJson(ApiV2Fixture('reel_detail').body);
+      expect(detail.categoryLabel, 'food_and_drink');
+      expect(detail.relativeDate, isEmpty);
+
+      final merged = detail.withDisplayFieldsFrom(listed);
+
+      expect(merged.categoryLabel, 'Food And Drink');
+      expect(merged.subCategoryLabel, 'Cafes');
+      expect(merged.displayDate, 'Sep 2, 2026');
+      expect(merged.relativeDate, '2 days ago');
+      expect(merged.savedDateKey, '2026-09-02');
+      expect(merged.transcript, 'spoken words');
+      expect(merged.locations, hasLength(2));
+    });
+
+    test('but not labels for a category that changed', () {
+      final detail = Reel.fromJson({
+        ...ApiV2Fixture('reel_detail').body,
+        'category': 'travel',
+      });
+
+      final merged = detail.withDisplayFieldsFrom(listed);
+
+      expect(merged.categoryLabel, 'travel');
+      expect(merged.relativeDate, '2 days ago');
+    });
+
+    test('nor over values the detail sends', () {
+      final detail = Reel.fromJson({
+        ...ApiV2Fixture('reel_detail').body,
+        'category_label': 'Food & Drink',
+        'relative_date': 'today',
+      });
+
+      final merged = detail.withDisplayFieldsFrom(listed);
+
+      expect(merged.categoryLabel, 'Food & Drink');
+      expect(merged.relativeDate, 'today');
+    });
+  });
+
   test('ignores names the API does not send', () {
     final reel = Reel.fromJson(
       _reelJson({

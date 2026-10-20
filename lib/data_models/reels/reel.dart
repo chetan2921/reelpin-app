@@ -131,7 +131,9 @@ class Reel {
     final category = json['category']?.toString() ?? 'Other';
     // Two shapes, not two spellings: a list reel (GET /reels, search,
     // discover, a job's reel) names it sub_category, and a single reel
-    // (GET /reels/{id}, a submission's 200) names it subcategory.
+    // (GET /reels/{id}, a submission's 200) names it subcategory. reelpin-go
+    // is moving every shape to sub_category; once that ships, drop the
+    // subcategory read.
     final subCategory =
         json['sub_category']?.toString() ??
         json['subcategory']?.toString() ??
@@ -207,6 +209,57 @@ class Reel {
     'primary_location_label': primaryLocationLabel,
     'map_location_count': mapLocationCount,
   };
+
+  /// This reel, with the display fields it lacks taken from [listed].
+  ///
+  /// GET /reels/{id} sends no display fields yet, so a refreshed reel would
+  /// otherwise lose the labels and dates the list gave it. The labels are kept
+  /// only while the category is unchanged, since they name it.
+  Reel withDisplayFieldsFrom(Reel listed) {
+    final sameCategory =
+        listed.category == category && listed.subCategory == subCategory;
+    // fromJson falls back to the category itself when the label is missing.
+    final keepCategoryLabel = sameCategory && categoryLabel == category;
+    final keepSubCategoryLabel =
+        sameCategory && subCategoryLabel == subCategory;
+
+    return Reel(
+      id: id,
+      userId: userId,
+      url: url,
+      webUrl: webUrl,
+      sourceUrl: sourceUrl,
+      originalUrl: originalUrl,
+      normalizedUrl: normalizedUrl,
+      thumbnailUrl: thumbnailUrl,
+      title: title,
+      summary: summary,
+      caption: caption,
+      transcript: transcript,
+      category: category,
+      subCategory: subCategory,
+      categoryLabel: keepCategoryLabel ? listed.categoryLabel : categoryLabel,
+      subCategoryLabel: keepSubCategoryLabel
+          ? listed.subCategoryLabel
+          : subCategoryLabel,
+      contentType: contentType,
+      parseStatus: parseStatus,
+      sourcePlatform: sourcePlatform,
+      sourceContentType: sourceContentType,
+      keyFacts: keyFacts,
+      locations: locations,
+      mappableLocations: mappableLocations,
+      peopleMentioned: peopleMentioned,
+      actionableItems: actionableItems,
+      createdAt: createdAt,
+      displayDate: displayDate.isEmpty ? listed.displayDate : displayDate,
+      relativeDate: relativeDate.isEmpty ? listed.relativeDate : relativeDate,
+      savedDateKey: savedDateKey.isEmpty ? listed.savedDateKey : savedDateKey,
+      hasMapLocations: hasMapLocations,
+      primaryLocationLabel: primaryLocationLabel,
+      mapLocationCount: mapLocationCount,
+    );
+  }
 
   static List<Location> _parseLocations(dynamic raw) {
     if (raw is String) {
