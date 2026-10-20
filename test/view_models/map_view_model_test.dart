@@ -528,18 +528,139 @@ void main() {
       expect(viewModel.mapItems, hasLength(1));
       expect(viewModel.totalPinnedLocations, 900);
     });
+
+    test('every map open reloads the total as well as the pins', () async {
+      final repository = _FakeReelRepository.empty();
+      final accountHttp = _FakeAccountHttp(totalPinnedLocations: 3);
+      final viewModel = MapViewModel(repository, accountHttp);
+
+      await viewModel.refreshOnOpen();
+      await viewModel.refreshOnOpen();
+
+      expect(repository.mapDataCalls, hasLength(2));
+      expect(accountHttp.statsCalls, 2);
+      expect(viewModel.totalPinnedLocations, 3);
+    });
+
+    test(
+      'failed stats count the box and never claim an empty library',
+      () async {
+        final repository = _FakeReelRepository.empty(
+          mapResponse: const MapResponse(mapItems: [_travelMapItem]),
+        );
+        final viewModel = MapViewModel(
+          repository,
+          _FakeAccountHttp(statsFails: true),
+        );
+
+        await viewModel.loadMapReels();
+        await viewModel.loadLibraryStats();
+
+        expect(viewModel.totalPinnedLocations, isNull);
+        expect(viewModel.headerPinCount, 1);
+        expect(viewModel.showsEmptyLibrary, isFalse);
+      },
+    );
+
+    test('failed stats on an empty box show the area hint', () async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(
+        repository,
+        _FakeAccountHttp(statsFails: true),
+      );
+
+      await viewModel.loadMapReels();
+      await viewModel.loadLibraryStats();
+
+      expect(viewModel.headerPinCount, 0);
+      expect(viewModel.showsEmptyLibrary, isFalse);
+      expect(viewModel.showsEmptyViewportHint, isTrue);
+    });
+
+    test('the header waits for stats before counting anything', () async {
+      final repository = _FakeReelRepository.empty(
+        mapResponse: const MapResponse(mapItems: [_travelMapItem]),
+      );
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
+
+      await viewModel.loadMapReels();
+
+      expect(viewModel.headerPinCount, isNull);
+    });
+
+    test('the area hint names the selected category', () async {
+      final repository = _FakeReelRepository.empty();
+      final viewModel = MapViewModel(
+        repository,
+        _FakeAccountHttp(totalPinnedLocations: 5),
+      );
+      await viewModel.loadLibraryStats();
+
+      expect(viewModel.emptyViewportHint, 'No pins in this area');
+      viewModel.filterByCategory('Travel');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(viewModel.showsEmptyViewportHint, isTrue);
+      expect(viewModel.emptyViewportHint, 'No Travel pins in this area');
+    });
+
+    test('a new box load clears the capped flag until it answers', () async {
+      final fixture = Map<String, dynamic>.from(ApiV2Fixture('map_pins').body)
+        ..['truncated'] = true;
+      final mumbaiPins = Completer<MapResponse>();
+      final repository = _FakeReelRepository.empty(
+        onGetMapData: (bounds, _) => bounds == _goa
+            ? Future.value(MapResponse.fromJson(fixture))
+            : mumbaiPins.future,
+      );
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
+      viewModel.updateViewport(_goa);
+      await viewModel.loadMapReels();
+      expect(viewModel.isTruncated, isTrue);
+
+      viewModel.updateViewport(_mumbai);
+      final mumbaiLoad = viewModel.loadMapReels();
+
+      expect(viewModel.isTruncated, isFalse);
+      mumbaiPins.complete(const MapResponse(mapItems: []));
+      await mumbaiLoad;
+      viewModel.dispose();
+    });
+
+    test('a failed load clears the capped flag', () async {
+      final fixture = Map<String, dynamic>.from(ApiV2Fixture('map_pins').body)
+        ..['truncated'] = true;
+      final repository = _FakeReelRepository.empty(
+        onGetMapData: (bounds, _) => bounds == _goa
+            ? Future.value(MapResponse.fromJson(fixture))
+            : Future.error(Exception('pins failed')),
+      );
+      final viewModel = MapViewModel(repository, _FakeAccountHttp());
+      viewModel.updateViewport(_goa);
+      await viewModel.loadMapReels();
+      expect(viewModel.isTruncated, isTrue);
+
+      viewModel.updateViewport(_mumbai);
+      await viewModel.loadMapReels();
+
+      expect(viewModel.error, isNotNull);
+      expect(viewModel.isTruncated, isFalse);
+      viewModel.dispose();
+    });
   });
 }
 
 class _FakeAccountHttp implements AccountHttp {
-  _FakeAccountHttp({this.totalPinnedLocations = 0});
+  _FakeAccountHttp({this.totalPinnedLocations = 0, this.statsFails = false});
 
   final int totalPinnedLocations;
+  final bool statsFails;
   int statsCalls = 0;
 
   @override
   Future<LibraryStats> getLibraryStats() async {
     statsCalls += 1;
+    if (statsFails) throw Exception('stats failed');
     return LibraryStats(
       totalReels: 0,
       totalPinnedLocations: totalPinnedLocations,

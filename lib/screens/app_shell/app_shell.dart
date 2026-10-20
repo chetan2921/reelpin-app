@@ -718,9 +718,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   void _refreshSelectedContent(int index) {
     if (index == _tabLayout.map) {
-      unawaited(
-        ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true),
-      );
+      unawaited(ref.read(mapViewModelProvider).refreshOnOpen());
     }
     if (index == _tabLayout.discover) {
       unawaited(

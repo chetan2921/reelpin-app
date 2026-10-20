@@ -34,6 +34,7 @@ class MapViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool _isTruncated = false;
   int? _totalPinnedLocations;
+  bool _libraryStatsFailed = false;
   int _statsRequestId = 0;
   Completer<void>? _initialLoad;
   int _recenterId = 0;
@@ -69,22 +70,36 @@ class MapViewModel extends ChangeNotifier {
   /// them and a category or pan narrows them.
   int? get totalPinnedLocations => _totalPinnedLocations;
 
+  /// The count the header shows: the account total, or this viewport's pins
+  /// when library stats failed before any total arrived.
+  int? get headerPinCount =>
+      _totalPinnedLocations ?? (_libraryStatsFailed ? _mapItems.length : null);
+
   /// The server capped this viewport's pins.
   bool get isTruncated => _isTruncated;
 
-  /// The account has no pins at all.
+  /// The account has no pins at all. A failed stats load proves nothing
+  /// about the account, so it never shows this.
   bool get showsEmptyLibrary =>
       !_isLoading &&
       _error == null &&
       _mapItems.isEmpty &&
+      !_libraryStatsFailed &&
       _totalPinnedLocations == 0;
 
-  /// The account has pins, just none in this viewport and category.
+  /// The account has pins, or might, just none in this viewport and category.
   bool get showsEmptyViewportHint =>
       !_isLoading &&
       _error == null &&
       _mapItems.isEmpty &&
-      (_totalPinnedLocations ?? 0) > 0;
+      (_libraryStatsFailed || (_totalPinnedLocations ?? 0) > 0);
+
+  String get emptyViewportHint {
+    final category = _selectedCategory;
+    if (category == null) return 'No pins in this area';
+    return 'No $category pins in this area';
+  }
+
   List<MapPlaceSearchResult> get placeSearchResults =>
       List.unmodifiable(_placeSearchResults);
   bool get isSearchingPlaces => _isSearchingPlaces;
@@ -151,6 +166,7 @@ class MapViewModel extends ChangeNotifier {
     _loadingBounds = bounds;
     _loadingCategory = category;
     _isLoading = true;
+    _isTruncated = false;
     _error = null;
     notifyListeners();
 
@@ -164,6 +180,7 @@ class MapViewModel extends ChangeNotifier {
       _isTruncated = response.truncated;
     } catch (e) {
       if (requestId != _pinsRequestId) return;
+      _isTruncated = false;
       _error = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load map data right now.',
@@ -199,7 +216,13 @@ class MapViewModel extends ChangeNotifier {
     await loadMapReels();
   }
 
-  /// Reads the account's pin total, once per map open and again after a pin
+  /// Reloads the pins and the account total. The shell keeps the map alive
+  /// in an IndexedStack, so this runs on every Map tab open, not only once.
+  Future<void> refreshOnOpen() async {
+    await Future.wait([loadMapReels(forceRefresh: true), loadLibraryStats()]);
+  }
+
+  /// Reads the account's pin total, on every map open and again after a pin
   /// is added or removed. A failure leaves the last total in place.
   Future<void> loadLibraryStats() async {
     final requestId = ++_statsRequestId;
@@ -207,9 +230,13 @@ class MapViewModel extends ChangeNotifier {
       final stats = await _accountHttp.getLibraryStats();
       if (requestId != _statsRequestId) return;
       _totalPinnedLocations = stats.totalPinnedLocations;
+      _libraryStatsFailed = false;
       notifyListeners();
     } catch (e) {
       AppLogger.error('Library stats for the map could not be loaded: $e');
+      if (requestId != _statsRequestId) return;
+      _libraryStatsFailed = true;
+      notifyListeners();
     }
   }
 
@@ -284,6 +311,7 @@ class MapViewModel extends ChangeNotifier {
     _isLoading = false;
     _isTruncated = false;
     _totalPinnedLocations = null;
+    _libraryStatsFailed = false;
     _statsRequestId += 1;
     _recenterId += 1;
     _isLoadingMore = false;

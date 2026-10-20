@@ -75,9 +75,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _initUserLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final mapVm = ref.read(mapViewModelProvider);
-        mapVm.loadMapReels(forceRefresh: true);
-        unawaited(mapVm.loadLibraryStats());
+        unawaited(ref.read(mapViewModelProvider).refreshOnOpen());
       }
     });
   }
@@ -326,7 +324,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         child: Builder(
           builder: (context) {
             final markers = _buildMarkers(vm);
-            final totalPins = vm.totalPinnedLocations;
+            final totalPins = vm.headerPinCount;
 
             if (!_hasFittedMarkers &&
                 markers.isNotEmpty &&
@@ -457,7 +455,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ),
                       if (vm.showsEmptyViewportHint) ...[
                         SizedBox(height: layout.gap(8)),
-                        _mapNotice('No pins in this area'),
+                        _mapNotice(vm.emptyViewportHint),
                       ] else if (vm.isTruncated) ...[
                         SizedBox(height: layout.gap(8)),
                         _mapNotice('Zoom in to see all pins'),
