@@ -37,7 +37,7 @@ class ShareIntentParserTest {
             ShareResponseClassifier.classify(202, SUBMISSION_IN_FLIGHT),
         )
         assertEquals(
-            ShareRequestResult.SUCCESS,
+            ShareRequestResult.ALREADY_SAVED,
             ShareResponseClassifier.classify(200, """{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","already_saved":true}"""),
         )
     }

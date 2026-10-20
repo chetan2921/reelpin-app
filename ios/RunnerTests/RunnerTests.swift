@@ -100,7 +100,7 @@ class RunnerTests: XCTestCase {
         statusCode: 200,
         data: #"{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","already_saved":true}"#.data(using: .utf8)
       ),
-      .success
+      .alreadySaved
     )
   }
 

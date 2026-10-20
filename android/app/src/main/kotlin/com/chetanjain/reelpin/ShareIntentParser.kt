@@ -29,20 +29,22 @@ object ShareIntentParser {
 
 enum class ShareRequestResult {
     SUCCESS,
+    ALREADY_SAVED,
     INVALID_SHARE_TOKEN,
     UNSUPPORTED,
     RATE_LIMITED,
     FAILURE,
 }
 
-/** 200 (reel ready) and 202 (job queued or in flight) are both a save; every v2 failure is the error envelope. */
+/** 200 (reel already saved) and 202 (job queued or in flight) are both a save; every v2 failure is the error envelope. */
 object ShareResponseClassifier {
     // A regex rather than org.json, which is a throwing stub in JVM unit tests.
     private val errorCodePattern = Regex(""""code"\s*:\s*"([^"]*)"""")
     private val errorFieldPattern = Regex(""""field"\s*:\s*"([^"]*)"""")
 
     fun classify(statusCode: Int, responseBody: String?): ShareRequestResult {
-        if (statusCode in 200..299) return ShareRequestResult.SUCCESS
+        if (statusCode == 200) return ShareRequestResult.ALREADY_SAVED
+        if (statusCode in 201..299) return ShareRequestResult.SUCCESS
         val body = responseBody.orEmpty()
         val errorCode = errorCodePattern.find(body)?.groupValues?.get(1)
         if (

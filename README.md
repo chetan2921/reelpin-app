@@ -4,6 +4,11 @@ ReelPin is a Flutter app for saving reels, posts, and shorts that you want to co
 
 You share a link into ReelPin, the backend processes it in the background, and the app turns that saved post into something easier to browse: summaries, key facts, locations, people mentioned, category filters, map pins, and searchable saved results.
 
+## Do not release `dev` yet
+
+> **Do not promote `dev` to `main`, and do not cut a store build from it, until the Go backend serves `/api/v2` on `api.reelpin.in` (the production cutover).**
+> On `dev`, native shares and the Dart client target `/api/v2`. Production serves only `/api/v1` today, so every native share from a store build would get a 404 and fall back to pending.
+
 ## Screenshots
 
 <table>

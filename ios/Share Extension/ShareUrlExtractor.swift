@@ -54,17 +54,22 @@ struct ShareUrlExtractor {
 
 enum ShareRequestResult: Equatable {
   case success
+  case alreadySaved
   case invalidShareToken
   case failure
 }
 
-/// 200 (reel ready) and 202 (job queued or in flight) are both a save; every v2
+/// 200 (reel already saved) and 202 (job queued or in flight) are both a save; every v2
 /// failure is the `{"error": {"code", ...}}` envelope.
 struct ShareResponseClassifier {
   private static let shareTokenErrors: Set<String> = ["invalid_share_token", "share_token_required"]
 
   static func classify(statusCode: Int, data: Data?) -> ShareRequestResult {
-    if (200...299).contains(statusCode) {
+    if statusCode == 200 {
+      return .alreadySaved
+    }
+
+    if (201...299).contains(statusCode) {
       return .success
     }
 

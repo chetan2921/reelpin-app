@@ -172,6 +172,8 @@ class ShareViewController: UIViewController {
       switch result {
       case .success:
         self.showStatusAndComplete("Saved. Processing.")
+      case .alreadySaved:
+        self.showStatusAndComplete("Already in your ReelPin.")
       case .invalidShareToken:
         defaults.removeObject(forKey: self.shareTokenKey)
         defaults.synchronize()

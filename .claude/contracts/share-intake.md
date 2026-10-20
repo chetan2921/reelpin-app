@@ -15,6 +15,11 @@ together.
 | client iOS | reelpin-app `ios/Share Extension/ShareViewController.swift`, `ios/Share Extension/ShareUrlExtractor.swift`, `ios/Runner/AppDelegate.swift` (method channels) |
 | client Flutter | reelpin-app `lib/screens/app_shell/app_shell.dart` (drains pending native shares, then resolve and enqueue), `lib/data_models/sharing/pending_share.dart` (reads either platform's pending entry), `lib/services/sharing/share_handoff_service.dart` (mirrors share token, base URL, push token, and collections into native storage), `lib/view_models/session_view_model.dart` (mints the share token) |
 
+## Release guard
+
+> **Do not promote `dev` to `main`, and do not cut a store build from it, until the Go backend serves `/api/v2` on `api.reelpin.in` (the production cutover).**
+> On `dev`, native shares and the Dart client target `/api/v2`. Production serves only `/api/v1` today, so every native share from a store build would get a 404 and fall back to pending.
+
 ## Rule
 
 On Android and iOS a share never goes through Flutter first. Native code posts
@@ -22,7 +27,7 @@ straight to `POST /api/v2/native-shares/reels` with `X-Share-Token` and a new
 `Idempotency-Key` per attempt (Android mints it when the job is queued, so a
 redelivered job reuses it), and only a failed post is stored as pending for
 Flutter to drain on the next launch or resume. The native side branches on the
-response: 2xx (`200` reel ready, `202` job queued or already in flight), `401`
+response: 2xx (`200` reel already saved, `202` job queued or already in flight; the toast copy differs), `401`
 with `error.code` `invalid_share_token` or `share_token_required`, and on
 Android also `422 validation_error` with `details.field` `url` (unsupported
 link) and `429` (`rate_limited` or `active_job_limit`). Neither extension

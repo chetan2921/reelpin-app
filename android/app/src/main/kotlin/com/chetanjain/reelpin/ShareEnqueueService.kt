@@ -36,6 +36,7 @@ class ShareEnqueueService : JobIntentService() {
             .getOrDefault(ShareRequestResult.FAILURE)
         when (result) {
             ShareRequestResult.SUCCESS -> showToast("Saved to ReelPin. Processing in background.")
+            ShareRequestResult.ALREADY_SAVED -> showToast("Already in your ReelPin.")
             ShareRequestResult.INVALID_SHARE_TOKEN -> {
                 prefs.edit().remove(KEY_SHARE_TOKEN).commit()
                 savePendingShare(prefs, sharedPayload, collectionIds)
