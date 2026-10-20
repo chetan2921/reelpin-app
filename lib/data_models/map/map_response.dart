@@ -105,7 +105,10 @@ class MapItem {
     final name = json['name']?.toString() ?? '';
     final address = json['address']?.toString();
     final category = json['category']?.toString() ?? '';
-    final subCategory = json['subcategory']?.toString() ?? '';
+    final subCategory =
+        json['sub_category']?.toString() ??
+        json['subcategory']?.toString() ??
+        '';
     final latitude = parseCoord(json['latitude']);
     final longitude = parseCoord(json['longitude']);
     final rawPlaceTypes = json['place_types'] as List<dynamic>? ?? const [];
