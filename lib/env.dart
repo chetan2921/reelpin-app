@@ -47,6 +47,19 @@ class LinkrunnerConfig {
   static bool get isConfigured => token.isNotEmpty;
 }
 
+/// The JSON document that drives the update gate, the config-driven feature
+/// announcement and paywall visibility. Build-time only, and empty turns the
+/// whole check off: no request is made and every gate stays open.
+class RemoteConfigEndpoint {
+  RemoteConfigEndpoint._();
+
+  static const String _url = String.fromEnvironment('REMOTE_CONFIG_URL');
+
+  static String get url => _url.trim();
+
+  static bool get isConfigured => url.isNotEmpty;
+}
+
 class SupabaseConfig {
   SupabaseConfig._();
 

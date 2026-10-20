@@ -125,6 +125,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final entitlementsVm = ref.watch(entitlementsViewModelProvider);
     final entitlements = entitlementsVm.entitlement;
     final entitlementResponse = entitlementsVm.response;
+    final paywallVisible = ref
+        .watch(remoteConfigViewModelProvider)
+        .paywallVisible;
     final processingJobs = ref.watch(processingJobsViewModelProvider).jobs;
     final isEmptyState = _isEmptyStateVisible(
       vm,
@@ -272,7 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
 
-                if (_showFreeHistoryBanner(entitlements))
+                if (paywallVisible && _showFreeHistoryBanner(entitlements))
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(

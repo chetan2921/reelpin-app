@@ -12,6 +12,7 @@ CONFIG_SUPABASE_URL=""
 CONFIG_SUPABASE_ANON_KEY=""
 CONFIG_API_BASE_URL=""
 CONFIG_MAPS_API_KEY=""
+CONFIG_REMOTE_CONFIG_URL=""
 
 usage() {
   cat <<'USAGE'
@@ -75,6 +76,7 @@ read_config_file() {
       SUPABASE_ANON_KEY) CONFIG_SUPABASE_ANON_KEY="$value" ;;
       API_BASE_URL) CONFIG_API_BASE_URL="$value" ;;
       MAPS_API_KEY) CONFIG_MAPS_API_KEY="$value" ;;
+      REMOTE_CONFIG_URL) CONFIG_REMOTE_CONFIG_URL="$value" ;;
     esac
   done < "$CONFIG_FILE"
 }
@@ -86,6 +88,7 @@ value_for() {
     SUPABASE_ANON_KEY) printf '%s' "${SUPABASE_ANON_KEY:-$CONFIG_SUPABASE_ANON_KEY}" ;;
     API_BASE_URL) printf '%s' "${REELPIN_API_BASE_URL:-${API_BASE_URL:-$CONFIG_API_BASE_URL}}" ;;
     MAPS_API_KEY) printf '%s' "${MAPS_API_KEY:-$CONFIG_MAPS_API_KEY}" ;;
+    REMOTE_CONFIG_URL) printf '%s' "${REMOTE_CONFIG_URL:-$CONFIG_REMOTE_CONFIG_URL}" ;;
     *) return 1 ;;
   esac
 }
@@ -100,6 +103,11 @@ reject_placeholder() {
 missing_or_placeholder() {
   local value="$1"
   [[ -z "$value" || "$value" == *"YOUR_"* ]]
+}
+
+is_store_build() {
+  [[ "${2:-}" == "appbundle" || "${2:-}" == "ipa" ]] && return 0
+  [[ "${2:-}" == "apk" && ( "$REELPIN_ENV" == "prod" || "$REELPIN_ENV" == "production" ) ]]
 }
 
 dart_define_value() {
@@ -272,9 +280,17 @@ read_config_file
 SUPABASE_URL_VALUE="$(dart_define_value SUPABASE_URL "$@" || value_for SUPABASE_URL)"
 SUPABASE_ANON_KEY_VALUE="$(dart_define_value SUPABASE_ANON_KEY "$@" || value_for SUPABASE_ANON_KEY)"
 MAPS_API_KEY_VALUE="$(value_for MAPS_API_KEY)"
+REMOTE_CONFIG_URL_VALUE="$(dart_define_value REMOTE_CONFIG_URL "$@" || value_for REMOTE_CONFIG_URL)"
 
 reject_placeholder SUPABASE_URL "$SUPABASE_URL_VALUE"
 reject_placeholder SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY_VALUE"
+if [[ "${1:-}" == "build" ]] && is_store_build "$@"; then
+  reject_placeholder REMOTE_CONFIG_URL "$REMOTE_CONFIG_URL_VALUE"
+elif [[ -n "$REMOTE_CONFIG_URL_VALUE" ]]; then
+  reject_placeholder REMOTE_CONFIG_URL "$REMOTE_CONFIG_URL_VALUE"
+else
+  printf 'reelpin_flutter: warning: REMOTE_CONFIG_URL is not set, this build has no update gate.\n' >&2
+fi
 
 if API_BASE_URL_VALUE="$(dart_define_value API_BASE_URL "$@")"; then
   :
@@ -302,6 +318,10 @@ XCODE_DART_DEFINES=(
   "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY_VALUE"
   "API_BASE_URL=$API_BASE_URL_VALUE"
 )
+# Optional: without it the app makes no remote config request and gates nothing.
+if [[ -n "$REMOTE_CONFIG_URL_VALUE" ]]; then
+  XCODE_DART_DEFINES+=("REMOTE_CONFIG_URL=$REMOTE_CONFIG_URL_VALUE")
+fi
 
 if [[ "${1:-}" == "check-config" ]]; then
   printf 'Configuration is ready. API_BASE_URL=%s\n' "$API_BASE_URL_VALUE"
@@ -331,6 +351,9 @@ FLUTTER_ARGS=("$@")
 append_define_if_missing SUPABASE_URL "$SUPABASE_URL_VALUE" "$@"
 append_define_if_missing SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY_VALUE" "$@"
 append_define_if_missing API_BASE_URL "$API_BASE_URL_VALUE" "$@"
+if [[ -n "$REMOTE_CONFIG_URL_VALUE" ]]; then
+  append_define_if_missing REMOTE_CONFIG_URL "$REMOTE_CONFIG_URL_VALUE" "$@"
+fi
 
 if [[ "${1:-}" == "build" ]]; then
   write_ios_secrets "${XCODE_DART_DEFINES[@]}"

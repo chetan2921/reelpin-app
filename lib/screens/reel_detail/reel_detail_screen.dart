@@ -891,6 +891,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
 
   Widget _buildLockedHistoryState(BuildContext context) {
     final layout = AppLayout.of(context);
+    final paywallVisible = ref
+        .watch(remoteConfigViewModelProvider)
+        .paywallVisible;
     return Container(
       width: double.infinity,
       decoration: AppTheme.brutalCard(context, color: const Color(0xFFFFF2B6)),
@@ -909,7 +912,9 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
             ),
             SizedBox(height: layout.gap(10)),
             Text(
-              'This saved ${_savedItemNoun.toLowerCase()} is outside the Free history window. Upgrade to Pro to open older saves again.',
+              paywallVisible
+                  ? 'This saved ${_savedItemNoun.toLowerCase()} is outside the Free history window. Upgrade to Pro to open older saves again.'
+                  : 'This saved ${_savedItemNoun.toLowerCase()} is outside the Free history window.',
               style: GoogleFonts.spaceMono(
                 color: AppColors.black,
                 fontSize: layout.font(12),
@@ -917,30 +922,32 @@ class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen> {
                 height: 1.5,
               ),
             ),
-            SizedBox(height: layout.gap(14)),
-            GestureDetector(
-              onTap: () =>
-                  openPaywall(context, entryPoint: PaywallEntryPoint.history),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: layout.inset(12),
-                  vertical: layout.gap(10),
-                ),
-                decoration: AppTheme.brutalBox(
-                  context,
-                  color: AppColors.hotPink,
-                  shadow: true,
-                ),
-                child: Text(
-                  'VIEW PRO',
-                  style: GoogleFonts.spaceMono(
-                    color: AppColors.white,
-                    fontSize: layout.font(11),
-                    fontWeight: FontWeight.w700,
+            if (paywallVisible) ...[
+              SizedBox(height: layout.gap(14)),
+              GestureDetector(
+                onTap: () =>
+                    openPaywall(context, entryPoint: PaywallEntryPoint.history),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.inset(12),
+                    vertical: layout.gap(10),
+                  ),
+                  decoration: AppTheme.brutalBox(
+                    context,
+                    color: AppColors.hotPink,
+                    shadow: true,
+                  ),
+                  child: Text(
+                    'VIEW PRO',
+                    style: GoogleFonts.spaceMono(
+                      color: AppColors.white,
+                      fontSize: layout.font(11),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

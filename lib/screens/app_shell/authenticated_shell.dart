@@ -12,6 +12,7 @@ import 'package:reelpin/utils/app_store_links.dart';
 import 'package:reelpin/services/notifications/notification_service.dart';
 import 'package:reelpin/services/notifications/notification_tap_handler.dart';
 import 'package:reelpin/view_models/entitlements_view_model.dart';
+import 'package:reelpin/view_models/remote_config_view_model.dart';
 import 'package:reelpin/services/auth/auth_service.dart';
 import 'package:reelpin/services/sharing/push_registration_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -33,6 +34,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   late final PushRegistrationService _pushRegistrationService;
   late final EntitlementsViewModel _entitlementsViewModel;
   late final UserStateCoordinator _userStateCoordinator;
+  late final RemoteConfigViewModel _remoteConfig;
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<AppNotification>? _reelReadySubscription;
   StreamSubscription<OpenedAppNotification>? _notificationOpenedSubscription;
@@ -42,6 +44,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
   DateTime? _lastRegisteredPushAt;
   String? _activeUserId;
   Timer? _pushRegistrationRetryTimer;
+  bool _isShowingRemotePrompts = false;
   OpenedAppNotification? _deferredNotificationOpen;
   String? _deferredNotificationUserId;
   final NotificationTapHandler _notificationTapHandler =
@@ -56,6 +59,8 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     _pushRegistrationService = ref.read(pushRegistrationServiceProvider);
     _entitlementsViewModel = ref.read(entitlementsViewModelProvider);
     _userStateCoordinator = ref.read(userStateCoordinatorProvider);
+    _remoteConfig = ref.read(remoteConfigViewModelProvider);
+    _remoteConfig.addListener(_showRemotePrompts);
     _activeUserId = _authService.currentUser?.id;
     // Put the last saved snapshot on screen before the network refresh below;
     // whichever lands first wins, and the refresh always replaces it.
@@ -82,6 +87,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_entitlementsViewModel.refresh(reloadContent: true));
+      _showRemotePrompts();
     });
     // Deferred a frame: modifying a provider during build throws in Riverpod.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -256,6 +262,42 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
     );
   }
 
+  /// The soft update nudge first, then the configured announcement, which is
+  /// recorded as shown only once it is on screen. Each is handed out once, so
+  /// the loop ends; looping catches a config that lands while one of them is
+  /// still on screen.
+  void _showRemotePrompts() {
+    if (!mounted || _isShowingRemotePrompts) return;
+    _isShowingRemotePrompts = true;
+    unawaited(
+      _presentRemotePrompts().whenComplete(() {
+        _isShowingRemotePrompts = false;
+      }),
+    );
+  }
+
+  Future<void> _presentRemotePrompts() async {
+    while (true) {
+      if (!mounted) return;
+      final nudge = _remoteConfig.takeUpdateNudge();
+      if (nudge != null) {
+        await Navigator.of(context).push(updateRequiredRoute(nudge));
+        continue;
+      }
+      final announcement = await _remoteConfig.takeAnnouncement();
+      if (!mounted) return;
+      if (announcement == null) return;
+      final dismissed = Navigator.of(context).push(
+        featureAnnouncementRoute(
+          title: announcement.title,
+          body: announcement.body,
+        ),
+      );
+      await _remoteConfig.markAnnouncementShown(announcement);
+      await dismissed;
+    }
+  }
+
   void _openShellTab(VoidCallback selectTab) {
     Navigator.of(context).popUntil((route) => route.isFirst);
     selectTab();
@@ -281,6 +323,7 @@ class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell> {
 
   @override
   void dispose() {
+    _remoteConfig.removeListener(_showRemotePrompts);
     _clearUserScopedState();
     _tokenRefreshSubscription?.cancel();
     _reelReadySubscription?.cancel();

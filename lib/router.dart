@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:reelpin/data_models/app_config/remote_config.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/services/analytics/analytics_event.dart';
 import 'package:reelpin/services/analytics/analytics_service.dart';
@@ -12,6 +13,7 @@ import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/screens/profile/profile_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_loader_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
+import 'package:reelpin/screens/update_required/update_required_screen.dart';
 
 /// Every push target in the app, built in one place so screens do not construct
 /// routes inline. These use Flutter's own [Navigator] APIs — there is no route
@@ -50,6 +52,15 @@ Route<void> featureAnnouncementRoute({
 }) {
   return MaterialPageRoute<void>(
     builder: (_) => FeatureAnnouncementScreen(title: title, body: body),
+  );
+}
+
+/// The soft update nudge. A hard requirement is never pushed: `AppEntry`
+/// renders it in place of the app so there is nothing underneath to go back to.
+Route<void> updateRequiredRoute(UpdateRequirement requirement) {
+  return MaterialPageRoute<void>(
+    builder: (_) => UpdateRequiredScreen(requirement: requirement),
+    fullscreenDialog: true,
   );
 }
 
