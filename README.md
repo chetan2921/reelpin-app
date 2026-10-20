@@ -257,6 +257,65 @@ The usual `flutter pub get`, `flutter test`, `flutter analyze`, and
 `flutter build appbundle` / `flutter build apk` all work, but without the
 defines above Supabase and the backend URL will not be configured.
 
+#### Remote Config
+
+`REMOTE_CONFIG_URL` points the app at a JSON document that can force or suggest
+an update, show a feature announcement, and turn the paywall on. It is a
+build-time Dart define with no default. Leave it out and the app makes no
+request: no update gate, no config-driven announcement, paywall hidden.
+
+The wrappers do not read it from `local.env`, so pass it as an extra define:
+
+```bash
+tool/reelpin_flutter.sh --reelpin-env=dev run \
+  --dart-define=REMOTE_CONFIG_URL=https://<host>/reelpin/config.json
+```
+
+The app fetches the document with a 5 second timeout on launch and on resume,
+at most once an hour after a successful fetch, and keeps the last good copy on
+the device. It never waits for the fetch to open: the cached copy applies
+within a frame or two, and a fresh one replaces it when it lands. Any failure
+(timeout, non-200, a body that is not a JSON object) is logged and ignored; the
+app keeps the cached copy, or with nothing cached, gates nothing.
+
+```json
+{
+  "update_required": {
+    "enabled": true,
+    "min_build": { "ios": 24, "android": 24 },
+    "hard": false,
+    "title": "UPDATE REELPIN",
+    "body": "A newer version is ready in the store.",
+    "store_url": {
+      "ios": "https://apps.apple.com/us/app/reelpin/id6777110022",
+      "android": "https://play.google.com/store/apps/details?id=com.chetanjain.reelpin"
+    }
+  },
+  "feature_announcement": {
+    "enabled": true,
+    "id": "maps-2026-10",
+    "title": "WHAT'S NEW",
+    "body": "Pins now cluster on the map.",
+    "show_once": true
+  },
+  "paywall_visible": false
+}
+```
+
+Every key is optional. A missing key or a value of the wrong type reads as off
+(`false`, empty, or no minimum).
+
+| Key | Effect |
+|-----|--------|
+| `update_required.min_build.<platform>` | Gates a build whose build number (the `+N` in `pubspec.yaml`) is below it. A platform without a value is never gated, and neither is a build whose number cannot be read. |
+| `update_required.hard` | `true` replaces the whole app with the update screen; its only action is the store button. `false` shows a dismissible nudge once per app session. |
+| `update_required.store_url.<platform>` | Where the update button goes. Empty falls back to the built-in App Store or Play Store listing. |
+| `feature_announcement.id` | Required for the announcement to show. With `show_once`, each id is shown once per install; without it, once per app session. Change the id to announce something new. |
+| `paywall_visible` | `true` shows the free-plan banner on Home, the VIEW PRO button on a locked reel, and opens the paywall when a share hits the monthly limit. `false` hides all three; a share over the limit shows the error as a snackbar instead. |
+
+Push-notification announcements still open the same announcement screen; the
+config-driven one is an extra trigger, not a replacement.
+
 Clean Flutter build output without deleting saved release artifacts:
 
 ```bash

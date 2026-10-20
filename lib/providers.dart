@@ -37,10 +37,20 @@ import 'package:reelpin/http/collections_http.dart';
 import 'package:reelpin/http/mock_collections_http.dart';
 import 'package:reelpin/components/collections/collection_tile_renderer.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
+import 'package:reelpin/env.dart';
+import 'package:reelpin/services/remote_config/remote_config_service.dart';
+import 'package:reelpin/view_models/remote_config_view_model.dart';
 
 final themeViewModelProvider = ChangeNotifierProvider<ThemeViewModel>((ref) {
   return ThemeViewModel()..loadPreference();
 });
+
+final remoteConfigViewModelProvider =
+    ChangeNotifierProvider<RemoteConfigViewModel>((ref) {
+      return RemoteConfigViewModel(
+        RemoteConfigService(url: RemoteConfigEndpoint.url),
+      );
+    });
 
 final profileServiceProvider = Provider<ProfileService>((ref) {
   return ProfileService();

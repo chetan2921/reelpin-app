@@ -7,6 +7,7 @@ import 'package:reelpin/services/analytics/analytics_event.dart';
 import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/screens/app_shell/authenticated_shell.dart';
 import 'package:reelpin/screens/splash/splash_screen.dart';
+import 'package:reelpin/screens/update_required/update_required_screen.dart';
 import 'package:reelpin/services/app_update_service.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
 import 'package:reelpin/screens/auth/auth_screen.dart';
@@ -35,6 +36,9 @@ class _AppEntryState extends ConsumerState<AppEntry>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(AppUpdateService.checkForImmediateUpdate());
+    // Not awaited: the app opens on whatever is already known and a gate that
+    // arrives later replaces it, so a slow network never holds the launch.
+    unawaited(ref.read(remoteConfigViewModelProvider).start());
     _startCollectionLaunch();
     _loadOnboardingState();
     _startContentLoad();
@@ -89,6 +93,7 @@ class _AppEntryState extends ConsumerState<AppEntry>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(AppUpdateService.checkForImmediateUpdate());
+      unawaited(ref.read(remoteConfigViewModelProvider).refresh());
     }
   }
 
@@ -116,6 +121,19 @@ class _AppEntryState extends ConsumerState<AppEntry>
 
   @override
   Widget build(BuildContext context) {
+    final blockingUpdate = ref
+        .watch(remoteConfigViewModelProvider)
+        .blockingUpdate;
+    if (blockingUpdate != null) {
+      // Detail screens push onto this navigator above the shell, so a block
+      // that lands mid-session would otherwise sit underneath them.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      });
+      return UpdateRequiredScreen(requirement: blockingUpdate);
+    }
+
     final sessionVm = ref.watch(sessionViewModelProvider);
 
     if (sessionVm.isAuthenticated) {

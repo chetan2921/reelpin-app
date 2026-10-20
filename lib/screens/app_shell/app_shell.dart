@@ -425,8 +425,13 @@ class _AppShellState extends ConsumerState<AppShell>
         setState(() {
           _isQueueingSharedReel = false;
         });
-        if (showConfirmation) {
+        if (!showConfirmation) return;
+        if (ref.read(remoteConfigViewModelProvider).paywallVisible) {
           await openPaywall(context, entryPoint: PaywallEntryPoint.saveLimit);
+        } else {
+          // With the paywall hidden the limit still has to be said, or the
+          // share just looks like it did nothing.
+          _showSaveFailure(messenger, error);
         }
         return;
       }
@@ -444,29 +449,33 @@ class _AppShellState extends ConsumerState<AppShell>
       );
       unawaited(AnalyticsService.recordError(error, stack));
       if (showConfirmation) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              userFacingErrorMessage(
-                error,
-                fallbackMessage: 'Could not start background save.',
-              ),
-              style: GoogleFonts.spaceMono(
-                color: AppColors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            backgroundColor: AppColors.destructive,
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                color: AppColors.fg(context),
-                width: AppTheme.borderWidth,
-              ),
-            ),
-          ),
-        );
+        _showSaveFailure(messenger, error);
       }
     }
+  }
+
+  void _showSaveFailure(ScaffoldMessengerState messenger, Object error) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          userFacingErrorMessage(
+            error,
+            fallbackMessage: 'Could not start background save.',
+          ),
+          style: GoogleFonts.spaceMono(
+            color: AppColors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        backgroundColor: AppColors.destructive,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(
+            color: AppColors.fg(context),
+            width: AppTheme.borderWidth,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
