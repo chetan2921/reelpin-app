@@ -18,7 +18,7 @@ import 'package:reelpin/services/auth/profile_service.dart';
 import 'package:reelpin/services/remote_config/remote_config_service.dart';
 import 'package:reelpin/view_models/remote_config_view_model.dart';
 
-const _bannerText = 'SHOWING LAST 30 DAYS ON FREE';
+const _bannerText = 'FREE ACCOUNT ACCESS';
 
 Future<void> _pumpFreeHome(
   WidgetTester tester, {
@@ -85,13 +85,15 @@ class _FreePlanApiClient extends ApiClient {
     required String userId,
   }) async {
     return EntitlementsResponse.fromJson({
+      'user_id': userId,
       'current_entitlement': {
-        'user_id': userId,
         'plan': 'free',
-        'status': 'active',
+        'subscription_status': 'active',
+        'is_premium': false,
+        'restricted': false,
       },
-      'usage': {'reels_saved_this_month': 3, 'reels_remaining_this_month': 17},
-      'limits': {'reels_per_month': 20, 'accessible_history_days': 30},
+      'usage': {'saved_reels': 3},
+      'limits': {'saved_reels': 20},
       'features': const <String, dynamic>{},
     });
   }
@@ -108,13 +110,7 @@ class _FreePlanApiClient extends ApiClient {
     int limit = 50,
     String? sort,
   }) async {
-    return const ReelPage(
-      reels: [],
-      hasMore: false,
-      totalCount: 0,
-      limit: 25,
-      offset: 0,
-    );
+    return const ReelPage(reels: [], limit: 25);
   }
 }
 
