@@ -86,17 +86,64 @@ class RunnerTests: XCTestCase {
     XCTAssertNil(ShareUrlExtractor.extractSupportedUrl(from: "mailto:someone@example.com"))
   }
 
-  func testClassifiesExpiredShareTokens() {
-    let invalidToken = #"{"error_code":"invalid_share_token"}"#.data(using: .utf8)
-    let otherFailure = #"{"error_code":"invalid_url"}"#.data(using: .utf8)
-
+  func testClassifiesSubmissionsAndReelsAsSaved() {
     XCTAssertEqual(
-      ShareResponseClassifier.classify(statusCode: 401, data: invalidToken),
+      ShareResponseClassifier.classify(statusCode: 202, data: Self.submissionAccepted),
+      .success
+    )
+    XCTAssertEqual(
+      ShareResponseClassifier.classify(statusCode: 202, data: Self.submissionInFlight),
+      .success
+    )
+    XCTAssertEqual(
+      ShareResponseClassifier.classify(
+        statusCode: 200,
+        data: #"{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","already_saved":true}"#.data(using: .utf8)
+      ),
+      .alreadySaved
+    )
+  }
+
+  func testClassifiesExpiredAndMissingShareTokens() {
+    XCTAssertEqual(
+      ShareResponseClassifier.classify(statusCode: 401, data: Self.errorBody("invalid_share_token")),
       .invalidShareToken
     )
     XCTAssertEqual(
-      ShareResponseClassifier.classify(statusCode: 401, data: otherFailure),
+      ShareResponseClassifier.classify(statusCode: 401, data: Self.errorBody("share_token_required")),
+      .invalidShareToken
+    )
+    XCTAssertEqual(
+      ShareResponseClassifier.classify(statusCode: 401, data: Self.errorBody("unauthorized")),
       .failure
     )
+  }
+
+  func testClassifiesEveryOtherErrorAsFailure() {
+    let cases: [(Int, String)] = [
+      (422, "validation_error"),
+      (429, "rate_limited"),
+      (429, "active_job_limit"),
+      (409, "idempotency_conflict"),
+      (503, "processing_unavailable"),
+      (503, "spend_limit_reached"),
+    ]
+    for (statusCode, code) in cases {
+      XCTAssertEqual(
+        ShareResponseClassifier.classify(statusCode: statusCode, data: Self.errorBody(code)),
+        .failure
+      )
+    }
+    XCTAssertEqual(ShareResponseClassifier.classify(statusCode: 0, data: nil), .failure)
+  }
+
+  // Response bodies from reelpin-go api/fixtures (submission_accepted.json,
+  // submission_in_flight.json, error_*.json).
+  private static let submissionAccepted = #"{"already_saved":false,"collection_ids":[],"created_at":"2026-09-06T10:00:00Z","current_step":"queued","failure_code":null,"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","progress_percent":0,"result_reel_id":null,"source_platform":null,"status":"queued","status_message":"Queued for processing.","updated_at":"2026-09-06T10:00:00Z","url":"https://www.instagram.com/reel/C8abc123/"}"#.data(using: .utf8)
+  private static let submissionInFlight = #"{"already_saved":true,"collection_ids":[],"created_at":"2026-09-06T10:00:00Z","current_step":"download","failure_code":null,"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","progress_percent":40,"result_reel_id":null,"source_platform":null,"status":"processing","status_message":"Processing is in progress.","updated_at":"2026-09-06T10:01:00Z","url":"https://www.instagram.com/reel/C8abc123/"}"#.data(using: .utf8)
+
+  private static func errorBody(_ code: String) -> Data? {
+    #"{"error":{"code":"\#(code)","message":"m","request_id":"fixture-request-id","retryable":false}}"#
+      .data(using: .utf8)
   }
 }

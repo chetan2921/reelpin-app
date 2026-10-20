@@ -10,6 +10,9 @@ what to know on top of it.
 
 Mapped from `codex/tiktok-dev-validation` @ `8d09fad`.
 
+> **Do not promote `dev` to `main`, and do not cut a store build from it, until the Go backend serves `/api/v2` on `api.reelpin.in` (the production cutover).**
+> On `dev`, native shares and the Dart client target `/api/v2`. Production serves only `/api/v1` today, so every native share from a store build would get a 404 and fall back to pending.
+
 ## Navigate
 
 Read what the task needs, never the whole tree.
