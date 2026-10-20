@@ -16,6 +16,9 @@ class ApiException implements Exception {
   final bool retryable;
 
   bool get isUpgradeRequired => statusCode == 402;
+
+  // Dormant: these are v1 codes. /api/v2 reports plan limits but does not
+  // enforce them, so it never sends either; they wake when Go enforces them.
   bool get isMonthlyReelLimitReached =>
       errorCode == 'monthly_reel_limit_reached';
   bool get isHistoryUpgradeRequired => errorCode == 'history_upgrade_required';

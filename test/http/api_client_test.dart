@@ -191,6 +191,42 @@ void main() {
         );
       },
     );
+
+    test('never trips the dormant v1 plan-limit checks', () async {
+      // openapi.yaml has no code enum; these are the codes its prose names,
+      // plus every code in the captured error fixtures.
+      final codes = <String>{
+        'processing_unavailable',
+        'spend_limit_reached',
+        'feedback_unavailable',
+        'link_clicks_unavailable',
+      };
+      final fixtures = Directory('test/fixtures/api_v2')
+          .listSync()
+          .map((file) => file.uri.pathSegments.last)
+          .where((name) => name.startsWith('error_'))
+          .map((name) => name.replaceAll('.json', ''));
+      expect(fixtures, isNotEmpty);
+
+      for (final fixture in fixtures) {
+        final service = ApiClient(
+          baseUrl: 'https://example.com',
+          client: MockClient((_) async => ApiV2Fixture(fixture).toResponse()),
+        );
+        try {
+          await service.getLibraryStats();
+          fail('$fixture did not throw');
+        } on ApiException catch (error) {
+          codes.add(error.errorCode!);
+        }
+      }
+
+      for (final code in codes) {
+        final error = ApiException('', 400, errorCode: code);
+        expect(error.isMonthlyReelLimitReached, isFalse, reason: code);
+        expect(error.isHistoryUpgradeRequired, isFalse, reason: code);
+      }
+    });
   });
 
   group('submission', () {
