@@ -18,6 +18,7 @@ import 'package:reelpin/http/reels_http.dart';
 import 'package:reelpin/http/map_http.dart';
 import 'package:reelpin/http/sharing_http.dart';
 import 'package:reelpin/data_models/account/library_stats.dart';
+import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
@@ -946,27 +947,26 @@ class ApiClient
     return EntitlementsResponse.fromJson(decoded);
   }
 
-  /// Every pin the user has. The pins endpoint answers a viewport, and the map
-  /// still loads everything at once, so the viewport is the whole world.
+  /// The pins inside [bounds], at most 500. The server matches [category]
+  /// exactly, before the cap.
   @override
-  Future<MapResponse> getMapData({String? category}) async {
-    final res = await _sendRequest(
-      (baseUrl) => _client
+  Future<MapResponse> getMapData({
+    required MapBounds bounds,
+    String? category,
+  }) async {
+    final res = await _sendRequest((baseUrl) {
+      final params = <String, String>{
+        ...bounds.toQueryParameters(),
+        if (category != null && category.trim().isNotEmpty)
+          'category': category,
+      };
+      return _client
           .get(
-            _apiUri(
-              baseUrl,
-              '/api/v2/map/pins',
-              queryParameters: const {
-                'south': '-90',
-                'west': '-180',
-                'north': '90',
-                'east': '180',
-              },
-            ),
+            _apiUri(baseUrl, '/api/v2/map/pins', queryParameters: params),
             headers: _headers(),
           )
-          .timeout(_requestTimeout),
-    );
+          .timeout(_requestTimeout);
+    });
 
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
@@ -981,7 +981,42 @@ class ApiClient
         ContentCache.instance.write(ContentCacheKeys.mapOverview, decoded),
       );
     }
-    return MapResponse.fromJson(decoded, category: category);
+    return MapResponse.fromJson(decoded);
+  }
+
+  /// Content pins nearest a point, nearest first, within the server's default
+  /// 5 km radius. Manual pins are not part of this answer.
+  @override
+  Future<MapResponse> getNearbyPins({
+    required double latitude,
+    required double longitude,
+    int limit = 5,
+  }) async {
+    final res = await _sendRequest(
+      (baseUrl) => _client
+          .get(
+            _apiUri(
+              baseUrl,
+              '/api/v2/map/nearby',
+              queryParameters: {
+                'latitude': latitude.toString(),
+                'longitude': longitude.toString(),
+                'limit': limit.toString(),
+              },
+            ),
+            headers: _headers(),
+          )
+          .timeout(_requestTimeout),
+    );
+
+    if (res.statusCode != 200) {
+      throw _exceptionFromResponse(
+        res,
+        fallbackMessage: 'Could not load nearby places right now.',
+      );
+    }
+
+    return MapResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   @override

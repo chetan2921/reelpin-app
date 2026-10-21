@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/providers.dart';
@@ -63,8 +64,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   bool _canShowUserLocation = false;
   MapViewModel? _trackedMapViewModel;
 
-  int _lastMarkersCount = -1;
-  String? _lastCategoryFilter;
+  // Pins follow the viewport, so fitting the camera to them more than once
+  // would move the viewport, change the pins, and fit again.
+  bool _hasFittedMarkers = false;
 
   @override
   void initState() {
@@ -73,7 +75,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _initUserLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(mapViewModelProvider).loadMapReels(forceRefresh: true);
+        unawaited(ref.read(mapViewModelProvider).refreshOnOpen());
       }
     });
   }
@@ -128,14 +130,53 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  void _recenterToUserLocation() {
-    if (_mapController == null || _userLatLng == null) return;
+  /// Zooms in on the user at once, then widens to frame their nearest saved
+  /// places if that lookup answers in time.
+  Future<void> _recenterToUserLocation() async {
+    final userLatLng = _userLatLng;
+    if (_mapController == null || userLatLng == null) return;
 
-    _mapController!.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: _userLatLng!, zoom: 13.0),
-      ),
-    );
+    await ref
+        .read(mapViewModelProvider)
+        .recenterOnUser(
+          latitude: userLatLng.latitude,
+          longitude: userLatLng.longitude,
+          moveToUser: () {
+            _mapController?.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(target: userLatLng, zoom: 13.0),
+              ),
+            );
+          },
+          fitNearby: (nearby) {
+            if (!mounted) return;
+            // The two corners about 500 m either side of the user keep a pin
+            // a few metres away from zooming the map to street level.
+            _fitPositions([
+              LatLng(userLatLng.latitude - 0.005, userLatLng.longitude - 0.005),
+              LatLng(userLatLng.latitude + 0.005, userLatLng.longitude + 0.005),
+              for (final item in nearby) LatLng(item.latitude, item.longitude),
+            ]);
+          },
+        );
+  }
+
+  Future<void> _reportViewport() async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    final region = await controller.getVisibleRegion();
+    if (!mounted) return;
+    ref
+        .read(mapViewModelProvider)
+        .updateViewport(
+          MapBounds(
+            south: region.southwest.latitude,
+            west: region.southwest.longitude,
+            north: region.northeast.latitude,
+            east: region.northeast.longitude,
+          ),
+        );
   }
 
   Future<void> _refreshMapPins() async {
@@ -238,18 +279,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       createCategoryMarkerIcon(category);
 
   void _fitMarkers(Set<Marker> markers) {
-    if (_mapController == null || markers.isEmpty) return;
+    _fitPositions([for (final marker in markers) marker.position]);
+  }
 
-    double minLat = markers.first.position.latitude;
-    double maxLat = markers.first.position.latitude;
-    double minLng = markers.first.position.longitude;
-    double maxLng = markers.first.position.longitude;
+  void _fitPositions(List<LatLng> positions) {
+    if (_mapController == null || positions.isEmpty) return;
 
-    for (final m in markers) {
-      if (m.position.latitude < minLat) minLat = m.position.latitude;
-      if (m.position.latitude > maxLat) maxLat = m.position.latitude;
-      if (m.position.longitude < minLng) minLng = m.position.longitude;
-      if (m.position.longitude > maxLng) maxLng = m.position.longitude;
+    double minLat = positions.first.latitude;
+    double maxLat = positions.first.latitude;
+    double minLng = positions.first.longitude;
+    double maxLng = positions.first.longitude;
+
+    for (final position in positions) {
+      if (position.latitude < minLat) minLat = position.latitude;
+      if (position.latitude > maxLat) maxLat = position.latitude;
+      if (position.longitude < minLng) minLng = position.longitude;
+      if (position.longitude > maxLng) maxLng = position.longitude;
     }
 
     final bounds = LatLngBounds(
@@ -257,7 +302,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       northeast: LatLng(maxLat, maxLng),
     );
 
-    final padding = markers.length == 1 ? 20.0 : 40.0;
+    final padding = positions.length == 1 ? 20.0 : 40.0;
     _mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(bounds, padding),
     );
@@ -279,14 +324,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         child: Builder(
           builder: (context) {
             final markers = _buildMarkers(vm);
-            final totalPins = vm.totalPinnedLocations;
+            final totalPins = vm.headerPinCount;
 
-            if ((markers.length != _lastMarkersCount ||
-                    vm.selectedCategory != _lastCategoryFilter) &&
+            if (!_hasFittedMarkers &&
                 markers.isNotEmpty &&
                 _userLatLng == null) {
-              _lastMarkersCount = markers.length;
-              _lastCategoryFilter = vm.selectedCategory;
+              _hasFittedMarkers = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _fitMarkers(markers);
               });
@@ -295,24 +338,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             return Stack(
               children: [
                 // ── Google Map ──
-                GoogleMap(
-                  initialCameraPosition: const CameraPosition(
-                    target: _defaultLatLng,
-                    zoom: 2,
+                Listener(
+                  onPointerDown: (_) => vm.userMovedCamera(),
+                  child: GoogleMap(
+                    initialCameraPosition: const CameraPosition(
+                      target: _defaultLatLng,
+                      zoom: 2,
+                    ),
+                    style: themeVm.isDarkMode ? _darkMapStyle : null,
+                    markers: markers,
+                    onCameraIdle: () {
+                      unawaited(_reportViewport());
+                    },
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                      _centerMapOnUserCountry();
+                      if (!_hasCenteredOnCountry && markers.isNotEmpty) {
+                        _fitMarkers(markers);
+                      }
+                    },
+                    myLocationEnabled: _canShowUserLocation,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
                   ),
-                  style: themeVm.isDarkMode ? _darkMapStyle : null,
-                  markers: markers,
-                  onMapCreated: (controller) {
-                    _mapController = controller;
-                    _centerMapOnUserCountry();
-                    if (!_hasCenteredOnCountry && markers.isNotEmpty) {
-                      _fitMarkers(markers);
-                    }
-                  },
-                  myLocationEnabled: _canShowUserLocation,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  mapToolbarEnabled: false,
                 ),
 
                 // ── Top overlay ──
@@ -357,7 +406,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                   SizedBox(width: layout.inset(8)),
                                   Expanded(
                                     child: Text(
-                                      '$totalPins ${totalPins == 1 ? 'PLACE' : 'PLACES'} PINNED',
+                                      totalPins == null
+                                          ? 'PLACES PINNED'
+                                          : '$totalPins ${totalPins == 1 ? 'PLACE' : 'PLACES'} PINNED',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.spaceMono(
@@ -402,6 +453,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           },
                         ),
                       ),
+                      if (vm.showsEmptyViewportHint) ...[
+                        SizedBox(height: layout.gap(8)),
+                        _mapNotice(vm.emptyViewportHint),
+                      ] else if (vm.isTruncated) ...[
+                        SizedBox(height: layout.gap(8)),
+                        _mapNotice('Zoom in to see all pins'),
+                      ],
                     ],
                   ),
                 ),
@@ -506,7 +564,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
 
                 // ── Empty ──
-                if (!vm.isLoading && vm.error == null && markers.isEmpty)
+                if (vm.showsEmptyLibrary)
                   Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -586,7 +644,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         SizedBox(height: layout.gap(8)),
                         _mapButton(
                           icon: Icons.my_location,
-                          onTap: _recenterToUserLocation,
+                          onTap: () {
+                            unawaited(_recenterToUserLocation());
+                          },
                         ),
                       ],
                     ],
@@ -595,6 +655,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _mapNotice(String message) {
+    final layout = AppLayout.of(context);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.inset(10),
+        vertical: layout.gap(6),
+      ),
+      decoration: AppTheme.brutalBox(
+        context,
+        color: AppColors.bg(context),
+        shadow: false,
+      ),
+      child: Text(
+        message,
+        style: GoogleFonts.spaceMono(
+          color: AppColors.fg(context),
+          fontSize: layout.font(10),
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -884,7 +967,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Remove this pin?',
-      message: 'This only hides the place from your map.',
+      message: item.canRemove
+          ? 'This deletes the pin you dropped.'
+          : 'This only hides the place from your map.',
       confirmLabel: 'REMOVE',
     );
     if (confirmed != true || !context.mounted) return;
