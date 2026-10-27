@@ -145,4 +145,4 @@ account's loading future. The native handoff tests cover sign-out, direct user
 switches, and delayed artwork; the session tests hold a share-token mint across
 sign-out. The collection picker preference survives clearing its account data.
 
-<!-- mapped: reelpin-app@598812d plus uncommitted changes | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+<!-- mapped: reelpin-app@325f63a plus uncommitted changes | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->

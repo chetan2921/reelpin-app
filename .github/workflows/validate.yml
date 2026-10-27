@@ -28,9 +28,7 @@ jobs:
         run: flutter pub get
 
       - name: Check formatting
-        run: |
-          dart format lib test tool
-          git diff --exit-code -- lib test tool
+        run: dart format --output=none --set-exit-if-changed lib test tool
 
       - name: Check architecture
         run: dart run tool/check_architecture.dart

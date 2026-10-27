@@ -193,7 +193,9 @@ class CollectionsViewModel extends ChangeNotifier {
     if (_hasRealDetail(id)) return;
     final generation = _userGeneration;
     final payload = await _cache.read(ContentCacheKeys.collectionDetail(id));
-    if (generation != _userGeneration || payload == null || _hasRealDetail(id)) {
+    if (generation != _userGeneration ||
+        payload == null ||
+        _hasRealDetail(id)) {
       return;
     }
     try {

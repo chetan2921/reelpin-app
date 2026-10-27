@@ -2294,28 +2294,28 @@ windows/
   - L143 `Future<void> loadCollections({bool forceRefresh = false})`
   - L154 `Future<void> _loadCollections()`
   - L192 `Future<void> hydrateDetailFromCache(String id)`
-  - L209 `bool _hasRealDetail(String id)`
-  - L219 `Future<void> _warmDetails(List<CollectionSummary> summaries)`
-  - L231 `Future<void> _warmDetail(CollectionSummary summary, int generation)`
-  - L244 `Future<void> loadCollectionDetail(String id, {bool forceRefresh = false})`
-  - L256 `Future<void> _loadCollectionDetail(String id)`
-  - L287 `Future<void> loadMore(String id)`
-  - L309 `Future<CollectionSummary?> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L333 `Future<void> updateCollection({ required String collectionId, String? name, String? description, })`
-  - L353 `Future<void> deleteCollection(String id)`
-  - L370 `Future<void> addReelsToCollections({ required List<String> collectionIds, required List<String> reelIds, })`
-  - L397 `Future<void> removeReel({ required String collectionId, required String reelId, })`
-  - L422 `Future<CollectionLink?> enableLink(String id)`
-  - L434 `Future<void> disableLink(String id)`
-  - L442 `Future<CollectionMembers?> loadMembers(String id)`
-  - L452 `Future<void> removeMember({ required String collectionId, required String memberUserId, })`
-  - L464 `Future<CollectionInvite?> createInvite({ required String collectionId, required String role, })`
-  - L481 `Future<void> leave(String id)`
-  - L491 `Future<CollectionSummary?> acceptInvite(String token)`
-  - L503 `Future<void> _mutate(Future<void> Function(int generation) action)`
-  - L521 `Future<void> _syncShareTargets()`
-  - L528 `void _upsert(CollectionSummary collection)`
-  - L537 `void _setVisibility(String id, String visibility)`
+  - L211 `bool _hasRealDetail(String id)`
+  - L221 `Future<void> _warmDetails(List<CollectionSummary> summaries)`
+  - L233 `Future<void> _warmDetail(CollectionSummary summary, int generation)`
+  - L246 `Future<void> loadCollectionDetail(String id, {bool forceRefresh = false})`
+  - L258 `Future<void> _loadCollectionDetail(String id)`
+  - L289 `Future<void> loadMore(String id)`
+  - L311 `Future<CollectionSummary?> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L335 `Future<void> updateCollection({ required String collectionId, String? name, String? description, })`
+  - L355 `Future<void> deleteCollection(String id)`
+  - L372 `Future<void> addReelsToCollections({ required List<String> collectionIds, required List<String> reelIds, })`
+  - L399 `Future<void> removeReel({ required String collectionId, required String reelId, })`
+  - L424 `Future<CollectionLink?> enableLink(String id)`
+  - L436 `Future<void> disableLink(String id)`
+  - L444 `Future<CollectionMembers?> loadMembers(String id)`
+  - L454 `Future<void> removeMember({ required String collectionId, required String memberUserId, })`
+  - L466 `Future<CollectionInvite?> createInvite({ required String collectionId, required String role, })`
+  - L483 `Future<void> leave(String id)`
+  - L493 `Future<CollectionSummary?> acceptInvite(String token)`
+  - L505 `Future<void> _mutate(Future<void> Function(int generation) action)`
+  - L523 `Future<void> _syncShareTargets()`
+  - L530 `void _upsert(CollectionSummary collection)`
+  - L539 `void _setVisibility(String id, String visibility)`
 
 ### lib/view_models/discover_view_model.dart
 
@@ -3157,4 +3157,4 @@ windows/
 
 - L3 `void main()`
 
-<!-- mapped: reelpin-app@598812d plus uncommitted changes | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
+<!-- mapped: reelpin-app@325f63a plus uncommitted changes | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
