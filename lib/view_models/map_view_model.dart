@@ -15,8 +15,10 @@ import 'package:reelpin/utils/error_message.dart';
 class MapViewModel extends ChangeNotifier {
   final MapHttp _mapHttp;
   final AccountHttp _accountHttp;
+  final ContentCache _cache;
 
-  MapViewModel(this._mapHttp, this._accountHttp);
+  MapViewModel(this._mapHttp, this._accountHttp, {ContentCache? cache})
+    : _cache = cache ?? ContentCache.instance;
 
   /// How long the camera must stay settled before its viewport is queried, so
   /// a fling followed by a nudge is one request.
@@ -124,7 +126,7 @@ class MapViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_mapItems.isNotEmpty || _selectedCategory != null) return;
 
-    final payload = await ContentCache.instance.read(
+    final payload = await _cache.read(
       ContentCacheKeys.mapOverview,
     );
     if (payload == null) return;
@@ -139,7 +141,7 @@ class MapViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       AppLogger.error('Cached map data could not be restored: $e');
-      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+      unawaited(_cache.invalidate(ContentCacheKeys.mapOverview));
     }
   }
 
@@ -395,7 +397,7 @@ class MapViewModel extends ChangeNotifier {
       _selectedMapItem = item;
       _placeSearchSessionToken = '';
       _mapPinActionError = null;
-      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+      unawaited(_cache.invalidate(ContentCacheKeys.mapOverview));
       unawaited(loadLibraryStats());
       return item;
     } catch (e) {
@@ -433,7 +435,7 @@ class MapViewModel extends ChangeNotifier {
           .where((result) => result.mapItem?.effectiveMapItemId != mapItemId)
           .toList(growable: false);
       _mapPinActionError = null;
-      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+      unawaited(_cache.invalidate(ContentCacheKeys.mapOverview));
       unawaited(loadLibraryStats());
       return true;
     } catch (e) {

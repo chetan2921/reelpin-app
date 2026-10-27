@@ -11,9 +11,11 @@ import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/utils/error_message.dart';
 
 class DiscoverViewModel extends ChangeNotifier {
-  DiscoverViewModel(this._repository);
+  DiscoverViewModel(this._repository, {ContentCache? cache})
+    : _cache = cache ?? ContentCache.instance;
 
   final ReelRepository _repository;
+  final ContentCache _cache;
 
   DiscoverResponse? _discover;
   ReelPage? _categoryReelsPage;
@@ -46,7 +48,7 @@ class DiscoverViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_discover != null || _selectedSavedDate != null) return;
 
-    final payload = await ContentCache.instance.read(
+    final payload = await _cache.read(
       ContentCacheKeys.discoverOverview,
     );
     if (payload == null) return;
@@ -64,7 +66,7 @@ class DiscoverViewModel extends ChangeNotifier {
     } catch (e) {
       AppLogger.error('Cached discover data could not be restored: $e');
       unawaited(
-        ContentCache.instance.invalidate(ContentCacheKeys.discoverOverview),
+        _cache.invalidate(ContentCacheKeys.discoverOverview),
       );
     }
   }

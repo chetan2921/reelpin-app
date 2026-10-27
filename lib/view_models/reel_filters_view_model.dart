@@ -13,9 +13,11 @@ import 'package:reelpin/utils/error_message.dart';
 /// The whole tree arrives in a single response, so narrowing by platform is a
 /// lookup here rather than another request.
 class ReelFiltersViewModel extends ChangeNotifier {
-  ReelFiltersViewModel(this._repository);
+  ReelFiltersViewModel(this._repository, {ContentCache? cache})
+    : _cache = cache ?? ContentCache.instance;
 
   final ReelRepository _repository;
+  final ContentCache _cache;
 
   ReelFiltersResponse? _response;
   bool _isLoading = false;
@@ -95,7 +97,7 @@ class ReelFiltersViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_response != null) return;
 
-    final payload = await ContentCache.instance.read(
+    final payload = await _cache.read(
       ContentCacheKeys.reelFilters,
     );
     if (payload == null) return;
@@ -109,7 +111,7 @@ class ReelFiltersViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       AppLogger.error('Cached reel filters could not be restored: $e');
-      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.reelFilters));
+      unawaited(_cache.invalidate(ContentCacheKeys.reelFilters));
     }
   }
 

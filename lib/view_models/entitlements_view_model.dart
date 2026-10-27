@@ -24,10 +24,12 @@ class EntitlementsViewModel extends ChangeNotifier {
     this._mapViewModel,
     this._reelFiltersViewModel,
     this._discoverViewModel,
-    this._searchViewModel,
-  );
+    this._searchViewModel, {
+    ContentCache? cache,
+  }) : _cache = cache ?? ContentCache.instance;
 
   final AccountHttp _accountHttp;
+  final ContentCache _cache;
   final AuthService _authService;
   final ReelRepository _repository;
   final HomeViewModel _homeViewModel;
@@ -54,7 +56,7 @@ class EntitlementsViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_response != null) return;
 
-    final payload = await ContentCache.instance.read(
+    final payload = await _cache.read(
       ContentCacheKeys.entitlements,
     );
     if (payload == null) return;
@@ -66,7 +68,7 @@ class EntitlementsViewModel extends ChangeNotifier {
     } catch (e) {
       AppLogger.error('Cached entitlements could not be restored: $e');
       unawaited(
-        ContentCache.instance.invalidate(ContentCacheKeys.entitlements),
+        _cache.invalidate(ContentCacheKeys.entitlements),
       );
     }
   }
