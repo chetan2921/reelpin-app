@@ -202,8 +202,10 @@ void main() {
     expect(state.api.jobLoads, 2);
     oldResponse.complete([_job('old')]);
     await oldPoll;
+    final redundantPoll = state.jobs.refresh();
+    expect(state.api.jobLoads, 2);
     state.api.jobs.complete([_job('new')]);
-    await nextPoll;
+    await Future.wait([nextPoll, redundantPoll]);
 
     expect(state.jobs.jobs.map((job) => job.id), ['new']);
   });
@@ -253,7 +255,8 @@ const _place = MapPlaceSearchResult(
   canPin: true,
 );
 
-ProcessingJob _job(String id) => ProcessingJob(id: id, status: 'processing');
+ProcessingJob _job(String id) =>
+    ProcessingJob(id: id, status: 'processing', terminal: false);
 
 class _State {
   final api = _Api();
@@ -408,6 +411,7 @@ class _Api extends ApiClient {
 
   @override
   Future<ReelFiltersResponse> getReelFilters({
+    String? userId,
     String? platform,
     String? category,
     String? subcategory,
