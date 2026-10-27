@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -21,7 +22,7 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           calls.add(call);
-          return null;
+          return call.method == 'shareAssetsDir' ? '/tmp/share-assets' : null;
         });
   });
 
@@ -38,6 +39,82 @@ void main() {
     if (sync.isEmpty) return null;
     final raw = (sync.last.arguments as Map)['collections'] as String;
     return raw.isEmpty ? null : {'items': jsonDecode(raw)};
+  }
+
+  test(
+    'sign-out clears cached collection names and artwork directory',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('share_handoff_collections', '[{"id":"old"}]');
+      await prefs.setString('share_handoff_collections_dir', '/tmp/old');
+      await prefs.setBool('share_handoff_collection_picker', false);
+
+      await ShareHandoffService.instance.clear();
+      await ShareHandoffService.instance.syncAuthenticatedUser(
+        'next',
+        'access',
+      );
+
+      expect(prefs.getString('share_handoff_collections'), isNull);
+      expect(prefs.getString('share_handoff_collections_dir'), isNull);
+      expect(prefs.getBool('share_handoff_collection_picker'), isFalse);
+      expect(syncedCollections(), isNull);
+    },
+  );
+
+  test(
+    'switching users drops collections and the previous share token',
+    () async {
+      await ShareHandoffService.instance.syncAuthenticatedUser('old', 'access');
+      await ShareHandoffService.instance.setShareToken('old-share-token');
+      await ShareHandoffService.instance.syncCollections([c('old', 'Private')]);
+
+      await ShareHandoffService.instance.syncAuthenticatedUser(
+        'next',
+        'access',
+      );
+
+      expect(syncedCollections(), isNull);
+      expect(await ShareHandoffService.instance.getShareToken(), isNull);
+    },
+  );
+
+  for (final signOut in [false, true]) {
+    test(
+      'late artwork cannot restore a snapshot after ${signOut ? 'sign-out' : 'switching users'}',
+      () async {
+        await ShareHandoffService.instance.syncAuthenticatedUser(
+          'old',
+          'access',
+        );
+        final rendering = Completer<void>();
+        final artwork = Completer<Map<String, String>>();
+        final pending = ShareHandoffService.instance.syncCollections(
+          [c('old', 'Private')],
+          renderTiles: ({required directory, required collections}) {
+            rendering.complete();
+            return artwork.future;
+          },
+        );
+        await rendering.future;
+        if (signOut) {
+          await ShareHandoffService.instance.clear();
+        } else {
+          await ShareHandoffService.instance.syncAuthenticatedUser(
+            'next',
+            'access',
+          );
+        }
+        final callCount = calls.length;
+        artwork.complete({'old': 'old.png'});
+        await pending;
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('share_handoff_collections'), isNull);
+        expect(prefs.getString('share_handoff_collections_dir'), isNull);
+        expect(calls.length, callCount);
+      },
+    );
   }
 
   test('syncs editable collections as id and name only', () async {
