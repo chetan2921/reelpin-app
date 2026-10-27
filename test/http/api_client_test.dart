@@ -168,6 +168,33 @@ void main() {
       expect(renewals, 0);
     });
 
+    for (final invalidToken in [
+      'not-a-jwt',
+      'header.%.signature',
+      'header.e30=.signature',
+      _tokenFor('', 'expired'),
+    ]) {
+      test('a token without an account identity is not replayed: $invalidToken', () async {
+        var token = invalidToken;
+        var renewals = 0;
+        final seen = <String?>[];
+        final service = ApiClient(
+          baseUrl: 'https://example.com',
+          accessTokenProvider: () => token,
+          sessionRefresher: () async {
+            renewals += 1;
+            token = _tokenFor('user-a', 'fresh');
+          },
+          client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
+        );
+
+        await expectLater(service.getLibraryStats(), throwsA(isA<ApiException>()));
+
+        expect(seen, ['Bearer $invalidToken']);
+        expect(renewals, 0);
+      });
+    }
+
     test('is not renewed for a request sent signed out', () async {
       var renewals = 0;
       final seen = <String?>[];
