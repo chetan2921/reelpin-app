@@ -19,6 +19,7 @@ class ReelFiltersViewModel extends ChangeNotifier {
   final ReelRepository _repository;
   final ContentCache _cache;
 
+  int _userGeneration = 0;
   ReelFiltersResponse? _response;
   bool _isLoading = false;
   String? _error;
@@ -86,6 +87,7 @@ class ReelFiltersViewModel extends ChangeNotifier {
   }
 
   void reset() {
+    _userGeneration += 1;
     _response = null;
     _isLoading = false;
     _error = null;
@@ -97,8 +99,9 @@ class ReelFiltersViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_response != null) return;
 
+    final generation = _userGeneration;
     final payload = await _cache.read(ContentCacheKeys.reelFilters);
-    if (payload == null) return;
+    if (generation != _userGeneration || payload == null) return;
     if (_response != null) return;
 
     try {
@@ -119,24 +122,30 @@ class ReelFiltersViewModel extends ChangeNotifier {
     String? category,
     String? subcategory,
   }) async {
+    final generation = _userGeneration;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      _response = await _repository.getFilters(
+      final response = await _repository.getFilters(
         platform: platform,
         category: category,
         subcategory: subcategory,
       );
+      if (generation != _userGeneration) return;
+      _response = response;
     } catch (e) {
+      if (generation != _userGeneration) return;
       _error = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load filters right now.',
       );
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (generation == _userGeneration) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 }

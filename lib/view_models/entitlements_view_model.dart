@@ -38,6 +38,7 @@ class EntitlementsViewModel extends ChangeNotifier {
   final DiscoverViewModel _discoverViewModel;
   final SearchViewModel _searchViewModel;
 
+  int _userGeneration = 0;
   EntitlementsResponse? _response;
   bool _isLoading = false;
   String? _error;
@@ -56,8 +57,9 @@ class EntitlementsViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_response != null) return;
 
+    final generation = _userGeneration;
     final payload = await _cache.read(ContentCacheKeys.entitlements);
-    if (payload == null) return;
+    if (generation != _userGeneration || payload == null) return;
     if (_response != null) return;
 
     try {
@@ -92,6 +94,7 @@ class EntitlementsViewModel extends ChangeNotifier {
   }
 
   Future<void> _refresh({required bool reloadContent}) async {
+    final generation = _userGeneration;
     final userId = _authService.currentUser?.id;
     if (userId == null || userId.trim().isEmpty) {
       reset();
@@ -105,6 +108,7 @@ class EntitlementsViewModel extends ChangeNotifier {
 
     try {
       final next = await _accountHttp.getAccountEntitlements(userId: userId);
+      if (generation != _userGeneration) return;
       final isDifferentUser =
           previous != null &&
           previous.currentEntitlement.userId != next.currentEntitlement.userId;
@@ -116,6 +120,7 @@ class EntitlementsViewModel extends ChangeNotifier {
 
       if (isDifferentUser) {
         await _repository.clearUserCache();
+        if (generation != _userGeneration) return;
         _homeViewModel.reset();
         _mapViewModel.reset();
         _reelFiltersViewModel.reset();
@@ -128,6 +133,7 @@ class EntitlementsViewModel extends ChangeNotifier {
 
       if (shouldResetVisibleData) {
         await _repository.clearUserCache();
+        if (generation != _userGeneration) return;
         _homeViewModel.reset();
         _mapViewModel.reset();
         _reelFiltersViewModel.reset();
@@ -149,17 +155,23 @@ class EntitlementsViewModel extends ChangeNotifier {
         }
       }
     } catch (e) {
+      if (generation != _userGeneration) return;
       _error = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load account access right now.',
       );
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (generation == _userGeneration) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
   void reset() {
+    _userGeneration += 1;
+    _refreshFuture = null;
+    _pendingReloadContent = false;
     _response = null;
     _isLoading = false;
     _error = null;

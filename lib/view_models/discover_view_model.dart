@@ -17,6 +17,7 @@ class DiscoverViewModel extends ChangeNotifier {
   final ReelRepository _repository;
   final ContentCache _cache;
 
+  int _userGeneration = 0;
   DiscoverResponse? _discover;
   ReelPage? _categoryReelsPage;
   bool _isLoadingDiscover = false;
@@ -48,8 +49,9 @@ class DiscoverViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_discover != null || _selectedSavedDate != null) return;
 
+    final generation = _userGeneration;
     final payload = await _cache.read(ContentCacheKeys.discoverOverview);
-    if (payload == null) return;
+    if (generation != _userGeneration || payload == null) return;
     if (_discover != null || _selectedSavedDate != null) return;
 
     try {
@@ -262,6 +264,7 @@ class DiscoverViewModel extends ChangeNotifier {
   }
 
   void reset() {
+    _userGeneration += 1;
     _discoverRequestId += 1;
     _categoryRequestId += 1;
     _discover = null;

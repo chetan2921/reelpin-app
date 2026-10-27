@@ -156,4 +156,13 @@ stamped with a new owner. A queued-write test checks the original owner stamp
 and that a later account write wins. Profile widget tests hold statistics across account
 changes and check that already rendered statistics are cleared too.
 
-<!-- mapped: reelpin-app@f4d12a9 plus uncommitted changes | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+## Coordinator reset regressions (2026-10-28)
+
+`user_state_coordinator_test.dart` holds five cache hydrations, library loading,
+filter and entitlement responses, map mutations, and processing-job polls across
+an account switch. The next account must load independently, and old cleanup or
+access-change continuations must leave its state intact. The cache dependency is
+injected into the view models so these boundaries can be held without platform
+storage or a backend.
+
+<!-- mapped: reelpin-app@a92420c plus uncommitted changes | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
