@@ -98,6 +98,7 @@ void main() {
 
       expect(renders, 0);
       final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('share_handoff_collections'), isNull);
     },
   );
 
