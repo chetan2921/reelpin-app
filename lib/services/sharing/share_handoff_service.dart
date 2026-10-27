@@ -29,6 +29,9 @@ class ShareHandoffService {
   static const _collectionsDirKey = 'share_handoff_collections_dir';
   static const _collectionPickerKey = 'share_handoff_collection_picker';
 
+  int _sessionGeneration = 0;
+  int _collectionsGeneration = 0;
+
   bool get _supportsNativeHandoff =>
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
@@ -41,7 +44,9 @@ class ShareHandoffService {
   }
 
   Future<void> setShareToken(String? token) async {
+    final generation = _sessionGeneration;
     final prefs = await SharedPreferences.getInstance();
+    if (generation != _sessionGeneration) return;
     final cleaned = token?.trim();
     if (cleaned == null || cleaned.isEmpty) {
       await prefs.remove(_shareTokenKey);
@@ -52,27 +57,43 @@ class ShareHandoffService {
   }
 
   Future<void> syncAuthenticatedUser(String userId, String? accessToken) async {
-    if (userId.trim().isEmpty) {
+    final nextUserId = userId.trim();
+    if (nextUserId.isEmpty) {
       await clear();
       return;
     }
 
+    final generation = ++_sessionGeneration;
     final prefs = await SharedPreferences.getInstance();
+    if (generation != _sessionGeneration) return;
     final nextBaseUrl = ApiConfig.baseUrl.trim();
     final currentBaseUrl = prefs.getString(_baseUrlKey)?.trim();
-    await prefs.setString(_userIdKey, userId.trim());
+    final userChanged = prefs.getString(_userIdKey) != nextUserId;
+    if (userChanged) {
+      _collectionsGeneration += 1;
+      await prefs.remove(_collectionsKey);
+      if (generation != _sessionGeneration) return;
+      await prefs.remove(_collectionsDirKey);
+      if (generation != _sessionGeneration) return;
+    }
+    if (userChanged ||
+        (currentBaseUrl != null &&
+            currentBaseUrl.isNotEmpty &&
+            currentBaseUrl != nextBaseUrl)) {
+      await prefs.remove(_shareTokenKey);
+      if (generation != _sessionGeneration) return;
+    }
+    await prefs.setString(_userIdKey, nextUserId);
+    if (generation != _sessionGeneration) return;
     final cleanedAccessToken = accessToken?.trim();
     if (cleanedAccessToken == null || cleanedAccessToken.isEmpty) {
       await prefs.remove(_accessTokenKey);
     } else {
       await prefs.setString(_accessTokenKey, cleanedAccessToken);
     }
-    if (currentBaseUrl != null &&
-        currentBaseUrl.isNotEmpty &&
-        currentBaseUrl != nextBaseUrl) {
-      await prefs.remove(_shareTokenKey);
-    }
+    if (generation != _sessionGeneration) return;
     await prefs.setString(_baseUrlKey, nextBaseUrl);
+    if (generation != _sessionGeneration) return;
     await _syncNative();
   }
 
@@ -102,8 +123,10 @@ class ShareHandoffService {
     })?
     renderTiles,
   }) async {
+    final generation = _sessionGeneration;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_collectionPickerKey, enabled);
+    if (generation != _sessionGeneration) return;
     await syncCollections(collections, renderTiles: renderTiles);
   }
 
@@ -129,7 +152,14 @@ class ShareHandoffService {
     })?
     renderTiles,
   }) async {
-    final editable = await isCollectionPickerEnabled()
+    final generation = ++_collectionsGeneration;
+    final sessionGeneration = _sessionGeneration;
+    final pickerEnabled = await isCollectionPickerEnabled();
+    if (generation != _collectionsGeneration ||
+        sessionGeneration != _sessionGeneration) {
+      return;
+    }
+    final editable = pickerEnabled
         ? collections.where((c) => c.canEdit).toList(growable: false)
         : const <CollectionSummary>[];
 
@@ -139,6 +169,10 @@ class ShareHandoffService {
     String? assetsDir;
     if (editable.isNotEmpty && renderTiles != null) {
       assetsDir = await _shareAssetsDirectory();
+      if (generation != _collectionsGeneration ||
+          sessionGeneration != _sessionGeneration) {
+        return;
+      }
       if (assetsDir != null) {
         artwork = await renderTiles(
           directory: assetsDir,
@@ -160,14 +194,30 @@ class ShareHandoffService {
 
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (generation != _collectionsGeneration ||
+          sessionGeneration != _sessionGeneration) {
+        return;
+      }
       if (encoded.isEmpty) {
         await prefs.remove(_collectionsKey);
+        if (generation != _collectionsGeneration ||
+            sessionGeneration != _sessionGeneration) {
+          return;
+        }
         await prefs.remove(_collectionsDirKey);
       } else {
         await prefs.setString(_collectionsKey, encoded);
+        if (generation != _collectionsGeneration ||
+            sessionGeneration != _sessionGeneration) {
+          return;
+        }
         if (assetsDir != null) {
           await prefs.setString(_collectionsDirKey, assetsDir);
         }
+      }
+      if (generation != _collectionsGeneration ||
+          sessionGeneration != _sessionGeneration) {
+        return;
       }
       await _syncNative();
     } catch (e) {
@@ -202,14 +252,23 @@ class ShareHandoffService {
   }
 
   Future<void> clear() async {
+    final generation = ++_sessionGeneration;
+    _collectionsGeneration += 1;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_userIdKey);
-    await prefs.remove(_accessTokenKey);
-    await prefs.remove(_baseUrlKey);
-    await prefs.remove(_pushTokenKey);
-    await prefs.remove(_pushPlatformKey);
-    await prefs.remove(_shareTokenKey);
-    if (!_supportsNativeHandoff) return;
+    for (final key in [
+      _userIdKey,
+      _accessTokenKey,
+      _baseUrlKey,
+      _pushTokenKey,
+      _pushPlatformKey,
+      _shareTokenKey,
+      _collectionsKey,
+      _collectionsDirKey,
+    ]) {
+      if (generation != _sessionGeneration) return;
+      await prefs.remove(key);
+    }
+    if (generation != _sessionGeneration || !_supportsNativeHandoff) return;
     try {
       await _channel.invokeMethod<void>('clear');
     } catch (e) {
@@ -246,8 +305,10 @@ class ShareHandoffService {
 
   Future<void> _syncNative() async {
     if (!_supportsNativeHandoff) return;
+    final generation = _sessionGeneration;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (generation != _sessionGeneration) return;
       await _channel.invokeMethod<void>('sync', <String, String>{
         'shareToken': prefs.getString(_shareTokenKey) ?? '',
         'baseUrl': prefs.getString(_baseUrlKey) ?? '',

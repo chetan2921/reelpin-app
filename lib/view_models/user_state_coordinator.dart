@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/view_models/collections_view_model.dart';
 import 'package:reelpin/view_models/entitlements_view_model.dart';
 import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
@@ -14,6 +15,7 @@ import 'package:reelpin/view_models/processing_jobs_view_model.dart';
 /// on startup and clearing it when the user changes.
 class UserStateCoordinator {
   UserStateCoordinator({
+    required CollectionsViewModel collectionsViewModel,
     required SearchViewModel searchViewModel,
     required ReelFiltersViewModel reelFiltersViewModel,
     required MapViewModel mapViewModel,
@@ -22,7 +24,8 @@ class UserStateCoordinator {
     required ReelRepository reelRepository,
     required EntitlementsViewModel entitlementsViewModel,
     required ProcessingJobsViewModel processingJobsViewModel,
-  }) : _searchViewModel = searchViewModel,
+  }) : _collectionsViewModel = collectionsViewModel,
+       _searchViewModel = searchViewModel,
        _reelFiltersViewModel = reelFiltersViewModel,
        _mapViewModel = mapViewModel,
        _homeViewModel = homeViewModel,
@@ -31,6 +34,7 @@ class UserStateCoordinator {
        _entitlementsViewModel = entitlementsViewModel,
        _processingJobsViewModel = processingJobsViewModel;
 
+  final CollectionsViewModel _collectionsViewModel;
   final SearchViewModel _searchViewModel;
   final ReelFiltersViewModel _reelFiltersViewModel;
   final MapViewModel _mapViewModel;
@@ -76,6 +80,7 @@ class UserStateCoordinator {
   /// the next sign-in can restore its own snapshot.
   void reset() {
     _hydrationFuture = null;
+    _collectionsViewModel.reset();
     _searchViewModel.clear();
     _reelFiltersViewModel.reset();
     _mapViewModel.reset();

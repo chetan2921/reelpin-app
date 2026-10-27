@@ -136,4 +136,13 @@ unchanged. The full app suite remains 516 passing tests in CI. No emulator was
 started; device UI, real TikTok share sheets, and completion push delivery remain
 untested. Main, hosting, and all 25 original app edits remain unchanged.
 
-<!-- mapped: reelpin-app@73b2cfd | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+## Account-switch privacy regressions (2026-10-28)
+
+`collections_view_model_test.dart` resets through the actual coordinator provider
+and holds list, detail, pagination, cache, and create requests across an account
+change. Old responses must not restore content, write cache, or finish the next
+account's loading future. The native handoff tests cover sign-out, direct user
+switches, and delayed artwork; the session tests hold a share-token mint across
+sign-out. The collection picker preference survives clearing its account data.
+
+<!-- mapped: reelpin-app@325f63a plus uncommitted changes | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->

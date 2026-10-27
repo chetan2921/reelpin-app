@@ -199,6 +199,7 @@ final appShellControllerProvider = StateProvider<AppShellController?>(
 
 final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
   return UserStateCoordinator(
+    collectionsViewModel: ref.read(collectionsViewModelProvider),
     searchViewModel: ref.read(searchViewModelProvider),
     reelFiltersViewModel: ref.read(reelFiltersViewModelProvider),
     mapViewModel: ref.read(mapViewModelProvider),
