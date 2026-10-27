@@ -100,9 +100,7 @@ void main() {
 
     test('an old page cannot restore collection reels after reset', () async {
       final api = _FakeCollectionsHttp()
-        ..detailQueue.add(
-          _detail('old', reelIds: ['one'], nextCursor: 'next'),
-        );
+        ..detailQueue.add(_detail('old', reelIds: ['one'], nextCursor: 'next'));
       final vm = CollectionsViewModel(api, cache: _testCache());
       final coordinator = _coordinatorFor(vm);
       await vm.loadCollectionDetail('old');
@@ -122,10 +120,7 @@ void main() {
         'an old ${detail ? 'detail' : 'grid'} cache read is ignored',
         () async {
           final cache = _DeferredContentCache()..readGate = Completer();
-          final vm = CollectionsViewModel(
-            _FakeCollectionsHttp(),
-            cache: cache,
-          );
+          final vm = CollectionsViewModel(_FakeCollectionsHttp(), cache: cache);
           final coordinator = _coordinatorFor(vm);
           final pending = detail
               ? vm.hydrateDetailFromCache('old')
@@ -135,7 +130,9 @@ void main() {
           cache.readGate!.complete(
             detail
                 ? _detail('old').toJson()
-                : {'collections': [_summary('old').toJson()]},
+                : {
+                    'collections': [_summary('old').toJson()],
+                  },
           );
           await pending;
 
