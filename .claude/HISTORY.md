@@ -12,3 +12,4 @@ One line per session that changed something, newest last.
 - 2026-10-20 native-share-v2: both share extensions post to `POST /api/v2/native-shares/reels` with `X-Share-Token` and a per-attempt `Idempotency-Key`, read the v2 error envelope, and no longer post the push token. Release builds still point at api.reelpin.in, which serves only v1, so this cannot ship before the production cutover.
 - 2026-10-28 account-switch-privacy: reset collections with the coordinator, reject stale collection work, and clear native picker snapshots and late share tokens when users change.
 - 2026-10-28 request-account-ownership: bind retries, successful responses, cache writes, and profile statistics to the originating account; delayed work cannot replay or populate another account.
+- 2026-10-28 user-state-reset: reject delayed cache, entitlement, filter, map mutation, and job results after coordinator reset, and rearm library loads and polling for the next account.
