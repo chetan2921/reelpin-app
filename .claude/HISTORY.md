@@ -13,4 +13,5 @@ One line per session that changed something, newest last.
 - 2026-10-28 account-switch-privacy: reset collections with the coordinator, reject stale collection work, and clear native picker snapshots and late share tokens when users change.
 - 2026-10-28 main-ancestry: merged main into dev without changing the v1 application tree; production cherry-picks now share ancestry, with chat gating and TikTok behavior preserved.
 - 2026-10-28 request-account-ownership: bind retries, successful responses, cache writes, and profile statistics to the originating account; delayed work cannot replay or populate another account.
-- 2026-10-28 go-backend-ancestry: merged reconciled dev history into go-backend without changing its v2 application or PR #34/#35 account isolation fixes; corrected branch roles and kept store promotion gated on production acceptance.
+- 2026-10-28 user-state-reset: reject delayed cache, entitlement, filter, map mutation, and job results after coordinator reset, and rearm library loads and polling for the next account.
+- 2026-10-28 go-backend-ancestry: merged reconciled dev history into go-backend without changing its v2 application or PR #34/#35/#36 account isolation fixes; corrected branch roles and kept store promotion gated on production acceptance.

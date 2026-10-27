@@ -15,8 +15,10 @@ import 'package:reelpin/utils/error_message.dart';
 class MapViewModel extends ChangeNotifier {
   final MapHttp _mapHttp;
   final AccountHttp _accountHttp;
+  final ContentCache _cache;
 
-  MapViewModel(this._mapHttp, this._accountHttp);
+  MapViewModel(this._mapHttp, this._accountHttp, {ContentCache? cache})
+    : _cache = cache ?? ContentCache.instance;
 
   /// How long the camera must stay settled before its viewport is queried, so
   /// a fling followed by a nudge is one request.
@@ -30,6 +32,7 @@ class MapViewModel extends ChangeNotifier {
   /// the map before it takes over.
   static const initialLoadGuard = Duration(seconds: 2);
 
+  int _userGeneration = 0;
   List<MapItem> _mapItems = [];
   bool _isLoading = false;
   bool _isTruncated = false;
@@ -124,10 +127,9 @@ class MapViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_mapItems.isNotEmpty || _selectedCategory != null) return;
 
-    final payload = await ContentCache.instance.read(
-      ContentCacheKeys.mapOverview,
-    );
-    if (payload == null) return;
+    final generation = _userGeneration;
+    final payload = await _cache.read(ContentCacheKeys.mapOverview);
+    if (generation != _userGeneration || payload == null) return;
     if (_mapItems.isNotEmpty || _selectedCategory != null) return;
 
     try {
@@ -139,7 +141,7 @@ class MapViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       AppLogger.error('Cached map data could not be restored: $e');
-      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+      unawaited(_cache.invalidate(ContentCacheKeys.mapOverview));
     }
   }
 
@@ -208,9 +210,11 @@ class MapViewModel extends ChangeNotifier {
   /// The camera settles as the map opens, before the whole-world load has
   /// answered; superseding it then would leave the map empty for longer.
   Future<void> _loadViewportPins() async {
+    final generation = _userGeneration;
     final initialLoad = _initialLoad;
     if (initialLoad != null) {
       await initialLoad.future.timeout(initialLoadGuard, onTimeout: () {});
+      if (generation != _userGeneration) return;
       _initialLoad = null;
     }
     await loadMapReels();
@@ -305,6 +309,8 @@ class MapViewModel extends ChangeNotifier {
   /// Clears this user's map. The viewport is the camera's, not the user's, so
   /// it is kept for the next load.
   void reset() {
+    _userGeneration += 1;
+    _initialLoad = null;
     _viewportTimer?.cancel();
     _pinsRequestId += 1;
     _mapItems = const [];
@@ -382,6 +388,7 @@ class MapViewModel extends ChangeNotifier {
     final googlePlaceId = result.googlePlaceId?.trim();
     if (googlePlaceId == null || googlePlaceId.isEmpty) return null;
 
+    final generation = _userGeneration;
     _isSavingMapPin = true;
     _mapPinActionError = null;
     notifyListeners();
@@ -391,22 +398,26 @@ class MapViewModel extends ChangeNotifier {
         googlePlaceId,
         sessionToken: _placeSearchSessionToken,
       );
+      if (generation != _userGeneration) return null;
       _upsertMapItem(item);
       _selectedMapItem = item;
       _placeSearchSessionToken = '';
       _mapPinActionError = null;
-      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+      unawaited(_cache.invalidate(ContentCacheKeys.mapOverview));
       unawaited(loadLibraryStats());
       return item;
     } catch (e) {
+      if (generation != _userGeneration) return null;
       _mapPinActionError = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not save this map pin right now.',
       );
       return null;
     } finally {
-      _isSavingMapPin = false;
-      notifyListeners();
+      if (generation == _userGeneration) {
+        _isSavingMapPin = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -417,12 +428,14 @@ class MapViewModel extends ChangeNotifier {
     final mapItemId = item.effectiveMapItemId.trim();
     if (mapItemId.isEmpty) return false;
 
+    final generation = _userGeneration;
     _isRemovingMapPin = true;
     _mapPinActionError = null;
     notifyListeners();
 
     try {
       await _mapHttp.removeMapItem(mapItemId);
+      if (generation != _userGeneration) return false;
       _mapItems = _mapItems
           .where((candidate) => candidate.effectiveMapItemId != mapItemId)
           .toList(growable: false);
@@ -433,18 +446,21 @@ class MapViewModel extends ChangeNotifier {
           .where((result) => result.mapItem?.effectiveMapItemId != mapItemId)
           .toList(growable: false);
       _mapPinActionError = null;
-      unawaited(ContentCache.instance.invalidate(ContentCacheKeys.mapOverview));
+      unawaited(_cache.invalidate(ContentCacheKeys.mapOverview));
       unawaited(loadLibraryStats());
       return true;
     } catch (e) {
+      if (generation != _userGeneration) return false;
       _mapPinActionError = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not remove this map pin right now.',
       );
       return false;
     } finally {
-      _isRemovingMapPin = false;
-      notifyListeners();
+      if (generation == _userGeneration) {
+        _isRemovingMapPin = false;
+        notifyListeners();
+      }
     }
   }
 

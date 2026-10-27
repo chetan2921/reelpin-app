@@ -35,6 +35,7 @@ class ReelRepository extends ChangeNotifier {
   String? _nextCursor;
   bool _hasMoreReels = true;
   bool _hasHydratedCache = false;
+  int _userGeneration = 0;
   Future<void>? _hydrationFuture;
   Future<void>? _initialLoadFuture;
   Future<void>? _loadMoreFuture;
@@ -84,6 +85,7 @@ class ReelRepository extends ChangeNotifier {
   }
 
   Future<void> _hydrateCache() async {
+    final generation = _userGeneration;
     if (_cachedReels.isNotEmpty) {
       _hasHydratedCache = true;
       return;
@@ -99,6 +101,7 @@ class ReelRepository extends ChangeNotifier {
     }
 
     final payload = await _contentCache.read(ContentCacheKeys.reelsFirstPage);
+    if (generation != _userGeneration) return;
     _hasHydratedCache = true;
     if (payload == null) return;
     // A live response landed while we were reading from disk; it wins.
@@ -152,11 +155,13 @@ class ReelRepository extends ChangeNotifier {
     String? subcategory,
     String? savedDate,
   }) async {
+    final generation = _userGeneration;
     // The snapshot only ever holds the unfiltered first page, so restoring it
     // under an active filter would flash the wrong content.
     if (!_hasFilters(platform, category, subcategory, savedDate)) {
       await hydrateCache();
     }
+    if (generation != _userGeneration) return;
 
     await _fetchAndStorePage(
       reset: true,
@@ -200,9 +205,11 @@ class ReelRepository extends ChangeNotifier {
     String? subcategory,
     String? savedDate,
   }) async {
+    final generation = _userGeneration;
     if (!_hasFilters(platform, category, subcategory, savedDate)) {
       await hydrateCache();
     }
+    if (generation != _userGeneration) return;
     if (!_hasMoreReels) {
       return;
     }
@@ -223,6 +230,7 @@ class ReelRepository extends ChangeNotifier {
     String? subcategory,
     String? savedDate,
   }) async {
+    final generation = _userGeneration;
     final requestUserId = _currentUserId;
     final page = await _apiService.getReelsPage(
       userId: requestUserId,
@@ -233,7 +241,7 @@ class ReelRepository extends ChangeNotifier {
       cursor: reset ? null : _nextCursor,
       limit: _pageSize,
     );
-    if (_currentUserId != requestUserId) {
+    if (generation != _userGeneration || _currentUserId != requestUserId) {
       return;
     }
     _nextCursor = page.nextCursor;
@@ -445,6 +453,10 @@ class ReelRepository extends ChangeNotifier {
   }
 
   void clearCache() {
+    _userGeneration += 1;
+    _hydrationFuture = null;
+    _initialLoadFuture = null;
+    _loadMoreFuture = null;
     cancelActiveSearch();
     _cachedReels = [];
     _cacheUserId = null;

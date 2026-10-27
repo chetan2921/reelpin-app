@@ -515,6 +515,7 @@ test/
     search_view_model_test.dart
     session_view_model_test.dart
     theme_view_model_test.dart
+    user_state_coordinator_test.dart
 tool/
   check_architecture.dart
   check_assets.dart
@@ -1351,44 +1352,44 @@ windows/
 - L22 `class SearchCancelledException implements Exception`
   - L23 `const SearchCancelledException()`
 - L26 `class ReelRepository extends ChangeNotifier`
-  - L45 `ReelRepository( this._apiService, this._authService, { ContentCache? contentCache, })`
-  - L51 `String get _currentUserId`
-  - L59 `List<Reel> get cachedReels`
-  - L60 `String? get cacheUserId`
-  - L61 `bool get hasMoreReels`
-  - L62 `bool get hasHydratedCache`
-  - L63 `SearchMode? get lastSearchMode`
-  - L64 `int get lastSearchTotal`
-  - L69 `Future<void> hydrateCache()`
-  - L86 `Future<void> _hydrateCache()`
-  - L122 `Future<void> loadInitialReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
-  - L148 `Future<void> _loadInitialReels({ required bool forceRefresh, String? platform, String? category, String? subcategory, String? savedDate, })`
-  - L170 `Future<void> loadMoreReels({ String? platform, String? category, String? subcategory, String? savedDate, })`
-  - L197 `Future<void> _loadMoreReelsInternal({ String? platform, String? category, String? subcategory, String? savedDate, })`
-  - L219 `Future<void> _fetchAndStorePage({ required bool reset, String? platform, String? category, String? subcategory, String? savedDate, })`
-  - L246 `Future<List<Reel>> getReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
-  - L263 `Future<ReelPage> getReelsPage({ String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = _pageSize, })`
-  - L282 `Future<Reel> getReel(String reelId, {bool forceRefresh = false})`
-  - L287 `Future<Reel> processReel( String url, { void Function(ProcessingJob job)? onJobUpdate, })`
-  - L301 `Future<ProcessingJob> enqueueReelProcessing( String url, { List<String> collectionIds = const [], })`
-  - L318 `void insertReel(Reel reel)`
-  - L327 `Future<List<ProcessingJob>> listProcessingJobs({int limit = 20})`
-  - L331 `Future<ReelFiltersResponse> getFilters({ String? platform, String? category, String? subcategory, })`
-  - L344 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
-  - L351 `Future<MapResponse> getNearbyPins({ required double latitude, required double longitude, int limit = 5, })`
-  - L363 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, })`
-  - L375 `Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken})`
-  - L379 `Future<void> removeMapItem(String mapItemId)`
-  - L383 `Future<DiscoverResponse> getDiscover({ String? savedDate, String? cursor, int limit = _pageSize, })`
-  - L395 `Future<LibraryStats> getLibraryStats()`
-  - L399 `Future<void> deleteReel(String reelId)`
-  - L405 `Future<SearchResponse> search( String query, { String? category, String? subcategory, })`
-  - L447 `void clearCache()`
-  - L459 `Future<void> clearUserCache()`
-  - L466 `bool _hasFilters( String? platform, String? category, String? subcategory, String? savedDate, )`
-  - L479 `void cancelActiveSearch()`
-  - L485 `bool _isActiveSearchClient(http.Client client)`
-  - L489 `void dispose()`
+  - L46 `ReelRepository( this._apiService, this._authService, { ContentCache? contentCache, })`
+  - L52 `String get _currentUserId`
+  - L60 `List<Reel> get cachedReels`
+  - L61 `String? get cacheUserId`
+  - L62 `bool get hasMoreReels`
+  - L63 `bool get hasHydratedCache`
+  - L64 `SearchMode? get lastSearchMode`
+  - L65 `int get lastSearchTotal`
+  - L70 `Future<void> hydrateCache()`
+  - L87 `Future<void> _hydrateCache()`
+  - L125 `Future<void> loadInitialReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L151 `Future<void> _loadInitialReels({ required bool forceRefresh, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L175 `Future<void> loadMoreReels({ String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L202 `Future<void> _loadMoreReelsInternal({ String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L226 `Future<void> _fetchAndStorePage({ required bool reset, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L254 `Future<List<Reel>> getReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L271 `Future<ReelPage> getReelsPage({ String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = _pageSize, })`
+  - L290 `Future<Reel> getReel(String reelId, {bool forceRefresh = false})`
+  - L295 `Future<Reel> processReel( String url, { void Function(ProcessingJob job)? onJobUpdate, })`
+  - L309 `Future<ProcessingJob> enqueueReelProcessing( String url, { List<String> collectionIds = const [], })`
+  - L326 `void insertReel(Reel reel)`
+  - L335 `Future<List<ProcessingJob>> listProcessingJobs({int limit = 20})`
+  - L339 `Future<ReelFiltersResponse> getFilters({ String? platform, String? category, String? subcategory, })`
+  - L352 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
+  - L359 `Future<MapResponse> getNearbyPins({ required double latitude, required double longitude, int limit = 5, })`
+  - L371 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, })`
+  - L383 `Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken})`
+  - L387 `Future<void> removeMapItem(String mapItemId)`
+  - L391 `Future<DiscoverResponse> getDiscover({ String? savedDate, String? cursor, int limit = _pageSize, })`
+  - L403 `Future<LibraryStats> getLibraryStats()`
+  - L407 `Future<void> deleteReel(String reelId)`
+  - L413 `Future<SearchResponse> search( String query, { String? category, String? subcategory, })`
+  - L455 `void clearCache()`
+  - L471 `Future<void> clearUserCache()`
+  - L478 `bool _hasFilters( String? platform, String? category, String? subcategory, String? savedDate, )`
+  - L491 `void cancelActiveSearch()`
+  - L497 `bool _isActiveSearchClient(http.Client client)`
+  - L501 `void dispose()`
 
 ### lib/router.dart
 
@@ -2326,19 +2327,19 @@ windows/
 ### lib/view_models/discover_view_model.dart
 
 - L13 `class DiscoverViewModel extends ChangeNotifier`
-  - L14 `DiscoverViewModel(this._repository)`
-  - L32 `DiscoverResponse? get discover`
-  - L33 `ReelPage? get categoryReelsPage`
-  - L34 `bool get isLoadingDiscover`
-  - L35 `bool get isLoadingCategoryReels`
-  - L36 `String? get discoverError`
-  - L37 `String? get categoryReelsError`
-  - L38 `String? get selectedSavedDate`
-  - L39 `String? get selectedSavedDateLabel`
-  - L40 `String? get selectedCategory`
-  - L41 `String? get selectedCategoryLabel`
-  - L42 `int? get selectedCategoryExpectedCount`
-  - L46 `Future<void> hydrateFromCache()`
+  - L14 `DiscoverViewModel(this._repository, {ContentCache? cache})`
+  - L35 `DiscoverResponse? get discover`
+  - L36 `ReelPage? get categoryReelsPage`
+  - L37 `bool get isLoadingDiscover`
+  - L38 `bool get isLoadingCategoryReels`
+  - L39 `String? get discoverError`
+  - L40 `String? get categoryReelsError`
+  - L41 `String? get selectedSavedDate`
+  - L42 `String? get selectedSavedDateLabel`
+  - L43 `String? get selectedCategory`
+  - L44 `String? get selectedCategoryLabel`
+  - L45 `int? get selectedCategoryExpectedCount`
+  - L49 `Future<void> hydrateFromCache()`
   - L72 `Future<void> loadDiscover({bool forceRefresh = false})`
   - L105 `Future<void> selectSavedDate(SavedDateOption option)`
   - L113 `Future<void> clearDateFilter()`
@@ -2347,23 +2348,23 @@ windows/
   - L175 `void clearTransientSelection()`
   - L197 `void removeReel(String reelId)`
   - L266 `void reset()`
-  - L283 `void _clearCategorySelectionInState()`
-  - L292 `String? _labelForSavedDate(DiscoverResponse response, String? savedDate)`
-  - L304 `List<Reel> _withoutReel(List<Reel> reels, String reelId)`
+  - L284 `void _clearCategorySelectionInState()`
+  - L293 `String? _labelForSavedDate(DiscoverResponse response, String? savedDate)`
+  - L305 `List<Reel> _withoutReel(List<Reel> reels, String reelId)`
 
 ### lib/view_models/entitlements_view_model.dart
 
 - L18 `class EntitlementsViewModel extends ChangeNotifier`
-  - L19 `EntitlementsViewModel( this._accountHttp, this._authService, this._repository, this._homeViewModel, this._mapViewModel, this._reelFiltersViewModel, this._discoverViewModel, this._searchViewModel, )`
-  - L45 `EntitlementsResponse? get response`
-  - L46 `UserEntitlement? get entitlement`
-  - L47 `bool get isLoading`
-  - L48 `String? get error`
-  - L49 `bool get hasEntitlement`
-  - L54 `Future<void> hydrateFromCache()`
+  - L19 `EntitlementsViewModel( this._accountHttp, this._authService, this._repository, this._homeViewModel, this._mapViewModel, this._reelFiltersViewModel, this._discoverViewModel, this._searchViewModel, { ContentCache? cache, })`
+  - L48 `EntitlementsResponse? get response`
+  - L49 `UserEntitlement? get entitlement`
+  - L50 `bool get isLoading`
+  - L51 `String? get error`
+  - L52 `bool get hasEntitlement`
+  - L57 `Future<void> hydrateFromCache()`
   - L74 `Future<void> refresh({bool reloadContent = false})`
   - L96 `Future<void> _refresh({required bool reloadContent})`
-  - L164 `void reset()`
+  - L171 `void reset()`
 
 ### lib/view_models/home_view_model.dart
 
@@ -2399,71 +2400,71 @@ windows/
 ### lib/view_models/map_view_model.dart
 
 - L15 `class MapViewModel extends ChangeNotifier`
-  - L19 `MapViewModel(this._mapHttp, this._accountHttp)`
-  - L60 `List<MapItem> get mapItems`
-  - L61 `bool get isLoading`
-  - L62 `bool get isLoadingMore`
-  - L63 `bool get hasMoreReels`
-  - L64 `String? get error`
-  - L65 `String? get selectedCategory`
-  - L66 `MapItem? get selectedMapItem`
-  - L71 `int? get totalPinnedLocations`
-  - L75 `int? get headerPinCount`
-  - L79 `bool get isTruncated`
-  - L83 `bool get showsEmptyLibrary`
-  - L91 `bool get showsEmptyViewportHint`
-  - L97 `String get emptyViewportHint`
-  - L103 `List<MapPlaceSearchResult> get placeSearchResults`
-  - L105 `bool get isSearchingPlaces`
-  - L106 `bool get isSavingMapPin`
-  - L107 `bool get isRemovingMapPin`
-  - L108 `String? get placeSearchError`
-  - L109 `String? get mapPinActionError`
-  - L110 `String get lastPlaceQuery`
-  - L113 `List<Reel> get reelsWithLocations`
-  - L117 `Reel? get selectedReel`
-  - L120 `Location? get selectedLocation`
-  - L124 `Future<void> hydrateFromCache()`
-  - L153 `Future<void> loadMapReels({bool forceRefresh = false})`
-  - L199 `void updateViewport(MapBounds bounds)`
-  - L210 `Future<void> _loadViewportPins()`
-  - L221 `Future<void> refreshOnOpen()`
-  - L227 `Future<void> loadLibraryStats()`
-  - L246 `Future<List<MapItem>> nearbyMapItems( double latitude, double longitude, )`
-  - L264 `Future<void> recenterOnUser({ required double latitude, required double longitude, required void Function() moveToUser, required void Function(List<MapItem> nearby) fitNearby, })`
-  - L280 `void userMovedCamera()`
-  - L284 `Future<void> loadMoreReels()`
-  - L286 `void filterByCategory(String? category)`
-  - L294 `void selectMapItem(MapItem? item)`
-  - L299 `void selectReel(Reel? reel, {Location? location})`
-  - L307 `void reset()`
-  - L333 `Future<void> searchMapPlaces(String query)`
-  - L381 `Future<MapItem?> pinPlace(MapPlaceSearchResult result)`
-  - L415 `Future<bool> removeMapItem(MapItem item)`
-  - L451 `void clearPlaceSearch()`
-  - L462 `void _upsertMapItem(MapItem item)`
-  - L475 `void upsertProcessedReel(Reel reel)`
-  - L479 `void removeReel(String reelId)`
-  - L491 `void dispose()`
+  - L20 `MapViewModel(this._mapHttp, this._accountHttp, {ContentCache? cache})`
+  - L63 `List<MapItem> get mapItems`
+  - L64 `bool get isLoading`
+  - L65 `bool get isLoadingMore`
+  - L66 `bool get hasMoreReels`
+  - L67 `String? get error`
+  - L68 `String? get selectedCategory`
+  - L69 `MapItem? get selectedMapItem`
+  - L74 `int? get totalPinnedLocations`
+  - L78 `int? get headerPinCount`
+  - L82 `bool get isTruncated`
+  - L86 `bool get showsEmptyLibrary`
+  - L94 `bool get showsEmptyViewportHint`
+  - L100 `String get emptyViewportHint`
+  - L106 `List<MapPlaceSearchResult> get placeSearchResults`
+  - L108 `bool get isSearchingPlaces`
+  - L109 `bool get isSavingMapPin`
+  - L110 `bool get isRemovingMapPin`
+  - L111 `String? get placeSearchError`
+  - L112 `String? get mapPinActionError`
+  - L113 `String get lastPlaceQuery`
+  - L116 `List<Reel> get reelsWithLocations`
+  - L120 `Reel? get selectedReel`
+  - L123 `Location? get selectedLocation`
+  - L127 `Future<void> hydrateFromCache()`
+  - L155 `Future<void> loadMapReels({bool forceRefresh = false})`
+  - L201 `void updateViewport(MapBounds bounds)`
+  - L212 `Future<void> _loadViewportPins()`
+  - L225 `Future<void> refreshOnOpen()`
+  - L231 `Future<void> loadLibraryStats()`
+  - L250 `Future<List<MapItem>> nearbyMapItems( double latitude, double longitude, )`
+  - L268 `Future<void> recenterOnUser({ required double latitude, required double longitude, required void Function() moveToUser, required void Function(List<MapItem> nearby) fitNearby, })`
+  - L284 `void userMovedCamera()`
+  - L288 `Future<void> loadMoreReels()`
+  - L290 `void filterByCategory(String? category)`
+  - L298 `void selectMapItem(MapItem? item)`
+  - L303 `void selectReel(Reel? reel, {Location? location})`
+  - L311 `void reset()`
+  - L339 `Future<void> searchMapPlaces(String query)`
+  - L387 `Future<MapItem?> pinPlace(MapPlaceSearchResult result)`
+  - L426 `Future<bool> removeMapItem(MapItem item)`
+  - L467 `void clearPlaceSearch()`
+  - L478 `void _upsertMapItem(MapItem item)`
+  - L491 `void upsertProcessedReel(Reel reel)`
+  - L495 `void removeReel(String reelId)`
+  - L507 `void dispose()`
 
 ### lib/view_models/processing_jobs_view_model.dart
 
 - L16 `class ProcessingJobsViewModel extends ChangeNotifier`
   - L17 `ProcessingJobsViewModel(this._repository, {this.onJobsFinished})`
-  - L59 `List<ProcessingJob> get jobs`
-  - L60 `bool get hasJobs`
-  - L64 `bool isSettling(String jobId)`
-  - L69 `List<ProcessingJob> jobsForCollection(String collectionId)`
-  - L82 `void trackEnqueued( ProcessingJob job, { List<String> collectionIds = const [], })`
-  - L105 `Future<void> refresh()`
-  - L120 `Future<void> _applyServerJobs(List<ProcessingJob> latest)`
-  - L187 `bool _isStillShown(String jobId, Set<String> activeIds)`
-  - L200 `bool _isAbandoned(ProcessingJob job)`
-  - L208 `void _syncTimer()`
-  - L228 `Duration _pollInterval()`
-  - L240 `void setForeground(bool isForeground)`
-  - L246 `void reset()`
-  - L257 `void dispose()`
+  - L60 `List<ProcessingJob> get jobs`
+  - L61 `bool get hasJobs`
+  - L65 `bool isSettling(String jobId)`
+  - L70 `List<ProcessingJob> jobsForCollection(String collectionId)`
+  - L83 `void trackEnqueued( ProcessingJob job, { List<String> collectionIds = const [], })`
+  - L106 `Future<void> refresh()`
+  - L123 `Future<void> _applyServerJobs( List<ProcessingJob> latest, int generation, )`
+  - L195 `bool _isStillShown(String jobId, Set<String> activeIds)`
+  - L208 `bool _isAbandoned(ProcessingJob job)`
+  - L216 `void _syncTimer()`
+  - L236 `Duration _pollInterval()`
+  - L248 `void setForeground(bool isForeground)`
+  - L254 `void reset()`
+  - L267 `void dispose()`
 
 ### lib/view_models/reel_detail_view_model.dart
 
@@ -2481,24 +2482,24 @@ windows/
 ### lib/view_models/reel_filters_view_model.dart
 
 - L15 `class ReelFiltersViewModel extends ChangeNotifier`
-  - L16 `ReelFiltersViewModel(this._repository)`
-  - L24 `ReelFiltersResponse? get response`
-  - L26 `List<ReelPlatformGroup> get platforms`
-  - L31 `List<ReelCategoryGroup> get categoryGroups`
-  - L34 `List<String> get categories`
-  - L37 `int get totalCount`
-  - L38 `int get selectedPreviewCount`
-  - L39 `String? get topPlatform`
-  - L40 `bool get isLoading`
-  - L41 `String? get error`
-  - L42 `bool get hasPlatforms`
-  - L43 `bool get hasGroups`
-  - L45 `ReelPlatformGroup? platformNamed(String? platform)`
-  - L50 `List<ReelCategoryGroup> categoriesFor(String? platform)`
-  - L57 `int previewCountFor({ String? platform, String? category, String? subcategory, })`
-  - L86 `void reset()`
-  - L95 `Future<void> hydrateFromCache()`
-  - L116 `Future<void> loadFilters({ bool forceRefresh = false, String? platform, String? category, String? subcategory, })`
+  - L16 `ReelFiltersViewModel(this._repository, {ContentCache? cache})`
+  - L27 `ReelFiltersResponse? get response`
+  - L29 `List<ReelPlatformGroup> get platforms`
+  - L34 `List<ReelCategoryGroup> get categoryGroups`
+  - L37 `List<String> get categories`
+  - L40 `int get totalCount`
+  - L41 `int get selectedPreviewCount`
+  - L42 `String? get topPlatform`
+  - L43 `bool get isLoading`
+  - L44 `String? get error`
+  - L45 `bool get hasPlatforms`
+  - L46 `bool get hasGroups`
+  - L48 `ReelPlatformGroup? platformNamed(String? platform)`
+  - L53 `List<ReelCategoryGroup> categoriesFor(String? platform)`
+  - L60 `int previewCountFor({ String? platform, String? category, String? subcategory, })`
+  - L89 `void reset()`
+  - L99 `Future<void> hydrateFromCache()`
+  - L119 `Future<void> loadFilters({ bool forceRefresh = false, String? platform, String? category, String? subcategory, })`
 
 ### lib/view_models/remote_config_view_model.dart
 
@@ -3161,6 +3162,39 @@ windows/
 
 - L7 `void main()`
 
+### test/view_models/user_state_coordinator_test.dart
+
+- L33 `void main()`
+- L214 `const _filters = <String, dynamic>{`
+- L221 `Map<String, dynamic> _payload(String slot)`
+- L239 `EntitlementsResponse _entitlements(String userId, {bool restricted = false})`
+- L245 `MapItem get _pin`
+- L248 `const _place = MapPlaceSearchResult`
+- L258 `ProcessingJob _job(String id)`
+- L261 `class _State`
+  - L296 `void switchUser()`
+  - L301 `Future<void> hydrate(String slot)`
+  - L316 `bool hasPayload(String slot)`
+  - L331 `void dispose()`
+- L344 `class _Cache implements ContentCache`
+  - L350 `Future<Map<String, dynamic>?> read(String key)`
+  - L353 `Future<void> write( String key, Map<String, dynamic> payload, { String? expectedUserId, })`
+  - L360 `Future<void> invalidate(String key)`
+  - L363 `Future<void> invalidateContent()`
+  - L369 `dynamic noSuchMethod(Invocation invocation)`
+- L372 `class _Auth extends AuthService`
+  - L373 `_Auth()`
+  - L377 `User? get currentUser`
+- L386 `class _Api extends ApiClient`
+  - L399 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+  - L413 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
+  - L421 `Future<EntitlementsResponse> getAccountEntitlements({ required String userId, })`
+  - L429 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
+  - L438 `Future<LibraryStats> getLibraryStats()`
+  - L447 `Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken})`
+  - L451 `Future<void> removeMapItem(String mapItemId)`
+  - L454 `Future<List<ProcessingJob>> listProcessingJobs({ bool activeOnly = true, int limit = 20, })`
+
 ### tool/check_architecture.dart
 
 - L16 `void main()`
@@ -3182,4 +3216,4 @@ windows/
 
 - L3 `void main()`
 
-<!-- mapped: reelpin-app@f4d12a9 plus uncommitted changes | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
+<!-- mapped: reelpin-app@6ad7c49 plus uncommitted changes | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
