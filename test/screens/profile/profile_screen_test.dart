@@ -15,43 +15,48 @@ import 'package:reelpin/view_models/session_view_model.dart';
 
 void main() {
   for (final completeBeforeSwitch in [false, true]) {
-    testWidgets('profile stats do not survive an account change: $completeBeforeSwitch', (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      const locationChannel = MethodChannel('flutter.baseflow.com/geolocator');
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(locationChannel, (_) async => false);
-      addTearDown(() {
+    testWidgets(
+      'profile stats do not survive an account change: $completeBeforeSwitch',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        const locationChannel = MethodChannel(
+          'flutter.baseflow.com/geolocator',
+        );
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(locationChannel, null);
-      });
-      final session = _Session();
-      final api = _AccountApi();
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sessionViewModelProvider.overrideWith((ref) => session),
-            accountHttpProvider.overrideWithValue(api),
-          ],
-          child: const MaterialApp(home: ProfileScreen()),
-        ),
-      );
-      await tester.pump();
-      expect(api.calls, 1);
-      if (completeBeforeSwitch) {
-        api.first.complete(_stats);
+            .setMockMethodCallHandler(locationChannel, (_) async => false);
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(locationChannel, null);
+        });
+        final session = _Session();
+        final api = _AccountApi();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sessionViewModelProvider.overrideWith((ref) => session),
+              accountHttpProvider.overrideWithValue(api),
+            ],
+            child: const MaterialApp(home: ProfileScreen()),
+          ),
+        );
         await tester.pump();
-        expect(find.text('777'), findsOneWidget);
-      }
+        expect(api.calls, 1);
+        if (completeBeforeSwitch) {
+          api.first.complete(_stats);
+          await tester.pump();
+          expect(find.text('777'), findsOneWidget);
+        }
 
-      session.switchUser();
-      await tester.pump();
-      if (!completeBeforeSwitch) api.first.complete(_stats);
-      await tester.pump();
+        session.switchUser();
+        await tester.pump();
+        if (!completeBeforeSwitch) api.first.complete(_stats);
+        await tester.pump();
 
-      expect(find.text('777'), findsNothing);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-    });
+        expect(find.text('777'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
   }
 }
 
@@ -98,6 +103,8 @@ class _Session extends ChangeNotifier implements SessionViewModel {
   String get email => '$_userId@example.com';
   @override
   String get initials => 'RP';
+  @override
+  String? get error => null;
   @override
   bool get isBusy => false;
   @override
