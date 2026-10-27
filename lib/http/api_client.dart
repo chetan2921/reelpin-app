@@ -862,7 +862,10 @@ class ApiClient
     // Only the unscoped tree is worth restoring on a cold start; a scoped
     // response carries a `selected_preview_count` for a selection the next
     // session will not have.
-    if (_isBlank(platform) && _isBlank(category) && _isBlank(subcategory) && requestUserId != null) {
+    if (_isBlank(platform) &&
+        _isBlank(category) &&
+        _isBlank(subcategory) &&
+        requestUserId != null) {
       unawaited(
         _cache.write(
           ContentCacheKeys.reelFilters,

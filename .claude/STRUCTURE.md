@@ -1181,37 +1181,37 @@ windows/
   - L786 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, String? cursor, })`
   - L818 `CollectionSummary _collectionFromMutation(http.Response res)`
   - L828 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
-  - L878 `Future<SearchResponse> searchReels( String query, { String userId = 'default-user', String? category, String? subcategory, int limit = 5, http.Client? client, })`
-  - L941 `Future<EntitlementsResponse> getAccountEntitlements({ required String userId, })`
-  - L979 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
-  - L1023 `Future<MapResponse> getNearbyPins({ required double latitude, required double longitude, int limit = 5, })`
-  - L1056 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, int limit = 8, })`
-  - L1093 `Future<MapItem> pinMapPlace( String googlePlaceId, { String? sessionToken, })`
-  - L1124 `Future<void> removeMapItem(String mapItemId)`
-  - L1143 `Future<DiscoverResponse> getDiscover({ String? savedDate, String? cursor, int limit = 25, })`
-  - L1187 `Future<LibraryStats> getLibraryStats()`
-  - L1208 `Future<void> deleteAccount()`
-  - L1225 `Future<ShareResolveResponse> resolveSharePayload({ required String rawPayloadText, })`
-  - L1254 `Future<void> registerPushToken({ required String userId, required String token, required String platform, required String appVersion, required String appBuild, required String timezone, required String locale, })`
-  - L1282 `Future<void> unregisterPushToken({required String token})`
-  - L1302 `Future<void> recordNotificationOpened({ required String notificationId, })`
-  - L1326 `Future<String> mintShareToken()`
-  - L1346 `Future<void> revokeShareToken()`
-  - L1362 `Future<http.Response> _sendRequest( Future<http.Response> Function(String baseUrl) request, )`
-  - L1401 `Uri _apiUri( String baseUrl, String path, { Map<String, String>? queryParameters, })`
-  - L1420 `Future<http.Response> _sendRequestWithClient( http.Client client, Future<http.Response> Function(String baseUrl, http.Client client) request, )`
-  - L1427 `String _networkErrorMessage(Object? error)`
-  - L1431 `void _logNetworkError(String baseUrl, Object error)`
-  - L1437 `Map<String, String> _headers({bool json = false})`
-  - L1446 `static bool _isBlank(String? value)`
-  - L1448 `static String _pageLimit(int limit)`
-  - L1452 `static String _newIdempotencyKey()`
-  - L1464 `static String? _currentAccessToken()`
-  - L1472 `void _requireRequestAccount(String? sentToken)`
-  - L1483 `static String? _tokenSubject(String? token)`
-  - L1501 `Future<bool> _renewSession()`
-  - L1513 `static Future<void> _refreshCurrentSession()`
-  - L1520 `ApiException _exceptionFromResponse( http.Response res, { required String fallbackMessage, })`
+  - L881 `Future<SearchResponse> searchReels( String query, { String userId = 'default-user', String? category, String? subcategory, int limit = 5, http.Client? client, })`
+  - L944 `Future<EntitlementsResponse> getAccountEntitlements({ required String userId, })`
+  - L982 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
+  - L1026 `Future<MapResponse> getNearbyPins({ required double latitude, required double longitude, int limit = 5, })`
+  - L1059 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, int limit = 8, })`
+  - L1096 `Future<MapItem> pinMapPlace( String googlePlaceId, { String? sessionToken, })`
+  - L1127 `Future<void> removeMapItem(String mapItemId)`
+  - L1146 `Future<DiscoverResponse> getDiscover({ String? savedDate, String? cursor, int limit = 25, })`
+  - L1190 `Future<LibraryStats> getLibraryStats()`
+  - L1211 `Future<void> deleteAccount()`
+  - L1228 `Future<ShareResolveResponse> resolveSharePayload({ required String rawPayloadText, })`
+  - L1257 `Future<void> registerPushToken({ required String userId, required String token, required String platform, required String appVersion, required String appBuild, required String timezone, required String locale, })`
+  - L1285 `Future<void> unregisterPushToken({required String token})`
+  - L1305 `Future<void> recordNotificationOpened({ required String notificationId, })`
+  - L1329 `Future<String> mintShareToken()`
+  - L1349 `Future<void> revokeShareToken()`
+  - L1365 `Future<http.Response> _sendRequest( Future<http.Response> Function(String baseUrl) request, )`
+  - L1404 `Uri _apiUri( String baseUrl, String path, { Map<String, String>? queryParameters, })`
+  - L1423 `Future<http.Response> _sendRequestWithClient( http.Client client, Future<http.Response> Function(String baseUrl, http.Client client) request, )`
+  - L1430 `String _networkErrorMessage(Object? error)`
+  - L1434 `void _logNetworkError(String baseUrl, Object error)`
+  - L1440 `Map<String, String> _headers({bool json = false})`
+  - L1449 `static bool _isBlank(String? value)`
+  - L1451 `static String _pageLimit(int limit)`
+  - L1455 `static String _newIdempotencyKey()`
+  - L1467 `static String? _currentAccessToken()`
+  - L1475 `void _requireRequestAccount(String? sentToken)`
+  - L1486 `static String? _tokenSubject(String? token)`
+  - L1504 `Future<bool> _renewSession()`
+  - L1516 `static Future<void> _refreshCurrentSession()`
+  - L1523 `ApiException _exceptionFromResponse( http.Response res, { required String fallbackMessage, })`
 
 ### lib/http/api_exception.dart
 
@@ -3182,4 +3182,4 @@ windows/
 
 - L3 `void main()`
 
-<!-- mapped: reelpin-app@3ad2d5d plus uncommitted changes | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
+<!-- mapped: reelpin-app@f4d12a9 plus uncommitted changes | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
