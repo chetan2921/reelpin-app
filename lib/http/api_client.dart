@@ -42,6 +42,7 @@ class ApiClient
         SharingHttp {
   final String _baseUrl;
   final http.Client _client;
+  final ContentCache _cache;
   final String? Function() _accessTokenProvider;
   final Future<void> Function() _sessionRefresher;
   static const Duration _requestTimeout = Duration(seconds: 15);
@@ -54,10 +55,12 @@ class ApiClient
 
   ApiClient({
     http.Client? client,
+    ContentCache? cache,
     String? baseUrl,
     String? Function()? accessTokenProvider,
     Future<void> Function()? sessionRefresher,
   }) : _client = client ?? http.Client(),
+       _cache = cache ?? ContentCache.instance,
        _accessTokenProvider = accessTokenProvider ?? _currentAccessToken,
        _sessionRefresher = sessionRefresher ?? _refreshCurrentSession,
        _baseUrl = (baseUrl ?? ApiConfig.baseUrl).trim();
@@ -382,7 +385,7 @@ class ApiClient
         _isBlank(cursor);
     if (isUnfilteredFirstPage) {
       unawaited(
-        ContentCache.instance.write(ContentCacheKeys.reelsFirstPage, decoded),
+        _cache.write(ContentCacheKeys.reelsFirstPage, decoded),
       );
     }
     return ReelPage.fromJson(decoded);
@@ -851,7 +854,7 @@ class ApiClient
     // session will not have.
     if (_isBlank(platform) && _isBlank(category) && _isBlank(subcategory)) {
       unawaited(
-        ContentCache.instance.write(ContentCacheKeys.reelFilters, decoded),
+        _cache.write(ContentCacheKeys.reelFilters, decoded),
       );
     }
     return ReelFiltersResponse.fromJson(decoded);
@@ -865,6 +868,7 @@ class ApiClient
     String? subcategory,
     int limit = 5,
     http.Client? client,
+    ContentCache? cache,
   }) async {
     final res = client == null
         ? await _sendRequest(
@@ -942,7 +946,7 @@ class ApiClient
 
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
     unawaited(
-      ContentCache.instance.write(ContentCacheKeys.entitlements, decoded),
+      _cache.write(ContentCacheKeys.entitlements, decoded),
     );
     return EntitlementsResponse.fromJson(decoded);
   }
@@ -978,7 +982,7 @@ class ApiClient
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
     if (_isBlank(category)) {
       unawaited(
-        ContentCache.instance.write(ContentCacheKeys.mapOverview, decoded),
+        _cache.write(ContentCacheKeys.mapOverview, decoded),
       );
     }
     return MapResponse.fromJson(decoded);
@@ -1137,7 +1141,7 @@ class ApiClient
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
     if (_isBlank(savedDate) && _isBlank(cursor)) {
       unawaited(
-        ContentCache.instance.write(ContentCacheKeys.discoverOverview, decoded),
+        _cache.write(ContentCacheKeys.discoverOverview, decoded),
       );
     }
     return DiscoverResponse.fromJson(decoded);

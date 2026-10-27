@@ -10,6 +10,7 @@ import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/http/api_client.dart';
 import 'package:reelpin/http/api_exception.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
 import 'package:reelpin/utils/error_message.dart';
 
 import '../fixtures/api_v2.dart';
@@ -212,6 +213,52 @@ void main() {
       expect(renewals, 0);
       expect(seen, [null]);
     });
+  });
+
+  group('cached response ownership', () {
+    for (final switchAtWrite in [false, true]) {
+      test('a previous account response is not cached for the next user: $switchAtWrite', () async {
+        final directory = Directory.systemTemp.createTempSync('api_account_cache');
+        addTearDown(() => directory.deleteSync(recursive: true));
+        var userId = 'user-a';
+        var token = _tokenFor(userId, 'fresh');
+        var responseReady = false;
+        void switchAccount() {
+          userId = 'user-b';
+          token = _tokenFor(userId, 'fresh');
+        }
+        final cache = ContentCache.forTesting(
+          directory: directory,
+          userIdProvider: () {
+            if (switchAtWrite && responseReady) switchAccount();
+            return userId;
+          },
+        );
+        final service = ApiClient(
+          baseUrl: 'https://example.com',
+          cache: cache,
+          accessTokenProvider: () => token,
+          client: MockClient((request) async {
+            responseReady = true;
+            if (!switchAtWrite) switchAccount();
+            return ApiV2Fixture('reel_page').toResponse();
+          }),
+        );
+        Object? error;
+        try {
+          await service.getReelsPage();
+        } catch (caught) {
+          error = caught;
+        }
+        await pumpEventQueue();
+
+        expect(userId, 'user-b');
+        expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);
+        if (!switchAtWrite) {
+          expect(error, isA<ApiException>().having((e) => e.statusCode, 'statusCode', 409));
+        }
+      });
+    }
   });
 
   group('the error envelope', () {
