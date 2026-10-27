@@ -72,7 +72,7 @@ job is active and drops the finished reel straight into the grid.
 7. Dead code, do not extend it: `processReel`, `_waitForProcessingJob`; `ReelDetailViewModel`; the unused `webview_flutter` and `geocoding` dependencies.
 8. Firebase is skipped silently when its gitignored config files are missing: no push, no Crashlytics.
 9. Switching the API base URL drops the native share token.
-10. **Collections survive a sign-out**, on `main` and `dev` alike (read from code, not run). `UserStateCoordinator.reset()` resets every other view model but not `CollectionsViewModel`, and the one root `ProviderScope` is never invalidated. After signing out and into another account without restarting the app, SAVED shows the previous account's collection list (`hydrateFromCache` and `loadCollections` both return early while the old list is in memory) until a pull-to-refresh, an app resume, a share, or a restart. Only the list (names, covers, counts) leaks: opening one of those collections gets a 404 from the backend, which checks membership.
+10. Collections reset through `UserStateCoordinator` on every account change. List, detail, cache, pagination, warm-up, and mutation results are checked against the account generation before updating memory or cache. Native picker snapshots are cleared on sign-out or user change, and delayed artwork cannot restore them.
 11. Line numbers in docs rot. Name the symbol and look its line up in `.claude/STRUCTURE.md`.
 
 ## Branches and release
@@ -178,4 +178,4 @@ files. Name the env var or config key instead.
 Tracking: committed to this repo, shared with every collaborator.
 Layout: per repo; reelpin-api carries its own tree.
 
-<!-- mapped: reelpin-app@8d09fad | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
+<!-- mapped: reelpin-app@598812d plus uncommitted changes | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
