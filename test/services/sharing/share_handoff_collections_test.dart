@@ -79,6 +79,26 @@ void main() {
     },
   );
 
+  test('a pending picker preference cannot sync a signed-out snapshot', () async {
+    await ShareHandoffService.instance.syncAuthenticatedUser('old', 'access');
+    var renders = 0;
+    final pending = ShareHandoffService.instance.setCollectionPickerEnabled(
+      true,
+      [c('old', 'Private')],
+      renderTiles: ({required directory, required collections}) async {
+        renders += 1;
+        return {'old': 'old.png'};
+      },
+    );
+
+    await ShareHandoffService.instance.clear();
+    await pending;
+
+    expect(renders, 0);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('share_handoff_collections'), isNull);
+  });
+
   for (final signOut in [false, true]) {
     test(
       'late artwork cannot restore a snapshot after ${signOut ? 'sign-out' : 'switching users'}',

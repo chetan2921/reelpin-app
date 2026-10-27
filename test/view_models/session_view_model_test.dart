@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,6 +17,11 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('a share token minted after sign-out is discarded', () async {
+    const channel = MethodChannel('com.chetanjain.reelpin/share_handoff');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async => null);
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
     SharedPreferences.setMockInitialValues({});
     final events = <String>[];
     final mint = Completer<String>();
@@ -25,7 +31,7 @@ void main() {
       ApiClient.new,
       () => sharing,
     );
-    await pumpEventQueue();
+    await sharing.mintStarted.future;
     expect(events, contains('mint-share-token'));
 
     await viewModel.signOut();
@@ -197,12 +203,14 @@ class _FakeSharingHttp implements SharingHttp {
   _FakeSharingHttp(this.events, {this.mintGate});
 
   final Completer<String>? mintGate;
+  final mintStarted = Completer<void>();
 
   final List<String> events;
 
   @override
   Future<String> mintShareToken() async {
     events.add('mint-share-token');
+    if (!mintStarted.isCompleted) mintStarted.complete();
     return mintGate == null ? '' : await mintGate!.future;
   }
 
