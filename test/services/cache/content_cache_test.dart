@@ -153,6 +153,29 @@ void main() {
     }
   });
 
+  test('queued writes keep their account owner across a user change', () async {
+    final first = cache.write(ContentCacheKeys.reelsFirstPage, {'version': 1});
+    userId = 'user-b';
+    await first;
+
+    expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);
+    final envelope =
+        jsonDecode(fileFor(ContentCacheKeys.reelsFirstPage).readAsStringSync())
+            as Map<String, dynamic>;
+    expect(envelope['user_id'], 'user-a');
+
+    userId = 'user-a';
+    final older = cache.write(ContentCacheKeys.reelsFirstPage, {'version': 2});
+    userId = 'user-b';
+    final newer = cache.write(ContentCacheKeys.reelsFirstPage, {'version': 3});
+    await Future.wait([older, newer]);
+
+    final payload = await cache.read(ContentCacheKeys.reelsFirstPage);
+    expect(payload!['version'], 3);
+    userId = 'user-a';
+    expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);
+  });
+
   test('keeps the newest payload when writes overlap', () async {
     final first = cache.write(ContentCacheKeys.reelsFirstPage, {'version': 1});
     final second = cache.write(ContentCacheKeys.reelsFirstPage, {'version': 2});

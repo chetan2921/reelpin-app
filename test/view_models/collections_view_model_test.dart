@@ -670,7 +670,11 @@ class _DeferredContentCache implements ContentCache {
       readGate == null ? null : await readGate!.future;
 
   @override
-  Future<void> write(String key, Map<String, dynamic> payload) async {
+  Future<void> write(
+    String key,
+    Map<String, dynamic> payload, {
+    String? expectedUserId,
+  }) async {
     writes.add(key);
   }
 
@@ -713,8 +717,11 @@ class _TrackedContentCache implements ContentCache {
   Future<Map<String, dynamic>?> read(String key) => _delegate.read(key);
 
   @override
-  Future<void> write(String key, Map<String, dynamic> payload) =>
-      _track(_delegate.write(key, payload));
+  Future<void> write(
+    String key,
+    Map<String, dynamic> payload, {
+    String? expectedUserId,
+  }) => _track(_delegate.write(key, payload, expectedUserId: expectedUserId));
 
   @override
   Future<void> invalidate(String key) => _track(_delegate.invalidate(key));
