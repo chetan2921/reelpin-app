@@ -8,10 +8,10 @@ repos must agree on is in `.claude/contracts/`. `README.md` covers the screens,
 local setup, store builds, Firebase, maps, and signing in prose; this file is
 what to know on top of it.
 
-Mapped from `codex/tiktok-dev-validation` @ `8d09fad`.
+Mapped from `go-backend` @ `11b8e9f`.
 
-> **Do not promote `dev` to `main`, and do not cut a store build from it, until the Go backend serves `/api/v2` on `api.reelpin.in` (the production cutover).**
-> On `dev`, native shares and the Dart client target `/api/v2`. Production serves only `/api/v1` today, so every native share from a store build would get a 404 and fall back to pending.
+> **Do not merge `go-backend` into `dev` or `main`, or cut a store build from it, until the Go backend serves `/api/v2` on `api.reelpin.in` and production acceptance passes.**
+> `go-backend` uses `/api/v2` in Dart and native shares. `dev` and `main` retain the Python `/api/v1` client. Production v2 routing remains gated.
 
 ## Navigate
 
@@ -80,14 +80,15 @@ job is active and drops the finished reel straight into the grid.
 `README.md` "Branches And Promotion" has the rules: `dev` is the working
 branch, `main` is what ships to the stores, never push to `main` directly,
 promote with a merge, merge `main` back into `dev` afterwards, never force-push.
-The dev APK job removes unused preinstalled .NET, Haskell, and CodeQL toolchains from its temporary GitHub runner before building; Android/Java/Flutter tools and EC2 hosting are unchanged. A push to `dev` runs `validate.yml` and `build-dev-apk.yml`; a PR into `dev`
+The dev APK job removes unused preinstalled .NET, Haskell, and CodeQL toolchains from its temporary GitHub runner before building; Android/Java/Flutter tools and EC2 hosting are unchanged. A push to `dev` runs `validate.yml` and `build-dev-apk.yml`; a PR into `dev` or `go-backend`
 runs `validate.yml`. Nothing runs on PRs into `main`.
 
-The history does not match those rules today: `main` was promoted through
-`promote/*` branches of cherry-picks that leave chat out, so
-`git rev-list --left-right --count origin/main...origin/dev` is `23 44` and the
-two trees differ only by chat. Ask before merging `main` into `dev` or
-promoting.
+`dev` contains `main`, including production commits previously carried through
+`promote/*` cherry-picks. `go-backend` contains that reconciled `dev` ancestry
+while retaining its v2 application tree and account-switch privacy fixes.
+Before promoting `dev`, fetch and confirm the left count from
+`git rev-list --left-right --count origin/main...origin/dev` is zero. Keep
+`go-backend` separate until the production gate above passes.
 
 ## Working rules
 
@@ -178,4 +179,4 @@ files. Name the env var or config key instead.
 Tracking: committed to this repo, shared with every collaborator.
 Layout: per repo; reelpin-api carries its own tree.
 
-<!-- mapped: reelpin-app@325f63a plus uncommitted changes | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
+<!-- mapped: reelpin-app@11b8e9f | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
