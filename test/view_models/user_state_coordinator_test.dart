@@ -69,23 +69,26 @@ void main() {
     });
   }
 
-  test('reset detaches an old library load before the next user loads', () async {
-    final oldRead = Completer<Map<String, dynamic>?>();
-    state.cache.reads[ContentCacheKeys.reelsFirstPage] = oldRead;
-    final oldLoad = state.repository.loadInitialReels();
+  test(
+    'reset detaches an old library load before the next user loads',
+    () async {
+      final oldRead = Completer<Map<String, dynamic>?>();
+      state.cache.reads[ContentCacheKeys.reelsFirstPage] = oldRead;
+      final oldLoad = state.repository.loadInitialReels();
 
-    state.switchUser();
-    state.cache.reads.clear();
-    final nextLoad = state.repository.loadInitialReels();
-    await Future<void>.delayed(Duration.zero);
-    expect(state.api.pageUsers, ['user-b']);
-    oldRead.complete(_payload(ContentCacheKeys.reelsFirstPage));
-    await Future.wait([oldLoad, nextLoad]);
+      state.switchUser();
+      state.cache.reads.clear();
+      final nextLoad = state.repository.loadInitialReels();
+      await Future<void>.delayed(Duration.zero);
+      expect(state.api.pageUsers, ['user-b']);
+      oldRead.complete(_payload(ContentCacheKeys.reelsFirstPage));
+      await Future.wait([oldLoad, nextLoad]);
 
-    expect(state.api.pageUsers, ['user-b']);
-    expect(state.repository.cachedReels, isEmpty);
-    expect(state.repository.cacheUserId, 'user-b');
-  });
+      expect(state.api.pageUsers, ['user-b']);
+      expect(state.repository.cachedReels, isEmpty);
+      expect(state.repository.cacheUserId, 'user-b');
+    },
+  );
 
   test('reset rejects a delayed filter response', () async {
     final pending = state.filters.loadFilters();
@@ -97,17 +100,22 @@ void main() {
     expect(state.filters.response, isNull);
   });
 
-  test('reset rejects old entitlements without reloading the new library', () async {
-    final pending = state.entitlements.refresh(reloadContent: true);
+  test(
+    'reset rejects old entitlements without reloading the new library',
+    () async {
+      final pending = state.entitlements.refresh(reloadContent: true);
 
-    state.switchUser();
-    state.api.entitlements.complete(_entitlements('user-a', restricted: true));
-    await pending;
+      state.switchUser();
+      state.api.entitlements.complete(
+        _entitlements('user-a', restricted: true),
+      );
+      await pending;
 
-    expect(state.entitlements.response, isNull);
-    expect(state.api.pageUsers, isEmpty);
-    expect(state.api.mapLoads, 0);
-  });
+      expect(state.entitlements.response, isNull);
+      expect(state.api.pageUsers, isEmpty);
+      expect(state.api.mapLoads, 0);
+    },
+  );
 
   test('reset releases entitlements single-flight for the next user', () async {
     final oldResponse = state.api.entitlements;
@@ -219,7 +227,10 @@ Map<String, dynamic> _payload(String slot) {
     case ContentCacheKeys.mapOverview:
       return ApiV2Fixture('map_pins').body;
     default:
-      return {'user_id': 'user-a', 'current_entitlement': {'plan': 'pro'}};
+      return {
+        'user_id': 'user-a',
+        'current_entitlement': {'plan': 'pro'},
+      };
   }
 }
 
@@ -229,7 +240,8 @@ EntitlementsResponse _entitlements(String userId, {bool restricted = false}) =>
       'current_entitlement': {'plan': 'pro', 'restricted': restricted},
     });
 
-MapItem get _pin => MapResponse.fromJson(ApiV2Fixture('map_pins').body).mapItems.single;
+MapItem get _pin =>
+    MapResponse.fromJson(ApiV2Fixture('map_pins').body).mapItems.single;
 
 const _place = MapPlaceSearchResult(
   resultType: 'google_place',
@@ -255,7 +267,15 @@ class _State {
   late final search = SearchViewModel(repository);
   late final collections = CollectionsViewModel(api, cache: cache);
   late final entitlements = EntitlementsViewModel(
-    api, auth, repository, home, map, filters, discover, search, cache: cache,
+    api,
+    auth,
+    repository,
+    home,
+    map,
+    filters,
+    discover,
+    search,
+    cache: cache,
   );
   late final jobs = ProcessingJobsViewModel(repository)..setForeground(false);
   late final coordinator = UserStateCoordinator(
@@ -327,7 +347,11 @@ class _Cache implements ContentCache {
   Future<Map<String, dynamic>?> read(String key) async => reads[key]?.future;
 
   @override
-  Future<void> write(String key, Map<String, dynamic> payload, {String? expectedUserId}) async {}
+  Future<void> write(
+    String key,
+    Map<String, dynamic> payload, {
+    String? expectedUserId,
+  }) async {}
 
   @override
   Future<void> invalidate(String key) async => invalidations.add(key);
@@ -347,7 +371,7 @@ class _Auth extends AuthService {
   String userId = 'user-a';
 
   @override
-  User get currentUser => User.fromJson({
+  User? get currentUser => User.fromJson({
     'id': userId,
     'app_metadata': <String, dynamic>{},
     'user_metadata': <String, dynamic>{},
@@ -369,22 +393,39 @@ class _Api extends ApiClient {
   MapResponse mapResponse = const MapResponse(mapItems: []);
 
   @override
-  Future<ReelPage> getReelsPage({String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50}) async {
+  Future<ReelPage> getReelsPage({
+    String? userId,
+    String? platform,
+    String? category,
+    String? subcategory,
+    String? savedDate,
+    String? cursor,
+    int limit = 50,
+  }) async {
     pageUsers.add(userId);
     return const ReelPage(reels: [], limit: 25);
   }
 
   @override
-  Future<ReelFiltersResponse> getReelFilters({String? platform, String? category, String? subcategory}) => filters.future;
+  Future<ReelFiltersResponse> getReelFilters({
+    String? platform,
+    String? category,
+    String? subcategory,
+  }) => filters.future;
 
   @override
-  Future<EntitlementsResponse> getAccountEntitlements({required String userId}) {
+  Future<EntitlementsResponse> getAccountEntitlements({
+    required String userId,
+  }) {
     entitlementUsers.add(userId);
     return entitlements.future;
   }
 
   @override
-  Future<MapResponse> getMapData({required MapBounds bounds, String? category}) async {
+  Future<MapResponse> getMapData({
+    required MapBounds bounds,
+    String? category,
+  }) async {
     mapLoads += 1;
     return mapResponse;
   }
@@ -399,13 +440,17 @@ class _Api extends ApiClient {
   );
 
   @override
-  Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken}) => pin.future;
+  Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken}) =>
+      pin.future;
 
   @override
   Future<void> removeMapItem(String mapItemId) => removal.future;
 
   @override
-  Future<List<ProcessingJob>> listProcessingJobs({bool activeOnly = true, int limit = 20}) {
+  Future<List<ProcessingJob>> listProcessingJobs({
+    bool activeOnly = true,
+    int limit = 20,
+  }) {
     jobLoads += 1;
     return jobs.future;
   }

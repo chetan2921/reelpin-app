@@ -97,9 +97,7 @@ class ReelFiltersViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_response != null) return;
 
-    final payload = await _cache.read(
-      ContentCacheKeys.reelFilters,
-    );
+    final payload = await _cache.read(ContentCacheKeys.reelFilters);
     if (payload == null) return;
     if (_response != null) return;
 

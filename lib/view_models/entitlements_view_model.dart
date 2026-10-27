@@ -56,9 +56,7 @@ class EntitlementsViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_response != null) return;
 
-    final payload = await _cache.read(
-      ContentCacheKeys.entitlements,
-    );
+    final payload = await _cache.read(ContentCacheKeys.entitlements);
     if (payload == null) return;
     if (_response != null) return;
 
@@ -67,9 +65,7 @@ class EntitlementsViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       AppLogger.error('Cached entitlements could not be restored: $e');
-      unawaited(
-        _cache.invalidate(ContentCacheKeys.entitlements),
-      );
+      unawaited(_cache.invalidate(ContentCacheKeys.entitlements));
     }
   }
 

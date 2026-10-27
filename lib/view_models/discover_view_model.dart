@@ -48,9 +48,7 @@ class DiscoverViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_discover != null || _selectedSavedDate != null) return;
 
-    final payload = await _cache.read(
-      ContentCacheKeys.discoverOverview,
-    );
+    final payload = await _cache.read(ContentCacheKeys.discoverOverview);
     if (payload == null) return;
     if (_discover != null || _selectedSavedDate != null) return;
 
@@ -65,9 +63,7 @@ class DiscoverViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       AppLogger.error('Cached discover data could not be restored: $e');
-      unawaited(
-        _cache.invalidate(ContentCacheKeys.discoverOverview),
-      );
+      unawaited(_cache.invalidate(ContentCacheKeys.discoverOverview));
     }
   }
 

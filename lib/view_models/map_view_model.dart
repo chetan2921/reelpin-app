@@ -126,9 +126,7 @@ class MapViewModel extends ChangeNotifier {
   Future<void> hydrateFromCache() async {
     if (_mapItems.isNotEmpty || _selectedCategory != null) return;
 
-    final payload = await _cache.read(
-      ContentCacheKeys.mapOverview,
-    );
+    final payload = await _cache.read(ContentCacheKeys.mapOverview);
     if (payload == null) return;
     if (_mapItems.isNotEmpty || _selectedCategory != null) return;
 
