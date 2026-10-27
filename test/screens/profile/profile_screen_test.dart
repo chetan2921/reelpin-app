@@ -84,7 +84,7 @@ class _Session extends ChangeNotifier implements SessionViewModel {
   }
 
   @override
-  User get currentUser => User.fromJson({
+  User? get currentUser => User.fromJson({
     'id': _userId,
     'app_metadata': <String, dynamic>{},
     'user_metadata': <String, dynamic>{},

@@ -90,7 +90,8 @@ void main() {
         sessionRefresher: () async => renewals += 1,
         client: MockClient((request) async {
           seen.add(request.headers['Authorization']);
-          if (request.headers['Authorization'] == 'Bearer ${_tokenFor('user-a', 'fresh')}') {
+          if (request.headers['Authorization'] ==
+              'Bearer ${_tokenFor('user-a', 'fresh')}') {
             return ApiV2Fixture('library_stats').toResponse();
           }
           // Renewed elsewhere while this request was in flight.
@@ -139,7 +140,11 @@ void main() {
           await expectLater(
             service.deleteAccount(),
             throwsA(
-              isA<ApiException>().having((e) => e.statusCode, 'statusCode', 401),
+              isA<ApiException>().having(
+                (e) => e.statusCode,
+                'statusCode',
+                401,
+              ),
             ),
           );
           expect(seen, ['Bearer ${_tokenFor('user-a', 'expired')}']);
@@ -175,25 +180,31 @@ void main() {
       'header.e30=.signature',
       _tokenFor('', 'expired'),
     ]) {
-      test('a token without an account identity is not replayed: $invalidToken', () async {
-        var token = invalidToken;
-        var renewals = 0;
-        final seen = <String?>[];
-        final service = ApiClient(
-          baseUrl: 'https://example.com',
-          accessTokenProvider: () => token,
-          sessionRefresher: () async {
-            renewals += 1;
-            token = _tokenFor('user-a', 'fresh');
-          },
-          client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
-        );
+      test(
+        'a token without an account identity is not replayed: $invalidToken',
+        () async {
+          var token = invalidToken;
+          var renewals = 0;
+          final seen = <String?>[];
+          final service = ApiClient(
+            baseUrl: 'https://example.com',
+            accessTokenProvider: () => token,
+            sessionRefresher: () async {
+              renewals += 1;
+              token = _tokenFor('user-a', 'fresh');
+            },
+            client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
+          );
 
-        await expectLater(service.getLibraryStats(), throwsA(isA<ApiException>()));
+          await expectLater(
+            service.getLibraryStats(),
+            throwsA(isA<ApiException>()),
+          );
 
-        expect(seen, ['Bearer $invalidToken']);
-        expect(renewals, 0);
-      });
+          expect(seen, ['Bearer $invalidToken']);
+          expect(renewals, 0);
+        },
+      );
     }
 
     test('is not renewed for a request sent signed out', () async {
@@ -217,47 +228,60 @@ void main() {
 
   group('cached response ownership', () {
     for (final switchAtWrite in [false, true]) {
-      test('a previous account response is not cached for the next user: $switchAtWrite', () async {
-        final directory = Directory.systemTemp.createTempSync('api_account_cache');
-        addTearDown(() => directory.deleteSync(recursive: true));
-        var userId = 'user-a';
-        var token = _tokenFor(userId, 'fresh');
-        var responseReady = false;
-        void switchAccount() {
-          userId = 'user-b';
-          token = _tokenFor(userId, 'fresh');
-        }
-        final cache = ContentCache.forTesting(
-          directory: directory,
-          userIdProvider: () {
-            if (switchAtWrite && responseReady) switchAccount();
-            return userId;
-          },
-        );
-        final service = ApiClient(
-          baseUrl: 'https://example.com',
-          cache: cache,
-          accessTokenProvider: () => token,
-          client: MockClient((request) async {
-            responseReady = true;
-            if (!switchAtWrite) switchAccount();
-            return ApiV2Fixture('reel_page').toResponse();
-          }),
-        );
-        Object? error;
-        try {
-          await service.getReelsPage();
-        } catch (caught) {
-          error = caught;
-        }
-        await pumpEventQueue();
+      test(
+        'a previous account response is not cached for the next user: $switchAtWrite',
+        () async {
+          final directory = Directory.systemTemp.createTempSync(
+            'api_account_cache',
+          );
+          addTearDown(() => directory.deleteSync(recursive: true));
+          var userId = 'user-a';
+          var token = _tokenFor(userId, 'fresh');
+          var responseReady = false;
+          void switchAccount() {
+            userId = 'user-b';
+            token = _tokenFor(userId, 'fresh');
+          }
 
-        expect(userId, 'user-b');
-        expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);
-        if (!switchAtWrite) {
-          expect(error, isA<ApiException>().having((e) => e.statusCode, 'statusCode', 409));
-        }
-      });
+          final cache = ContentCache.forTesting(
+            directory: directory,
+            userIdProvider: () {
+              if (switchAtWrite && responseReady) switchAccount();
+              return userId;
+            },
+          );
+          final service = ApiClient(
+            baseUrl: 'https://example.com',
+            cache: cache,
+            accessTokenProvider: () => token,
+            client: MockClient((request) async {
+              responseReady = true;
+              if (!switchAtWrite) switchAccount();
+              return ApiV2Fixture('reel_page').toResponse();
+            }),
+          );
+          Object? error;
+          try {
+            await service.getReelsPage();
+          } catch (caught) {
+            error = caught;
+          }
+          await pumpEventQueue();
+
+          expect(userId, 'user-b');
+          expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);
+          if (!switchAtWrite) {
+            expect(
+              error,
+              isA<ApiException>().having(
+                (e) => e.statusCode,
+                'statusCode',
+                409,
+              ),
+            );
+          }
+        },
+      );
     }
   });
 
@@ -434,7 +458,8 @@ void main() {
         sessionRefresher: () async => token = _tokenFor('user-a', 'fresh'),
         client: MockClient((request) async {
           keys.add(request.headers['Idempotency-Key']);
-          if (request.headers['Authorization'] != 'Bearer ${_tokenFor('user-a', 'fresh')}') {
+          if (request.headers['Authorization'] !=
+              'Bearer ${_tokenFor('user-a', 'fresh')}') {
             return ApiV2Fixture('error_unauthorized').toResponse();
           }
           return ApiV2Fixture('submission_accepted').toResponse();
