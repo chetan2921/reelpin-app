@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +17,13 @@ void main() {
   for (final completeBeforeSwitch in [false, true]) {
     testWidgets('profile stats do not survive an account change: $completeBeforeSwitch', (tester) async {
       SharedPreferences.setMockInitialValues({});
+      const locationChannel = MethodChannel('flutter.baseflow.com/geolocator');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(locationChannel, (_) async => false);
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(locationChannel, null);
+      });
       final session = _Session();
       final api = _AccountApi();
       await tester.pumpWidget(

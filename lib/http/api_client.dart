@@ -868,7 +868,6 @@ class ApiClient
     String? subcategory,
     int limit = 5,
     http.Client? client,
-    ContentCache? cache,
   }) async {
     final res = client == null
         ? await _sendRequest(
