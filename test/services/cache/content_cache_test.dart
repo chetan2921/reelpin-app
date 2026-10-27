@@ -159,9 +159,9 @@ void main() {
     await first;
 
     expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);
-    final envelope = jsonDecode(
-      fileFor(ContentCacheKeys.reelsFirstPage).readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final envelope =
+        jsonDecode(fileFor(ContentCacheKeys.reelsFirstPage).readAsStringSync())
+            as Map<String, dynamic>;
     expect(envelope['user_id'], 'user-a');
 
     userId = 'user-a';

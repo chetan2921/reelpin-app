@@ -348,6 +348,8 @@ class ApiClient
     String? cursor,
     int limit = 50,
   }) async {
+    final requestToken = _accessTokenProvider();
+    final requestUserId = _tokenSubject(requestToken);
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
         'limit': _pageLimit(limit),
@@ -370,6 +372,7 @@ class ApiClient
           .timeout(_requestTimeout);
     });
 
+    _requireRequestAccount(requestToken);
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
         res,
@@ -383,9 +386,13 @@ class ApiClient
         _isBlank(subcategory) &&
         _isBlank(savedDate) &&
         _isBlank(cursor);
-    if (isUnfilteredFirstPage) {
+    if (isUnfilteredFirstPage && requestUserId != null) {
       unawaited(
-        _cache.write(ContentCacheKeys.reelsFirstPage, decoded),
+        _cache.write(
+          ContentCacheKeys.reelsFirstPage,
+          decoded,
+          expectedUserId: requestUserId,
+        ),
       );
     }
     return ReelPage.fromJson(decoded);
@@ -824,6 +831,8 @@ class ApiClient
     String? category,
     String? subcategory,
   }) async {
+    final requestToken = _accessTokenProvider();
+    final requestUserId = _tokenSubject(requestToken);
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
         if (platform != null && platform.trim().isNotEmpty)
@@ -841,6 +850,7 @@ class ApiClient
           .timeout(_requestTimeout);
     });
 
+    _requireRequestAccount(requestToken);
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
         res,
@@ -852,9 +862,13 @@ class ApiClient
     // Only the unscoped tree is worth restoring on a cold start; a scoped
     // response carries a `selected_preview_count` for a selection the next
     // session will not have.
-    if (_isBlank(platform) && _isBlank(category) && _isBlank(subcategory)) {
+    if (_isBlank(platform) && _isBlank(category) && _isBlank(subcategory) && requestUserId != null) {
       unawaited(
-        _cache.write(ContentCacheKeys.reelFilters, decoded),
+        _cache.write(
+          ContentCacheKeys.reelFilters,
+          decoded,
+          expectedUserId: requestUserId,
+        ),
       );
     }
     return ReelFiltersResponse.fromJson(decoded);
@@ -927,6 +941,8 @@ class ApiClient
   Future<EntitlementsResponse> getAccountEntitlements({
     required String userId,
   }) async {
+    final requestToken = _accessTokenProvider();
+    final requestUserId = _tokenSubject(requestToken);
     final res = await _sendRequest((baseUrl) {
       return _client
           .get(
@@ -936,6 +952,7 @@ class ApiClient
           .timeout(_requestTimeout);
     });
 
+    _requireRequestAccount(requestToken);
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
         res,
@@ -944,9 +961,15 @@ class ApiClient
     }
 
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
-    unawaited(
-      _cache.write(ContentCacheKeys.entitlements, decoded),
-    );
+    if (requestUserId != null) {
+      unawaited(
+        _cache.write(
+          ContentCacheKeys.entitlements,
+          decoded,
+          expectedUserId: requestUserId,
+        ),
+      );
+    }
     return EntitlementsResponse.fromJson(decoded);
   }
 
@@ -957,6 +980,8 @@ class ApiClient
     required MapBounds bounds,
     String? category,
   }) async {
+    final requestToken = _accessTokenProvider();
+    final requestUserId = _tokenSubject(requestToken);
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
         ...bounds.toQueryParameters(),
@@ -971,6 +996,7 @@ class ApiClient
           .timeout(_requestTimeout);
     });
 
+    _requireRequestAccount(requestToken);
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
         res,
@@ -979,9 +1005,13 @@ class ApiClient
     }
 
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
-    if (_isBlank(category)) {
+    if (_isBlank(category) && requestUserId != null) {
       unawaited(
-        _cache.write(ContentCacheKeys.mapOverview, decoded),
+        _cache.write(
+          ContentCacheKeys.mapOverview,
+          decoded,
+          expectedUserId: requestUserId,
+        ),
       );
     }
     return MapResponse.fromJson(decoded);
@@ -1115,6 +1145,8 @@ class ApiClient
     String? cursor,
     int limit = 25,
   }) async {
+    final requestToken = _accessTokenProvider();
+    final requestUserId = _tokenSubject(requestToken);
     final res = await _sendRequest((baseUrl) {
       final params = <String, String>{
         'limit': _pageLimit(limit),
@@ -1130,6 +1162,7 @@ class ApiClient
           .timeout(_requestTimeout);
     });
 
+    _requireRequestAccount(requestToken);
     if (res.statusCode != 200) {
       throw _exceptionFromResponse(
         res,
@@ -1138,9 +1171,13 @@ class ApiClient
     }
 
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
-    if (_isBlank(savedDate) && _isBlank(cursor)) {
+    if (_isBlank(savedDate) && _isBlank(cursor) && requestUserId != null) {
       unawaited(
-        _cache.write(ContentCacheKeys.discoverOverview, decoded),
+        _cache.write(
+          ContentCacheKeys.discoverOverview,
+          decoded,
+          expectedUserId: requestUserId,
+        ),
       );
     }
     return DiscoverResponse.fromJson(decoded);
@@ -1328,7 +1365,15 @@ class ApiClient
     try {
       final sentToken = _accessTokenProvider();
       final res = await request(_baseUrl);
-      if (res.statusCode != 401 || sentToken == null) return res;
+      if (res.statusCode != 401 || sentToken == null) {
+        _requireRequestAccount(sentToken);
+        return res;
+      }
+      final sentSubject = _tokenSubject(sentToken);
+      if (sentSubject == null ||
+          _tokenSubject(_accessTokenProvider()) != sentSubject) {
+        return res;
+      }
       // At launch the saved access token can be expired, and requests go out
       // before Supabase finishes renewing it. Rejected, the screens that sent
       // them silently stay on stale data — the SAVED grid's failed load meant
@@ -1337,7 +1382,10 @@ class ApiClient
       if (_accessTokenProvider() == sentToken && !await _renewSession()) {
         return res;
       }
-      return await request(_baseUrl);
+      if (_tokenSubject(_accessTokenProvider()) != sentSubject) return res;
+      final retried = await request(_baseUrl);
+      _requireRequestAccount(sentToken);
+      return retried;
     } on TimeoutException catch (e) {
       _logNetworkError(_baseUrl, e);
       throw ApiException(_networkErrorMessage(e), 408);
@@ -1417,6 +1465,33 @@ class ApiClient
     try {
       return Supabase.instance.client.auth.currentSession?.accessToken;
     } catch (_) {
+      return null;
+    }
+  }
+
+  void _requireRequestAccount(String? sentToken) {
+    if (sentToken == null) return;
+    final currentToken = _accessTokenProvider();
+    if (currentToken == sentToken) return;
+    final sentSubject = _tokenSubject(sentToken);
+    if (sentSubject == null || _tokenSubject(currentToken) != sentSubject) {
+      throw const ApiException('Your account changed. Please try again.', 409);
+    }
+  }
+
+  // This only compares account identity; the server still verifies each token.
+  static String? _tokenSubject(String? token) {
+    if (token == null) return null;
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    try {
+      final claims = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      if (claims is! Map<String, dynamic>) return null;
+      final subject = claims['sub'];
+      return subject is String && subject.isNotEmpty ? subject : null;
+    } on FormatException {
       return null;
     }
   }

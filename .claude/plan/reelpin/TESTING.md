@@ -145,4 +145,15 @@ account's loading future. The native handoff tests cover sign-out, direct user
 switches, and delayed artwork; the session tests hold a share-token mint across
 sign-out. The collection picker preference survives clearing its account data.
 
-<!-- mapped: reelpin-app@325f63a plus uncommitted changes | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+## Request ownership across account changes (2026-10-28)
+
+`api_client_test.dart` holds account deletion across a user change before its
+401 or during renewal. Neither request may replay under the next account.
+Malformed token subjects and sign-out also block replay; same-account renewal
+and submission idempotency remain covered. Disk-cache tests switch accounts
+before a successful response and at cache write time, so old payloads cannot be
+stamped with a new owner. A queued-write test checks the original owner stamp
+and that a later account write wins. Profile widget tests hold statistics across account
+changes and check that already rendered statistics are cleared too.
+
+<!-- mapped: reelpin-app@3ad2d5d plus uncommitted changes | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
