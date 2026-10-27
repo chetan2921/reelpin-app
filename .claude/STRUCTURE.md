@@ -167,31 +167,14 @@ lib/
   app_entry.dart
   bootstrap.dart
   components/
-    chat/
-      chat_answer_actions.dart
-      chat_answer_card.dart
-      chat_answer_text.dart
-      chat_attachment_sheet.dart
-      chat_chart_block.dart
-      chat_composer.dart
-      chat_places_block.dart
-      chat_question_bubble.dart
-      chat_reel_strip.dart
-      chat_reel_strip_card.dart
-      chat_suggestions_block.dart
-      chat_table_block.dart
-      chat_thinking_stages.dart
-      chat_thread_drawer.dart
     collections/
       add_to_collection_sheet.dart
       collection_folder_tile.dart
       collection_form_sheet.dart
       collection_tile_renderer.dart
-      pick_collection_sheet.dart
       reel_actions_sheet.dart
       selection_tick.dart
       share_collection_sheet.dart
-      share_to_collection_chat.dart
     common/
       app_back_button.dart
       app_bottom_sheet.dart
@@ -208,29 +191,21 @@ lib/
     app_layout.dart
     app_spacing.dart
     app_theme.dart
-    chat_feature.dart
     source_platforms.dart
   data_models/
     account/
       library_stats.dart
       user_entitlement.dart
-    chat/
-      answer_block.dart
-      answer_text_segment.dart
-      chat_attachment.dart
-      chat_thread.dart
-      collection_chat_page.dart
-      collection_chat_thread.dart
-      thinking_stage.dart
+    app_config/
+      remote_config.dart
     collections/
       collection_models.dart
     discover/
       discover_response.dart
       search_response.dart
       search_result.dart
-    folders/
-      folder_models.dart
     map/
+      map_bounds.dart
       map_place_search_response.dart
       map_response.dart
     notifications/
@@ -248,17 +223,9 @@ lib/
     account_http.dart
     api_client.dart
     api_exception.dart
-    chat_api_http.dart
-    chat_http.dart
-    chat_sse_http.dart
-    collection_chat_api_http.dart
-    collection_chat_http.dart
     collections_http.dart
     discover_http.dart
-    folders_http.dart
     map_http.dart
-    mock_chat_http.dart
-    mock_collection_chat_http.dart
     mock_collections_http.dart
     reels_http.dart
     sharing_http.dart
@@ -277,18 +244,11 @@ lib/
         nav_item.dart
     auth/
       auth_screen.dart
-    chat/
-      chat_screen.dart
-      partials/
-        chat_empty_state.dart
     collections/
-      collection_ask_screen.dart
       collection_detail_screen.dart
       collections_screen.dart
       partials/
-        collection_chat_panel.dart
         collection_sticky_note.dart
-        collection_tab_bar.dart
     discover/
       discover_screen.dart
       partials/
@@ -331,6 +291,8 @@ lib/
       setup_required_screen.dart
     splash/
       splash_screen.dart
+    update_required/
+      update_required_screen.dart
   services/
     analytics/
       analytics_event.dart
@@ -342,9 +304,6 @@ lib/
       supabase_client.dart
     cache/
       content_cache.dart
-    chat/
-      chat_reel_cache.dart
-      chat_thread_store.dart
     device_metadata_service.dart
     how_to_guide_service.dart
     location/
@@ -352,6 +311,8 @@ lib/
     notifications/
       notification_service.dart
       notification_tap_handler.dart
+    remote_config/
+      remote_config_service.dart
     sharing/
       collection_link.dart
       collection_link_cache.dart
@@ -364,7 +325,6 @@ lib/
       share_handoff_service.dart
       shared_collection_prefetch.dart
   utils/
-    answer_text_parser.dart
     app_logger.dart
     app_store_links.dart
     auth_error_message.dart
@@ -372,17 +332,15 @@ lib/
     error_message.dart
     location_maps_uri.dart
   view_models/
-    chat_view_model.dart
-    collection_chat_view_model.dart
     collections_view_model.dart
     discover_view_model.dart
     entitlements_view_model.dart
-    folders_view_model.dart
     home_view_model.dart
     map_view_model.dart
     processing_jobs_view_model.dart
     reel_detail_view_model.dart
     reel_filters_view_model.dart
+    remote_config_view_model.dart
     search_view_model.dart
     session_view_model.dart
     theme_view_model.dart
@@ -457,16 +415,6 @@ pubspec.yaml
 test/
   app_entry_test.dart
   components/
-    chat/
-      answer_blocks_test.dart
-      chat_answer_actions_test.dart
-      chat_answer_card_test.dart
-      chat_answer_text_test.dart
-      chat_composer_test.dart
-      chat_places_block_test.dart
-      chat_reel_strip_card_test.dart
-      chat_reel_strip_test.dart
-      chat_thinking_stages_test.dart
     collections/
       collection_folder_tile_test.dart
     processing_reel_card_test.dart
@@ -475,12 +423,11 @@ test/
   data_models/
     account/
       user_entitlement_test.dart
-    chat/
-      chat_thread_test.dart
-      collection_chat_page_test.dart
+    app_config/
+      remote_config_test.dart
     collection_models_test.dart
     map/
-      map_place_search_response_test.dart
+      map_response_test.dart
     notifications/
       app_notification_test.dart
     reels/
@@ -490,24 +437,33 @@ test/
     sharing/
       pending_share_test.dart
   env_test.dart
+  fixtures/
+    api_v2/
+      error_idempotency_conflict.json
+      error_processing_unavailable.json
+      error_unauthorized.json
+      error_validation.json
+      job_list.json
+      library_stats.json
+      map_pins.json
+      reel_detail.json
+      reel_page.json
+      search_results.json
+      share_resolved.json
+      share_token_minted.json
+      submission_accepted.json
+      submission_in_flight.json
+    api_v2.dart
   http/
     api_client_test.dart
-    chat_api_http_test.dart
-    collection_chat_api_http_test.dart
     collections_api_client_test.dart
-    mock_chat_http_test.dart
-    mock_collection_chat_http_test.dart
   repositories/
     reel_repository_cache_test.dart
     reel_repository_test.dart
   router_test.dart
   screens/
     app_shell_tab_index_test.dart
-    chat/
-      chat_screen_test.dart
-    chat_attachment_sheet_test.dart
     collections/
-      collection_chat_panel_test.dart
       collection_detail_tabs_test.dart
       share_collection_sheet_test.dart
     feature_announcement/
@@ -515,21 +471,27 @@ test/
     home/
       home_empty_state_test.dart
       home_filter_sheet_test.dart
+      home_paywall_banner_test.dart
     how_to/
       how_to_use_screen_test.dart
     onboarding/
       onboarding_screen_test.dart
+    profile/
+      profile_screen_test.dart
     reel_detail/
+      locked_history_copy_test.dart
+      reel_detail_screen_test.dart
       reel_share_card_test.dart
+    update_required/
+      update_required_screen_test.dart
   services/
     cache/
       content_cache_test.dart
-    chat/
-      chat_reel_cache_test.dart
-      chat_thread_store_test.dart
     how_to_guide_service_test.dart
     notifications/
       notification_tap_handler_test.dart
+    remote_config/
+      remote_config_service_test.dart
     sharing/
       collection_link_cache_test.dart
       collection_link_test.dart
@@ -540,21 +502,20 @@ test/
       share_handoff_collections_test.dart
       shared_collection_prefetch_test.dart
   utils/
-    answer_text_parser_test.dart
     auth_error_message_test.dart
     category_marker_icon_test.dart
   view_models/
-    chat_view_model_test.dart
-    collection_chat_view_model_test.dart
     collections_view_model_test.dart
     discover_view_model_test.dart
     home_view_model_test.dart
     map_view_model_test.dart
     processing_jobs_view_model_test.dart
     reel_filters_view_model_test.dart
+    remote_config_view_model_test.dart
     search_view_model_test.dart
     session_view_model_test.dart
     theme_view_model_test.dart
+    user_state_coordinator_test.dart
 tool/
   check_architecture.dart
   check_assets.dart
@@ -595,158 +556,25 @@ windows/
 
 ### lib/app_entry.dart
 
-- L18 `class AppEntry extends ConsumerStatefulWidget`
-  - L19 `const AppEntry({super.key})`
-  - L22 `ConsumerState<AppEntry> createState()`
-- L25 `class _AppEntryState extends ConsumerState<AppEntry> with WidgetsBindingObserver`
-  - L34 `void initState()`
-  - L52 `void _startContentLoad()`
-  - L70 `void _startCollectionLaunch()`
-  - L83 `void dispose()`
-  - L89 `void didChangeAppLifecycleState(AppLifecycleState state)`
-  - L95 `Future<void> _loadOnboardingState()`
-  - L104 `Future<void> _completeOnboarding()`
-  - L118 `Widget build(BuildContext context)`
+- L20 `class AppEntry extends ConsumerStatefulWidget`
+  - L21 `const AppEntry({super.key})`
+  - L24 `ConsumerState<AppEntry> createState()`
+- L27 `class _AppEntryState extends ConsumerState<AppEntry> with WidgetsBindingObserver`
+  - L38 `void initState()`
+  - L65 `void _startContentLoad()`
+  - L84 `Future<void> _waitForLocalRemoteConfig( RemoteConfigViewModel remoteConfig, )`
+  - L99 `void _startCollectionLaunch()`
+  - L112 `void dispose()`
+  - L118 `void didChangeAppLifecycleState(AppLifecycleState state)`
+  - L125 `Future<void> _loadOnboardingState()`
+  - L134 `Future<void> _completeOnboarding()`
+  - L148 `Widget build(BuildContext context)`
 
 ### lib/bootstrap.dart
 
 - L20 `Future<void> bootstrap()`
 - L65 `Future<void> _initializeFirebase()`
 - L94 `void _configureImageCache()`
-
-### lib/components/chat/chat_answer_actions.dart
-
-- L14 `String answerPlainText(ChatMessage message)`
-- L48 `class ChatAnswerActions extends StatelessWidget`
-  - L49 `const ChatAnswerActions({ super.key, required this.message, required this.onSaveToCollection, })`
-  - L61 `Widget build(BuildContext context)`
-  - L109 `Widget _chip( BuildContext context, { required String label, required Color? colour, required VoidCallback? onTap, })`
-
-### lib/components/chat/chat_answer_card.dart
-
-- L22 `class ChatAnswerCard extends StatelessWidget`
-  - L23 `const ChatAnswerCard({ super.key, required this.message, required this.onRetry, required this.library, required this.reelCache, required this.onTapReel, required this.onSaveToCollection, this.sharedByName, })`
-  - L52 `Widget build(BuildContext context)`
-  - L80 `Widget _buildSharedMarker(BuildContext context)`
-  - L99 `Widget _buildBlock(BuildContext context, AnswerBlock block)`
-  - L141 `Widget _buildFailure(BuildContext context)`
-
-### lib/components/chat/chat_answer_text.dart
-
-- L19 `class ChatAnswerTextView extends StatelessWidget`
-  - L20 `const ChatAnswerTextView({super.key, required this.text})`
-  - L34 `Widget build(BuildContext context)`
-  - L71 `Widget _buildHeading(BuildContext context, String text)`
-  - L89 `Widget _buildBulletGroup( BuildContext context, List<String> bullets, Color dotColor, )`
-  - L105 `Widget _buildBullet(BuildContext context, String text, Color dotColor)`
-  - L134 `Widget _buildParagraph(BuildContext context, String text)`
-  - L148 `Widget _richText(BuildContext context, String text, TextStyle baseStyle)`
-
-### lib/components/chat/chat_attachment_sheet.dart
-
-- L14 `Future<ChatAttachment?> showChatAttachmentSheet( BuildContext context, { required List<Reel> library, })`
-- L74 `Widget _row( BuildContext context, { required Color colour, required IconData icon, required String label, required VoidCallback? onTap, })`
-- L123 `Future<void> _pickImage(BuildContext context, ImageSource source)`
-- L148 `Future<void> _pickFile(BuildContext context)`
-- L169 `void _showAttachmentError(ScaffoldMessengerState messenger)`
-- L184 `Future<void> _pickSave(BuildContext context, List<Reel> library)`
-- L216 `Future<void> _pasteLink(BuildContext context)`
-- L234 `class _LinkEntrySheet extends StatefulWidget`
-  - L235 `const _LinkEntrySheet()`
-  - L238 `State<_LinkEntrySheet> createState()`
-- L241 `class _LinkEntrySheetState extends State<_LinkEntrySheet>`
-  - L245 `void dispose()`
-  - L251 `Widget build(BuildContext context)`
-
-### lib/components/chat/chat_chart_block.dart
-
-- L11 `class ChatChartBlockView extends StatelessWidget`
-  - L12 `const ChatChartBlockView({super.key, required this.block})`
-  - L23 `Widget build(BuildContext context)`
-
-### lib/components/chat/chat_composer.dart
-
-- L8 `class ChatComposer extends StatefulWidget`
-  - L9 `const ChatComposer({ super.key, required this.onSend, required this.enabled, this.onAttach, this.initialText = '', this.pending = const [], this.onRemoveAttachment, })`
-  - L33 `State<ChatComposer> createState()`
-- L36 `class _ChatComposerState extends State<ChatComposer>`
-  - L42 `void didUpdateWidget(covariant ChatComposer oldWidget)`
-  - L56 `void dispose()`
-  - L61 `void _send()`
-  - L70 `Widget build(BuildContext context)`
-  - L91 `Widget _pendingChips(BuildContext context)`
-  - L146 `Widget _inputRow(BuildContext context)`
-  - L218 `Widget _button( BuildContext context, { required Color color, required Widget child, required VoidCallback onTap, })`
-
-### lib/components/chat/chat_places_block.dart
-
-- L21 `class ChatPlacesBlockView extends StatelessWidget`
-  - L22 `const ChatPlacesBlockView({super.key, required this.places})`
-  - L30 `Widget build(BuildContext context)`
-- L77 `class _PlaceCard extends StatefulWidget`
-  - L78 `const _PlaceCard({required this.place})`
-  - L83 `State<_PlaceCard> createState()`
-- L86 `class _PlaceCardState extends State<_PlaceCard>`
-  - L110 `void initState()`
-  - L116 `void didUpdateWidget(covariant _PlaceCard oldWidget)`
-  - L124 `Future<void> _loadIcon()`
-  - L131 `Widget build(BuildContext context)`
-  - L222 `Future<void> _openInMaps(Uri uri)`
-
-### lib/components/chat/chat_question_bubble.dart
-
-- L11 `class ChatQuestionBubble extends StatelessWidget`
-  - L12 `const ChatQuestionBubble({super.key, required this.message})`
-  - L17 `Widget build(BuildContext context)`
-
-### lib/components/chat/chat_reel_strip.dart
-
-- L22 `class ChatReelStrip extends StatefulWidget`
-  - L23 `const ChatReelStrip({ super.key, required this.reelIds, required this.library, required this.onTapReel, required this.reelCache, })`
-  - L40 `State<ChatReelStrip> createState()`
-- L43 `class _ChatReelStripState extends State<ChatReelStrip>`
-  - L59 `void initState()`
-  - L65 `void didUpdateWidget(covariant ChatReelStrip oldWidget)`
-  - L75 `void _resolveMissing()`
-  - L102 `Widget build(BuildContext context)`
-
-### lib/components/chat/chat_reel_strip_card.dart
-
-- L17 `class ChatReelStripCard extends StatelessWidget`
-  - L18 `const ChatReelStripCard({super.key, required this.reel, required this.onTap})`
-  - L24 `Widget build(BuildContext context)`
-  - L64 `Widget _buildThumbnail(BuildContext context, Color catColor)`
-  - L119 `Widget _buildPlain(BuildContext context)`
-  - L135 `Widget _title( BuildContext context, { required Color color, List<Shadow>? shadows, })`
-
-### lib/components/chat/chat_suggestions_block.dart
-
-- L11 `class ChatSuggestionsBlockView extends StatelessWidget`
-  - L12 `const ChatSuggestionsBlockView({super.key, required this.block})`
-  - L17 `Widget build(BuildContext context)`
-- L43 `class _SuggestionCard extends StatelessWidget`
-  - L44 `const _SuggestionCard({required this.item})`
-  - L49 `Widget build(BuildContext context)`
-
-### lib/components/chat/chat_table_block.dart
-
-- L9 `class ChatTableBlockView extends StatelessWidget`
-  - L10 `const ChatTableBlockView({super.key, required this.block})`
-  - L15 `Widget build(BuildContext context)`
-  - L46 `Widget _cell( String text, { bool bold = false, bool onYellow = false, Color? color, })`
-
-### lib/components/chat/chat_thinking_stages.dart
-
-- L10 `class ChatThinkingStages extends StatelessWidget`
-  - L11 `const ChatThinkingStages({super.key, required this.stages})`
-  - L25 `Widget build(BuildContext context)`
-  - L53 `Widget _buildRow( BuildContext context, { required String label, required bool isPending, Color? tickColor, bool done = false, })`
-
-### lib/components/chat/chat_thread_drawer.dart
-
-- L9 `class ChatThreadDrawer extends StatelessWidget`
-  - L10 `const ChatThreadDrawer({ super.key, required this.threads, required this.onOpen, required this.onNewChat, this.heading = 'YOUR CHATS', })`
-  - L24 `Widget build(BuildContext context)`
 
 ### lib/components/collections/add_to_collection_sheet.dart
 
@@ -810,22 +638,6 @@ windows/
   - L84 `static Widget _tileFrame({ required CollectionSummary collection, required Color accent, required Brightness brightness, })`
   - L119 `static Future<Map<String, String>> writeTiles({ required String directory, required List<CollectionSummary> collections, })`
 
-### lib/components/collections/pick_collection_sheet.dart
-
-- L15 `Future<List<CollectionSummary>?> showPickCollectionSheet( BuildContext context, { String? excludeCollectionId, })`
-- L31 `class PickCollectionSheet extends ConsumerStatefulWidget`
-  - L32 `const PickCollectionSheet({super.key, this.excludeCollectionId})`
-  - L39 `ConsumerState<PickCollectionSheet> createState()`
-- L43 `class _PickCollectionSheetState extends ConsumerState<PickCollectionSheet>`
-  - L47 `void initState()`
-  - L54 `void _toggle(String collectionId)`
-  - L60 `void _save(List<CollectionSummary> editable)`
-  - L67 `Widget build(BuildContext context)`
-  - L145 `Widget _buildBody( BuildContext context, bool isLoading, List<CollectionSummary> editable, Map<String, Color> accents, )`
-- L213 `class _SaveButton extends StatelessWidget`
-  - L214 `const _SaveButton({required this.count, required this.onTap})`
-  - L220 `Widget build(BuildContext context)`
-
 ### lib/components/collections/reel_actions_sheet.dart
 
 - L10 `enum _ReelAction`
@@ -886,10 +698,6 @@ windows/
 - L705 `class _MemberRow extends StatelessWidget`
   - L706 `const _MemberRow({ required this.member, required this.canManage, required this.onRemove, this.isRemoving = false, })`
   - L719 `Widget build(BuildContext context)`
-
-### lib/components/collections/share_to_collection_chat.dart
-
-- L15 `Future<void> shareToCollectionChat( BuildContext context, WidgetRef ref, { required List<AnswerBlock> blocks, String? excludeCollectionId, })`
 
 ### lib/components/common/app_back_button.dart
 
@@ -1063,10 +871,6 @@ windows/
   - L103 `static ThemeData get darkTheme`
   - L105 `static ThemeData _buildTheme({required bool isDark})`
 
-### lib/constants/chat_feature.dart
-
-- L6 `const bool chatEnabled = bool.fromEnvironment`
-
 ### lib/constants/source_platforms.dart
 
 - L7 `class SourcePlatform`
@@ -1085,194 +889,99 @@ windows/
 
 ### lib/data_models/account/user_entitlement.dart
 
-- L1 `enum SubscriptionPlan`
-  - L5 `static SubscriptionPlan fromValue(String? value)`
-- L15 `enum BillingInterval`
-  - L19 `static BillingInterval? fromValue(String? value)`
-- L31 `enum SubscriptionStatus`
-  - L36 `static SubscriptionStatus fromValue(String? value)`
-- L48 `enum SearchMode`
-  - L52 `static SearchMode fromValue(String? value)`
-- L62 `class EntitlementFeatures`
-  - L63 `const EntitlementFeatures({ this.basicAiCategorization = false, this.keywordSearch = false, this.conversationalRagSearch = false, this.mapPins = false, this.shareableCollectionLinks = false, this.weeklyAiDigest = false, this.priorityProcessing = false, })`
-  - L81 `factory EntitlementFeatures.fromJson(Map<String, dynamic>? json)`
-- L98 `class EntitlementLimits`
-  - L99 `const EntitlementLimits({ this.reelsPerMonth, this.accessibleHistoryDays, this.mapPins, })`
-  - L109 `factory EntitlementLimits.fromJson(Map<String, dynamic>? json)`
-- L122 `class EntitlementUsage`
-  - L123 `const EntitlementUsage({ this.reelsSavedThisMonth = 0, this.reelsRemainingThisMonth, })`
-  - L131 `factory EntitlementUsage.fromJson(Map<String, dynamic>? json)`
-- L145 `class EntitlementPricing`
-  - L146 `const EntitlementPricing({this.monthlyLabel = '', this.yearlyLabel = ''})`
-  - L151 `factory EntitlementPricing.fromJson(Map<String, dynamic>? json)`
-- L169 `class UserEntitlement`
-  - L170 `const UserEntitlement({ required this.userId, required this.plan, required this.billingInterval, required this.status, required this.currentPeriodStart, required this.currentPeriodEnd, required this.searchMode, required this.restricted, required this.planLabel, required this.searchModeLabel, })`
-  - L194 `factory UserEntitlement.fromJson(Map<String, dynamic> json)`
-  - L215 `bool get isPro`
-  - L216 `bool get isFree`
-- L219 `class PlanCard`
-  - L220 `const PlanCard({ required this.id, required this.title, required this.priceLabel, required this.features, this.badgeLabel, this.ctaLabel, })`
-  - L236 `factory PlanCard.fromJson(Map<String, dynamic> json)`
-- L252 `class PaywallMessage`
-  - L253 `const PaywallMessage({ required this.entryPoint, required this.title, required this.headline, required this.body, })`
-  - L265 `factory PaywallMessage.fromJson(Map<String, dynamic> json)`
-- L279 `class EntitlementsResponse`
-  - L280 `const EntitlementsResponse({ required this.currentEntitlement, required this.usage, required this.limits, required this.features, required this.pricing, required this.planCards, required this.paywallMessages, })`
-  - L298 `factory EntitlementsResponse.fromJson(Map<String, dynamic> json)`
-  - L331 `String contentAccessSignature()`
-  - L352 `PaywallMessage? messageFor(String entryPoint)`
+- L1 `enum SearchMode`
+  - L5 `static SearchMode fromValue(String? value)`
+- L16 `class EntitlementLimits`
+  - L17 `const EntitlementLimits({ this.savedReels, this.pinnedLocations, this.searchesPerMonth, this.processingJobsPerHour, })`
+  - L29 `factory EntitlementLimits.fromJson(Map<String, dynamic> json)`
+- L41 `class EntitlementUsage`
+  - L42 `const EntitlementUsage({ this.savedReels = 0, this.pinnedLocations = 0, this.tags = 0, this.categories = 0, this.subcategories = 0, })`
+  - L56 `factory EntitlementUsage.fromJson(Map<String, dynamic> json)`
+- L67 `class UserEntitlement`
+  - L68 `const UserEntitlement({ required this.userId, required this.plan, required this.subscriptionStatus, required this.isPremium, required this.restricted, this.billingInterval, this.errorMessage, })`
+  - L88 `factory UserEntitlement.fromJson( Map<String, dynamic> json, { required String userId, })`
+  - L103 `bool get isPro`
+  - L104 `bool get isFree`
+- L107 `class PlanCard`
+  - L108 `const PlanCard({ required this.plan, required this.name, required this.price, required this.features, required this.limits, this.billingInterval, this.ctaLabel, })`
+  - L126 `factory PlanCard.fromJson(Map<String, dynamic> json)`
+- L142 `class EntitlementsResponse`
+  - L143 `const EntitlementsResponse({ required this.currentEntitlement, required this.usage, required this.limits, required this.features, required this.pricing, required this.planCards, required this.paywallMessages, })`
+  - L164 `factory EntitlementsResponse.fromJson(Map<String, dynamic> json)`
+  - L190 `String contentAccessSignature()`
+  - L210 `String? messageFor(String entryPoint)`
+- L216 `Map<String, dynamic> _map(Object? value)`
 
-### lib/data_models/chat/answer_block.dart
+### lib/data_models/app_config/remote_config.dart
 
-- L4 `sealed class AnswerBlock`
-  - L5 `const AnswerBlock()`
-  - L7 `Map<String, dynamic> toJson()`
-  - L11 `static AnswerBlock? fromJson(Map<String, dynamic> json)`
-- L45 `List<String> _stringList(dynamic raw)`
-- L50 `List<Map<String, dynamic>> _mapList(dynamic raw)`
-- L55 `List<List<String>> _listOfStringLists(dynamic raw)`
-- L63 `double _asDouble(dynamic raw, [double fallback = 0])`
-- L69 `class TextBlock extends AnswerBlock`
-  - L72 `const TextBlock(this.text)`
-  - L75 `Map<String, dynamic> toJson()`
-- L81 `class ReelRefsBlock extends AnswerBlock`
-  - L84 `const ReelRefsBlock(this.reelIds)`
-  - L87 `Map<String, dynamic> toJson()`
-- L90 `class PlacesBlock extends AnswerBlock`
-  - L93 `const PlacesBlock(this.places)`
-  - L96 `Map<String, dynamic> toJson()`
-- L102 `class TableBlock extends AnswerBlock`
-  - L106 `const TableBlock({required this.columns, required this.rows})`
-  - L109 `Map<String, dynamic> toJson()`
-- L116 `class ChartBlock extends AnswerBlock`
-  - L120 `const ChartBlock({required this.title, required this.bars})`
-  - L123 `Map<String, dynamic> toJson()`
-- L133 `class SuggestionsBlock extends AnswerBlock`
-  - L137 `const SuggestionsBlock({required this.title, required this.items})`
-  - L140 `Map<String, dynamic> toJson()`
-- L147 `class Suggestion`
-  - L155 `const Suggestion({ required this.title, required this.kind, required this.why, })`
-  - L161 `factory Suggestion.fromJson(Map<String, dynamic> json)`
-  - L167 `Map<String, dynamic> toJson()`
-- L170 `class AnswerPlace`
-  - L180 `const AnswerPlace({ required this.name, required this.latitude, required this.longitude, required this.category, this.reelId, })`
-  - L188 `factory AnswerPlace.fromJson(Map<String, dynamic> json)`
-  - L196 `Map<String, dynamic> toJson()`
-- L205 `class ChartBar`
-  - L210 `const ChartBar({ required this.label, required this.value, required this.category, })`
-  - L216 `factory ChartBar.fromJson(Map<String, dynamic> json)`
-  - L222 `Map<String, dynamic> toJson()`
-
-### lib/data_models/chat/answer_text_segment.dart
-
-- L4 `sealed class AnswerTextSegment`
-  - L5 `const AnswerTextSegment()`
-- L8 `class AnswerHeading extends AnswerTextSegment`
-  - L10 `const AnswerHeading(this.text)`
-- L13 `class AnswerBullet extends AnswerTextSegment`
-  - L15 `const AnswerBullet(this.text)`
-- L18 `class AnswerParagraph extends AnswerTextSegment`
-  - L20 `const AnswerParagraph(this.text)`
-
-### lib/data_models/chat/chat_attachment.dart
-
-- L1 `enum AttachmentKind`
-- L6 `extension AttachmentKindLabel on AttachmentKind`
-  - L7 `String get label`
-- L19 `class ChatAttachment`
-  - L36 `const ChatAttachment({ required this.kind, required this.displayName, this.localPath, this.url, this.reelId, this.collectionId, })`
-  - L45 `factory ChatAttachment.fromJson(Map<String, dynamic> json)`
-  - L61 `Map<String, dynamic> toJson()`
-
-### lib/data_models/chat/chat_thread.dart
-
-- L4 `enum MessageRole`
-- L6 `enum MessageStatus`
-- L8 `class ChatMessage`
-  - L29 `const ChatMessage({ required this.id, required this.role, required this.createdAt, this.text = '', this.attachments = const [], this.blocks = const [], this.status = MessageStatus.complete, this.authorName = '', this.isShared = false, })`
-  - L41 `ChatMessage copyWith({List<AnswerBlock>? blocks, MessageStatus? status})`
-  - L42 `ChatMessage( id: id, role: role, createdAt: createdAt, text: text, attachments: attachments, blocks: blocks ?? this.blocks, status: status ?? this.status, authorName: authorName, isShared: isShared, )`
-  - L54 `factory ChatMessage.fromJson(Map<String, dynamic> json)`
-  - L75 `Map<String, dynamic> toJson()`
-- L86 `class ChatThread`
-  - L96 `const ChatThread({ required this.id, required this.title, required this.createdAt, required this.updatedAt, this.messages = const [], })`
-  - L104 `ChatThread copyWith({ String? title, List<ChatMessage>? messages, DateTime? updatedAt, })`
-  - L116 `factory ChatThread.fromJson(Map<String, dynamic> json)`
-  - L128 `Map<String, dynamic> toJson()`
-- L140 `List<Map<String, dynamic>> _mapList(dynamic raw)`
-
-### lib/data_models/chat/collection_chat_page.dart
-
-- L8 `class CollectionChatPage`
-  - L11 `const CollectionChatPage({this.messages = const []})`
-  - L13 `factory CollectionChatPage.fromJson(Map<String, dynamic> json)`
-
-### lib/data_models/chat/collection_chat_thread.dart
-
-- L3 `class CollectionChatThread`
-  - L12 `const CollectionChatThread({ required this.id, required this.title, this.questionCount = 0, this.updatedAt, })`
-  - L19 `factory CollectionChatThread.fromJson(Map<String, dynamic> json)`
-  - L20 `CollectionChatThread( id: json['thread_id']?.toString() ?? 'main', title: json['title']?.toString() ?? '', questionCount: (json['question_count'] as num?)?.toInt() ?? 0, updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? ''), )`
-  - L29 `static List<CollectionChatThread> listFromJson(Object? raw)`
-  - L40 `Map<String, dynamic> toJson()`
-
-### lib/data_models/chat/thinking_stage.dart
-
-- L1 `enum ThinkingStageState`
-- L5 `class ThinkingStage`
-  - L9 `const ThinkingStage({required this.label, required this.state})`
-  - L11 `ThinkingStage copyWith({ThinkingStageState? state})`
-  - L12 `ThinkingStage(label: label, state: state ?? this.state)`
+- L6 `class RemoteConfig`
+  - L7 `const RemoteConfig({ this.updateRequired = const UpdateRequirement(), this.featureAnnouncement = const FeatureAnnouncement(), this.paywallVisible = false, })`
+  - L17 `factory RemoteConfig.fromJson(Map<String, dynamic> json)`
+- L30 `class UpdateRequirement`
+  - L31 `const UpdateRequirement({ this.enabled = false, this.minBuildIos, this.minBuildAndroid, this.hard = false, this.title = '', this.body = '', this.storeUrlIos = '', this.storeUrlAndroid = '', })`
+  - L51 `factory UpdateRequirement.fromJson(Map<String, dynamic> json)`
+  - L67 `bool appliesTo(TargetPlatform platform, int build)`
+  - L77 `String storeUrlFor(TargetPlatform platform)`
+- L82 `class FeatureAnnouncement`
+  - L83 `const FeatureAnnouncement({ this.enabled = false, this.id = '', this.title = '', this.body = '', this.showOnce = false, })`
+  - L97 `factory FeatureAnnouncement.fromJson(Map<String, dynamic> json)`
+  - L109 `bool get isShowable`
+- L112 `Map<String, dynamic> _objectOf(Object? value)`
+- L116 `String _stringOf(Object? value)`
+- L118 `int? _intOf(Object? value)`
 
 ### lib/data_models/collections/collection_models.dart
 
 - L3 `class CollectionSummary`
-  - L4 `const CollectionSummary({ required this.id, required this.name, this.description = '', this.coverReelId, this.visibility = 'private', this.role = 'owner', this.itemCount = 0, this.memberCount = 0, this.createdAt, this.updatedAt, })`
-  - L28 `bool get hasLink`
-  - L29 `bool get canEdit`
-  - L30 `bool get isOwner`
-  - L32 `factory CollectionSummary.fromJson(Map<String, dynamic> json)`
+  - L4 `const CollectionSummary({ required this.id, required this.name, this.webUrl = '', this.description = '', this.coverReelId, this.visibility = 'private', this.role = 'owner', this.itemCount = 0, this.memberCount = 0, this.createdAt, this.updatedAt, })`
+  - L30 `bool get hasLink`
+  - L31 `bool get canEdit`
+  - L32 `bool get isOwner`
+  - L34 `factory CollectionSummary.fromJson(Map<String, dynamic> json)`
   - L51 `Map<String, dynamic> toJson()`
-  - L64 `CollectionSummary copyWith({ String? name, String? description, String? coverReelId, String? visibility, String? role, int? itemCount, int? memberCount, })`
-- L88 `class CollectionPagination`
-  - L89 `const CollectionPagination({ this.nextCursor, this.nextOffset, this.hasMore = false, this.limit = 25, this.offset = 0, this.totalCount = 0, })`
-  - L106 `Map<String, dynamic> toJson()`
-  - L115 `factory CollectionPagination.fromJson(Map<String, dynamic> json)`
-- L127 `class CollectionDetail`
-  - L128 `const CollectionDetail({ required this.collection, required this.reels, required this.pagination, this.canEdit = false, this.ownerName, })`
-  - L143 `Map<String, dynamic> toJson()`
-  - L151 `factory CollectionDetail.fromJson(Map<String, dynamic> json)`
-  - L173 `CollectionDetail append(CollectionDetail next)`
-  - L183 `CollectionDetail copyWith({ CollectionSummary? collection, List<Reel>? reels, CollectionPagination? pagination, })`
-- L198 `class CollectionMember`
-  - L199 `const CollectionMember({ required this.userId, required this.role, this.createdAt, this.displayName, })`
-  - L216 `String get label`
-  - L223 `factory CollectionMember.fromJson(Map<String, dynamic> json)`
-- L233 `class CollectionMembers`
-  - L234 `const CollectionMembers({required this.ownerId, this.members = const []})`
-  - L239 `factory CollectionMembers.fromJson(Map<String, dynamic> json)`
-- L256 `class CollectionLink`
-  - L257 `const CollectionLink({required this.url, required this.token})`
-  - L262 `factory CollectionLink.fromJson(Map<String, dynamic> json)`
-- L270 `class CollectionInvite`
-  - L271 `const CollectionInvite({ required this.url, required this.token, required this.role, this.expiresAt, })`
-  - L283 `factory CollectionInvite.fromJson(Map<String, dynamic> json)`
+  - L65 `CollectionSummary copyWith({ String? name, String? description, String? coverReelId, String? visibility, String? role, int? itemCount, int? memberCount, })`
+- L90 `class CollectionPagination`
+  - L91 `const CollectionPagination({this.nextCursor, this.limit = 25})`
+  - L96 `bool get hasMore`
+  - L99 `Map<String, dynamic> toJson()`
+  - L105 `factory CollectionPagination.fromJson(Map<String, dynamic> json)`
+- L113 `class CollectionDetail`
+  - L114 `const CollectionDetail({ required this.collection, required this.reels, required this.pagination, this.canEdit = false, })`
+  - L131 `Map<String, dynamic> toJson()`
+  - L138 `factory CollectionDetail.fromJson(Map<String, dynamic> json)`
+  - L158 `CollectionDetail append(CollectionDetail next)`
+  - L167 `CollectionDetail copyWith({ CollectionSummary? collection, List<Reel>? reels, CollectionPagination? pagination, })`
+  - L180 `static Reel _reelFromItem(Map<String, dynamic> json)`
+  - L205 `static Map<String, dynamic> _itemFromReel(Reel reel)`
+- L217 `class CollectionMember`
+  - L218 `const CollectionMember({ required this.userId, required this.role, this.createdAt, })`
+  - L230 `String get label`
+  - L235 `factory CollectionMember.fromJson(Map<String, dynamic> json)`
+- L244 `class CollectionMembers`
+  - L245 `const CollectionMembers({required this.ownerId, this.members = const []})`
+  - L250 `factory CollectionMembers.fromJson(Map<String, dynamic> json)`
+- L267 `class CollectionLink`
+  - L268 `const CollectionLink({required this.url, required this.token})`
+  - L273 `factory CollectionLink.fromJson(Map<String, dynamic> json)`
+- L281 `class CollectionInvite`
+  - L282 `const CollectionInvite({ required this.url, required this.token, required this.role, this.expiresAt, })`
+  - L294 `factory CollectionInvite.fromJson(Map<String, dynamic> json)`
 
 ### lib/data_models/discover/discover_response.dart
 
 - L3 `class DiscoverResponse`
   - L4 `const DiscoverResponse({ required this.recentSaves, required this.recentSavesCount, required this.savedDates, required this.reelsForSelectedDate, required this.categoryGrid, required this.quickSearchPrompts, required this.pagination, this.selectedDate, })`
   - L24 `factory DiscoverResponse.fromJson(Map<String, dynamic> json)`
-  - L57 `static List<Reel> _reels(dynamic raw)`
-- L64 `class SavedDateOption`
-  - L65 `const SavedDateOption({required this.value, required this.label})`
-  - L70 `factory SavedDateOption.fromJson(Map<String, dynamic> json)`
-- L86 `class DiscoverCategory`
-  - L87 `const DiscoverCategory({ required this.category, required this.label, required this.count, })`
-  - L97 `factory DiscoverCategory.fromJson(Map<String, dynamic> json)`
-- L107 `class DiscoverPagination`
-  - L108 `const DiscoverPagination({ this.nextCursor, this.nextOffset, this.hasMore = false, this.limit = 0, this.offset = 0, })`
-  - L122 `factory DiscoverPagination.fromJson(Map<String, dynamic> json)`
+  - L51 `static List<Reel> _reels(dynamic raw)`
+- L58 `class SavedDateOption`
+  - L59 `const SavedDateOption({required this.value, required this.label})`
+- L65 `class DiscoverCategory`
+  - L66 `const DiscoverCategory({ required this.category, required this.label, required this.count, })`
+  - L76 `factory DiscoverCategory.fromJson(Map<String, dynamic> json)`
+- L86 `class DiscoverPagination`
+  - L87 `const DiscoverPagination({this.nextCursor, this.limit = 0})`
+  - L92 `bool get hasMore`
+  - L94 `factory DiscoverPagination.fromJson(Map<String, dynamic> json)`
 
 ### lib/data_models/discover/search_response.dart
 
@@ -1286,46 +995,40 @@ windows/
   - L9 `const SearchResult({ required this.reel, required this.relevanceScore, this.relevancePercent = '', this.displayScoreLabel = '', })`
   - L16 `factory SearchResult.fromJson(Map<String, dynamic> json)`
 
-### lib/data_models/folders/folder_models.dart
+### lib/data_models/map/map_bounds.dart
 
-- L3 `class FolderSummary`
-  - L4 `const FolderSummary({ required this.id, required this.name, this.note, this.reelCount = 0, this.createdAt, this.updatedAt, })`
-  - L20 `factory FolderSummary.fromJson(Map<String, dynamic> json)`
-  - L35 `FolderSummary copyWith({ String? id, String? name, String? note, int? reelCount, String? createdAt, String? updatedAt, })`
-- L54 `class FolderPagination`
-  - L55 `const FolderPagination({ this.nextCursor, this.nextOffset, this.hasMore = false, this.limit = 25, this.offset = 0, this.totalCount = 0, })`
-  - L71 `factory FolderPagination.fromJson(Map<String, dynamic> json)`
-- L83 `class FolderDetailResponse`
-  - L84 `const FolderDetailResponse({ required this.folder, required this.reels, required this.pagination, })`
-  - L94 `factory FolderDetailResponse.fromJson(Map<String, dynamic> json)`
-  - L115 `FolderDetailResponse append(FolderDetailResponse next)`
+- L3 `class MapBounds`
+  - L4 `const MapBounds({ required this.south, required this.west, required this.north, required this.east, })`
+  - L20 `bool get hasArea`
+  - L22 `Map<String, String> toQueryParameters()`
+  - L30 `bool operator ==(Object other)`
+  - L38 `int get hashCode`
 
 ### lib/data_models/map/map_place_search_response.dart
 
 - L3 `class MapPlaceSearchResponse`
-  - L4 `const MapPlaceSearchResponse({ required this.query, required this.searchMode, required this.total, required this.results, this.googleStatus = 'ok', })`
-  - L21 `bool get isGoogleSearchUnavailable`
-  - L23 `factory MapPlaceSearchResponse.fromJson(Map<String, dynamic> json)`
-- L41 `class MapPlaceSearchResult`
-  - L42 `const MapPlaceSearchResult({ required this.resultType, this.sourceType, this.mapItem, this.googlePlaceId, required this.displayTitle, required this.displayAddress, required this.placeName, this.latitude, this.longitude, this.googleMapsUrl, required this.placeTypes, required this.canPin, })`
-  - L70 `bool get isExisting`
-  - L71 `bool get isGooglePlace`
-  - L73 `factory MapPlaceSearchResult.fromJson(Map<String, dynamic> json)`
+  - L4 `const MapPlaceSearchResponse({ required this.query, required this.searchMode, required this.total, required this.results, })`
+  - L16 `factory MapPlaceSearchResponse.fromJson(Map<String, dynamic> json)`
+- L33 `class MapPlaceSearchResult`
+  - L34 `const MapPlaceSearchResult({ required this.resultType, this.sourceType, this.mapItem, this.googlePlaceId, required this.displayTitle, required this.displayAddress, required this.placeName, this.latitude, this.longitude, this.googleMapsUrl, required this.placeTypes, required this.canPin, })`
+  - L62 `bool get isExisting`
+  - L63 `bool get isGooglePlace`
+  - L65 `factory MapPlaceSearchResult.fromJson(Map<String, dynamic> json)`
 
 ### lib/data_models/map/map_response.dart
 
 - L3 `class MapResponse`
-  - L4 `const MapResponse({ required this.totalPinnedLocations, required this.visiblePinnedLocations, required this.mapItems, this.selectedCategory, })`
-  - L16 `factory MapResponse.fromJson(Map<String, dynamic> json)`
-- L31 `class MapItem`
-  - L32 `const MapItem({ required this.reelId, required this.title, required this.summary, required this.category, required this.subCategory, required this.categoryLabel, required this.locations, required this.markerId, required this.latitude, required this.longitude, required this.locationName, required this.locationDisplayLabel, this.mapItemId, this.sourceType = 'reel', this.sourceId, this.displayTitle = '', this.shortDetail = '', this.subCategoryLabel = '', this.locationAddress, this.googleMapsUrl, this.googlePlaceId, this.placeTypes = const [], this.canHide = true, this.canRemove = true, })`
-  - L84 `bool get isManual`
-  - L85 `bool get canOpenDetails`
-  - L86 `String get effectiveMapItemId`
-  - L87 `String get displayName`
-  - L89 `String get displayDetail`
-  - L92 `factory MapItem.fromJson(Map<String, dynamic> json)`
-  - L160 `Reel toReel()`
+  - L4 `const MapResponse({required this.mapItems, this.truncated = false})`
+  - L15 `factory MapResponse.fromJson(Map<String, dynamic> json)`
+- L27 `class MapItem`
+  - L28 `const MapItem({ required this.reelId, required this.title, required this.summary, required this.category, required this.subCategory, required this.categoryLabel, required this.locations, required this.markerId, required this.latitude, required this.longitude, required this.locationName, required this.locationDisplayLabel, this.mapItemId, this.sourceType = 'content', this.displayTitle = '', this.shortDetail = '', this.subCategoryLabel = '', this.locationAddress, this.googleMapsUrl, this.googlePlaceId, this.placeTypes = const [], this.canHide = true, this.canRemove = true, })`
+  - L78 `bool get isManual`
+  - L79 `bool get canOpenDetails`
+  - L80 `String get effectiveMapItemId`
+  - L81 `String get displayName`
+  - L83 `String get displayDetail`
+  - L86 `factory MapItem.fromJson(Map<String, dynamic> json)`
+  - L144 `Reel toReel()`
 
 ### lib/data_models/notifications/app_notification.dart
 
@@ -1345,60 +1048,60 @@ windows/
 ### lib/data_models/reels/processing_job.dart
 
 - L3 `class ProcessingJob`
-  - L33 `const ProcessingJob({ required this.id, required this.status, this.normalizedUrl, this.sourcePlatform, this.sourceContentType, this.sourceContentId, this.currentStep, this.progressPercent, this.failureCode, this.errorMessage, required this.terminal, this.retryScheduled = false, this.statusLabel, this.statusMessage, this.nextRetryAt, this.createdAt, this.recommendedPollAfterSeconds, this.retryable = false, this.resultReelId, this.collectionIds = const [], this.reel, })`
-  - L57 `factory ProcessingJob.fromJson(Map<String, dynamic> json)`
-  - L113 `bool get isCompleted`
-  - L114 `bool get isTerminalFailure`
-  - L115 `bool get isRetryScheduled`
-  - L117 `static int? _parseInt(dynamic value)`
-  - L122 `static String? _normalizedNullableString(dynamic value)`
+  - L40 `const ProcessingJob({ required this.id, required this.status, this.normalizedUrl, this.sourcePlatform, this.sourceContentType, this.sourceContentId, this.currentStep, this.progressPercent, this.failureCode, this.errorMessage, required this.terminal, this.retryScheduled = false, this.statusLabel, this.statusMessage, this.stage, this.estimatedSecondsRemaining, this.summary, this.nextRetryAt, this.createdAt, this.recommendedPollAfterSeconds, this.retryable = false, this.resultReelId, this.collectionIds = const [], this.reel, this.alreadySaved = false, })`
+  - L68 `factory ProcessingJob.fromJson(Map<String, dynamic> json)`
+  - L128 `bool get isCompleted`
+  - L129 `bool get isTerminalFailure`
+  - L130 `bool get isRetryScheduled`
+  - L132 `static int? _parseInt(dynamic value)`
+  - L137 `static String? _normalizedNullableString(dynamic value)`
 
 ### lib/data_models/reels/reel.dart
 
 - L3 `class Location`
-  - L15 `const Location({ required this.name, this.address, this.latitude, this.longitude, this.source, this.isDirectMention, this.isCaptionReference, this.isTranscriptReference, this.displayLabel, this.googleMapsUrl, })`
-  - L28 `factory Location.fromJson(Map<String, dynamic> json)`
-  - L87 `Map<String, dynamic> toJson()`
-- L102 `class Reel`
-  - L135 `const Reel({ required this.id, required this.userId, required this.url, required this.title, required this.summary, required this.caption, required this.transcript, required this.category, required this.subCategory, required this.keyFacts, required this.locations, required this.peopleMentioned, required this.actionableItems, this.sourceUrl = '', this.originalUrl = '', this.normalizedUrl = '', this.thumbnailUrl = '', this.categoryLabel = '', this.subCategoryLabel = '', this.contentType = 'post', this.parseStatus = 'parsed', this.sourcePlatform, this.sourceContentType, this.mappableLocations = const [], this.createdAt, this.displayDate = '', this.relativeDate = '', this.savedDateKey = '', this.hasMapLocations = false, this.primaryLocationLabel = '', this.mapLocationCount = 0, })`
-  - L169 `factory Reel.fromJson(Map<String, dynamic> json)`
-  - L243 `Map<String, dynamic> toJson()`
-  - L277 `static List<Location> _parseLocations(dynamic raw)`
-  - L294 `static String _parseTranscript(Map<String, dynamic> json)`
-  - L315 `static String _transcriptTextFromValue(dynamic raw)`
-  - L373 `bool get isUnparsed`
-  - L375 `static String _normalizedContentType(dynamic raw)`
-  - L384 `static String _normalizedParseStatus(dynamic raw)`
-  - L389 `static String? _normalizedNullableString(dynamic raw)`
-  - L394 `static List<String> _stringList(dynamic raw)`
+  - L11 `const Location({ required this.name, this.address, this.latitude, this.longitude, this.displayLabel, this.googleMapsUrl, })`
+  - L20 `factory Location.fromJson(Map<String, dynamic> json)`
+  - L49 `Map<String, dynamic> toJson()`
+- L59 `class Reel`
+  - L93 `const Reel({ required this.id, required this.userId, required this.url, required this.title, required this.summary, required this.caption, required this.transcript, required this.category, required this.subCategory, required this.keyFacts, required this.locations, required this.peopleMentioned, required this.actionableItems, this.webUrl = '', this.sourceUrl = '', this.originalUrl = '', this.normalizedUrl = '', this.thumbnailUrl = '', this.categoryLabel = '', this.subCategoryLabel = '', this.contentType = 'post', this.parseStatus = 'parsed', this.sourcePlatform, this.sourceContentType, this.mappableLocations = const [], this.createdAt, this.displayDate = '', this.relativeDate = '', this.savedDateKey = '', this.hasMapLocations = false, this.primaryLocationLabel = '', this.mapLocationCount = 0, })`
+  - L128 `factory Reel.fromJson(Map<String, dynamic> json)`
+  - L178 `Map<String, dynamic> toJson()`
+  - L218 `Reel withDisplayFieldsFrom(Reel listed)`
+  - L264 `static List<Location> _parseLocations(dynamic raw)`
+  - L281 `bool get isUnparsed`
+  - L283 `static String _normalizedContentType(dynamic raw)`
+  - L292 `static String _normalizedParseStatus(dynamic raw)`
+  - L297 `static String? _normalizedNullableString(dynamic raw)`
+  - L302 `static List<String> _stringList(dynamic raw)`
 
 ### lib/data_models/reels/reel_filters.dart
 
 - L15 `class ReelSubcategoryFilter`
   - L20 `const ReelSubcategoryFilter({ required this.name, required this.label, required this.count, })`
   - L26 `factory ReelSubcategoryFilter.fromJson(Map<String, dynamic> json)`
-  - L38 `String get displayLabel`
-- L41 `class ReelCategoryGroup`
-  - L47 `const ReelCategoryGroup({ required this.category, required this.label, required this.count, required this.subcategories, })`
-  - L54 `factory ReelCategoryGroup.fromJson(Map<String, dynamic> json)`
-  - L82 `String get displayLabel`
-  - L84 `ReelSubcategoryFilter? subcategoryNamed(String? name)`
-- L96 `class ReelPlatformGroup`
-  - L103 `const ReelPlatformGroup({ required this.platform, required this.label, required this.count, required this.topCategory, required this.categories, })`
-  - L111 `factory ReelPlatformGroup.fromJson(Map<String, dynamic> json)`
-  - L122 `String get displayLabel`
-  - L124 `ReelCategoryGroup? categoryNamed(String? category)`
-- L133 `class ReelFiltersResponse`
-  - L143 `const ReelFiltersResponse({ required this.totalCount, required this.topPlatform, required this.selectedPreviewCount, required this.platforms, required this.categories, })`
-  - L151 `factory ReelFiltersResponse.fromJson(Map<String, dynamic> json)`
-  - L172 `ReelPlatformGroup? platformNamed(String? platform)`
-- L181 `List<ReelCategoryGroup> _parseCategories(Object? raw)`
+  - L39 `String get displayLabel`
+- L42 `class ReelCategoryGroup`
+  - L48 `const ReelCategoryGroup({ required this.category, required this.label, required this.count, required this.subcategories, })`
+  - L55 `factory ReelCategoryGroup.fromJson(Map<String, dynamic> json)`
+  - L83 `String get displayLabel`
+  - L85 `ReelSubcategoryFilter? subcategoryNamed(String? name)`
+- L97 `class ReelPlatformGroup`
+  - L104 `const ReelPlatformGroup({ required this.platform, required this.label, required this.count, required this.topCategory, required this.categories, })`
+  - L112 `factory ReelPlatformGroup.fromJson(Map<String, dynamic> json)`
+  - L123 `String get displayLabel`
+  - L125 `ReelCategoryGroup? categoryNamed(String? category)`
+- L134 `class ReelFiltersResponse`
+  - L144 `const ReelFiltersResponse({ required this.totalCount, required this.topPlatform, required this.selectedPreviewCount, required this.platforms, required this.categories, })`
+  - L152 `factory ReelFiltersResponse.fromJson(Map<String, dynamic> json)`
+  - L173 `ReelPlatformGroup? platformNamed(String? platform)`
+- L182 `List<ReelCategoryGroup> _parseCategories(Object? raw)`
 
 ### lib/data_models/reels/reel_page.dart
 
 - L3 `class ReelPage`
-  - L4 `const ReelPage({ required this.reels, required this.hasMore, required this.totalCount, required this.limit, required this.offset, this.nextCursor, this.nextOffset, })`
-  - L22 `factory ReelPage.fromJson(Map<String, dynamic> json)`
+  - L4 `const ReelPage({required this.reels, required this.limit, this.nextCursor})`
+  - L10 `bool get hasMore`
+  - L12 `factory ReelPage.fromJson(Map<String, dynamic> json)`
 
 ### lib/data_models/sharing/pending_share.dart
 
@@ -1409,8 +1112,8 @@ windows/
 ### lib/data_models/sharing/share_resolve_response.dart
 
 - L1 `class ShareResolveResponse`
-  - L2 `const ShareResolveResponse({ required this.supported, this.extractedUrl, this.normalizedUrl, this.provider, this.errorMessage, })`
-  - L16 `factory ShareResolveResponse.fromJson(Map<String, dynamic> json)`
+  - L2 `const ShareResolveResponse({ required this.supported, this.url, this.sourcePlatform, this.sourceContentType, })`
+  - L14 `factory ShareResolveResponse.fromJson(Map<String, dynamic> json)`
 
 ### lib/env.dart
 
@@ -1423,15 +1126,19 @@ windows/
   - L42 `static String? get secretKey`
   - L45 `static String? get keyId`
   - L47 `static bool get isConfigured`
-- L50 `class SupabaseConfig`
-  - L51 `SupabaseConfig._()`
-  - L58 `static Future<void> loadLocalConfig()`
-  - L60 `static String get url`
-  - L62 `static String get anonKey`
-  - L65 `static String get redirectScheme`
-  - L69 `static bool get isConfigured`
-  - L72 `static String get redirectUrl`
-  - L74 `static String _defaultRedirectScheme()`
+- L53 `class RemoteConfigEndpoint`
+  - L54 `RemoteConfigEndpoint._()`
+  - L58 `static String get url`
+  - L60 `static bool get isConfigured`
+- L63 `class SupabaseConfig`
+  - L64 `SupabaseConfig._()`
+  - L71 `static Future<void> loadLocalConfig()`
+  - L73 `static String get url`
+  - L75 `static String get anonKey`
+  - L78 `static String get redirectScheme`
+  - L82 `static bool get isConfigured`
+  - L85 `static String get redirectUrl`
+  - L87 `static String _defaultRedirectScheme()`
 
 ### lib/http/account_http.dart
 
@@ -1442,216 +1149,113 @@ windows/
 
 ### lib/http/api_client.dart
 
-- L35 `class ApiClient implements ReelsHttp, DiscoverHttp, MapHttp, FoldersHttp, CollectionsHttp, AccountHttp, SharingHttp`
-  - L52 `ApiClient({ http.Client? client, String? baseUrl, String? Function()? accessTokenProvider, Future<void> Function()? sessionRefresher, })`
-  - L64 `Future<bool> healthCheck()`
-  - L80 `Future<Reel> processReel( String url, { String userId = 'default-user', void Function(ProcessingJob job)? onJobUpdate, })`
-  - L104 `Future<ProcessingJob> enqueueReelProcessing( String url, { String userId = 'default-user', List<String> collectionIds = const [], })`
-  - L123 `Future<ProcessingJob> _startProcessReelJob( String url, { String userId = 'default-user', })`
-  - L146 `Future<ProcessingJob> _enqueueReelProcessing( String url, { String userId = 'default-user', List<String> collectionIds = const [], })`
-  - L177 `Future<List<ProcessingJob>> listProcessingJobs({ bool activeOnly = true, int limit = 20, })`
-  - L212 `Future<ProcessingJob> _getProcessingJob(String jobId)`
-  - L232 `Future<Reel> _waitForProcessingJob( String jobId, { ProcessingJob? initialJob, void Function(ProcessingJob job)? onJobUpdate, })`
-  - L280 `Future<Reel?> _completedJobResult(ProcessingJob job)`
-  - L295 `void _throwIfTerminalFailure(ProcessingJob job)`
-  - L305 `Duration _jobPollingDelay(int attempt, ProcessingJob job)`
-  - L335 `String _jobFailureMessage(ProcessingJob job)`
-  - L377 `Future<Reel> processVideo( File videoFile, { String userId = 'default-user', String url = '', })`
-  - L409 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
-  - L467 `Future<List<Reel>> getReels({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int limit = 50, })`
-  - L489 `Future<Reel> getReel(String reelId)`
-  - L510 `Future<void> deleteReel(String reelId)`
-  - L530 `Future<List<FolderSummary>> getFolders()`
-  - L558 `Future<FolderDetailResponse> getFolderDetail( String folderId, { int limit = 25, int? offset, String? cursor, })`
-  - L595 `Future<FolderSummary> updateFolder({ required String folderId, required String name, required String note, })`
-  - L625 `Future<void> deleteFolder(String folderId)`
-  - L644 `Future<void> addReelsToFolder({ required String folderId, required List<String> reelIds, bool moveExisting = false, })`
-  - L671 `Future<void> removeReelFromFolder({ required String folderId, required String reelId, })`
-  - L695 `Future<List<CollectionSummary>> getCollections()`
-  - L721 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
-  - L756 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L784 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
-  - L813 `Future<void> deleteCollection(String collectionId)`
-  - L831 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
-  - L858 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
-  - L879 `Future<CollectionLink> enableCollectionLink(String collectionId)`
-  - L900 `Future<void> disableCollectionLink(String collectionId)`
-  - L918 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
-  - L939 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
-  - L963 `Future<void> leaveCollection(String collectionId)`
-  - L981 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
-  - L1006 `Future<CollectionSummary> acceptCollectionInvite(String token)`
-  - L1025 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
-  - L1057 `CollectionSummary _collectionFromMutation(http.Response res)`
-  - L1072 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
-  - L1115 `Future<SearchResponse> searchReels( String query, { String userId = 'default-user', String? category, String? subcategory, int limit = 5, http.Client? client, })`
-  - L1170 `Future<EntitlementsResponse> getAccountEntitlements({ required String userId, })`
-  - L1197 `Future<MapResponse> getMapData({String? category})`
-  - L1228 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, int limit = 8, })`
-  - L1264 `Future<MapItem> pinMapPlace( String googlePlaceId, { String? sessionToken, })`
-  - L1293 `Future<void> removeMapItem(String mapItemId)`
-  - L1312 `Future<DiscoverResponse> getDiscover({ String? savedDate, int? offset, String? cursor, int limit = 25, })`
-  - L1355 `Future<LibraryStats> getLibraryStats()`
-  - L1376 `Future<void> deleteAccount()`
-  - L1392 `Future<ShareResolveResponse> resolveSharePayload({ required String rawPayloadText, required String platform, Map<String, dynamic> metadata = const {}, })`
-  - L1426 `Future<void> registerPushToken({ required String userId, required String token, required String platform, required String appVersion, required String appBuild, required String timezone, required String locale, })`
-  - L1461 `Future<void> unregisterPushToken({required String token})`
-  - L1481 `Future<void> recordNotificationOpened({ required String notificationId, })`
-  - L1505 `Future<String> mintShareToken()`
-  - L1525 `Future<void> revokeShareToken()`
-  - L1541 `Future<http.Response> _sendRequest( Future<http.Response> Function(String baseUrl) request, )`
-  - L1569 `Uri _apiUri( String baseUrl, String path, { Map<String, String>? queryParameters, })`
-  - L1588 `Future<http.Response> _sendRequestWithClient( http.Client client, Future<http.Response> Function(String baseUrl, http.Client client) request, )`
-  - L1595 `String _networkErrorMessage(Object? error)`
-  - L1599 `void _logNetworkError(String baseUrl, Object error)`
-  - L1605 `Map<String, String> _headers({bool json = false})`
-  - L1614 `static bool _isBlank(String? value)`
-  - L1616 `static String? _currentAccessToken()`
-  - L1626 `Future<bool> _renewSession()`
-  - L1638 `static Future<void> _refreshCurrentSession()`
-  - L1642 `ApiException _exceptionFromResponse( http.Response res, { required String fallbackMessage, })`
-  - L1656 `_ApiErrorPayload _extractErrorPayload(http.Response res)`
-- L1671 `class _ApiErrorPayload`
-  - L1672 `const _ApiErrorPayload({ this.message, this.detail, this.errorCode, this.retryable = false, })`
+- L35 `class ApiClient implements ReelsHttp, DiscoverHttp, MapHttp, CollectionsHttp, AccountHttp, SharingHttp`
+  - L56 `ApiClient({ http.Client? client, ContentCache? cache, String? baseUrl, String? Function()? accessTokenProvider, Future<void> Function()? sessionRefresher, })`
+  - L71 `Future<Reel> processReel( String url, { String userId = 'default-user', void Function(ProcessingJob job)? onJobUpdate, })`
+  - L85 `Future<ProcessingJob> enqueueReelProcessing( String url, { String userId = 'default-user', List<String> collectionIds = const [], })`
+  - L93 `Future<ProcessingJob> _submitReel( String url, { List<String> collectionIds = const [], })`
+  - L143 `Future<List<ProcessingJob>> listProcessingJobs({ bool activeOnly = true, int limit = 20, })`
+  - L177 `Future<ProcessingJob> _getProcessingJob(String jobId)`
+  - L197 `Future<Reel> _waitForProcessingJob( String jobId, { ProcessingJob? initialJob, void Function(ProcessingJob job)? onJobUpdate, })`
+  - L245 `Future<Reel?> _completedJobResult(ProcessingJob job)`
+  - L260 `void _throwIfTerminalFailure(ProcessingJob job)`
+  - L270 `Duration _jobPollingDelay(int attempt, ProcessingJob job)`
+  - L300 `String _jobFailureMessage(ProcessingJob job)`
+  - L342 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+  - L402 `Future<List<Reel>> getReels({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int limit = 50, })`
+  - L424 `Future<Reel> getReel(String reelId)`
+  - L445 `Future<void> deleteReel(String reelId)`
+  - L465 `Future<List<CollectionSummary>> getCollections()`
+  - L487 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, String? cursor, })`
+  - L520 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L548 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
+  - L577 `Future<void> deleteCollection(String collectionId)`
+  - L595 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
+  - L619 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
+  - L640 `Future<CollectionLink> enableCollectionLink(String collectionId)`
+  - L661 `Future<void> disableCollectionLink(String collectionId)`
+  - L679 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
+  - L700 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
+  - L724 `Future<void> leaveCollection(String collectionId)`
+  - L742 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
+  - L767 `Future<CollectionSummary> acceptCollectionInvite(String token)`
+  - L786 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, String? cursor, })`
+  - L818 `CollectionSummary _collectionFromMutation(http.Response res)`
+  - L828 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
+  - L881 `Future<SearchResponse> searchReels( String query, { String userId = 'default-user', String? category, String? subcategory, int limit = 5, http.Client? client, })`
+  - L944 `Future<EntitlementsResponse> getAccountEntitlements({ required String userId, })`
+  - L982 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
+  - L1026 `Future<MapResponse> getNearbyPins({ required double latitude, required double longitude, int limit = 5, })`
+  - L1059 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, int limit = 8, })`
+  - L1096 `Future<MapItem> pinMapPlace( String googlePlaceId, { String? sessionToken, })`
+  - L1127 `Future<void> removeMapItem(String mapItemId)`
+  - L1146 `Future<DiscoverResponse> getDiscover({ String? savedDate, String? cursor, int limit = 25, })`
+  - L1190 `Future<LibraryStats> getLibraryStats()`
+  - L1211 `Future<void> deleteAccount()`
+  - L1228 `Future<ShareResolveResponse> resolveSharePayload({ required String rawPayloadText, })`
+  - L1257 `Future<void> registerPushToken({ required String userId, required String token, required String platform, required String appVersion, required String appBuild, required String timezone, required String locale, })`
+  - L1285 `Future<void> unregisterPushToken({required String token})`
+  - L1305 `Future<void> recordNotificationOpened({ required String notificationId, })`
+  - L1329 `Future<String> mintShareToken()`
+  - L1349 `Future<void> revokeShareToken()`
+  - L1365 `Future<http.Response> _sendRequest( Future<http.Response> Function(String baseUrl) request, )`
+  - L1404 `Uri _apiUri( String baseUrl, String path, { Map<String, String>? queryParameters, })`
+  - L1423 `Future<http.Response> _sendRequestWithClient( http.Client client, Future<http.Response> Function(String baseUrl, http.Client client) request, )`
+  - L1430 `String _networkErrorMessage(Object? error)`
+  - L1434 `void _logNetworkError(String baseUrl, Object error)`
+  - L1440 `Map<String, String> _headers({bool json = false})`
+  - L1449 `static bool _isBlank(String? value)`
+  - L1451 `static String _pageLimit(int limit)`
+  - L1455 `static String _newIdempotencyKey()`
+  - L1467 `static String? _currentAccessToken()`
+  - L1475 `void _requireRequestAccount(String? sentToken)`
+  - L1486 `static String? _tokenSubject(String? token)`
+  - L1504 `Future<bool> _renewSession()`
+  - L1516 `static Future<void> _refreshCurrentSession()`
+  - L1523 `ApiException _exceptionFromResponse( http.Response res, { required String fallbackMessage, })`
 
 ### lib/http/api_exception.dart
 
 - L1 `class ApiException implements Exception`
-  - L2 `const ApiException( this.message, this.statusCode, { this.errorCode, this.detail, this.retryable = false, })`
-  - L16 `bool get isUpgradeRequired`
-  - L17 `bool get isMonthlyReelLimitReached`
-  - L19 `bool get isHistoryUpgradeRequired`
-  - L22 `String toString()`
-
-### lib/http/chat_api_http.dart
-
-- L27 `class ChatApiHttp implements ChatHttp`
-  - L28 `ChatApiHttp({ http.Client Function()? clientFactory, String? baseUrl, String? Function()? accessTokenProvider, Duration? requestTimeout, })`
-  - L52 `Stream<ChatEvent> sendMessage({ required String threadId, required String text, List<ChatAttachment> attachments = const [], List<ChatHistoryEntry> history = const [], })`
-  - L93 `Future<List<String>> fetchSuggestions()`
-  - L125 `Uri _uri([String path = 'chat/messages'])`
-  - L130 `Map<String, String> _headers({String accept = 'text/event-stream'})`
-  - L145 `Map<String, dynamic> _attachmentJson(ChatAttachment attachment)`
-  - L160 `Future<ApiException> _exceptionFromResponse( http.StreamedResponse response, )`
-  - L179 `static String? _currentAccessToken()`
-
-### lib/http/chat_http.dart
-
-- L7 `sealed class ChatEvent`
-  - L8 `const ChatEvent()`
-- L11 `class StageEvent extends ChatEvent`
-  - L14 `const StageEvent(this.stage)`
-- L17 `class AnswerEvent extends ChatEvent`
-  - L20 `const AnswerEvent(this.blocks)`
-- L31 `class ChatHistoryEntry`
-  - L37 `const ChatHistoryEntry({required this.role, required this.text})`
-  - L39 `Map<String, dynamic> toJson()`
-- L48 `abstract interface class ChatHttp`
-  - L49 `Stream<ChatEvent> sendMessage({ required String threadId, required String text, List<ChatAttachment> attachments, List<ChatHistoryEntry> history, })`
-  - L60 `Future<List<String>> fetchSuggestions()`
-
-### lib/http/chat_sse_http.dart
-
-- L17 `const int _maxBufferChars = 256 * 1024`
-- L26 `Stream<ChatEvent> readChatSse( http.StreamedResponse response, { required Duration timeout, })`
-- L91 `ChatEvent? parseChatSseEvent(String rawEvent)`
-
-### lib/http/collection_chat_api_http.dart
-
-- L25 `class CollectionChatApiHttp implements CollectionChatHttp`
-  - L26 `CollectionChatApiHttp({ http.Client Function()? clientFactory, String? baseUrl, String? Function()? accessTokenProvider, Duration? requestTimeout, })`
-  - L47 `Future<List<CollectionChatThread>> fetchThreads(String collectionId)`
-  - L58 `Future<CollectionChatPage> fetchMessages( String collectionId, { required String threadId, String? after, })`
-  - L76 `Stream<ChatEvent> ask({ required String collectionId, required String threadId, required String text, List<ChatAttachment> attachments = const [], })`
-  - L120 `Future<void> shareAnswer({ required String collectionId, required String threadId, required String questionText, required List<AnswerBlock> blocks, })`
-  - L141 `Future<void> deleteMessage({ required String collectionId, required String messageId, })`
-  - L155 `Future<String> _call( Future<http.Response> Function(http.Client client) send, )`
-  - L176 `Uri _uri( String collectionId, { String? messageId, Map<String, String> query = const {}, })`
-  - L191 `Uri _threadsUri(String collectionId)`
-  - L202 `Map<String, dynamic> _attachmentJson(ChatAttachment attachment)`
-  - L218 `Map<String, String> _headers({String accept = 'application/json'})`
-  - L228 `ApiException _exceptionFrom(int statusCode, String body)`
-  - L245 `static String? _currentAccessToken()`
-
-### lib/http/collection_chat_http.dart
-
-- L14 `abstract interface class CollectionChatHttp`
-  - L16 `Future<List<CollectionChatThread>> fetchThreads(String collectionId)`
-  - L20 `Future<CollectionChatPage> fetchMessages( String collectionId, { required String threadId, String? after, })`
-  - L26 `Stream<ChatEvent> ask({ required String collectionId, required String threadId, required String text, List<ChatAttachment> attachments, })`
-  - L35 `Future<void> shareAnswer({ required String collectionId, required String threadId, required String questionText, required List<AnswerBlock> blocks, })`
-  - L42 `Future<void> deleteMessage({ required String collectionId, required String messageId, })`
+  - L2 `const ApiException( this.message, this.statusCode, { this.errorCode, this.requestId, this.details = const {}, this.retryable = false, })`
+  - L18 `bool get isUpgradeRequired`
+  - L22 `bool get isMonthlyReelLimitReached`
+  - L24 `bool get isHistoryUpgradeRequired`
+  - L27 `String toString()`
 
 ### lib/http/collections_http.dart
 
 - L3 `abstract interface class CollectionsHttp`
   - L4 `Future<List<CollectionSummary>> getCollections()`
-  - L6 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
-  - L13 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L19 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
-  - L26 `Future<void> deleteCollection(String collectionId)`
-  - L28 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
-  - L33 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
-  - L38 `Future<CollectionLink> enableCollectionLink(String collectionId)`
-  - L40 `Future<void> disableCollectionLink(String collectionId)`
-  - L42 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
-  - L44 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
-  - L49 `Future<void> leaveCollection(String collectionId)`
-  - L51 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
-  - L56 `Future<CollectionSummary> acceptCollectionInvite(String token)`
-  - L58 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
+  - L6 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, String? cursor, })`
+  - L12 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L18 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
+  - L25 `Future<void> deleteCollection(String collectionId)`
+  - L27 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
+  - L32 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
+  - L37 `Future<CollectionLink> enableCollectionLink(String collectionId)`
+  - L39 `Future<void> disableCollectionLink(String collectionId)`
+  - L41 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
+  - L43 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
+  - L48 `Future<void> leaveCollection(String collectionId)`
+  - L50 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
+  - L55 `Future<CollectionSummary> acceptCollectionInvite(String token)`
+  - L57 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, String? cursor, })`
 
 ### lib/http/discover_http.dart
 
 - L5 `abstract interface class DiscoverHttp`
   - L6 `Future<SearchResponse> searchReels( String query, { String userId = 'default-user', String? category, String? subcategory, int limit = 5, http.Client? client, })`
-  - L15 `Future<DiscoverResponse> getDiscover({ String? savedDate, int? offset, String? cursor, int limit = 25, })`
-
-### lib/http/folders_http.dart
-
-- L3 `abstract interface class FoldersHttp`
-  - L4 `Future<List<FolderSummary>> getFolders()`
-  - L6 `Future<FolderDetailResponse> getFolderDetail( String folderId, { int limit = 25, int? offset, String? cursor, })`
-  - L13 `Future<FolderSummary> updateFolder({ required String folderId, required String name, required String note, })`
-  - L19 `Future<void> deleteFolder(String folderId)`
-  - L21 `Future<void> addReelsToFolder({ required String folderId, required List<String> reelIds, bool moveExisting = false, })`
-  - L27 `Future<void> removeReelFromFolder({ required String folderId, required String reelId, })`
+  - L15 `Future<DiscoverResponse> getDiscover({ String? savedDate, String? cursor, int limit = 25, })`
 
 ### lib/http/map_http.dart
 
-- L4 `abstract interface class MapHttp`
-  - L5 `Future<MapResponse> getMapData({String? category})`
-  - L7 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, int limit = 8, })`
-  - L14 `Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken})`
-  - L16 `Future<void> removeMapItem(String mapItemId)`
-
-### lib/http/mock_chat_http.dart
-
-- L14 `const bool useMockChat = bool.fromEnvironment`
-- L21 `class MockChatHttp implements ChatHttp`
-  - L22 `MockChatHttp({ required List<Reel> Function() reelsSource, Duration stageDelay = const Duration(milliseconds: 650), })`
-  - L63 `Future<List<String>> fetchSuggestions()`
-  - L77 `Stream<ChatEvent> sendMessage({ required String threadId, required String text, List<ChatAttachment> attachments = const [], List<ChatHistoryEntry> history = const [], })`
-  - L103 `Stream<ChatEvent> _stage(String label)`
-  - L113 `List<Reel> _match(String query, List<Reel> library)`
-  - L128 `Set<String> _terms(String query)`
-  - L136 `List<AnswerBlock> _answer( String query, List<Reel> reels, { required bool usingFallback, })`
-  - L189 `List<AnswerPlace> _places(List<Reel> reels)`
-  - L211 `List<ChartBar> _bars(List<Reel> reels)`
-  - L232 `List<Reel> _seedReels(String query)`
-
-### lib/http/mock_collection_chat_http.dart
-
-- L17 `class MockCollectionChatHttp implements CollectionChatHttp`
-  - L18 `MockCollectionChatHttp({ Duration stageDelay = const Duration(milliseconds: 650), String authorName = 'You', })`
-  - L30 `List<ChatMessage> _thread(String collectionId, String threadId)`
-  - L34 `Future<List<CollectionChatThread>> fetchThreads(String collectionId)`
-  - L53 `static String _titleOf(List<ChatMessage> thread)`
-  - L69 `Future<CollectionChatPage> fetchMessages( String collectionId, { required String threadId, String? after, })`
-  - L85 `Stream<ChatEvent> ask({ required String collectionId, required String threadId, required String text, List<ChatAttachment> attachments = const [], })`
-  - L116 `Future<void> shareAnswer({ required String collectionId, required String threadId, required String questionText, required List<AnswerBlock> blocks, })`
-  - L132 `Future<void> deleteMessage({ required String collectionId, required String messageId, })`
-  - L141 `void _append( String collectionId, String threadId, { required String question, required List<AnswerBlock> blocks, required bool isShared, List<ChatAttachment> attachments = const [], })`
+- L5 `abstract interface class MapHttp`
+  - L6 `Future<MapResponse> getMapData({required MapBounds bounds, String? category})`
+  - L8 `Future<MapResponse> getNearbyPins({ required double latitude, required double longitude, int limit = 5, })`
+  - L14 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, int limit = 8, })`
+  - L21 `Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken})`
+  - L23 `Future<void> removeMapItem(String mapItemId)`
 
 ### lib/http/mock_collections_http.dart
 
@@ -1663,48 +1267,47 @@ windows/
   - L103 `List<Reel> _makeReels( String prefix, int count, String category, String platform, )`
   - L124 `Reel _makeReel({ required String id, required String title, required String category, required String platform, required int daysAgo, })`
   - L169 `Future<List<CollectionSummary>> getCollections()`
-  - L175 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
-  - L187 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
-  - L210 `CollectionDetail _detail( CollectionSummary collection, { required int limit, required int offset, bool? canEdit, String? ownerName, })`
-  - L237 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
-  - L249 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L281 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
-  - L296 `Future<void> deleteCollection(String collectionId)`
-  - L306 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
-  - L334 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
-  - L345 `Future<CollectionLink> enableCollectionLink(String collectionId)`
-  - L355 `Future<void> disableCollectionLink(String collectionId)`
-  - L363 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
-  - L381 `Future<CollectionSummary> acceptCollectionInvite(String token)`
-  - L394 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
-  - L409 `Future<void> leaveCollection(String collectionId)`
-  - L422 `Future<void> _wait()`
-  - L424 `CollectionSummary _require(String id)`
-  - L432 `CollectionSummary _requireEditable(String id)`
-  - L443 `CollectionSummary _requireOwner(String id)`
+  - L175 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, String? cursor, })`
+  - L186 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, String? cursor, })`
+  - L210 `CollectionDetail _detail( CollectionSummary collection, { required int limit, String? cursor, bool? canEdit, })`
+  - L232 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
+  - L244 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L276 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
+  - L291 `Future<void> deleteCollection(String collectionId)`
+  - L301 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
+  - L329 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
+  - L340 `Future<CollectionLink> enableCollectionLink(String collectionId)`
+  - L350 `Future<void> disableCollectionLink(String collectionId)`
+  - L358 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
+  - L376 `Future<CollectionSummary> acceptCollectionInvite(String token)`
+  - L389 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
+  - L404 `Future<void> leaveCollection(String collectionId)`
+  - L417 `Future<void> _wait()`
+  - L419 `CollectionSummary _require(String id)`
+  - L427 `CollectionSummary _requireEditable(String id)`
+  - L438 `CollectionSummary _requireOwner(String id)`
 
 ### lib/http/reels_http.dart
 
-- L8 `abstract interface class ReelsHttp`
-  - L9 `Future<Reel> processReel( String url, { String userId = 'default-user', void Function(ProcessingJob job)? onJobUpdate, })`
+- L6 `abstract interface class ReelsHttp`
+  - L7 `Future<Reel> processReel( String url, { String userId = 'default-user', void Function(ProcessingJob job)? onJobUpdate, })`
   - L15 `Future<ProcessingJob> enqueueReelProcessing( String url, { String userId = 'default-user', List<String> collectionIds = const [], })`
   - L23 `Future<List<ProcessingJob>> listProcessingJobs({ bool activeOnly = true, int limit = 20, })`
-  - L28 `Future<Reel> processVideo( File videoFile, { String userId = 'default-user', String url = '', })`
-  - L34 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
-  - L46 `Future<List<Reel>> getReels({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int limit = 50, })`
-  - L55 `Future<Reel> getReel(String reelId)`
-  - L57 `Future<void> deleteReel(String reelId)`
-  - L62 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
+  - L28 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+  - L38 `Future<List<Reel>> getReels({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int limit = 50, })`
+  - L47 `Future<Reel> getReel(String reelId)`
+  - L49 `Future<void> deleteReel(String reelId)`
+  - L54 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
 
 ### lib/http/sharing_http.dart
 
 - L3 `abstract interface class SharingHttp`
-  - L4 `Future<ShareResolveResponse> resolveSharePayload({ required String rawPayloadText, required String platform, Map<String, dynamic> metadata = const {}, })`
-  - L10 `Future<void> registerPushToken({ required String userId, required String token, required String platform, required String appVersion, required String appBuild, required String timezone, required String locale, })`
-  - L20 `Future<void> unregisterPushToken({required String token})`
-  - L22 `Future<void> recordNotificationOpened({required String notificationId})`
-  - L24 `Future<String> mintShareToken()`
-  - L26 `Future<void> revokeShareToken()`
+  - L4 `Future<ShareResolveResponse> resolveSharePayload({ required String rawPayloadText, })`
+  - L8 `Future<void> registerPushToken({ required String userId, required String token, required String platform, required String appVersion, required String appBuild, required String timezone, required String locale, })`
+  - L18 `Future<void> unregisterPushToken({required String token})`
+  - L20 `Future<void> recordNotificationOpened({required String notificationId})`
+  - L22 `Future<String> mintShareToken()`
+  - L24 `Future<void> revokeShareToken()`
 
 ### lib/main.dart
 
@@ -1712,37 +1315,31 @@ windows/
 
 ### lib/providers.dart
 
-- L41 `final themeViewModelProvider = ChangeNotifierProvider<ThemeViewModel>`
-- L45 `final profileServiceProvider = Provider<ProfileService>`
-- L49 `final authServiceProvider = Provider<AuthService>`
-- L53 `final sessionViewModelProvider = ChangeNotifierProvider<SessionViewModel>`
-- L65 `final notificationServiceProvider = Provider<NotificationService>`
-- L69 `final shareFlowAnalyticsServiceProvider = Provider<ShareFlowAnalyticsService>`
-- L75 `final apiClientProvider = Provider<ApiClient>`
-- L79 `final reelsHttpProvider = Provider<ReelsHttp>`
-- L83 `final mapHttpProvider = Provider<MapHttp>`
-- L87 `final foldersHttpProvider = Provider<FoldersHttp>`
-- L91 `final collectionsHttpProvider = Provider<CollectionsHttp>`
-- L98 `final collectionsViewModelProvider = `
-- L106 `final accountHttpProvider = Provider<AccountHttp>`
-- L110 `final sharingHttpProvider = Provider<SharingHttp>`
-- L114 `final pushRegistrationServiceProvider = Provider<PushRegistrationService>`
-- L123 `final reelRepositoryProvider = ChangeNotifierProvider<ReelRepository>`
-- L130 `final homeViewModelProvider = ChangeNotifierProvider<HomeViewModel>`
-- L141 `final mapViewModelProvider = ChangeNotifierProvider<MapViewModel>`
-- L145 `final reelFiltersViewModelProvider = `
-- L150 `final discoverViewModelProvider = ChangeNotifierProvider<DiscoverViewModel>`
-- L156 `final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>`
-- L160 `final foldersViewModelProvider = ChangeNotifierProvider<FoldersViewModel>`
-- L166 `final entitlementsViewModelProvider = `
-- L180 `final processingJobsViewModelProvider = `
-- L205 `final chatThreadStoreProvider = Provider<ChatThreadStore>`
-- L209 `final chatHttpProvider = Provider<ChatHttp>`
-- L219 `final collectionChatHttpProvider = Provider<CollectionChatHttp>`
-- L224 `final chatViewModelProvider = ChangeNotifierProvider<ChatViewModel>`
-- L234 `final collectionChatViewModelProvider = ChangeNotifierProvider.autoDispose`
-- L244 `final appShellControllerProvider = StateProvider<AppShellController?>`
-- L248 `final userStateCoordinatorProvider = Provider<UserStateCoordinator>`
+- L33 `final themeViewModelProvider = ChangeNotifierProvider<ThemeViewModel>`
+- L37 `final remoteConfigViewModelProvider = `
+- L44 `final profileServiceProvider = Provider<ProfileService>`
+- L48 `final authServiceProvider = Provider<AuthService>`
+- L52 `final sessionViewModelProvider = ChangeNotifierProvider<SessionViewModel>`
+- L64 `final notificationServiceProvider = Provider<NotificationService>`
+- L68 `final shareFlowAnalyticsServiceProvider = Provider<ShareFlowAnalyticsService>`
+- L74 `final apiClientProvider = Provider<ApiClient>`
+- L78 `final reelsHttpProvider = Provider<ReelsHttp>`
+- L82 `final mapHttpProvider = Provider<MapHttp>`
+- L86 `final collectionsHttpProvider = Provider<CollectionsHttp>`
+- L93 `final collectionsViewModelProvider = `
+- L101 `final accountHttpProvider = Provider<AccountHttp>`
+- L105 `final sharingHttpProvider = Provider<SharingHttp>`
+- L109 `final pushRegistrationServiceProvider = Provider<PushRegistrationService>`
+- L118 `final reelRepositoryProvider = ChangeNotifierProvider<ReelRepository>`
+- L125 `final homeViewModelProvider = ChangeNotifierProvider<HomeViewModel>`
+- L136 `final mapViewModelProvider = ChangeNotifierProvider<MapViewModel>`
+- L140 `final reelFiltersViewModelProvider = `
+- L145 `final discoverViewModelProvider = ChangeNotifierProvider<DiscoverViewModel>`
+- L151 `final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>`
+- L155 `final entitlementsViewModelProvider = `
+- L169 `final processingJobsViewModelProvider = `
+- L196 `final appShellControllerProvider = StateProvider<AppShellController?>`
+- L200 `final userStateCoordinatorProvider = Provider<UserStateCoordinator>`
 
 ### lib/reelpin_app.dart
 
@@ -1752,139 +1349,138 @@ windows/
 
 ### lib/repositories/reel_repository.dart
 
-- L21 `class SearchCancelledException implements Exception`
-  - L22 `const SearchCancelledException()`
-- L25 `class ReelRepository extends ChangeNotifier`
+- L22 `class SearchCancelledException implements Exception`
+  - L23 `const SearchCancelledException()`
+- L26 `class ReelRepository extends ChangeNotifier`
   - L46 `ReelRepository( this._apiService, this._authService, { ContentCache? contentCache, })`
   - L52 `String get _currentUserId`
   - L60 `List<Reel> get cachedReels`
   - L61 `String? get cacheUserId`
   - L62 `bool get hasMoreReels`
   - L63 `bool get hasHydratedCache`
-  - L64 `int get totalCount`
-  - L65 `SearchMode? get lastSearchMode`
-  - L66 `int get lastSearchTotal`
-  - L71 `Future<void> hydrateCache()`
-  - L88 `Future<void> _hydrateCache()`
-  - L126 `Future<void> loadInitialReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, String? sort, })`
-  - L154 `Future<void> _loadInitialReels({ required bool forceRefresh, String? platform, String? category, String? subcategory, String? savedDate, String? sort, })`
-  - L178 `Future<void> loadMoreReels({ String? platform, String? category, String? subcategory, String? savedDate, String? sort, })`
-  - L207 `Future<void> _loadMoreReelsInternal({ String? platform, String? category, String? subcategory, String? savedDate, String? sort, })`
-  - L231 `Future<void> _fetchAndStorePage({ required bool reset, String? platform, String? category, String? subcategory, String? savedDate, String? sort, })`
-  - L263 `Future<List<Reel>> getReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
-  - L280 `Future<ReelPage> getReelsPage({ String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = _pageSize, String? sort, })`
-  - L303 `Future<Reel> getReel(String reelId, {bool forceRefresh = false})`
-  - L308 `Future<Reel> processReel( String url, { void Function(ProcessingJob job)? onJobUpdate, })`
-  - L322 `Future<ProcessingJob> enqueueReelProcessing( String url, { List<String> collectionIds = const [], })`
-  - L339 `void insertReel(Reel reel)`
-  - L349 `Future<List<ProcessingJob>> listProcessingJobs({int limit = 20})`
-  - L353 `Future<ReelFiltersResponse> getFilters({ String? platform, String? category, String? subcategory, })`
-  - L366 `Future<MapResponse> getMapData({String? category})`
-  - L370 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, })`
-  - L382 `Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken})`
-  - L386 `Future<void> removeMapItem(String mapItemId)`
-  - L390 `Future<DiscoverResponse> getDiscover({ String? savedDate, int? offset, String? cursor, int limit = _pageSize, })`
-  - L404 `Future<LibraryStats> getLibraryStats()`
-  - L408 `Future<void> deleteReel(String reelId)`
-  - L414 `Future<SearchResponse> search( String query, { String? category, String? subcategory, })`
-  - L456 `void clearCache()`
-  - L470 `Future<void> clearUserCache()`
-  - L477 `bool _hasFilters( String? platform, String? category, String? subcategory, String? savedDate, String? sort, )`
-  - L492 `void cancelActiveSearch()`
-  - L498 `bool _isActiveSearchClient(http.Client client)`
-  - L502 `void dispose()`
+  - L64 `SearchMode? get lastSearchMode`
+  - L65 `int get lastSearchTotal`
+  - L70 `Future<void> hydrateCache()`
+  - L87 `Future<void> _hydrateCache()`
+  - L125 `Future<void> loadInitialReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L151 `Future<void> _loadInitialReels({ required bool forceRefresh, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L175 `Future<void> loadMoreReels({ String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L202 `Future<void> _loadMoreReelsInternal({ String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L226 `Future<void> _fetchAndStorePage({ required bool reset, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L254 `Future<List<Reel>> getReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L271 `Future<ReelPage> getReelsPage({ String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = _pageSize, })`
+  - L290 `Future<Reel> getReel(String reelId, {bool forceRefresh = false})`
+  - L295 `Future<Reel> processReel( String url, { void Function(ProcessingJob job)? onJobUpdate, })`
+  - L309 `Future<ProcessingJob> enqueueReelProcessing( String url, { List<String> collectionIds = const [], })`
+  - L326 `void insertReel(Reel reel)`
+  - L335 `Future<List<ProcessingJob>> listProcessingJobs({int limit = 20})`
+  - L339 `Future<ReelFiltersResponse> getFilters({ String? platform, String? category, String? subcategory, })`
+  - L352 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
+  - L359 `Future<MapResponse> getNearbyPins({ required double latitude, required double longitude, int limit = 5, })`
+  - L371 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, })`
+  - L383 `Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken})`
+  - L387 `Future<void> removeMapItem(String mapItemId)`
+  - L391 `Future<DiscoverResponse> getDiscover({ String? savedDate, String? cursor, int limit = _pageSize, })`
+  - L403 `Future<LibraryStats> getLibraryStats()`
+  - L407 `Future<void> deleteReel(String reelId)`
+  - L413 `Future<SearchResponse> search( String query, { String? category, String? subcategory, })`
+  - L455 `void clearCache()`
+  - L471 `Future<void> clearUserCache()`
+  - L478 `bool _hasFilters( String? platform, String? category, String? subcategory, String? savedDate, )`
+  - L491 `void cancelActiveSearch()`
+  - L497 `bool _isActiveSearchClient(http.Client client)`
+  - L501 `void dispose()`
 
 ### lib/router.dart
 
-- L23 `Route<void> reelDetailRoute(Reel reel)`
-- L28 `Route<void> reelDetailSlideRoute(Reel reel)`
-- L44 `Route<void> reelDetailLoaderRoute(String reelId)`
-- L50 `Route<void> featureAnnouncementRoute({ required String title, required String body, })`
-- L59 `Route<void> howToUseRoute({bool isFirstRun = false})`
-- L66 `Route<void> profileRoute()`
-- L73 `Route<void> collectionDetailRoute(String collectionId, {bool animate = true})`
-- L90 `Route<void> sharedCollectionRoute( String token, { bool animate = true, String? url, })`
-- L108 `Route<void> paywallRoute({ PaywallEntryPoint entryPoint = PaywallEntryPoint.account, })`
-- L116 `Future<void> openPaywall( BuildContext context, { PaywallEntryPoint entryPoint = PaywallEntryPoint.account, })`
-- L132 `Future<void> openChat( BuildContext context, WidgetRef ref, { String seedText = '', List<ChatAttachment> seedAttachments = const [], required VoidCallback showAskTab, })`
+- L22 `Route<void> reelDetailRoute(Reel reel)`
+- L27 `Route<void> reelDetailSlideRoute(Reel reel)`
+- L43 `Route<void> reelDetailLoaderRoute(String reelId)`
+- L49 `Route<void> featureAnnouncementRoute({ required String title, required String body, })`
+- L60 `Route<void> updateRequiredRoute(UpdateRequirement requirement)`
+- L67 `Route<void> howToUseRoute({bool isFirstRun = false})`
+- L74 `Route<void> profileRoute()`
+- L81 `Route<void> collectionDetailRoute(String collectionId, {bool animate = true})`
+- L98 `Route<void> sharedCollectionRoute( String token, { bool animate = true, String? url, })`
+- L116 `Route<void> paywallRoute({ PaywallEntryPoint entryPoint = PaywallEntryPoint.account, })`
+- L124 `Future<void> openPaywall( BuildContext context, { PaywallEntryPoint entryPoint = PaywallEntryPoint.account, })`
 
 ### lib/screens/app_shell/app_shell.dart
 
-- L43 `const _navIconSize = 27.0`
-- L45 `class AppShell extends ConsumerStatefulWidget`
-  - L46 `const AppShell({super.key, this.controller})`
-  - L51 `ConsumerState<AppShell> createState()`
-- L54 `class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver`
-  - L92 `void initState()`
-  - L118 `Future<void> _initCollectionDeepLinks()`
-  - L147 `Future<void> _handleDeferredLink()`
-  - L152 `Future<void> _handleIncomingUri(Uri uri)`
-  - L165 `void _routeCollectionUri(Uri uri)`
-  - L178 `Future<void> _openLaunchLink(CollectionLink link)`
-  - L192 `void _routeCollectionLink(CollectionLink link, {bool animate = true})`
-  - L208 `Future<void> _openSharedCollection( String token, { bool animate = true, String? url, })`
-  - L220 `Future<void> _acceptCollectionInvite( String token, { bool animate = true, })`
-  - L247 `void _initSharingIntent()`
-  - L271 `void _processSharedData(List<SharedMediaFile> files)`
-  - L279 `Future<void> _handleSharedPayload( String payload, { bool showConfirmation = true, List<String> collectionIds = const [], })`
-  - L329 `Future<void> _enqueueSharedReel( String url, { required bool showConfirmation, List<String> collectionIds = const [], })`
-  - L473 `void dispose()`
-  - L483 `void didChangeAppLifecycleState(AppLifecycleState state)`
-  - L513 `Future<void> _drainPendingNativeShares()`
-  - L546 `Future<void> _runFirstRunFlow()`
-  - L551 `Future<void> _maybeShowHowToGuide()`
-  - L579 `Future<bool> _accountHasSaves()`
-  - L585 `Future<void> _maybePromptInitialPermissions()`
-  - L603 `Future<bool> _enableReelPinPermissions()`
-  - L639 `Future<void> _syncPushTokenRegistrationIfPossible()`
-  - L653 `void _openSearchFromHome()`
-  - L661 `Future<void> _scrollHomeToTop()`
-  - L670 `void _showHomeAtTop()`
-  - L679 `void _selectControlledTab(int index)`
-  - L687 `bool _isHomeScrolledDown()`
-  - L692 `Future<void> _refreshSavedContent()`
-  - L704 `void _selectTab(int index)`
-  - L720 `void _refreshSelectedContent(int index)`
-  - L734 `Widget build(BuildContext context)`
-  - L783 `Widget _buildNavBar()`
-  - L831 `Widget _buildNavItem(int index, _NavItem item)`
+- L41 `const _navIconSize = 27.0`
+- L43 `class AppShell extends ConsumerStatefulWidget`
+  - L44 `const AppShell({super.key, this.controller})`
+  - L49 `ConsumerState<AppShell> createState()`
+- L52 `class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver`
+  - L85 `void initState()`
+  - L111 `Future<void> _initCollectionDeepLinks()`
+  - L140 `Future<void> _handleDeferredLink()`
+  - L145 `Future<void> _handleIncomingUri(Uri uri)`
+  - L158 `void _routeCollectionUri(Uri uri)`
+  - L171 `Future<void> _openLaunchLink(CollectionLink link)`
+  - L185 `void _routeCollectionLink(CollectionLink link, {bool animate = true})`
+  - L201 `Future<void> _openSharedCollection( String token, { bool animate = true, String? url, })`
+  - L213 `Future<void> _acceptCollectionInvite( String token, { bool animate = true, })`
+  - L240 `void _initSharingIntent()`
+  - L264 `void _processSharedData(List<SharedMediaFile> files)`
+  - L272 `Future<void> _handleSharedPayload( String payload, { bool showConfirmation = true, List<String> collectionIds = const [], })`
+  - L319 `Future<void> _enqueueSharedReel( String url, { required bool showConfirmation, List<String> collectionIds = const [], })`
+  - L447 `void _showSaveFailure(ScaffoldMessengerState messenger, Object error)`
+  - L472 `void dispose()`
+  - L482 `void didChangeAppLifecycleState(AppLifecycleState state)`
+  - L512 `Future<void> _drainPendingNativeShares()`
+  - L545 `Future<void> _runFirstRunFlow()`
+  - L550 `Future<void> _maybeShowHowToGuide()`
+  - L578 `Future<bool> _accountHasSaves()`
+  - L584 `Future<void> _maybePromptInitialPermissions()`
+  - L602 `Future<bool> _enableReelPinPermissions()`
+  - L638 `Future<void> _syncPushTokenRegistrationIfPossible()`
+  - L652 `void _openSearchFromHome()`
+  - L660 `Future<void> _scrollHomeToTop()`
+  - L669 `void _showHomeAtTop()`
+  - L678 `void _selectControlledTab(int index)`
+  - L686 `bool _isHomeScrolledDown()`
+  - L691 `Future<void> _refreshSavedContent()`
+  - L703 `void _selectTab(int index)`
+  - L719 `void _refreshSelectedContent(int index)`
+  - L731 `Widget build(BuildContext context)`
+  - L779 `Widget _buildNavBar()`
+  - L827 `Widget _buildNavItem(int index, _NavItem item)`
 
 ### lib/screens/app_shell/authenticated_shell.dart
 
-- L19 `class AuthenticatedShell extends ConsumerStatefulWidget`
-  - L20 `const AuthenticatedShell({super.key})`
-  - L23 `ConsumerState<AuthenticatedShell> createState()`
-- L26 `class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell>`
-  - L52 `void initState()`
-  - L93 `Widget build(BuildContext context)`
-  - L97 `Future<void> _initializeBackgroundMessaging()`
-  - L131 `Future<void> _syncPushTokenRegistration({ String? candidateToken, int retryAttempt = 1, })`
-  - L184 `void _schedulePushTokenRegistrationRetry({int attempt = 1})`
-  - L195 `Future<void> _refreshSavedReels()`
-  - L203 `void _queueNotificationOpen(OpenedAppNotification opened)`
-  - L210 `Future<void> _handleNotificationOpen(OpenedAppNotification opened)`
-  - L259 `void _openShellTab(VoidCallback selectTab)`
-  - L264 `Future<void> _recordNotificationOpen(String notificationId)`
-  - L272 `void _clearUserScopedState()`
-  - L283 `void dispose()`
+- L20 `class AuthenticatedShell extends ConsumerStatefulWidget`
+  - L21 `const AuthenticatedShell({super.key})`
+  - L24 `ConsumerState<AuthenticatedShell> createState()`
+- L27 `class _AuthenticatedShellState extends ConsumerState<AuthenticatedShell>`
+  - L55 `void initState()`
+  - L99 `Widget build(BuildContext context)`
+  - L103 `Future<void> _initializeBackgroundMessaging()`
+  - L137 `Future<void> _syncPushTokenRegistration({ String? candidateToken, int retryAttempt = 1, })`
+  - L190 `void _schedulePushTokenRegistrationRetry({int attempt = 1})`
+  - L201 `Future<void> _refreshSavedReels()`
+  - L209 `void _queueNotificationOpen(OpenedAppNotification opened)`
+  - L216 `Future<void> _handleNotificationOpen(OpenedAppNotification opened)`
+  - L269 `void _showRemotePrompts()`
+  - L279 `Future<void> _presentRemotePrompts()`
+  - L301 `void _openShellTab(VoidCallback selectTab)`
+  - L306 `Future<void> _recordNotificationOpen(String notificationId)`
+  - L314 `void _clearUserScopedState()`
+  - L325 `void dispose()`
 
 ### lib/screens/app_shell/partials/app_shell_controller.dart
 
-- L8 `class AppTabLayout`
-  - L9 `const AppTabLayout._({ required this.home, required this.map, required this.ask, required this.saved, required this.discover, })`
-  - L17 `factory AppTabLayout.forChatEnabled(bool chatEnabled)`
-- L36 `class AppShellController`
-  - L37 `AppShellController()`
-  - L40 `AppShellController.forTest({required bool chatEnabled})`
-  - L47 `void showHome()`
-  - L51 `void showMap()`
-  - L55 `void showSaved()`
-  - L59 `void showDiscover()`
-  - L63 `void showAsk()`
-  - L72 `void _select(int index)`
-  - L82 `void attachForTest(ValueChanged<int> callback)`
-  - L84 `void _attach(ValueChanged<int> callback)`
-  - L93 `void _detach()`
+- L5 `class AppTabLayout`
+  - L6 `const AppTabLayout()`
+- L14 `class AppShellController`
+  - L19 `void showHome()`
+  - L23 `void showMap()`
+  - L27 `void showSaved()`
+  - L31 `void showDiscover()`
+  - L35 `void _select(int index)`
+  - L45 `void attachForTest(ValueChanged<int> callback)`
+  - L47 `void _attach(ValueChanged<int> callback)`
+  - L56 `void _detach()`
 
 ### lib/screens/app_shell/partials/nav_item.dart
 
@@ -1907,71 +1503,38 @@ windows/
   - L506 `Widget _messageBanner( BuildContext context, { required String text, required Color color, required Color textColor, })`
   - L531 `Widget _inputField( BuildContext context, { required TextEditingController controller, required String label, required String hint, required String? Function(String?) validator, bool obscureText = false, TextInputType? keyboardType, Widget? suffixIcon, })`
 
-### lib/screens/chat/chat_screen.dart
-
-- L24 `class ChatScreen extends ConsumerStatefulWidget`
-  - L25 `const ChatScreen({super.key})`
-  - L28 `ConsumerState<ChatScreen> createState()`
-- L31 `class _ChatScreenState extends ConsumerState<ChatScreen>`
-  - L45 `void initState()`
-  - L62 `void dispose()`
-  - L67 `void _scrollToBottom()`
-  - L82 `double _composerBottomClearance(BuildContext context)`
-  - L90 `Widget build(BuildContext context)`
-  - L193 `Widget _buildHeader(BuildContext context)`
-  - L228 `Widget _headerButton( BuildContext context, IconData icon, VoidCallback onTap, )`
-  - L249 `Widget _buildThread(ChatThread thread, ChatViewModel viewModel)`
-  - L296 `List<String> _suggestions()`
-
-### lib/screens/chat/partials/chat_empty_state.dart
-
-- L7 `class ChatEmptyState extends StatelessWidget`
-  - L8 `const ChatEmptyState({ super.key, required this.suggestions, required this.onSuggestionTap, required this.savedCount, })`
-  - L26 `Widget build(BuildContext context)`
-
-### lib/screens/collections/collection_ask_screen.dart
-
-- L18 `class CollectionAskScreen extends ConsumerStatefulWidget`
-  - L19 `const CollectionAskScreen({ super.key, required this.collectionId, required this.collectionName, required this.canEdit, })`
-  - L33 `ConsumerState<CollectionAskScreen> createState()`
-- L37 `class _CollectionAskScreenState extends ConsumerState<CollectionAskScreen>`
-  - L43 `Widget build(BuildContext context)`
-  - L90 `Widget _buildHeader(BuildContext context, CollectionChatViewModel viewModel)`
-  - L154 `Widget _headerButton( BuildContext context, IconData icon, VoidCallback onTap, )`
-
 ### lib/screens/collections/collection_detail_screen.dart
 
-- L33 `class CollectionDetailScreen extends ConsumerStatefulWidget`
-  - L34 `const CollectionDetailScreen({ super.key, required this.collectionId, this.sharedToken, this.sharedUrl, this.initialName, this.offerChat = chatEnabled, })`
-  - L60 `bool get isShared`
-  - L63 `ConsumerState<CollectionDetailScreen> createState()`
-- L67 `class _CollectionDetailScreenState extends ConsumerState<CollectionDetailScreen>`
-  - L78 `void initState()`
-  - L113 `Future<void> _loadOwnLink()`
-  - L120 `String? get _collectionShareUrl`
-  - L129 `Future<void> _loadShared()`
-  - L157 `Future<void> _refresh()`
-  - L166 `Future<void> _edit(CollectionSummary collection)`
-  - L170 `Future<void> _confirmDelete(CollectionSummary collection)`
-  - L188 `Future<void> _confirmLeave(CollectionSummary collection)`
-  - L203 `Future<void> _confirmRemoveReel(Reel reel)`
-  - L221 `Future<void> _runGuarded( Future<void> Function() action, { required String fallback, bool popOnSuccess = false, })`
-  - L241 `Widget build(BuildContext context)`
-  - L378 `void _openAsk(CollectionSummary collection, {required bool canEdit})`
-  - L390 `Widget _buildHeader( BuildContext context, CollectionsViewModel vm, CollectionSummary? collection, { required bool canEdit, required String? ownerName, })`
-  - L477 `List<Widget> _buildContent( BuildContext context, { required bool ownsReels, required CollectionDetail? detail, required bool isLoading, required String? error, required bool canEdit, })`
-  - L553 `Widget _buildReelGrid( BuildContext context, List<Reel> reels, { required bool canEdit, required bool ownsReels, required List<ProcessingJob> processingJobs, })`
-  - L637 `Widget _buildPaginationState(BuildContext context, CollectionDetail detail)`
-  - L661 `Widget _buildLoading(BuildContext context)`
-- L676 `class _HeaderAction extends StatelessWidget`
-  - L677 `const _HeaderAction({ required this.icon, required this.onTap, this.color, this.iconColor, })`
-  - L690 `Widget build(BuildContext context)`
-- L709 `class _SharedBanner extends StatelessWidget`
-  - L710 `const _SharedBanner({this.ownerName})`
-  - L715 `Widget build(BuildContext context)`
-- L747 `class _MessageCard extends StatelessWidget`
-  - L748 `const _MessageCard({ required this.title, required this.body, this.icon, this.onRetry, })`
-  - L761 `Widget build(BuildContext context)`
+- L30 `class CollectionDetailScreen extends ConsumerStatefulWidget`
+  - L31 `const CollectionDetailScreen({ super.key, required this.collectionId, this.sharedToken, this.sharedUrl, this.initialName, })`
+  - L50 `bool get isShared`
+  - L53 `ConsumerState<CollectionDetailScreen> createState()`
+- L57 `class _CollectionDetailScreenState extends ConsumerState<CollectionDetailScreen>`
+  - L68 `void initState()`
+  - L103 `Future<void> _loadOwnLink()`
+  - L110 `String? get _collectionShareUrl`
+  - L119 `Future<void> _loadShared()`
+  - L147 `Future<void> _refresh()`
+  - L156 `Future<void> _edit(CollectionSummary collection)`
+  - L160 `Future<void> _confirmDelete(CollectionSummary collection)`
+  - L178 `Future<void> _confirmLeave(CollectionSummary collection)`
+  - L193 `Future<void> _confirmRemoveReel(Reel reel)`
+  - L211 `Future<void> _runGuarded( Future<void> Function() action, { required String fallback, bool popOnSuccess = false, })`
+  - L231 `Widget build(BuildContext context)`
+  - L344 `Widget _buildHeader( BuildContext context, CollectionsViewModel vm, CollectionSummary? collection, { required bool canEdit, })`
+  - L424 `List<Widget> _buildContent( BuildContext context, { required bool ownsReels, required CollectionDetail? detail, required bool isLoading, required String? error, required bool canEdit, })`
+  - L500 `Widget _buildReelGrid( BuildContext context, List<Reel> reels, { required bool canEdit, required bool ownsReels, required List<ProcessingJob> processingJobs, })`
+  - L584 `Widget _buildPaginationState(BuildContext context, CollectionDetail detail)`
+  - L608 `Widget _buildLoading(BuildContext context)`
+- L623 `class _HeaderAction extends StatelessWidget`
+  - L624 `const _HeaderAction({ required this.icon, required this.onTap, this.color, this.iconColor, })`
+  - L637 `Widget build(BuildContext context)`
+- L656 `class _SharedBanner extends StatelessWidget`
+  - L657 `const _SharedBanner()`
+  - L660 `Widget build(BuildContext context)`
+- L690 `class _MessageCard extends StatelessWidget`
+  - L691 `const _MessageCard({ required this.title, required this.body, this.icon, this.onRetry, })`
+  - L704 `Widget build(BuildContext context)`
 
 ### lib/screens/collections/collections_screen.dart
 
@@ -1995,18 +1558,6 @@ windows/
   - L273 `const _MessageCard({ required this.title, required this.body, this.hugeIcon, this.onRetry, this.action, })`
   - L290 `Widget build(BuildContext context)`
 
-### lib/screens/collections/partials/collection_chat_panel.dart
-
-- L27 `class CollectionChatPanel extends ConsumerStatefulWidget`
-  - L28 `const CollectionChatPanel({ super.key, required this.collectionId, required this.canEdit, })`
-  - L41 `ConsumerState<CollectionChatPanel> createState()`
-- L45 `class _CollectionChatPanelState extends ConsumerState<CollectionChatPanel>`
-  - L52 `void initState()`
-  - L70 `Widget build(BuildContext context)`
-  - L125 `Widget _thread( CollectionChatViewModel viewModel, List<ChatMessage> rawMessages, )`
-  - L189 `Widget _empty(BuildContext context)`
-  - L211 `Widget _failed(BuildContext context, CollectionChatViewModel viewModel)`
-
 ### lib/screens/collections/partials/collection_sticky_note.dart
 
 - L7 `const double _pinAngle = -0.28`
@@ -2017,47 +1568,40 @@ windows/
   - L198 `Path getClip(Size size)`
   - L213 `bool shouldReclip(covariant CustomClipper<Path> oldClipper)`
 
-### lib/screens/collections/partials/collection_tab_bar.dart
-
-- L9 `class _CollectionTabBar extends StatelessWidget`
-  - L10 `const _CollectionTabBar({required this.onAsk})`
-  - L15 `Widget build(BuildContext context)`
-  - L38 `Widget _tab( BuildContext context, { required String label, required bool selected, required VoidCallback? onTap, })`
-
 ### lib/screens/discover/discover_screen.dart
 
-- L25 `class DiscoverScreen extends ConsumerStatefulWidget`
-  - L26 `const DiscoverScreen({super.key, this.focusRequestId = 0})`
-  - L31 `ConsumerState<DiscoverScreen> createState()`
-- L34 `class _DiscoverScreenState extends ConsumerState<DiscoverScreen>`
-  - L44 `void initState()`
-  - L57 `void dispose()`
-  - L66 `void didUpdateWidget(covariant DiscoverScreen oldWidget)`
-  - L71 `void _handleControllerTextChanged()`
-  - L80 `void _scheduleFocusIfRequested()`
-  - L92 `Widget build(BuildContext context)`
-  - L291 `void _handleSearchChanged(SearchViewModel vm, String query)`
-  - L306 `void _doSearch(SearchViewModel vm, String query)`
-  - L317 `Widget? _buildSearchFieldAction(BuildContext context, SearchViewModel vm)`
-  - L348 `void _clearSearch(SearchViewModel vm, {bool keepFocus = false})`
-  - L369 `void _clearDateFilter()`
-  - L373 `Future<void> _openCategory(DiscoverCategory category)`
-  - L387 `Future<void> _pickSavedDate(BuildContext context)`
-  - L424 `Widget _buildNoResults(BuildContext context, String query)`
-  - L478 `Widget _buildMinimumQueryState(BuildContext context, String query)`
-  - L533 `Widget _buildDiscoverContent( BuildContext context, DiscoverViewModel discoverVm, )`
-  - L696 `Widget _buildDiscoverError( BuildContext context, DiscoverViewModel discoverVm, )`
-  - L737 `Widget _buildCategoryReelsContent( BuildContext context, DiscoverViewModel discoverVm, )`
-  - L840 `Widget _buildCategoryReelsError( BuildContext context, DiscoverViewModel discoverVm, )`
-  - L880 `Widget _buildCategoryReelsEmpty(BuildContext context, String categoryLabel)`
-  - L905 `Widget _buildCategoryReelGrid(BuildContext context, List<Reel> reels)`
-  - L950 `Widget _buildDateEmptyState(BuildContext context, String selectedDateLabel)`
-  - L993 `Widget _buildQuickSearches(BuildContext context, List<String> prompts)`
-  - L1032 `Widget _buildRecentSaves(BuildContext context, List<Reel> reels)`
-  - L1135 `Widget _buildCategoryGrid( BuildContext context, List<DiscoverCategory> categories, )`
-  - L1228 `Widget _buildSearchingState(BuildContext context)`
-  - L1267 `Widget _buildResults(BuildContext context, SearchViewModel vm)`
-  - L1329 `Widget _buildError(BuildContext context, SearchViewModel vm)`
+- L24 `class DiscoverScreen extends ConsumerStatefulWidget`
+  - L25 `const DiscoverScreen({super.key, this.focusRequestId = 0})`
+  - L30 `ConsumerState<DiscoverScreen> createState()`
+- L33 `class _DiscoverScreenState extends ConsumerState<DiscoverScreen>`
+  - L43 `void initState()`
+  - L56 `void dispose()`
+  - L65 `void didUpdateWidget(covariant DiscoverScreen oldWidget)`
+  - L70 `void _handleControllerTextChanged()`
+  - L79 `void _scheduleFocusIfRequested()`
+  - L91 `Widget build(BuildContext context)`
+  - L259 `void _handleSearchChanged(SearchViewModel vm, String query)`
+  - L274 `void _doSearch(SearchViewModel vm, String query)`
+  - L285 `Widget? _buildSearchFieldAction(BuildContext context, SearchViewModel vm)`
+  - L316 `void _clearSearch(SearchViewModel vm, {bool keepFocus = false})`
+  - L337 `void _clearDateFilter()`
+  - L341 `Future<void> _openCategory(DiscoverCategory category)`
+  - L355 `Future<void> _pickSavedDate(BuildContext context)`
+  - L392 `Widget _buildNoResults(BuildContext context, String query)`
+  - L446 `Widget _buildMinimumQueryState(BuildContext context, String query)`
+  - L501 `Widget _buildDiscoverContent( BuildContext context, DiscoverViewModel discoverVm, )`
+  - L664 `Widget _buildDiscoverError( BuildContext context, DiscoverViewModel discoverVm, )`
+  - L705 `Widget _buildCategoryReelsContent( BuildContext context, DiscoverViewModel discoverVm, )`
+  - L806 `Widget _buildCategoryReelsError( BuildContext context, DiscoverViewModel discoverVm, )`
+  - L846 `Widget _buildCategoryReelsEmpty(BuildContext context, String categoryLabel)`
+  - L871 `Widget _buildCategoryReelGrid(BuildContext context, List<Reel> reels)`
+  - L916 `Widget _buildDateEmptyState(BuildContext context, String selectedDateLabel)`
+  - L959 `Widget _buildQuickSearches(BuildContext context, List<String> prompts)`
+  - L998 `Widget _buildRecentSaves(BuildContext context, List<Reel> reels)`
+  - L1101 `Widget _buildCategoryGrid( BuildContext context, List<DiscoverCategory> categories, )`
+  - L1194 `Widget _buildSearchingState(BuildContext context)`
+  - L1233 `Widget _buildResults(BuildContext context, SearchViewModel vm)`
+  - L1295 `Widget _buildError(BuildContext context, SearchViewModel vm)`
 
 ### lib/screens/discover/partials/saved_date_calendar_sheet.dart
 
@@ -2107,11 +1651,11 @@ windows/
   - L89 `void initState()`
   - L109 `bool _isEmptyStateVisible(HomeViewModel vm, {required bool hasProcessing})`
   - L121 `Widget build(BuildContext context)`
-  - L321 `Widget _buildPaginationState(BuildContext context, HomeViewModel vm)`
-  - L385 `Widget _buildSearchButton(BuildContext context)`
-  - L402 `Widget _buildFilterButton( BuildContext context, HomeViewModel vm, ReelFiltersViewModel filtersVm, )`
-  - L441 `bool _showFreeHistoryBanner(UserEntitlement? entitlements)`
-  - L445 `Widget _buildFreePlanBanner( BuildContext context, EntitlementsResponse entitlements, )`
+  - L324 `Widget _buildPaginationState(BuildContext context, HomeViewModel vm)`
+  - L388 `Widget _buildSearchButton(BuildContext context)`
+  - L405 `Widget _buildFilterButton( BuildContext context, HomeViewModel vm, ReelFiltersViewModel filtersVm, )`
+  - L444 `bool _showFreeHistoryBanner(UserEntitlement? entitlements)`
+  - L448 `Widget _buildFreePlanBanner( BuildContext context, EntitlementsResponse entitlements, )`
   - L515 `Widget _buildReelGrid( BuildContext context, HomeViewModel vm, List<ProcessingJob> processingJobs, )`
   - L596 `Widget _buildShimmerGrid(BuildContext context)`
   - L643 `Widget _buildEmptyState(BuildContext context)`
@@ -2199,29 +1743,32 @@ windows/
 
 ### lib/screens/map/map_screen.dart
 
-- L26 `class MapScreen extends ConsumerStatefulWidget`
-  - L27 `const MapScreen({super.key})`
-  - L30 `ConsumerState<MapScreen> createState()`
-- L33 `class _MapScreenState extends ConsumerState<MapScreen>`
-  - L70 `void initState()`
-  - L82 `void didChangeDependencies()`
-  - L94 `Future<void> _initUserLocation()`
-  - L116 `void _centerMapOnUserCountry()`
-  - L131 `void _recenterToUserLocation()`
-  - L141 `Future<void> _refreshMapPins()`
-  - L145 `Future<void> _openPlaceSearchSheet()`
-  - L165 `void _focusMapItem(MapItem item)`
-  - L174 `void _handleMapViewModelChanged()`
-  - L178 `void _scheduleVisibleMarkerSync()`
-  - L189 `Future<void> _syncVisibleMarkers(MapViewModel mapVm)`
-  - L239 `Future<BitmapDescriptor> _createCustomPin(String category)`
-  - L242 `void _fitMarkers(Set<Marker> markers)`
-  - L269 `Widget build(BuildContext context)`
-  - L605 `Widget _mapButton({required IconData icon, required VoidCallback onTap})`
-  - L622 `Set<Marker> _buildMarkers(MapViewModel vm)`
-  - L645 `Widget _buildPinSheet(BuildContext context, MapItem item)`
-  - L885 `Future<void> _confirmRemoveMapItem(BuildContext context, MapItem item)`
-  - L915 `void dispose()`
+- L27 `class MapScreen extends ConsumerStatefulWidget`
+  - L28 `const MapScreen({super.key})`
+  - L31 `ConsumerState<MapScreen> createState()`
+- L34 `class _MapScreenState extends ConsumerState<MapScreen>`
+  - L72 `void initState()`
+  - L84 `void didChangeDependencies()`
+  - L96 `Future<void> _initUserLocation()`
+  - L118 `void _centerMapOnUserCountry()`
+  - L135 `Future<void> _recenterToUserLocation()`
+  - L164 `Future<void> _reportViewport()`
+  - L182 `Future<void> _refreshMapPins()`
+  - L186 `Future<void> _openPlaceSearchSheet()`
+  - L206 `void _focusMapItem(MapItem item)`
+  - L215 `void _handleMapViewModelChanged()`
+  - L219 `void _scheduleVisibleMarkerSync()`
+  - L230 `Future<void> _syncVisibleMarkers(MapViewModel mapVm)`
+  - L278 `Future<BitmapDescriptor> _createCustomPin(String category)`
+  - L281 `void _fitMarkers(Set<Marker> markers)`
+  - L285 `void _fitPositions(List<LatLng> positions)`
+  - L312 `Widget build(BuildContext context)`
+  - L663 `Widget _mapNotice(String message)`
+  - L686 `Widget _mapButton({required IconData icon, required VoidCallback onTap})`
+  - L703 `Set<Marker> _buildMarkers(MapViewModel vm)`
+  - L726 `Widget _buildPinSheet(BuildContext context, MapItem item)`
+  - L966 `Future<void> _confirmRemoveMapItem(BuildContext context, MapItem item)`
+  - L998 `void dispose()`
 
 ### lib/screens/map/partials/map_place_search_sheet.dart
 
@@ -2238,28 +1785,25 @@ windows/
   - L231 `Widget _buildSearchField(BuildContext context, MapViewModel vm)`
   - L271 `Widget? _buildSearchFieldAction(BuildContext context, MapViewModel vm)`
   - L305 `Widget _buildResults(BuildContext context, MapViewModel vm, String query)`
-  - L416 `List<MapPlaceSearchResult> _savedResults(List<MapPlaceSearchResult> results)`
-  - L422 `String _placeResultKey(MapPlaceSearchResult result, int index)`
-- L432 `enum _PlaceSearchTab`
-- L434 `class _PlaceSearchTabs extends StatelessWidget`
-  - L435 `const _PlaceSearchTabs({ required this.selectedTab, required this.allCount, required this.savedCount, required this.onChanged, })`
-  - L448 `Widget build(BuildContext context)`
-- L482 `class _PlaceSearchTabButton extends StatelessWidget`
-  - L483 `const _PlaceSearchTabButton({ required this.label, required this.count, required this.isSelected, required this.onTap, })`
-  - L496 `Widget build(BuildContext context)`
-- L546 `class _PlaceSearchNotice extends StatelessWidget`
-  - L547 `const _PlaceSearchNotice()`
-  - L550 `Widget build(BuildContext context)`
-- L582 `class _PlaceSearchMessage extends StatelessWidget`
-  - L583 `const _PlaceSearchMessage({ required this.icon, required this.title, required this.accentColor, this.body, this.isLoading = false, })`
-  - L598 `Widget build(BuildContext context)`
-- L664 `class _PlaceSearchSummary extends StatelessWidget`
-  - L665 `const _PlaceSearchSummary({ required this.count, required this.query, required this.tab, })`
-  - L676 `Widget build(BuildContext context)`
-- L715 `class _MapPlaceResultTile extends StatelessWidget`
-  - L716 `const _MapPlaceResultTile({ required this.result, required this.isSaving, required this.onTap, })`
-  - L727 `Widget build(BuildContext context)`
-  - L844 `String _firstNonEmpty(List<String?> values)`
+  - L389 `List<MapPlaceSearchResult> _savedResults(List<MapPlaceSearchResult> results)`
+  - L395 `String _placeResultKey(MapPlaceSearchResult result, int index)`
+- L405 `enum _PlaceSearchTab`
+- L407 `class _PlaceSearchTabs extends StatelessWidget`
+  - L408 `const _PlaceSearchTabs({ required this.selectedTab, required this.allCount, required this.savedCount, required this.onChanged, })`
+  - L421 `Widget build(BuildContext context)`
+- L455 `class _PlaceSearchTabButton extends StatelessWidget`
+  - L456 `const _PlaceSearchTabButton({ required this.label, required this.count, required this.isSelected, required this.onTap, })`
+  - L469 `Widget build(BuildContext context)`
+- L519 `class _PlaceSearchMessage extends StatelessWidget`
+  - L520 `const _PlaceSearchMessage({ required this.icon, required this.title, required this.accentColor, this.body, this.isLoading = false, })`
+  - L535 `Widget build(BuildContext context)`
+- L601 `class _PlaceSearchSummary extends StatelessWidget`
+  - L602 `const _PlaceSearchSummary({ required this.count, required this.query, required this.tab, })`
+  - L613 `Widget build(BuildContext context)`
+- L652 `class _MapPlaceResultTile extends StatelessWidget`
+  - L653 `const _MapPlaceResultTile({ required this.result, required this.isSaving, required this.onTap, })`
+  - L664 `Widget build(BuildContext context)`
+  - L781 `String _firstNonEmpty(List<String?> values)`
 
 ### lib/screens/onboarding/onboarding_screen.dart
 
@@ -2286,13 +1830,14 @@ windows/
 ### lib/screens/paywall/paywall_screen.dart
 
 - L11 `enum PaywallEntryPoint`
-- L13 `class PaywallScreen extends ConsumerWidget`
-  - L14 `const PaywallScreen({super.key, required this.entryPoint})`
-  - L19 `Widget build(BuildContext context, WidgetRef ref)`
-  - L173 `Widget _sectionTitle(BuildContext context, String text)`
-  - L186 `Widget _statusCard(BuildContext context, EntitlementsResponse? response)`
-  - L286 `List<Widget> _buildBackendPlanCards( BuildContext context, List<PlanCard> planCards, )`
-  - L320 `Widget _planCard( BuildContext context, { required PlanCard card, required Color accent, })`
+  - L16 `const PaywallEntryPoint(this.messageKey)`
+- L22 `class PaywallScreen extends ConsumerWidget`
+  - L23 `const PaywallScreen({super.key, required this.entryPoint})`
+  - L28 `Widget build(BuildContext context, WidgetRef ref)`
+  - L171 `Widget _sectionTitle(BuildContext context, String text)`
+  - L184 `Widget _statusCard(BuildContext context, EntitlementsResponse? response)`
+  - L262 `List<Widget> _buildBackendPlanCards( BuildContext context, List<PlanCard> planCards, )`
+  - L296 `Widget _planCard( BuildContext context, { required PlanCard card, required Color accent, })`
 
 ### lib/screens/profile/partials/location_preference_card.dart
 
@@ -2341,17 +1886,19 @@ windows/
   - L28 `const ProfileScreen({super.key})`
   - L31 `ConsumerState<ProfileScreen> createState()`
 - L34 `class _ProfileScreenState extends ConsumerState<ProfileScreen>`
-  - L40 `void initState()`
-  - L50 `Future<void> _hydrateStats()`
-  - L58 `Future<void> _loadStats()`
-  - L95 `Widget build(BuildContext context)`
-  - L398 `Future<void> _confirmDeleteAccount()`
-  - L424 `Future<bool?> _showDeleteAccountDialog({ required String title, required String message, required String actionLabel, })`
-  - L437 `Widget _sectionTitle(BuildContext context, String text)`
-  - L450 `Widget _divider(BuildContext context)`
-  - L459 `Widget _statTile( BuildContext context, { required String value, required String label, required Color color, })`
-  - L496 `Widget _buildStatsCard(BuildContext context, LibraryStats? stats)`
-  - L544 `Widget _actionCard( BuildContext context, { required Color color, required String title, required String subtitle, required Widget trailing, })`
+  - L39 `String? get _currentUserId`
+  - L43 `void initState()`
+  - L53 `Future<void> _restoreStats()`
+  - L61 `Future<void> _hydrateStats()`
+  - L76 `Future<void> _loadStats()`
+  - L116 `Widget build(BuildContext context)`
+  - L430 `Future<void> _confirmDeleteAccount()`
+  - L456 `Future<bool?> _showDeleteAccountDialog({ required String title, required String message, required String actionLabel, })`
+  - L469 `Widget _sectionTitle(BuildContext context, String text)`
+  - L482 `Widget _divider(BuildContext context)`
+  - L491 `Widget _statTile( BuildContext context, { required String value, required String label, required Color color, })`
+  - L528 `Widget _buildStatsCard(BuildContext context, LibraryStats? stats)`
+  - L576 `Widget _actionCard( BuildContext context, { required Color color, required String title, required String subtitle, required Widget trailing, })`
 
 ### lib/screens/reel_detail/reel_detail_loader_screen.dart
 
@@ -2366,63 +1913,62 @@ windows/
 
 ### lib/screens/reel_detail/reel_detail_screen.dart
 
-- L32 `class _ShareLocationLink`
-  - L36 `const _ShareLocationLink(this.label, this.url)`
-- L39 `const String _appStoreUrl = appStoreUrl`
-- L40 `const String _playStoreUrl = playStoreUrl`
-- L44 `final RegExp _pinterestHostRegex = RegExp`
-- L48 `Uri? locationMapsUri(Location loc)`
-- L59 `String? _firstNonEmpty(List<String?> values)`
-- L69 `class ReelDetailScreen extends ConsumerStatefulWidget`
-  - L89 `const ReelDetailScreen({ super.key, required this.reel, this.readOnly = false, this.collectionUrl, this.refreshOnOpen = true, })`
-  - L98 `ConsumerState<ReelDetailScreen> createState()`
-- L101 `class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen>`
-  - L109 `Reel get reel`
-  - L110 `String get _savedItemNoun`
-  - L123 `String get _untitledLabel`
-  - L124 `String get _openSourceLabel`
-  - L125 `String get _openSourceErrorLabel`
-  - L126 `String get _openSourceNoun`
-  - L141 `String? get _sourcePlatform`
-  - L158 `bool get _isShortsSource`
-  - L164 `bool get _isInstagramPostSource`
-  - L180 `Iterable<Uri> get _sourceUris sync*`
-  - L194 `bool _hasSourceUri(bool Function(Uri uri) test)`
-  - L196 `bool _isYoutubeUri(Uri uri)`
-  - L204 `bool _isTikTokUri(Uri uri)`
-  - L207 `bool _isYoutubeShortsUri(Uri uri)`
-  - L213 `bool _isInstagramUri(Uri uri)`
-  - L218 `bool _isXUri(Uri uri)`
-  - L229 `bool _isPinterestUri(Uri uri)`
-  - L234 `bool _isRedditUri(Uri uri)`
-  - L239 `bool _isLinkedInUri(Uri uri)`
-  - L242 `bool _isHostOrSubdomainOf(String host, String domain)`
-  - L245 `bool _isInstagramPostUri(Uri uri)`
-  - L251 `bool _isInstagramReelUri(Uri uri)`
-  - L257 `Color get _detailTextColor`
-  - L262 `void initState()`
-  - L274 `Widget build(BuildContext context)`
-  - L856 `Color _contrastText(Color bg)`
-  - L860 `Widget _sectionTitle(String title)`
-  - L883 `Widget _section(String title, String body)`
-  - L902 `Widget _buildLockedHistoryState(BuildContext context)`
-  - L960 `Future<void> _shareReel()`
-  - L1020 `String get _shareTitle`
-  - L1027 `String _shareText(String? reelUrl)`
-  - L1067 `List<_ShareLocationLink> _shareLocationLinks()`
-  - L1083 `String _shareLocationLabel(Location location)`
-  - L1092 `String? get _shareReelUrl`
-  - L1107 `Widget _shareButton(AppLayout layout, {required EdgeInsetsGeometry margin})`
-  - L1153 `Widget _askAboutButton(AppLayout layout)`
-  - L1181 `Future<void> _confirmDelete(BuildContext context)`
-  - L1226 `T? _maybeRead<T>(ProviderListenable<T> provider)`
-  - L1234 `Uri? _locationMapsUri(Location loc)`
-  - L1238 `Future<void> _openLocation(Uri uri)`
-  - L1244 `Future<void> _openReel()`
-  - L1258 `Uri? get _openReelUrl`
-  - L1273 `Uri? _externalUri(String rawUrl)`
-  - L1286 `void _showOpenReelError()`
-  - L1301 `Future<void> _refreshReel()`
+- L30 `class _ShareLocationLink`
+  - L34 `const _ShareLocationLink(this.label, this.url)`
+- L37 `const String _appStoreUrl = appStoreUrl`
+- L38 `const String _playStoreUrl = playStoreUrl`
+- L42 `final RegExp _pinterestHostRegex = RegExp`
+- L46 `Uri? locationMapsUri(Location loc)`
+- L57 `String? _firstNonEmpty(List<String?> values)`
+- L67 `class ReelDetailScreen extends ConsumerStatefulWidget`
+  - L87 `const ReelDetailScreen({ super.key, required this.reel, this.readOnly = false, this.collectionUrl, this.refreshOnOpen = true, })`
+  - L96 `ConsumerState<ReelDetailScreen> createState()`
+- L99 `class _ReelDetailScreenState extends ConsumerState<ReelDetailScreen>`
+  - L107 `Reel get reel`
+  - L108 `String get _savedItemNoun`
+  - L121 `String get _untitledLabel`
+  - L122 `String get _openSourceLabel`
+  - L123 `String get _openSourceErrorLabel`
+  - L124 `String get _openSourceNoun`
+  - L139 `String? get _sourcePlatform`
+  - L156 `bool get _isShortsSource`
+  - L162 `bool get _isInstagramPostSource`
+  - L178 `Iterable<Uri> get _sourceUris sync*`
+  - L192 `bool _hasSourceUri(bool Function(Uri uri) test)`
+  - L194 `bool _isYoutubeUri(Uri uri)`
+  - L202 `bool _isTikTokUri(Uri uri)`
+  - L205 `bool _isYoutubeShortsUri(Uri uri)`
+  - L211 `bool _isInstagramUri(Uri uri)`
+  - L216 `bool _isXUri(Uri uri)`
+  - L227 `bool _isPinterestUri(Uri uri)`
+  - L232 `bool _isRedditUri(Uri uri)`
+  - L237 `bool _isLinkedInUri(Uri uri)`
+  - L240 `bool _isHostOrSubdomainOf(String host, String domain)`
+  - L243 `bool _isInstagramPostUri(Uri uri)`
+  - L249 `bool _isInstagramReelUri(Uri uri)`
+  - L255 `Color get _detailTextColor`
+  - L260 `void initState()`
+  - L272 `Widget build(BuildContext context)`
+  - L846 `Color _contrastText(Color bg)`
+  - L850 `Widget _sectionTitle(String title)`
+  - L873 `Widget _section(String title, String body)`
+  - L892 `Widget _buildLockedHistoryState(BuildContext context)`
+  - L957 `Future<void> _shareReel()`
+  - L1017 `String get _shareTitle`
+  - L1024 `String _shareText(String? reelUrl)`
+  - L1064 `List<_ShareLocationLink> _shareLocationLinks()`
+  - L1080 `String _shareLocationLabel(Location location)`
+  - L1089 `String? get _shareReelUrl`
+  - L1104 `Widget _shareButton(AppLayout layout, {required EdgeInsetsGeometry margin})`
+  - L1148 `Future<void> _confirmDelete(BuildContext context)`
+  - L1193 `T? _maybeRead<T>(ProviderListenable<T> provider)`
+  - L1201 `Uri? _locationMapsUri(Location loc)`
+  - L1205 `Future<void> _openLocation(Uri uri)`
+  - L1211 `Future<void> _openReel()`
+  - L1225 `Uri? get _openReelUrl`
+  - L1240 `Uri? _externalUri(String rawUrl)`
+  - L1253 `void _showOpenReelError()`
+  - L1268 `Future<void> _refreshReel()`
 
 ### lib/screens/setup_required/setup_required_screen.dart
 
@@ -2435,6 +1981,14 @@ windows/
 - L7 `class SplashScreen extends StatelessWidget`
   - L8 `const SplashScreen({super.key})`
   - L11 `Widget build(BuildContext context)`
+
+### lib/screens/update_required/update_required_screen.dart
+
+- L16 `class UpdateRequiredScreen extends StatelessWidget`
+  - L17 `const UpdateRequiredScreen({super.key, required this.requirement})`
+  - L21 `bool get _isHard`
+  - L23 `Future<void> _openStore()`
+  - L39 `Widget build(BuildContext context)`
 
 ### lib/services/analytics/analytics_event.dart
 
@@ -2491,36 +2045,19 @@ windows/
 - L50 `class ContentCache`
   - L51 `ContentCache._({ String? Function()? userIdProvider, Future<Directory> Function()? directoryLoader, })`
   - L61 `factory ContentCache.forTesting({ required Directory directory, required String? Function() userIdProvider, })`
-  - L91 `bool get _isSupported`
-  - L93 `String? get _currentUserId`
-  - L95 `static String? _signedInUserId()`
-  - L105 `Duration _maxAgeFor(String key)`
-  - L110 `Future<Map<String, dynamic>?> read(String key)`
-  - L150 `Future<void> write(String key, Map<String, dynamic> payload)`
-  - L170 `Future<void> _write( String key, { required String userId, required Map<String, dynamic> payload, })`
-  - L193 `Future<void> invalidate(String key)`
-  - L211 `Future<void> invalidateContent()`
-  - L216 `Future<void> clear()`
-  - L231 `Future<File?> _fileFor(String key)`
-  - L247 `Future<Directory> _directory()`
-  - L261 `static Future<Directory> _createDirectory()`
-
-### lib/services/chat/chat_reel_cache.dart
-
-- L14 `class ChatReelCache`
-  - L15 `ChatReelCache(this._fetchReel)`
-  - L34 `Reel? cached(String reelId)`
-  - L41 `Future<Reel?> resolve(String reelId)`
-  - L48 `Future<Reel?> _fetchAndCache(String reelId)`
-
-### lib/services/chat/chat_thread_store.dart
-
-- L18 `class ChatThreadStore`
-  - L19 `ChatThreadStore({SharedPreferences? preferences})`
-  - L26 `Future<SharedPreferences> get _prefs async`
-  - L29 `Future<List<ChatThread>> load(String userId)`
-  - L54 `Future<void> save(String userId, List<ChatThread> threads)`
-  - L65 `Future<void> clear()`
+  - L93 `bool get _isSupported`
+  - L95 `String? get _currentUserId`
+  - L97 `static String? _signedInUserId()`
+  - L107 `Duration _maxAgeFor(String key)`
+  - L112 `Future<Map<String, dynamic>?> read(String key)`
+  - L152 `Future<void> write( String key, Map<String, dynamic> payload, { String? expectedUserId, })`
+  - L179 `Future<void> _write( String key, { required String userId, required Map<String, dynamic> payload, })`
+  - L202 `Future<void> invalidate(String key)`
+  - L220 `Future<void> invalidateContent()`
+  - L225 `Future<void> clear()`
+  - L240 `Future<File?> _fileFor(String key)`
+  - L256 `Future<Directory> _directory()`
+  - L270 `static Future<Directory> _createDirectory()`
 
 ### lib/services/device_metadata_service.dart
 
@@ -2594,6 +2131,17 @@ windows/
 - L15 `class NotificationTapHandler`
   - L18 `Future<bool> handle( OpenedAppNotification opened, { required NotificationOpenTracker trackOpen, required ReelNotificationAction openReel, required AnnouncementNotificationAction openAnnouncement, required NotificationAction openHome, required NotificationAction openMap, required NotificationAction openDiscover, required NotificationAction openProfile, required NotificationAction openAppUpdate, required CollectionNotificationAction openCollection, })`
   - L89 `void clear()`
+
+### lib/services/remote_config/remote_config_service.dart
+
+- L15 `class RemoteConfigService`
+  - L16 `RemoteConfigService({ required String url, http.Client? client, this.timeout = const Duration(seconds: 5), this.refreshInterval = const Duration(hours: 1), DateTime Function()? clock, })`
+  - L36 `bool get isEnabled`
+  - L38 `Future<RemoteConfig?> readCached()`
+  - L55 `Future<RemoteConfig?> fetchIfDue()`
+  - L88 `Future<bool> wasAnnouncementShown(String id)`
+  - L101 `Future<void> markAnnouncementShown(String id)`
+  - L112 `RemoteConfig _decode(String raw)`
 
 ### lib/services/sharing/collection_link.dart
 
@@ -2675,19 +2223,19 @@ windows/
 
 - L11 `class ShareHandoffService`
   - L12 `ShareHandoffService._()`
-  - L32 `bool get _supportsNativeHandoff`
-  - L37 `Future<String?> getShareToken()`
-  - L43 `Future<void> setShareToken(String? token)`
-  - L54 `Future<void> syncAuthenticatedUser(String userId, String? accessToken)`
-  - L82 `Future<bool> isCollectionPickerEnabled()`
-  - L96 `Future<void> setCollectionPickerEnabled( bool enabled, List<CollectionSummary> collections, { Future<Map<String, String>> Function({ required String directory, required List<CollectionSummary> collections, })? renderTiles, })`
-  - L124 `Future<void> syncCollections( List<CollectionSummary> collections, { Future<Map<String, String>> Function({ required String directory, required List<CollectionSummary> collections, })? renderTiles, })`
-  - L180 `Future<void> syncPushToken({ required String token, required String platform, })`
-  - L197 `Future<void> clearPushToken()`
-  - L204 `Future<void> clear()`
-  - L222 `Future<String?> drainPendingShares()`
-  - L235 `Future<String?> _shareAssetsDirectory()`
-  - L247 `Future<void> _syncNative()`
+  - L35 `bool get _supportsNativeHandoff`
+  - L40 `Future<String?> getShareToken()`
+  - L46 `Future<void> setShareToken(String? token)`
+  - L59 `Future<void> syncAuthenticatedUser(String userId, String? accessToken)`
+  - L103 `Future<bool> isCollectionPickerEnabled()`
+  - L117 `Future<void> setCollectionPickerEnabled( bool enabled, List<CollectionSummary> collections, { Future<Map<String, String>> Function({ required String directory, required List<CollectionSummary> collections, })? renderTiles, })`
+  - L147 `Future<void> syncCollections( List<CollectionSummary> collections, { Future<Map<String, String>> Function({ required String directory, required List<CollectionSummary> collections, })? renderTiles, })`
+  - L230 `Future<void> syncPushToken({ required String token, required String platform, })`
+  - L247 `Future<void> clearPushToken()`
+  - L254 `Future<void> clear()`
+  - L281 `Future<String?> drainPendingShares()`
+  - L294 `Future<String?> _shareAssetsDirectory()`
+  - L306 `Future<void> _syncNative()`
 
 ### lib/services/sharing/shared_collection_prefetch.dart
 
@@ -2695,21 +2243,6 @@ windows/
   - L15 `SharedCollectionPrefetch._()`
   - L21 `static void start(String token, Future<CollectionDetail> Function() load)`
   - L32 `static Future<CollectionDetail>? take(String token)`
-
-### lib/utils/answer_text_parser.dart
-
-- L17 `List<AnswerTextSegment> parseAnswerText(String text)`
-- L55 `final _headingCharset = RegExp`
-- L56 `final _hasLetter = RegExp`
-- L57 `const _bulletPrefixes = ['- ', '• ', '* ']`
-- L59 `bool _isHeading(String trimmed)`
-- L67 `String? _bulletText(String trimmed)`
-- L77 `class BoldRun`
-  - L81 `const BoldRun(this.text, this.bold)`
-  - L84 `bool operator ==(Object other)`
-  - L88 `int get hashCode`
-- L91 `final _boldMarker = RegExp`
-- L95 `List<BoldRun> parseBoldRuns(String text)`
 
 ### lib/utils/app_logger.dart
 
@@ -2734,8 +2267,8 @@ windows/
 
 ### lib/utils/category_marker_icon.dart
 
-- L14 `Future<BitmapDescriptor> createCategoryMarkerIcon(String category)`
-- L24 `Future<Uint8List> createCategoryMarkerPng(String category)`
+- L10 `Future<BitmapDescriptor> createCategoryMarkerIcon(String category)`
+- L20 `Future<Uint8List> createCategoryMarkerPng(String category)`
 
 ### lib/utils/error_message.dart
 
@@ -2749,129 +2282,64 @@ windows/
 - L31 `Uri? _externalLocationUri(String? rawUrl)`
 - L44 `String? _firstNonEmpty(List<String?> values)`
 
-### lib/view_models/chat_view_model.dart
-
-- L11 `class ChatViewModel extends ChangeNotifier`
-  - L12 `ChatViewModel( this._http, this._store, { required String Function() currentUserId, })`
-  - L42 `List<ChatThread> get threads`
-  - L43 `List<ThinkingStage> get stages`
-  - L44 `List<String> get suggestions`
-  - L48 `bool get isAnswering`
-  - L50 `String get seedText`
-  - L51 `List<ChatAttachment> get seedAttachments`
-  - L54 `ChatThread? get activeThread`
-  - L61 `Future<void> hydrate()`
-  - L69 `Future<void> loadSuggestions()`
-  - L83 `ChatThread _downgradeStaleSending(ChatThread thread)`
-  - L99 `void startNewThread({ String? seedText, List<ChatAttachment> seedAttachments = const [], })`
-  - L110 `void openThread(String threadId)`
-  - L118 `void consumeSeed()`
-  - L134 `List<ChatHistoryEntry> _historyFrom(List<ChatMessage> messages)`
-  - L160 `Future<void> send( String text, { List<ChatAttachment> attachments = const [], })`
-  - L206 `Future<void> retryLast()`
-  - L250 `Future<void> _consume( String threadId, String pendingId, String question, List<ChatAttachment> attachments, List<ChatHistoryEntry> history, )`
-  - L289 `void _applyStage(String threadId, ThinkingStage stage)`
-  - L301 `void _completeAnswer( String threadId, String pendingId, List<AnswerBlock> blocks, )`
-  - L314 `void _failAnswer(String threadId, String pendingId)`
-  - L324 `void _updateMessage( String threadId, String messageId, ChatMessage Function(ChatMessage) transform, )`
-  - L340 `ChatThread _createThread(String question, DateTime now)`
-  - L352 `void _replaceThread(ChatThread thread)`
-  - L361 `Future<void> _persist()`
-  - L369 `void reset()`
-
-### lib/view_models/collection_chat_view_model.dart
-
-- L25 `class CollectionChatViewModel extends ChangeNotifier`
-  - L26 `CollectionChatViewModel( this._http, this.collectionId, { Duration pollInterval = const Duration(seconds: 8), ContentCache? cache, })`
-  - L51 `List<CollectionChatThread> get threads`
-  - L55 `String? get activeThreadId`
-  - L56 `List<ChatMessage> get messages`
-  - L57 `List<ThinkingStage> get stages`
-  - L58 `bool get isAsking`
-  - L59 `bool get isLoading`
-  - L60 `String? get error`
-  - L66 `bool get hasLoaded`
-  - L68 `String get _threadsKey`
-  - L69 `String _messagesKey(String threadId)`
-  - L79 `Future<void> load()`
-  - L106 `void openThread(String threadId)`
-  - L119 `void startNewThread()`
-  - L137 `Future<void> pollOnce()`
-  - L163 `void startPolling()`
-  - L168 `void stopPolling()`
-  - L173 `Future<void> ask( String text, { List<ChatAttachment> attachments = const [], })`
-  - L250 `Future<void> _loadActiveThread()`
-  - L276 `Future<void> _hydrateFromCache(bool Function() fetched)`
-  - L289 `Future<void> _hydrateMessages( String threadId, bool Function() fetched, )`
-  - L304 `Future<void> _reloadQuietly(String threadId)`
-  - L316 `void _setThreads(List<CollectionChatThread> threads)`
-  - L327 `void _setMessages(String threadId, List<ChatMessage> messages)`
-  - L341 `static Map<String, dynamic> _messageJson(ChatMessage message)`
-  - L347 `void _applyStage(ThinkingStage stage)`
-  - L358 `void _completePending(String pendingId, List<AnswerBlock> blocks)`
-  - L363 `void _failPending(String pendingId)`
-  - L366 `void _replace(String id, ChatMessage Function(ChatMessage) transform)`
-  - L374 `void _notify()`
-  - L380 `void dispose()`
-
 ### lib/view_models/collections_view_model.dart
 
 - L14 `class CollectionsViewModel extends ChangeNotifier`
   - L15 `CollectionsViewModel(this._api, {ContentCache? cache, this.renderShareTiles})`
-  - L56 `List<CollectionSummary> get collections`
-  - L57 `bool get isLoadingCollections`
-  - L58 `String? get collectionsError`
-  - L59 `bool isLoadingDetailFor(String id)`
-  - L60 `String? detailErrorFor(String id)`
-  - L61 `bool get isMutating`
-  - L65 `Future<void> get detailWarmUp`
-  - L67 `CollectionDetail? detailFor(String id)`
-  - L71 `bool isDetailPlaceholder(String id)`
-  - L79 `void bumpToFront(String collectionId)`
-  - L93 `void seedDetailFromSummary(String id)`
-  - L110 `Future<void> hydrateFromCache()`
-  - L132 `Future<void> loadCollections({bool forceRefresh = false})`
-  - L142 `Future<void> _loadCollections()`
-  - L175 `Future<void> hydrateDetailFromCache(String id)`
-  - L189 `bool _hasRealDetail(String id)`
-  - L199 `Future<void> _warmDetails(List<CollectionSummary> summaries)`
-  - L210 `Future<void> _warmDetail(CollectionSummary summary)`
-  - L222 `Future<void> loadCollectionDetail(String id, {bool forceRefresh = false})`
-  - L233 `Future<void> _loadCollectionDetail(String id)`
-  - L259 `Future<void> loadMore(String id)`
-  - L279 `Future<CollectionSummary?> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L299 `Future<void> updateCollection({ required String collectionId, String? name, String? description, })`
-  - L318 `Future<void> deleteCollection(String id)`
-  - L334 `Future<void> addReelsToCollections({ required List<String> collectionIds, required List<String> reelIds, })`
-  - L358 `Future<void> removeReel({ required String collectionId, required String reelId, })`
-  - L382 `Future<CollectionLink?> enableLink(String id)`
-  - L391 `Future<void> disableLink(String id)`
-  - L398 `Future<CollectionMembers?> loadMembers(String id)`
-  - L406 `Future<void> removeMember({ required String collectionId, required String memberUserId, })`
-  - L418 `Future<CollectionInvite?> createInvite({ required String collectionId, required String role, })`
-  - L432 `Future<void> leave(String id)`
-  - L441 `Future<CollectionSummary?> acceptInvite(String token)`
-  - L450 `Future<void> _mutate(Future<void> Function() action)`
-  - L465 `Future<void> _syncShareTargets()`
-  - L472 `void _upsert(CollectionSummary collection)`
-  - L481 `void _setVisibility(String id, String visibility)`
+  - L57 `List<CollectionSummary> get collections`
+  - L58 `bool get isLoadingCollections`
+  - L59 `String? get collectionsError`
+  - L60 `bool isLoadingDetailFor(String id)`
+  - L61 `String? detailErrorFor(String id)`
+  - L62 `bool get isMutating`
+  - L64 `void reset()`
+  - L84 `Future<void> get detailWarmUp`
+  - L86 `CollectionDetail? detailFor(String id)`
+  - L90 `bool isDetailPlaceholder(String id)`
+  - L99 `void seedDetailFromSummary(String id)`
+  - L116 `Future<void> hydrateFromCache()`
+  - L143 `Future<void> loadCollections({bool forceRefresh = false})`
+  - L154 `Future<void> _loadCollections()`
+  - L192 `Future<void> hydrateDetailFromCache(String id)`
+  - L211 `bool _hasRealDetail(String id)`
+  - L221 `Future<void> _warmDetails(List<CollectionSummary> summaries)`
+  - L233 `Future<void> _warmDetail(CollectionSummary summary, int generation)`
+  - L246 `Future<void> loadCollectionDetail(String id, {bool forceRefresh = false})`
+  - L258 `Future<void> _loadCollectionDetail(String id)`
+  - L289 `Future<void> loadMore(String id)`
+  - L311 `Future<CollectionSummary?> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L335 `Future<void> updateCollection({ required String collectionId, String? name, String? description, })`
+  - L355 `Future<void> deleteCollection(String id)`
+  - L372 `Future<void> addReelsToCollections({ required List<String> collectionIds, required List<String> reelIds, })`
+  - L399 `Future<void> removeReel({ required String collectionId, required String reelId, })`
+  - L424 `Future<CollectionLink?> enableLink(String id)`
+  - L436 `Future<void> disableLink(String id)`
+  - L444 `Future<CollectionMembers?> loadMembers(String id)`
+  - L454 `Future<void> removeMember({ required String collectionId, required String memberUserId, })`
+  - L466 `Future<CollectionInvite?> createInvite({ required String collectionId, required String role, })`
+  - L483 `Future<void> leave(String id)`
+  - L493 `Future<CollectionSummary?> acceptInvite(String token)`
+  - L505 `Future<void> _mutate(Future<void> Function(int generation) action)`
+  - L523 `Future<void> _syncShareTargets()`
+  - L530 `void _upsert(CollectionSummary collection)`
+  - L539 `void _setVisibility(String id, String visibility)`
 
 ### lib/view_models/discover_view_model.dart
 
 - L13 `class DiscoverViewModel extends ChangeNotifier`
-  - L14 `DiscoverViewModel(this._repository)`
-  - L32 `DiscoverResponse? get discover`
-  - L33 `ReelPage? get categoryReelsPage`
-  - L34 `bool get isLoadingDiscover`
-  - L35 `bool get isLoadingCategoryReels`
-  - L36 `String? get discoverError`
-  - L37 `String? get categoryReelsError`
-  - L38 `String? get selectedSavedDate`
-  - L39 `String? get selectedSavedDateLabel`
-  - L40 `String? get selectedCategory`
-  - L41 `String? get selectedCategoryLabel`
-  - L42 `int? get selectedCategoryExpectedCount`
-  - L46 `Future<void> hydrateFromCache()`
+  - L14 `DiscoverViewModel(this._repository, {ContentCache? cache})`
+  - L35 `DiscoverResponse? get discover`
+  - L36 `ReelPage? get categoryReelsPage`
+  - L37 `bool get isLoadingDiscover`
+  - L38 `bool get isLoadingCategoryReels`
+  - L39 `String? get discoverError`
+  - L40 `String? get categoryReelsError`
+  - L41 `String? get selectedSavedDate`
+  - L42 `String? get selectedSavedDateLabel`
+  - L43 `String? get selectedCategory`
+  - L44 `String? get selectedCategoryLabel`
+  - L45 `int? get selectedCategoryExpectedCount`
+  - L49 `Future<void> hydrateFromCache()`
   - L72 `Future<void> loadDiscover({bool forceRefresh = false})`
   - L105 `Future<void> selectSavedDate(SavedDateOption option)`
   - L113 `Future<void> clearDateFilter()`
@@ -2879,47 +2347,24 @@ windows/
   - L163 `void clearCategorySelection()`
   - L175 `void clearTransientSelection()`
   - L197 `void removeReel(String reelId)`
-  - L272 `void reset()`
-  - L289 `void _clearCategorySelectionInState()`
-  - L298 `String? _labelForSavedDate(DiscoverResponse response, String? savedDate)`
-  - L310 `List<Reel> _withoutReel(List<Reel> reels, String reelId)`
+  - L266 `void reset()`
+  - L284 `void _clearCategorySelectionInState()`
+  - L293 `String? _labelForSavedDate(DiscoverResponse response, String? savedDate)`
+  - L305 `List<Reel> _withoutReel(List<Reel> reels, String reelId)`
 
 ### lib/view_models/entitlements_view_model.dart
 
 - L18 `class EntitlementsViewModel extends ChangeNotifier`
-  - L19 `EntitlementsViewModel( this._accountHttp, this._authService, this._repository, this._homeViewModel, this._mapViewModel, this._reelFiltersViewModel, this._discoverViewModel, this._searchViewModel, )`
-  - L45 `EntitlementsResponse? get response`
-  - L46 `UserEntitlement? get entitlement`
-  - L47 `bool get isLoading`
-  - L48 `String? get error`
-  - L49 `bool get hasEntitlement`
-  - L54 `Future<void> hydrateFromCache()`
+  - L19 `EntitlementsViewModel( this._accountHttp, this._authService, this._repository, this._homeViewModel, this._mapViewModel, this._reelFiltersViewModel, this._discoverViewModel, this._searchViewModel, { ContentCache? cache, })`
+  - L48 `EntitlementsResponse? get response`
+  - L49 `UserEntitlement? get entitlement`
+  - L50 `bool get isLoading`
+  - L51 `String? get error`
+  - L52 `bool get hasEntitlement`
+  - L57 `Future<void> hydrateFromCache()`
   - L74 `Future<void> refresh({bool reloadContent = false})`
   - L96 `Future<void> _refresh({required bool reloadContent})`
-  - L164 `void reset()`
-
-### lib/view_models/folders_view_model.dart
-
-- L9 `class FoldersViewModel extends ChangeNotifier`
-  - L10 `FoldersViewModel(this._foldersHttp)`
-  - L26 `List<FolderSummary> get folders`
-  - L27 `bool get isLoadingFolders`
-  - L28 `bool get isLoadingDetail`
-  - L29 `bool get isMutating`
-  - L30 `String? get foldersError`
-  - L31 `String? get detailError`
-  - L33 `FolderDetailResponse? detailFor(String folderId)`
-  - L35 `Future<void> loadFolders({bool forceRefresh = false})`
-  - L48 `Future<void> _loadFolders()`
-  - L66 `Future<void> loadFolder(String folderId, {bool forceRefresh = false})`
-  - L83 `Future<void> _loadFolder(String folderId)`
-  - L106 `Future<void> loadMoreFolderReels(String folderId)`
-  - L135 `Future<void> updateFolder({ required String folderId, required String name, required String note, })`
-  - L158 `Future<void> deleteFolder(String folderId)`
-  - L166 `Future<void> addReelsToFolder({ required String folderId, required List<String> reelIds, bool moveExisting = false, })`
-  - L180 `Future<void> removeReelFromFolder({ required String folderId, required String reelId, })`
-  - L204 `Future<void> _mutate(Future<void> Function() action)`
-  - L215 `void _upsertFolder(FolderSummary folder)`
+  - L171 `void reset()`
 
 ### lib/view_models/home_view_model.dart
 
@@ -2929,87 +2374,97 @@ windows/
   - L37 `bool get isLoading`
   - L38 `bool get isLoadingMore`
   - L39 `bool get hasMoreReels`
-  - L40 `int get totalCount`
-  - L41 `String? get error`
-  - L42 `String? get selectedPlatform`
-  - L43 `String? get selectedCategory`
-  - L44 `String? get selectedSubcategory`
-  - L45 `bool get hasActiveFilters`
-  - L49 `List<Reel> get allReels`
-  - L56 `bool get hasSettledFirstLoad`
-  - L58 `bool get isEmpty`
-  - L60 `void _syncFromRepository()`
-  - L65 `Future<void> loadReels({bool forceRefresh = false})`
-  - L107 `Future<void> loadMoreReels()`
-  - L136 `void filterByCategory(String? category)`
-  - L141 `void applyFilters({String? platform, String? category, String? subcategory})`
-  - L149 `void clearFilters()`
-  - L157 `void reset()`
-  - L171 `Future<Reel> processReel( String url, { void Function(ProcessingJob job)? onJobUpdate, })`
-  - L195 `Future<ProcessingJob> enqueueReelProcessing( String url, { List<String> collectionIds = const [], })`
-  - L217 `Future<void> deleteReel(String reelId)`
-  - L229 `void removeReel(String reelId)`
-  - L233 `void _removeReelLocally(String reelId)`
-  - L238 `void upsertProcessedReel(Reel reel)`
-  - L243 `void dispose()`
+  - L40 `String? get error`
+  - L41 `String? get selectedPlatform`
+  - L42 `String? get selectedCategory`
+  - L43 `String? get selectedSubcategory`
+  - L44 `bool get hasActiveFilters`
+  - L48 `List<Reel> get allReels`
+  - L55 `bool get hasSettledFirstLoad`
+  - L57 `bool get isEmpty`
+  - L59 `void _syncFromRepository()`
+  - L64 `Future<void> loadReels({bool forceRefresh = false})`
+  - L106 `Future<void> loadMoreReels()`
+  - L135 `void filterByCategory(String? category)`
+  - L140 `void applyFilters({String? platform, String? category, String? subcategory})`
+  - L148 `void clearFilters()`
+  - L156 `void reset()`
+  - L170 `Future<Reel> processReel( String url, { void Function(ProcessingJob job)? onJobUpdate, })`
+  - L194 `Future<ProcessingJob> enqueueReelProcessing( String url, { List<String> collectionIds = const [], })`
+  - L216 `Future<void> deleteReel(String reelId)`
+  - L228 `void removeReel(String reelId)`
+  - L232 `void _removeReelLocally(String reelId)`
+  - L237 `void upsertProcessedReel(Reel reel)`
+  - L242 `void dispose()`
 
 ### lib/view_models/map_view_model.dart
 
-- L13 `class MapViewModel extends ChangeNotifier`
-  - L16 `MapViewModel(this._mapHttp)`
-  - L37 `List<MapItem> get mapItems`
-  - L38 `bool get isLoading`
-  - L39 `bool get isLoadingMore`
-  - L40 `bool get hasMoreReels`
-  - L41 `String? get error`
-  - L42 `String? get selectedCategory`
-  - L43 `MapItem? get selectedMapItem`
-  - L44 `int get totalPinnedLocations`
-  - L45 `int get visiblePinnedLocations`
-  - L46 `List<MapPlaceSearchResult> get placeSearchResults`
-  - L48 `bool get isSearchingPlaces`
-  - L49 `bool get isPlaceSuggestionUnavailable`
-  - L50 `bool get isSavingMapPin`
-  - L51 `bool get isRemovingMapPin`
-  - L52 `String? get placeSearchError`
-  - L53 `String? get mapPinActionError`
-  - L54 `String get lastPlaceQuery`
-  - L57 `List<Reel> get reelsWithLocations`
-  - L61 `Reel? get selectedReel`
-  - L64 `Location? get selectedLocation`
-  - L68 `Future<void> hydrateFromCache()`
-  - L91 `Future<void> loadMapReels({bool forceRefresh = false})`
-  - L121 `Future<void> loadMoreReels()`
-  - L123 `void filterByCategory(String? category)`
-  - L131 `void selectMapItem(MapItem? item)`
-  - L136 `void selectReel(Reel? reel, {Location? location})`
-  - L142 `void reset()`
-  - L164 `Future<void> searchMapPlaces(String query)`
-  - L215 `Future<MapItem?> pinPlace(MapPlaceSearchResult result)`
-  - L248 `Future<bool> removeMapItem(MapItem item)`
-  - L288 `void clearPlaceSearch()`
-  - L300 `void _upsertMapItem(MapItem item)`
-  - L313 `void upsertProcessedReel(Reel reel)`
-  - L317 `void removeReel(String reelId)`
+- L15 `class MapViewModel extends ChangeNotifier`
+  - L20 `MapViewModel(this._mapHttp, this._accountHttp, {ContentCache? cache})`
+  - L63 `List<MapItem> get mapItems`
+  - L64 `bool get isLoading`
+  - L65 `bool get isLoadingMore`
+  - L66 `bool get hasMoreReels`
+  - L67 `String? get error`
+  - L68 `String? get selectedCategory`
+  - L69 `MapItem? get selectedMapItem`
+  - L74 `int? get totalPinnedLocations`
+  - L78 `int? get headerPinCount`
+  - L82 `bool get isTruncated`
+  - L86 `bool get showsEmptyLibrary`
+  - L94 `bool get showsEmptyViewportHint`
+  - L100 `String get emptyViewportHint`
+  - L106 `List<MapPlaceSearchResult> get placeSearchResults`
+  - L108 `bool get isSearchingPlaces`
+  - L109 `bool get isSavingMapPin`
+  - L110 `bool get isRemovingMapPin`
+  - L111 `String? get placeSearchError`
+  - L112 `String? get mapPinActionError`
+  - L113 `String get lastPlaceQuery`
+  - L116 `List<Reel> get reelsWithLocations`
+  - L120 `Reel? get selectedReel`
+  - L123 `Location? get selectedLocation`
+  - L127 `Future<void> hydrateFromCache()`
+  - L155 `Future<void> loadMapReels({bool forceRefresh = false})`
+  - L201 `void updateViewport(MapBounds bounds)`
+  - L212 `Future<void> _loadViewportPins()`
+  - L225 `Future<void> refreshOnOpen()`
+  - L231 `Future<void> loadLibraryStats()`
+  - L250 `Future<List<MapItem>> nearbyMapItems( double latitude, double longitude, )`
+  - L268 `Future<void> recenterOnUser({ required double latitude, required double longitude, required void Function() moveToUser, required void Function(List<MapItem> nearby) fitNearby, })`
+  - L284 `void userMovedCamera()`
+  - L288 `Future<void> loadMoreReels()`
+  - L290 `void filterByCategory(String? category)`
+  - L298 `void selectMapItem(MapItem? item)`
+  - L303 `void selectReel(Reel? reel, {Location? location})`
+  - L311 `void reset()`
+  - L339 `Future<void> searchMapPlaces(String query)`
+  - L387 `Future<MapItem?> pinPlace(MapPlaceSearchResult result)`
+  - L426 `Future<bool> removeMapItem(MapItem item)`
+  - L467 `void clearPlaceSearch()`
+  - L478 `void _upsertMapItem(MapItem item)`
+  - L491 `void upsertProcessedReel(Reel reel)`
+  - L495 `void removeReel(String reelId)`
+  - L507 `void dispose()`
 
 ### lib/view_models/processing_jobs_view_model.dart
 
 - L16 `class ProcessingJobsViewModel extends ChangeNotifier`
   - L17 `ProcessingJobsViewModel(this._repository, {this.onJobsFinished})`
-  - L59 `List<ProcessingJob> get jobs`
-  - L60 `bool get hasJobs`
-  - L64 `bool isSettling(String jobId)`
-  - L69 `List<ProcessingJob> jobsForCollection(String collectionId)`
-  - L82 `void trackEnqueued( ProcessingJob job, { List<String> collectionIds = const [], })`
-  - L105 `Future<void> refresh()`
-  - L120 `Future<void> _applyServerJobs(List<ProcessingJob> latest)`
-  - L187 `bool _isStillShown(String jobId, Set<String> activeIds)`
-  - L200 `bool _isAbandoned(ProcessingJob job)`
-  - L208 `void _syncTimer()`
-  - L228 `Duration _pollInterval()`
-  - L240 `void setForeground(bool isForeground)`
-  - L246 `void reset()`
-  - L257 `void dispose()`
+  - L60 `List<ProcessingJob> get jobs`
+  - L61 `bool get hasJobs`
+  - L65 `bool isSettling(String jobId)`
+  - L70 `List<ProcessingJob> jobsForCollection(String collectionId)`
+  - L83 `void trackEnqueued( ProcessingJob job, { List<String> collectionIds = const [], })`
+  - L106 `Future<void> refresh()`
+  - L123 `Future<void> _applyServerJobs( List<ProcessingJob> latest, int generation, )`
+  - L195 `bool _isStillShown(String jobId, Set<String> activeIds)`
+  - L208 `bool _isAbandoned(ProcessingJob job)`
+  - L216 `void _syncTimer()`
+  - L236 `Duration _pollInterval()`
+  - L248 `void setForeground(bool isForeground)`
+  - L254 `void reset()`
+  - L267 `void dispose()`
 
 ### lib/view_models/reel_detail_view_model.dart
 
@@ -3027,24 +2482,41 @@ windows/
 ### lib/view_models/reel_filters_view_model.dart
 
 - L15 `class ReelFiltersViewModel extends ChangeNotifier`
-  - L16 `ReelFiltersViewModel(this._repository)`
-  - L24 `ReelFiltersResponse? get response`
-  - L26 `List<ReelPlatformGroup> get platforms`
-  - L31 `List<ReelCategoryGroup> get categoryGroups`
-  - L34 `List<String> get categories`
-  - L37 `int get totalCount`
-  - L38 `int get selectedPreviewCount`
-  - L39 `String? get topPlatform`
-  - L40 `bool get isLoading`
-  - L41 `String? get error`
-  - L42 `bool get hasPlatforms`
-  - L43 `bool get hasGroups`
-  - L45 `ReelPlatformGroup? platformNamed(String? platform)`
-  - L50 `List<ReelCategoryGroup> categoriesFor(String? platform)`
-  - L57 `int previewCountFor({ String? platform, String? category, String? subcategory, })`
-  - L86 `void reset()`
-  - L95 `Future<void> hydrateFromCache()`
-  - L116 `Future<void> loadFilters({ bool forceRefresh = false, String? platform, String? category, String? subcategory, })`
+  - L16 `ReelFiltersViewModel(this._repository, {ContentCache? cache})`
+  - L27 `ReelFiltersResponse? get response`
+  - L29 `List<ReelPlatformGroup> get platforms`
+  - L34 `List<ReelCategoryGroup> get categoryGroups`
+  - L37 `List<String> get categories`
+  - L40 `int get totalCount`
+  - L41 `int get selectedPreviewCount`
+  - L42 `String? get topPlatform`
+  - L43 `bool get isLoading`
+  - L44 `String? get error`
+  - L45 `bool get hasPlatforms`
+  - L46 `bool get hasGroups`
+  - L48 `ReelPlatformGroup? platformNamed(String? platform)`
+  - L53 `List<ReelCategoryGroup> categoriesFor(String? platform)`
+  - L60 `int previewCountFor({ String? platform, String? category, String? subcategory, })`
+  - L89 `void reset()`
+  - L99 `Future<void> hydrateFromCache()`
+  - L119 `Future<void> loadFilters({ bool forceRefresh = false, String? platform, String? category, String? subcategory, })`
+
+### lib/view_models/remote_config_view_model.dart
+
+- L17 `class RemoteConfigViewModel extends ChangeNotifier`
+  - L18 `RemoteConfigViewModel( this._service, { Future<int?> Function()? loadBuildNumber, })`
+  - L34 `bool get hasLoadedLocalCopy`
+  - L38 `Future<void> get localCopyLoaded`
+  - L40 `bool get paywallVisible`
+  - L44 `UpdateRequirement? get requiredUpdate`
+  - L53 `UpdateRequirement? get blockingUpdate`
+  - L58 `Future<void> start()`
+  - L78 `Future<void> refresh()`
+  - L85 `Future<void> _refresh()`
+  - L93 `UpdateRequirement? takeUpdateNudge()`
+  - L106 `Future<FeatureAnnouncement?> takeAnnouncement()`
+  - L124 `Future<void> markAnnouncementShown(FeatureAnnouncement announcement)`
+  - L129 `static Future<int?> _nativeBuildNumber()`
 
 ### lib/view_models/search_view_model.dart
 
@@ -3070,35 +2542,35 @@ windows/
 
 - L17 `class SessionViewModel extends ChangeNotifier`
   - L18 `SessionViewModel( this._authService, this._accountHttpFactory, this._sharingHttpFactory, { Future<void> Function()? unregisterPushToken, })`
-  - L52 `Session? get session`
-  - L53 `User? get currentUser`
-  - L55 `bool get isAuthenticated`
-  - L56 `bool get isSigningIn`
-  - L57 `bool get isSigningOut`
-  - L58 `bool get isDeletingAccount`
-  - L59 `bool get isBusy`
-  - L60 `String? get error`
-  - L61 `String? get statusMessage`
-  - L63 `String get email`
-  - L65 `String get displayName`
-  - L85 `String? get avatarUrl`
-  - L88 `String get initials`
-  - L104 `Future<void> signInWithGoogle()`
-  - L129 `Future<void> signInWithApple()`
-  - L155 `Future<void> signOut()`
-  - L188 `Future<bool> deleteAccount()`
-  - L221 `Future<bool> signInWithEmail({ required String email, required String password, })`
-  - L252 `Future<bool> signUpWithEmail({ required String email, required String password, String? fullName, })`
-  - L295 `void clearError()`
-  - L301 `void clearStatusMessage()`
-  - L314 `Future<void> _bootstrap()`
-  - L319 `Future<void> _syncProfileSilently()`
-  - L329 `Future<void> _syncShareHandoffState()`
-  - L345 `Future<void> _ensureShareToken()`
-  - L358 `String? _readString(Map<String, dynamic>? source, List<String> keys)`
-  - L371 `String _normalizeError(Object error)`
-  - L382 `bool _looksTechnicalError(String message)`
-  - L395 `void dispose()`
+  - L53 `Session? get session`
+  - L54 `User? get currentUser`
+  - L56 `bool get isAuthenticated`
+  - L57 `bool get isSigningIn`
+  - L58 `bool get isSigningOut`
+  - L59 `bool get isDeletingAccount`
+  - L60 `bool get isBusy`
+  - L61 `String? get error`
+  - L62 `String? get statusMessage`
+  - L64 `String get email`
+  - L66 `String get displayName`
+  - L86 `String? get avatarUrl`
+  - L89 `String get initials`
+  - L105 `Future<void> signInWithGoogle()`
+  - L130 `Future<void> signInWithApple()`
+  - L156 `Future<void> signOut()`
+  - L189 `Future<bool> deleteAccount()`
+  - L222 `Future<bool> signInWithEmail({ required String email, required String password, })`
+  - L253 `Future<bool> signUpWithEmail({ required String email, required String password, String? fullName, })`
+  - L296 `void clearError()`
+  - L302 `void clearStatusMessage()`
+  - L315 `Future<void> _bootstrap()`
+  - L320 `Future<void> _syncProfileSilently()`
+  - L330 `Future<void> _syncShareHandoffState()`
+  - L350 `Future<void> _ensureShareToken(String userId, int generation)`
+  - L368 `String? _readString(Map<String, dynamic>? source, List<String> keys)`
+  - L381 `String _normalizeError(Object error)`
+  - L392 `bool _looksTechnicalError(String message)`
+  - L405 `void dispose()`
 
 ### lib/view_models/theme_view_model.dart
 
@@ -3117,7 +2589,7 @@ windows/
 ### lib/view_models/user_state_coordinator.dart
 
 - L16 `class UserStateCoordinator`
-  - L17 `UserStateCoordinator({ required SearchViewModel searchViewModel, required ReelFiltersViewModel reelFiltersViewModel, required MapViewModel mapViewModel, required HomeViewModel homeViewModel, required DiscoverViewModel discoverViewModel, required ReelRepository reelRepository, required EntitlementsViewModel entitlementsViewModel, required ProcessingJobsViewModel processingJobsViewModel, required ChatViewModel chatViewModel, })`
+  - L17 `UserStateCoordinator({ required CollectionsViewModel collectionsViewModel, required SearchViewModel searchViewModel, required ReelFiltersViewModel reelFiltersViewModel, required MapViewModel mapViewModel, required HomeViewModel homeViewModel, required DiscoverViewModel discoverViewModel, required ReelRepository reelRepository, required EntitlementsViewModel entitlementsViewModel, required ProcessingJobsViewModel processingJobsViewModel, })`
   - L54 `Future<void> hydrate()`
   - L63 `Future<void> _hydrate()`
   - L81 `void reset()`
@@ -3142,75 +2614,25 @@ windows/
 
 ### test/app_entry_test.dart
 
-- L24 `void main()`
-- L197 `Future<void> _pumpPageTransition(WidgetTester tester)`
-- L202 `void _sizeView(WidgetTester tester)`
-- L211 `Future<void> _capturePendingLink(WidgetTester tester, String url)`
-- L227 `Widget _appEntry({MockCollectionsHttp? collectionsHttp})`
-- L240 `Future<void> _pumpAppEntry(WidgetTester tester)`
-- L256 `class _FakeSessionViewModel extends SessionViewModel`
-  - L257 `_FakeSessionViewModel(AuthService authService)`
-- L265 `class _FakeAuthService extends AuthService`
-  - L266 `_FakeAuthService()`
-  - L269 `Session? get currentSession`
-  - L272 `User? get currentUser`
-  - L275 `Stream<AuthState> get authStateChanges`
-  - L278 `Future<void> ensureProfile()`
-- L281 `class _RecordingCollectionsHttp extends MockCollectionsHttp`
-  - L282 `_RecordingCollectionsHttp(this.onFetch)`
-  - L287 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
-
-### test/components/chat/answer_blocks_test.dart
-
-- L11 `Widget _host(Widget child)`
-- L17 `ChatReelCache _failingCache()`
-- L20 `Reel _reel(String id, String title)`
-- L36 `void main()`
-
-### test/components/chat/chat_answer_actions_test.dart
-
-- L7 `ChatMessage _answer(List<AnswerBlock> blocks)`
-- L14 `void main()`
-
-### test/components/chat/chat_answer_card_test.dart
-
-- L8 `ChatReelCache _reelCache()`
-- L11 `Widget _host(Widget child)`
-- L15 `ChatMessage _answer({ List<AnswerBlock> blocks = const [], MessageStatus status = MessageStatus.complete, })`
-- L26 `void main()`
-
-### test/components/chat/chat_answer_text_test.dart
-
-- L6 `Widget _host(String text)`
-- L10 `Color _dotColor(WidgetTester tester, String bulletText)`
-- L20 `void main()`
-
-### test/components/chat/chat_composer_test.dart
-
-- L6 `Widget _host({ required String initialText, List<ChatAttachment> pending = const [], })`
-- L21 `void main()`
-
-### test/components/chat/chat_places_block_test.dart
-
-- L6 `Widget _host(Widget child)`
-- L10 `void main()`
-
-### test/components/chat/chat_reel_strip_card_test.dart
-
-- L6 `Widget _host(Widget child)`
-- L10 `const _reel = Reel`
-- L28 `void main()`
-
-### test/components/chat/chat_reel_strip_test.dart
-
-- L9 `Widget _host(Widget child)`
-- L13 `Reel _reel(String id, String title)`
-- L29 `void main()`
-
-### test/components/chat/chat_thinking_stages_test.dart
-
-- L6 `Widget _host(Widget child)`
-- L10 `void main()`
+- L30 `void main()`
+- L326 `RemoteConfigViewModel _remoteConfig(http.Client client)`
+- L336 `Future<void> _pumpPageTransition(WidgetTester tester)`
+- L341 `void _sizeView(WidgetTester tester)`
+- L350 `Future<void> _capturePendingLink(WidgetTester tester, String url)`
+- L366 `Widget _appEntry({ MockCollectionsHttp? collectionsHttp, RemoteConfigViewModel? remoteConfig, User? user, })`
+- L388 `Future<void> _pumpAppEntry(WidgetTester tester)`
+- L404 `class _FakeSessionViewModel extends SessionViewModel`
+  - L405 `_FakeSessionViewModel(AuthService authService)`
+- L413 `const _signedInUser = User`
+- L421 `class _FakeAuthService extends AuthService`
+  - L422 `_FakeAuthService({this.user})`
+  - L427 `Session? get currentSession`
+  - L430 `User? get currentUser`
+  - L433 `Stream<AuthState> get authStateChanges`
+  - L436 `Future<void> ensureProfile()`
+- L439 `class _RecordingCollectionsHttp extends MockCollectionsHttp`
+  - L440 `_RecordingCollectionsHttp(this.onFetch)`
+  - L445 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, String? cursor, })`
 
 ### test/components/collections/collection_folder_tile_test.dart
 
@@ -3229,25 +2651,22 @@ windows/
 
 ### test/data_models/account/user_entitlement_test.dart
 
-- L5 `EntitlementsResponse _response({ int reelsSaved = 3, int? reelsRemaining = 17, int? reelsPerMonth = 20, String plan = 'free', })`
-- L26 `void main()`
+- L6 `EntitlementsResponse _response({ int savedReels = 3, int? savedReelsLimit = 25, String plan = 'free', bool isPremium = false, bool restricted = false, })`
+- L66 `void main()`
 
-### test/data_models/chat/chat_thread_test.dart
+### test/data_models/app_config/remote_config_test.dart
 
-- L8 `void main()`
-
-### test/data_models/chat/collection_chat_page_test.dart
-
-- L7 `void main()`
+- L6 `void main()`
 
 ### test/data_models/collection_models_test.dart
 
 - L5 `void main()`
-- L184 `const _reelJson = {`
+- L191 `const _itemJson = {`
 
-### test/data_models/map/map_place_search_response_test.dart
+### test/data_models/map/map_response_test.dart
 
-- L4 `void main()`
+- L6 `Map<String, dynamic> _pin(Map<String, dynamic> extra)`
+- L16 `void main()`
 
 ### test/data_models/notifications/app_notification_test.dart
 
@@ -3264,8 +2683,8 @@ windows/
 
 ### test/data_models/reels/reel_test.dart
 
-- L4 `void main()`
-- L183 `Map<String, Object?> _reelJson(Map<String, Object?> overrides)`
+- L6 `void main()`
+- L210 `Map<String, Object?> _reelJson(Map<String, Object?> overrides)`
 
 ### test/data_models/sharing/pending_share_test.dart
 
@@ -3275,89 +2694,73 @@ windows/
 
 - L6 `void main()`
 
+### test/fixtures/api_v2.dart
+
+- L10 `class ApiV2Fixture`
+  - L11 `ApiV2Fixture(String name)`
+  - L18 `int get status`
+  - L20 `Map<String, dynamic> get body`
+  - L22 `http.Response toResponse()`
+
 ### test/http/api_client_test.dart
 
-- L14 `void main()`
-- L830 `const _reelJson = {`
-- L847 `const _manualMapItemJson = {`
-
-### test/http/chat_api_http_test.dart
-
-- L16 `http.StreamedResponse _sseResponse(List<String> chunks)`
-- L23 `ChatApiHttp _client( Future<http.StreamedResponse> Function(http.BaseRequest, http.ByteStream) handler, { void Function(String body)? onBody, })`
-- L39 `void main()`
-
-### test/http/collection_chat_api_http_test.dart
-
-- L13 `const _collectionId = '55555555-5555-5555-5555-555555555555'`
-- L14 `const _base = 'https://example.com/api/v1/collections/$_collectionId/chat'`
-- L15 `const _threadUrl = '$_base/messages'`
-- L19 `CollectionChatApiHttp _client( Future<http.StreamedResponse> Function(http.BaseRequest request) handler, { void Function(http.BaseRequest request, String body)? onRequest, })`
-- L35 `http.StreamedResponse _json(Object body, [int status = 200])`
-- L38 `http.StreamedResponse _sse(List<String> chunks)`
-- L41 `void main()`
+- L18 `final _uuidV4 = RegExp`
+- L22 `void main()`
+- L1534 `String _tokenFor(String subject, String version)`
 
 ### test/http/collections_api_client_test.dart
 
 - L12 `void main()`
-- L521 `const _summaryJson = {`
-- L534 `const _reelJson = {`
-- L551 `const _detailJson = {`
-
-### test/http/mock_chat_http_test.dart
-
-- L7 `Reel _reel(String id, String title, String category, String subCategory)`
-- L25 `void main()`
-
-### test/http/mock_collection_chat_http_test.dart
-
-- L9 `void main()`
+- L534 `Map<String, Object?> _error(String code, String message)`
+- L543 `const _summaryJson = {`
+- L557 `const _itemJson = {`
+- L570 `const _detailJson = {`
 
 ### test/repositories/reel_repository_cache_test.dart
 
 - L14 `void main()`
-- L176 `const _cachedReelJson = <String, dynamic>{`
-- L184 `class _PendingApiService extends ApiClient`
-  - L185 `_PendingApiService()`
-  - L190 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
-  - L205 `Future<void> deleteReel(String reelId)`
-  - L207 `void complete()`
-- L221 `const _liveReel = Reel`
-- L238 `class _FakeAuthService extends AuthService`
-  - L239 `_FakeAuthService()`
-  - L242 `Session? get currentSession`
-  - L245 `User? get currentUser`
-  - L254 `Stream<AuthState> get authStateChanges`
-  - L257 `Future<void> ensureProfile()`
+- L172 `const _cachedReelJson = <String, dynamic>{`
+- L180 `class _PendingApiService extends ApiClient`
+  - L181 `_PendingApiService()`
+  - L186 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+  - L199 `Future<void> deleteReel(String reelId)`
+  - L201 `void complete()`
+- L207 `const _liveReel = Reel`
+- L224 `class _FakeAuthService extends AuthService`
+  - L225 `_FakeAuthService()`
+  - L228 `Session? get currentSession`
+  - L231 `User? get currentUser`
+  - L240 `Stream<AuthState> get authStateChanges`
+  - L243 `Future<void> ensureProfile()`
 
 ### test/repositories/reel_repository_test.dart
 
 - L16 `void main()`
 - L85 `class _FakeApiService extends ApiClient`
   - L86 `_FakeApiService({this.searchResponse})`
-  - L95 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
-  - L117 `Future<void> deleteReel(String reelId)`
-  - L123 `Future<SearchResponse> searchReels( String query, { String userId = 'default-user', String? category, String? subcategory, int limit = 5, http.Client? client, })`
-- L141 `class _FakeAuthService extends AuthService`
-  - L142 `_FakeAuthService()`
-  - L145 `Session? get currentSession`
-  - L148 `User? get currentUser`
-  - L157 `Stream<AuthState> get authStateChanges`
-  - L160 `Future<void> ensureProfile()`
-- L163 `class _MutableAuthService extends AuthService`
-  - L164 `_MutableAuthService(this.userId)`
-  - L169 `Session? get currentSession`
-  - L172 `User? get currentUser`
-  - L181 `Stream<AuthState> get authStateChanges`
-  - L184 `Future<void> ensureProfile()`
-- L187 `class _DelayedApiService extends ApiClient`
-  - L188 `_DelayedApiService()`
-  - L197 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
-  - L211 `void complete()`
-- L224 `const _reelC = Reel`
-- L240 `const _reelA = Reel`
-- L257 `const _reelB = Reel`
-- L274 `const _emptySearchResponse = SearchResponse`
+  - L95 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+  - L109 `Future<void> deleteReel(String reelId)`
+  - L115 `Future<SearchResponse> searchReels( String query, { String userId = 'default-user', String? category, String? subcategory, int limit = 5, http.Client? client, })`
+- L133 `class _FakeAuthService extends AuthService`
+  - L134 `_FakeAuthService()`
+  - L137 `Session? get currentSession`
+  - L140 `User? get currentUser`
+  - L149 `Stream<AuthState> get authStateChanges`
+  - L152 `Future<void> ensureProfile()`
+- L155 `class _MutableAuthService extends AuthService`
+  - L156 `_MutableAuthService(this.userId)`
+  - L161 `Session? get currentSession`
+  - L164 `User? get currentUser`
+  - L173 `Stream<AuthState> get authStateChanges`
+  - L176 `Future<void> ensureProfile()`
+- L179 `class _DelayedApiService extends ApiClient`
+  - L180 `_DelayedApiService()`
+  - L189 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+  - L201 `void complete()`
+- L206 `const _reelC = Reel`
+- L222 `const _reelA = Reel`
+- L239 `const _reelB = Reel`
+- L256 `const _emptySearchResponse = SearchResponse`
 
 ### test/router_test.dart
 
@@ -3367,64 +2770,24 @@ windows/
 
 - L4 `void main()`
 
-### test/screens/chat/chat_screen_test.dart
-
-- L20 `class _AlwaysFailsChatHttp implements ChatHttp`
-  - L22 `Future<List<String>> fetchSuggestions()`
-  - L25 `Stream<ChatEvent> sendMessage({ required String threadId, required String text, List<ChatAttachment> attachments = const [], List<ChatHistoryEntry> history = const [], })`
-- L37 `class _FirstCallFailsChatHttp implements ChatHttp`
-  - L41 `Future<List<String>> fetchSuggestions()`
-  - L44 `Stream<ChatEvent> sendMessage({ required String threadId, required String text, List<ChatAttachment> attachments = const [], List<ChatHistoryEntry> history = const [], })`
-- L56 `class _FakeApiClient extends ApiClient`
-  - L57 `_FakeApiClient()`
-- L60 `class _FakeAuthService extends AuthService`
-  - L61 `_FakeAuthService()`
-  - L64 `Session? get currentSession`
-  - L67 `User? get currentUser`
-  - L76 `Stream<AuthState> get authStateChanges`
-- L79 `Future<void> _pumpChatScreen( WidgetTester tester, ChatViewModel viewModel, )`
-- L96 `void main()`
-
-### test/screens/chat_attachment_sheet_test.dart
-
-- L6 `void main()`
-
-### test/screens/collections/collection_chat_panel_test.dart
-
-- L21 `class _FakeApiClient extends ApiClient`
-  - L22 `_FakeApiClient()`
-- L25 `class _FakeAuthService extends AuthService`
-  - L26 `_FakeAuthService()`
-  - L29 `Session? get currentSession`
-  - L32 `User? get currentUser`
-  - L41 `Stream<AuthState> get authStateChanges`
-- L45 `class _UnreachableCollectionChatHttp implements CollectionChatHttp`
-  - L49 `Future<List<CollectionChatThread>> fetchThreads(String collectionId)`
-  - L55 `Future<CollectionChatPage> fetchMessages( String collectionId, { required String threadId, String? after, })`
-  - L62 `Stream<ChatEvent> ask({ required String collectionId, required String threadId, required String text, List<ChatAttachment> attachments = const [], })`
-  - L72 `Future<void> shareAnswer({ required String collectionId, required String threadId, required String questionText, required List<AnswerBlock> blocks, })`
-  - L80 `Future<void> deleteMessage({ required String collectionId, required String messageId, })`
-- L86 `Future<void> _pumpPanel( WidgetTester tester, CollectionChatHttp http, { required bool canEdit, })`
-- L108 `void main()`
-
 ### test/screens/collections/collection_detail_tabs_test.dart
 
-- L22 `class _FakeApiClient extends ApiClient`
-  - L23 `_FakeApiClient()`
-- L26 `class _FakeAuthService extends AuthService`
-  - L27 `_FakeAuthService()`
-  - L30 `Session? get currentSession`
-  - L33 `User? get currentUser`
-  - L42 `Stream<AuthState> get authStateChanges`
-- L45 `void main()`
+- L18 `class _FakeApiClient extends ApiClient`
+  - L19 `_FakeApiClient()`
+- L22 `class _FakeAuthService extends AuthService`
+  - L23 `_FakeAuthService()`
+  - L26 `Session? get currentSession`
+  - L29 `User? get currentUser`
+  - L38 `Stream<AuthState> get authStateChanges`
+- L41 `void main()`
 
 ### test/screens/collections/share_collection_sheet_test.dart
 
 - L15 `void main()`
 - L163 `class _FakeCollectionsHttp implements CollectionsHttp`
-  - L165 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
-  - L186 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
-  - L191 `dynamic noSuchMethod(Invocation invocation)`
+  - L165 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, String? cursor, })`
+  - L185 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
+  - L190 `dynamic noSuchMethod(Invocation invocation)`
 
 ### test/screens/feature_announcement/feature_announcement_screen_test.dart
 
@@ -3437,13 +2800,13 @@ windows/
 - L42 `void main()`
 - L85 `class _EmptyApiClient extends ApiClient`
   - L86 `_EmptyApiClient()`
-  - L89 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
-- L110 `class _FakeAuthService extends AuthService`
-  - L111 `_FakeAuthService()`
-  - L114 `Session? get currentSession`
-  - L117 `User? get currentUser`
-  - L126 `Stream<AuthState> get authStateChanges`
-  - L129 `Future<void> ensureProfile()`
+  - L89 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+- L102 `class _FakeAuthService extends AuthService`
+  - L103 `_FakeAuthService()`
+  - L106 `Session? get currentSession`
+  - L109 `User? get currentUser`
+  - L118 `Stream<AuthState> get authStateChanges`
+  - L121 `Future<void> ensureProfile()`
 
 ### test/screens/home/home_filter_sheet_test.dart
 
@@ -3452,15 +2815,31 @@ windows/
 - L40 `void main()`
 - L198 `class _FakeApiClient extends ApiClient`
   - L199 `_FakeApiClient()`
-  - L207 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
-  - L240 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
-- L250 `const _treeJson = <String, dynamic>{`
-- L332 `class _FakeAuthService extends AuthService`
-  - L333 `_FakeAuthService()`
-  - L336 `Session? get currentSession`
-  - L339 `User? get currentUser`
-  - L348 `Stream<AuthState> get authStateChanges`
-  - L351 `Future<void> ensureProfile()`
+  - L207 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+  - L235 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
+- L245 `const _treeJson = <String, dynamic>{`
+- L327 `class _FakeAuthService extends AuthService`
+  - L328 `_FakeAuthService()`
+  - L331 `Session? get currentSession`
+  - L334 `User? get currentUser`
+  - L343 `Stream<AuthState> get authStateChanges`
+  - L346 `Future<void> ensureProfile()`
+
+### test/screens/home/home_paywall_banner_test.dart
+
+- L21 `const _bannerText = 'FREE ACCOUNT ACCESS'`
+- L23 `Future<void> _pumpFreeHome( WidgetTester tester, { required Map<String, dynamic> remoteDocument, })`
+- L64 `void main()`
+- L80 `class _FreePlanApiClient extends ApiClient`
+  - L81 `_FreePlanApiClient()`
+  - L84 `Future<EntitlementsResponse> getAccountEntitlements({ required String userId, })`
+  - L102 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
+- L117 `class _FakeAuthService extends AuthService`
+  - L118 `_FakeAuthService()`
+  - L121 `Session? get currentSession`
+  - L124 `User? get currentUser`
+  - L133 `Stream<AuthState> get authStateChanges`
+  - L136 `Future<void> ensureProfile()`
 
 ### test/screens/how_to/how_to_use_screen_test.dart
 
@@ -3476,24 +2855,58 @@ windows/
 - L47 `void _expectStripFits(WidgetTester tester, Size size)`
 - L67 `void main()`
 
+### test/screens/profile/profile_screen_test.dart
+
+- L16 `void main()`
+- L63 `const _stats = LibraryStats`
+- L71 `class _AccountApi extends ApiClient`
+  - L77 `Future<LibraryStats> getLibraryStats()`
+- L83 `class _Session extends ChangeNotifier implements SessionViewModel`
+  - L86 `void switchUser()`
+  - L92 `User? get currentUser`
+  - L101 `String get displayName`
+  - L103 `String get email`
+  - L105 `String get initials`
+  - L107 `String? get error`
+  - L109 `bool get isBusy`
+  - L111 `bool get isSigningOut`
+  - L113 `bool get isDeletingAccount`
+  - L115 `dynamic noSuchMethod(Invocation invocation)`
+
+### test/screens/reel_detail/locked_history_copy_test.dart
+
+- L21 `const _upgradeLine = 'Upgrade to Pro to open older saves again.'`
+- L23 `Future<void> _pumpLockedReel( WidgetTester tester, { required Map<String, dynamic> remoteDocument, })`
+- L58 `void main()`
+- L79 `const _reel = Reel`
+- L96 `class _HistoryLockedApiClient extends ApiClient`
+  - L97 `_HistoryLockedApiClient()`
+  - L100 `Future<Reel> getReel(String reelId)`
+- L109 `class _FakeAuthService extends AuthService`
+  - L110 `_FakeAuthService()`
+  - L113 `Session? get currentSession`
+  - L116 `User? get currentUser`
+  - L119 `Stream<AuthState> get authStateChanges`
+  - L122 `Future<void> ensureProfile()`
+
+### test/screens/reel_detail/reel_detail_screen_test.dart
+
+- L8 `void main()`
+
 ### test/screens/reel_detail/reel_share_card_test.dart
 
 - L7 `void main()`
 - L270 `Reel _shareReel({ String contentType = 'reel', String? sourcePlatform, String title = 'A saved reel worth remembering', String summary = 'This reel has a clear summary that should be readable on the share card.', List<String> keyFacts = const [ 'The reel highlights three spots that can be visited in one afternoon.', 'The creator recommends starting early to avoid crowds.', ], List<String> actionableItems = const [ 'Book the first stop before noon.', 'Walk between each stop instead of driving.', ], })`
 
+### test/screens/update_required/update_required_screen_test.dart
+
+- L8 `const _hard = UpdateRequirement`
+- L16 `const _soft = UpdateRequirement`
+- L18 `void main()`
+
 ### test/services/cache/content_cache_test.dart
 
 - L7 `void main()`
-
-### test/services/chat/chat_reel_cache_test.dart
-
-- L6 `Reel _reel(String id)`
-- L22 `void main()`
-
-### test/services/chat/chat_thread_store_test.dart
-
-- L7 `ChatThread _thread(String id)`
-- L22 `void main()`
 
 ### test/services/how_to_guide_service_test.dart
 
@@ -3506,6 +2919,12 @@ windows/
 - L299 `AppNotification _featureTargetNotification(String target)`
 - L313 `final _reelNotification = AppNotification.fromData`
 - L326 `final _featureNotification = AppNotification.fromData`
+
+### test/services/remote_config/remote_config_service_test.dart
+
+- L11 `const _url = 'https://config.example.com/reelpin.json'`
+- L13 `final _document = jsonEncode`
+- L22 `void main()`
 
 ### test/services/sharing/collection_link_cache_test.dart
 
@@ -3526,9 +2945,9 @@ windows/
 ### test/services/sharing/push_registration_service_test.dart
 
 - L13 `void main()`
-- L74 `class _FakeDeviceMetadataService extends DeviceMetadataService`
-  - L75 `const _FakeDeviceMetadataService()`
-  - L78 `Future<DeviceMetadata> load()`
+- L71 `class _FakeDeviceMetadataService extends DeviceMetadataService`
+  - L72 `const _FakeDeviceMetadataService()`
+  - L75 `Future<DeviceMetadata> load()`
 
 ### test/services/sharing/share_flow_analytics_service_test.dart
 
@@ -3536,16 +2955,12 @@ windows/
 
 ### test/services/sharing/share_handoff_collections_test.dart
 
-- L12 `void main()`
+- L13 `void main()`
 
 ### test/services/sharing/shared_collection_prefetch_test.dart
 
 - L8 `void main()`
 - L69 `CollectionDetail _detail(String name)`
-
-### test/utils/answer_text_parser_test.dart
-
-- L5 `void main()`
 
 ### test/utils/auth_error_message_test.dart
 
@@ -3555,88 +2970,61 @@ windows/
 
 - L5 `void main()`
 
-### test/view_models/chat_view_model_test.dart
-
-- L15 `class _ControllableChatHttp implements ChatHttp`
-  - L19 `int get calls`
-  - L22 `Future<List<String>> fetchSuggestions()`
-  - L25 `Stream<ChatEvent> sendMessage({ required String threadId, required String text, List<ChatAttachment> attachments = const [], List<ChatHistoryEntry> history = const [], })`
-  - L37 `void succeed(int callIndex, List<AnswerBlock> blocks)`
-  - L42 `void fail(int callIndex, Object error)`
-- L48 `class _FakeChatHttp implements ChatHttp`
-  - L49 `_FakeChatHttp({this.shouldFail = false})`
-  - L56 `Future<List<String>> fetchSuggestions()`
-  - L59 `Stream<ChatEvent> sendMessage({ required String threadId, required String text, List<ChatAttachment> attachments = const [], List<ChatHistoryEntry> history = const [], })`
-- L75 `void main()`
-
-### test/view_models/collection_chat_view_model_test.dart
-
-- L19 `class _FailingCollectionChatHttp implements CollectionChatHttp`
-  - L21 `Future<List<CollectionChatThread>> fetchThreads(String collectionId)`
-  - L25 `Future<CollectionChatPage> fetchMessages( String collectionId, { required String threadId, String? after, })`
-  - L32 `Stream<ChatEvent> ask({ required String collectionId, required String threadId, required String text, List<ChatAttachment> attachments = const [], })`
-  - L42 `Future<void> shareAnswer({ required String collectionId, required String threadId, required String questionText, required List<AnswerBlock> blocks, })`
-  - L50 `Future<void> deleteMessage({ required String collectionId, required String messageId, })`
-- L58 `class _SlowThreadsHttp implements CollectionChatHttp`
-  - L59 `_SlowThreadsHttp(this._inner)`
-  - L64 `void release()`
-  - L67 `Future<List<CollectionChatThread>> fetchThreads(String collectionId)`
-  - L73 `Future<CollectionChatPage> fetchMessages( String collectionId, { required String threadId, String? after, })`
-  - L80 `Stream<ChatEvent> ask({ required String collectionId, required String threadId, required String text, List<ChatAttachment> attachments = const [], })`
-  - L93 `Future<void> shareAnswer({ required String collectionId, required String threadId, required String questionText, required List<AnswerBlock> blocks, })`
-  - L106 `Future<void> deleteMessage({ required String collectionId, required String messageId, })`
-- L112 `void main()`
-
 ### test/view_models/collections_view_model_test.dart
 
-- L13 `void main()`
-- L543 `ContentCache _testCache()`
-- L555 `class _TrackedContentCache implements ContentCache`
-  - L556 `_TrackedContentCache(this._delegate)`
-  - L561 `Future<void> _track(Future<void> operation)`
-  - L566 `Future<void> drain()`
-  - L573 `Future<Map<String, dynamic>?> read(String key)`
-  - L576 `Future<void> write(String key, Map<String, dynamic> payload)`
-  - L580 `Future<void> invalidate(String key)`
-  - L583 `Future<void> invalidateContent()`
-  - L586 `Future<void> clear()`
-- L589 `CollectionSummary _summary( String id, { String visibility = 'private', int itemCount = 0, String? name, String? updatedAt, })`
-- L605 `Reel _reel(String id)`
-- L622 `CollectionDetail _detail( String id, { List<String> reelIds = const [], bool hasMore = false, int? nextOffset, int itemCount = 0, String visibility = 'private', String? updatedAt, })`
-- L649 `class _FakeCollectionsHttp implements CollectionsHttp`
-  - L650 `_FakeCollectionsHttp({this.collections = const [], this.error})`
-  - L675 `Future<List<CollectionSummary>> getCollections()`
-  - L682 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, int? offset, String? cursor, })`
-  - L708 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
-  - L718 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
-  - L729 `Future<void> deleteCollection(String collectionId)`
-  - L734 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
-  - L750 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
-  - L758 `Future<CollectionLink> enableCollectionLink(String collectionId)`
-  - L767 `Future<void> disableCollectionLink(String collectionId)`
-  - L772 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
-  - L778 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
-  - L786 `Future<void> leaveCollection(String collectionId)`
-  - L791 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
-  - L804 `Future<CollectionSummary> acceptCollectionInvite(String token)`
-  - L814 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, int? offset, })`
+- L18 `void main()`
+- L656 `UserStateCoordinator _coordinatorFor(CollectionsViewModel vm)`
+- L664 `class _DeferredContentCache implements ContentCache`
+  - L669 `Future<Map<String, dynamic>?> read(String key)`
+  - L673 `Future<void> write( String key, Map<String, dynamic> payload, { String? expectedUserId, })`
+  - L682 `dynamic noSuchMethod(Invocation invocation)`
+- L687 `ContentCache _testCache()`
+- L699 `class _TrackedContentCache implements ContentCache`
+  - L700 `_TrackedContentCache(this._delegate)`
+  - L705 `Future<void> _track(Future<void> operation)`
+  - L710 `Future<void> drain()`
+  - L717 `Future<Map<String, dynamic>?> read(String key)`
+  - L720 `Future<void> write( String key, Map<String, dynamic> payload, { String? expectedUserId, })`
+  - L727 `Future<void> invalidate(String key)`
+  - L730 `Future<void> invalidateContent()`
+  - L733 `Future<void> clear()`
+- L736 `CollectionSummary _summary( String id, { String visibility = 'private', int itemCount = 0, String? name, String? updatedAt, })`
+- L752 `Reel _reel(String id)`
+- L769 `CollectionDetail _detail( String id, { List<String> reelIds = const [], String? nextCursor, int itemCount = 0, String visibility = 'private', String? updatedAt, })`
+- L790 `class _FakeCollectionsHttp implements CollectionsHttp`
+  - L791 `_FakeCollectionsHttp({this.collections = const [], this.error})`
+  - L820 `Future<List<CollectionSummary>> getCollections()`
+  - L829 `Future<CollectionDetail> getCollectionDetail( String collectionId, { int limit = 25, String? cursor, })`
+  - L855 `Future<CollectionSummary> createCollection({ required String name, String description = '', List<String> reelIds = const [], })`
+  - L866 `Future<CollectionSummary> updateCollection({ required String collectionId, String? name, String? description, String? coverReelId, })`
+  - L877 `Future<void> deleteCollection(String collectionId)`
+  - L882 `Future<int> addReelsToCollection({ required String collectionId, required List<String> reelIds, })`
+  - L898 `Future<void> removeReelFromCollection({ required String collectionId, required String reelId, })`
+  - L906 `Future<CollectionLink> enableCollectionLink(String collectionId)`
+  - L915 `Future<void> disableCollectionLink(String collectionId)`
+  - L920 `Future<CollectionMembers> getCollectionMembers(String collectionId)`
+  - L926 `Future<void> removeCollectionMember({ required String collectionId, required String memberUserId, })`
+  - L934 `Future<void> leaveCollection(String collectionId)`
+  - L939 `Future<CollectionInvite> createCollectionInvite({ required String collectionId, required String role, })`
+  - L952 `Future<CollectionSummary> acceptCollectionInvite(String token)`
+  - L962 `Future<CollectionDetail> getSharedCollection( String token, { int limit = 25, String? cursor, })`
 
 ### test/view_models/discover_view_model_test.dart
 
 - L14 `void main()`
-- L125 `class _FakeReelRepository extends ReelRepository`
-  - L126 `_FakeReelRepository({this.onDiscover, this.onReelsPage})`
-  - L142 `Future<DiscoverResponse> getDiscover({ String? savedDate, int? offset, String? cursor, int limit = 25, })`
-  - L158 `Future<ReelPage> getReelsPage({ String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 25, String? sort, })`
-- L186 `class _FakeAuthService extends AuthService`
-  - L187 `_FakeAuthService()`
-  - L190 `Session? get currentSession`
-  - L193 `User? get currentUser`
-  - L196 `Stream<AuthState> get authStateChanges`
-  - L199 `Future<void> ensureProfile()`
-- L202 `DiscoverResponse _discoverResponse({ required List<Reel> recentSaves, String? selectedDate, })`
-- L221 `const _reelA = Reel`
-- L238 `const _reelB = Reel`
+- L113 `class _FakeReelRepository extends ReelRepository`
+  - L114 `_FakeReelRepository({this.onDiscover, this.onReelsPage})`
+  - L130 `Future<DiscoverResponse> getDiscover({ String? savedDate, String? cursor, int limit = 25, })`
+  - L145 `Future<ReelPage> getReelsPage({ String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 25, })`
+- L163 `class _FakeAuthService extends AuthService`
+  - L164 `_FakeAuthService()`
+  - L167 `Session? get currentSession`
+  - L170 `User? get currentUser`
+  - L173 `Stream<AuthState> get authStateChanges`
+  - L176 `Future<void> ensureProfile()`
+- L179 `DiscoverResponse _discoverResponse({ required List<Reel> recentSaves, String? selectedDate, })`
+- L198 `const _reelA = Reel`
+- L215 `const _reelB = Reel`
 
 ### test/view_models/home_view_model_test.dart
 
@@ -3644,42 +3032,52 @@ windows/
 - L118 `class _FakeRepository extends ReelRepository`
   - L119 `_FakeRepository()`
   - L128 `bool get hasMoreReels`
-  - L131 `Future<void> loadInitialReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, String? sort, })`
-  - L145 `Future<void> loadMoreReels({ String? platform, String? category, String? subcategory, String? savedDate, String? sort, })`
-  - L157 `List<Reel> get cachedReels`
-- L160 `class _FakeApiService extends ApiClient`
-  - L161 `_FakeApiService()`
-  - L164 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, int? offset, String? cursor, int limit = 50, String? sort, })`
-- L185 `class _FakeAuthService extends AuthService`
-  - L186 `_FakeAuthService()`
-  - L189 `Session? get currentSession`
-  - L192 `User? get currentUser`
-  - L195 `Stream<AuthState> get authStateChanges`
-  - L198 `Future<void> ensureProfile()`
+  - L131 `Future<void> loadInitialReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L144 `Future<void> loadMoreReels({ String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L155 `List<Reel> get cachedReels`
+- L158 `class _FakeApiService extends ApiClient`
+  - L159 `_FakeApiService()`
+  - L162 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+- L175 `class _FakeAuthService extends AuthService`
+  - L176 `_FakeAuthService()`
+  - L179 `Session? get currentSession`
+  - L182 `User? get currentUser`
+  - L185 `Stream<AuthState> get authStateChanges`
+  - L188 `Future<void> ensureProfile()`
 
 ### test/view_models/map_view_model_test.dart
 
-- L18 `void main()`
-- L211 `class _FakeReelRepository extends ReelRepository implements MapHttp`
-  - L212 `_FakeReelRepository({required this.onSearch})`
-  - L219 `_FakeReelRepository.empty({ this.cachedReels = const [], this.mapResponse, this.onMapSearch, this.pinnedMapItem, })`
-  - L253 `static Future<SearchResponse> _emptySearch({ required String query, String? category, String? subcategory, })`
-  - L265 `Future<void> loadInitialReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, String? sort, })`
-  - L279 `Future<MapResponse> getMapData({String? category})`
-  - L289 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, int limit = 8, })`
-  - L317 `Future<MapItem> pinMapPlace( String googlePlaceId, { String? sessionToken, })`
-  - L325 `Future<void> removeMapItem(String mapItemId)`
-  - L330 `Future<SearchResponse> search( String query, { String? category, String? subcategory, })`
-- L339 `class _FakeAuthService extends AuthService`
-  - L340 `_FakeAuthService()`
-  - L343 `Session? get currentSession`
-  - L346 `User? get currentUser`
-  - L349 `Stream<AuthState> get authStateChanges`
-  - L352 `Future<void> ensureProfile()`
-- L355 `const _travelReel = Reel`
-- L379 `const _travelMapItem = MapItem`
-- L396 `const _manualMapItem = MapItem`
-- L419 `const _foodReel = Reel`
+- L25 `void main()`
+- L653 `class _FakeAccountHttp implements AccountHttp`
+  - L654 `_FakeAccountHttp({this.totalPinnedLocations = 0, this.statsFails = false})`
+  - L661 `Future<LibraryStats> getLibraryStats()`
+  - L674 `Future<EntitlementsResponse> getAccountEntitlements({ required String userId, })`
+  - L679 `Future<void> deleteAccount()`
+- L682 `class _FakeReelRepository extends ReelRepository implements MapHttp`
+  - L683 `_FakeReelRepository({required this.onSearch})`
+  - L694 `_FakeReelRepository.empty({ this.cachedReels = const [], this.mapResponse, this.onGetMapData, this.onGetNearbyPins, this.nearbyResponse, this.nearbyFails = false, this.onMapSearch, this.pinnedMapItem, })`
+  - L739 `static Future<SearchResponse> _emptySearch({ required String query, String? category, String? subcategory, })`
+  - L751 `Future<void> loadInitialReels({ bool forceRefresh = false, String? platform, String? category, String? subcategory, String? savedDate, })`
+  - L764 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
+  - L775 `Future<MapResponse> getNearbyPins({ required double latitude, required double longitude, int limit = 5, })`
+  - L788 `Future<MapPlaceSearchResponse> searchMapPlaces( String query, { String? category, String? sessionToken, int limit = 8, })`
+  - L816 `Future<MapItem> pinMapPlace( String googlePlaceId, { String? sessionToken, })`
+  - L824 `Future<void> removeMapItem(String mapItemId)`
+  - L829 `Future<SearchResponse> search( String query, { String? category, String? subcategory, })`
+- L838 `class _FakeAuthService extends AuthService`
+  - L839 `_FakeAuthService()`
+  - L842 `Session? get currentSession`
+  - L845 `User? get currentUser`
+  - L848 `Stream<AuthState> get authStateChanges`
+  - L851 `Future<void> ensureProfile()`
+- L854 `const _travelReel = Reel`
+- L871 `const _travelMapItem = MapItem`
+- L889 `const _manualMapItem = MapItem`
+- L912 `const _lockedMapItem = MapItem`
+- L929 `const _locationId = '66666666-6666-4666-8666-666666666666'`
+- L931 `const _goa = MapBounds`
+- L933 `const _mumbai = MapBounds`
+- L935 `const _foodReel = Reel`
 
 ### test/view_models/processing_jobs_view_model_test.dart
 
@@ -3714,6 +3112,15 @@ windows/
   - L222 `Stream<AuthState> get authStateChanges`
   - L225 `Future<void> ensureProfile()`
 
+### test/view_models/remote_config_view_model_test.dart
+
+- L12 `const _url = 'https://config.example.com/reelpin.json'`
+- L14 `Map<String, dynamic> _update({required bool hard, int android = 24})`
+- L20 `const _announcement = {`
+- L28 `RemoteConfigViewModel _viewModel( http.Client client, { int? build = 20, String url = _url, DateTime? now, })`
+- L45 `http.Client _serving(Map<String, dynamic> document)`
+- L49 `void main()`
+
 ### test/view_models/search_view_model_test.dart
 
 - L15 `void main()`
@@ -3732,27 +3139,61 @@ windows/
 
 ### test/view_models/session_view_model_test.dart
 
-- L14 `void main()`
-- L137 `const _signedInUser = User`
-- L145 `class _FakeAuthService extends AuthService`
-  - L146 `_FakeAuthService(this.events, {this.user, this.stream})`
-  - L154 `Session? get currentSession`
-  - L157 `User? get currentUser`
-  - L160 `Stream<AuthState> get authStateChanges`
-  - L164 `Future<void> ensureProfile()`
-  - L169 `Future<void> signOut()`
-- L174 `class _FakeSharingHttp implements SharingHttp`
-  - L175 `_FakeSharingHttp(this.events)`
-  - L180 `Future<void> revokeShareToken()`
-  - L185 `dynamic noSuchMethod(Invocation invocation)`
-- L188 `class _FakeAccountHttp implements AccountHttp`
-  - L189 `_FakeAccountHttp(this.events, {this.shouldFail = false})`
-  - L195 `Future<void> deleteAccount()`
-  - L201 `dynamic noSuchMethod(Invocation invocation)`
+- L16 `void main()`
+- L165 `const _signedInUser = User`
+- L173 `class _FakeAuthService extends AuthService`
+  - L174 `_FakeAuthService(this.events, {this.user, this.stream})`
+  - L182 `Session? get currentSession`
+  - L185 `User? get currentUser`
+  - L188 `Stream<AuthState> get authStateChanges`
+  - L192 `Future<void> ensureProfile()`
+  - L197 `Future<void> signOut()`
+- L202 `class _FakeSharingHttp implements SharingHttp`
+  - L203 `_FakeSharingHttp(this.events, {this.mintGate})`
+  - L211 `Future<String> mintShareToken()`
+  - L218 `Future<void> revokeShareToken()`
+  - L223 `dynamic noSuchMethod(Invocation invocation)`
+- L226 `class _FakeAccountHttp implements AccountHttp`
+  - L227 `_FakeAccountHttp(this.events, {this.shouldFail = false})`
+  - L233 `Future<void> deleteAccount()`
+  - L239 `dynamic noSuchMethod(Invocation invocation)`
 
 ### test/view_models/theme_view_model_test.dart
 
 - L7 `void main()`
+
+### test/view_models/user_state_coordinator_test.dart
+
+- L33 `void main()`
+- L214 `const _filters = <String, dynamic>{`
+- L221 `Map<String, dynamic> _payload(String slot)`
+- L239 `EntitlementsResponse _entitlements(String userId, {bool restricted = false})`
+- L245 `MapItem get _pin`
+- L248 `const _place = MapPlaceSearchResult`
+- L258 `ProcessingJob _job(String id)`
+- L261 `class _State`
+  - L296 `void switchUser()`
+  - L301 `Future<void> hydrate(String slot)`
+  - L316 `bool hasPayload(String slot)`
+  - L331 `void dispose()`
+- L344 `class _Cache implements ContentCache`
+  - L350 `Future<Map<String, dynamic>?> read(String key)`
+  - L353 `Future<void> write( String key, Map<String, dynamic> payload, { String? expectedUserId, })`
+  - L360 `Future<void> invalidate(String key)`
+  - L363 `Future<void> invalidateContent()`
+  - L369 `dynamic noSuchMethod(Invocation invocation)`
+- L372 `class _Auth extends AuthService`
+  - L373 `_Auth()`
+  - L377 `User? get currentUser`
+- L386 `class _Api extends ApiClient`
+  - L399 `Future<ReelPage> getReelsPage({ String? userId, String? platform, String? category, String? subcategory, String? savedDate, String? cursor, int limit = 50, })`
+  - L413 `Future<ReelFiltersResponse> getReelFilters({ String? userId, String? platform, String? category, String? subcategory, })`
+  - L421 `Future<EntitlementsResponse> getAccountEntitlements({ required String userId, })`
+  - L429 `Future<MapResponse> getMapData({ required MapBounds bounds, String? category, })`
+  - L438 `Future<LibraryStats> getLibraryStats()`
+  - L447 `Future<MapItem> pinMapPlace(String googlePlaceId, {String? sessionToken})`
+  - L451 `Future<void> removeMapItem(String mapItemId)`
+  - L454 `Future<List<ProcessingJob>> listProcessingJobs({ bool activeOnly = true, int limit = 20, })`
 
 ### tool/check_architecture.dart
 
@@ -3775,4 +3216,4 @@ windows/
 
 - L3 `void main()`
 
-<!-- mapped: reelpin-app@dbee86b | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->
+<!-- mapped: reelpin-app@6ad7c49 plus uncommitted changes | paths: .agent/, .github/, .vscode/, README.md, analysis_options.yaml, android/, assets/, docs/, ios/, lib/, linux/, macos/, play-assets/, pubspec.lock, pubspec.yaml, test/, tool/, web/, windows/ -->

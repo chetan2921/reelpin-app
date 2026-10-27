@@ -37,7 +37,6 @@ class HomeViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
   bool get hasMoreReels => _repository.hasMoreReels;
-  int get totalCount => _repository.totalCount;
   String? get error => _error;
   String? get selectedPlatform => _selectedPlatform;
   String? get selectedCategory => _selectedCategory;

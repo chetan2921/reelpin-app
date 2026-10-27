@@ -210,10 +210,8 @@ class _FakeApiClient extends ApiClient {
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 50,
-    String? sort,
   }) async {
     reelsPageCalls += 1;
     lastPlatform = platform;
@@ -229,10 +227,7 @@ class _FakeApiClient extends ApiClient {
           'category': 'Movies',
         }),
       ],
-      hasMore: false,
-      totalCount: 1,
       limit: limit,
-      offset: 0,
     );
   }
 

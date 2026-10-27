@@ -52,6 +52,7 @@ class CollectionsViewModel extends ChangeNotifier {
   Future<void>? _detailWarmUp;
 
   bool _isMutating = false;
+  int _userGeneration = 0;
 
   List<CollectionSummary> get collections => List.unmodifiable(_collections);
   bool get isLoadingCollections => _isLoadingCollections;
@@ -59,6 +60,24 @@ class CollectionsViewModel extends ChangeNotifier {
   bool isLoadingDetailFor(String id) => _loadingDetailIds.contains(id);
   String? detailErrorFor(String id) => _detailErrors[id];
   bool get isMutating => _isMutating;
+
+  void reset() {
+    _userGeneration += 1;
+    _collections.clear();
+    _isLoadingCollections = false;
+    _collectionsLoaded = false;
+    _collectionsError = null;
+    _loadCollectionsFuture = null;
+    _details.clear();
+    _placeholderDetailIds.clear();
+    _loadingDetailIds.clear();
+    _detailErrors.clear();
+    _loadDetailFutures.clear();
+    _detailWarmUp = null;
+    _isMutating = false;
+    unawaited(_syncShareTargets());
+    notifyListeners();
+  }
 
   /// Completes once the latest warm-up has finished.
   @visibleForTesting
@@ -69,19 +88,6 @@ class CollectionsViewModel extends ChangeNotifier {
   /// True while [id] is showing its summary only, with the reels still on their
   /// way in from cache or network.
   bool isDetailPlaceholder(String id) => _placeholderDetailIds.contains(id);
-
-  /// Moves a collection to the front of the in-memory list, the same
-  /// position adding a reel to it puts it in once the backend re-sorts by
-  /// `updated_at` and the list is refetched. Sharing a chat answer into a
-  /// collection doesn't refetch, so this gives that collection the same jump
-  /// to the top without waiting on a round trip. A no-op if the collection
-  /// isn't loaded or is already first.
-  void bumpToFront(String collectionId) {
-    final index = _collections.indexWhere((c) => c.id == collectionId);
-    if (index <= 0) return;
-    _collections.insert(0, _collections.removeAt(index));
-    notifyListeners();
-  }
 
   /// Opens a collection on what the SAVED grid already knows, so tapping one
   /// lands on the collection rather than a full-screen spinner. Whatever
@@ -109,8 +115,13 @@ class CollectionsViewModel extends ChangeNotifier {
   /// this, exactly like Discover and Home.
   Future<void> hydrateFromCache() async {
     if (_collections.isNotEmpty) return;
+    final generation = _userGeneration;
     final payload = await _cache.read(ContentCacheKeys.collections);
-    if (payload == null || _collections.isNotEmpty) return;
+    if (generation != _userGeneration ||
+        payload == null ||
+        _collections.isNotEmpty) {
+      return;
+    }
     try {
       final raw = payload['collections'];
       if (raw is! List) return;
@@ -132,14 +143,16 @@ class CollectionsViewModel extends ChangeNotifier {
   Future<void> loadCollections({bool forceRefresh = false}) {
     if (_loadCollectionsFuture != null) return _loadCollectionsFuture!;
     if (_collectionsLoaded && !forceRefresh) return Future.value();
+    final generation = _userGeneration;
     final future = _loadCollections();
     _loadCollectionsFuture = future.whenComplete(() {
-      _loadCollectionsFuture = null;
+      if (generation == _userGeneration) _loadCollectionsFuture = null;
     });
     return _loadCollectionsFuture!;
   }
 
   Future<void> _loadCollections() async {
+    final generation = _userGeneration;
     // With cached rows on screen this stays false, so a refresh never replaces
     // a populated grid with a spinner.
     _isLoadingCollections = _collections.isEmpty;
@@ -147,6 +160,7 @@ class CollectionsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       final result = await _api.getCollections();
+      if (generation != _userGeneration) return;
       _collections
         ..clear()
         ..addAll(result);
@@ -159,13 +173,16 @@ class CollectionsViewModel extends ChangeNotifier {
       );
       _detailWarmUp = _warmDetails(result);
     } catch (e) {
+      if (generation != _userGeneration) return;
       _collectionsError = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load collections right now.',
       );
     } finally {
-      _isLoadingCollections = false;
-      notifyListeners();
+      if (generation == _userGeneration) {
+        _isLoadingCollections = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -174,8 +191,13 @@ class CollectionsViewModel extends ChangeNotifier {
   /// still runs over the top.
   Future<void> hydrateDetailFromCache(String id) async {
     if (_hasRealDetail(id)) return;
+    final generation = _userGeneration;
     final payload = await _cache.read(ContentCacheKeys.collectionDetail(id));
-    if (payload == null || _hasRealDetail(id)) return;
+    if (generation != _userGeneration ||
+        payload == null ||
+        _hasRealDetail(id)) {
+      return;
+    }
     try {
       _details[id] = CollectionDetail.fromJson(payload);
       _placeholderDetailIds.remove(id);
@@ -197,19 +219,21 @@ class CollectionsViewModel extends ChangeNotifier {
   /// or one whose `updated_at` moved since the copy was taken (reels added or
   /// removed), is fetched. Two at a time, so launch never floods the backend.
   Future<void> _warmDetails(List<CollectionSummary> summaries) {
+    final generation = _userGeneration;
     final queue = summaries.take(_warmDetailLimit).toList();
     Future<void> worker() async {
-      while (queue.isNotEmpty) {
-        await _warmDetail(queue.removeAt(0));
+      while (generation == _userGeneration && queue.isNotEmpty) {
+        await _warmDetail(queue.removeAt(0), generation);
       }
     }
 
     return Future.wait([worker(), worker()]);
   }
 
-  Future<void> _warmDetail(CollectionSummary summary) async {
+  Future<void> _warmDetail(CollectionSummary summary, int generation) async {
     final id = summary.id;
     await hydrateDetailFromCache(id);
+    if (generation != _userGeneration) return;
     // Deleted or left while the warm-up was queued behind others.
     if (!_collections.any((c) => c.id == id)) return;
     if (_hasRealDetail(id) &&
@@ -223,14 +247,16 @@ class CollectionsViewModel extends ChangeNotifier {
     final existing = _loadDetailFutures[id];
     if (existing != null) return existing;
     if (_hasRealDetail(id) && !forceRefresh) return Future.value();
+    final generation = _userGeneration;
     final future = _loadCollectionDetail(id);
     _loadDetailFutures[id] = future.whenComplete(() {
-      _loadDetailFutures.remove(id);
+      if (generation == _userGeneration) _loadDetailFutures.remove(id);
     });
     return _loadDetailFutures[id]!;
   }
 
   Future<void> _loadCollectionDetail(String id) async {
+    final generation = _userGeneration;
     // Same rule as the grid: with a cached detail on screen this stays off,
     // so refreshing never replaces the reels with a spinner.
     // A placeholder counts as something to show, so the spinner stays off; the
@@ -240,34 +266,40 @@ class CollectionsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       final detail = await _api.getCollectionDetail(id);
+      if (generation != _userGeneration) return;
       _details[id] = detail;
       _placeholderDetailIds.remove(id);
       unawaited(
         _cache.write(ContentCacheKeys.collectionDetail(id), detail.toJson()),
       );
     } catch (e) {
+      if (generation != _userGeneration) return;
       _detailErrors[id] = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load this collection right now.',
       );
     } finally {
-      _loadingDetailIds.remove(id);
-      notifyListeners();
+      if (generation == _userGeneration) {
+        _loadingDetailIds.remove(id);
+        notifyListeners();
+      }
     }
   }
 
   Future<void> loadMore(String id) async {
+    final generation = _userGeneration;
     final current = _details[id];
     if (current == null || !current.pagination.hasMore) return;
     try {
       final next = await _api.getCollectionDetail(
         id,
-        offset: current.pagination.nextOffset,
         cursor: current.pagination.nextCursor,
       );
+      if (generation != _userGeneration) return;
       _details[id] = current.append(next);
       notifyListeners();
     } catch (e) {
+      if (generation != _userGeneration) return;
       _detailErrors[id] = userFacingErrorMessage(
         e,
         fallbackMessage: 'Could not load more reels right now.',
@@ -281,15 +313,19 @@ class CollectionsViewModel extends ChangeNotifier {
     String description = '',
     List<String> reelIds = const [],
   }) async {
+    final generation = _userGeneration;
     CollectionSummary? created;
-    await _mutate(() async {
-      created = await _api.createCollection(
+    await _mutate((generation) async {
+      final result = await _api.createCollection(
         name: name,
         description: description,
         reelIds: reelIds,
       );
-      _upsert(created!);
+      if (generation != _userGeneration) return;
+      created = result;
+      _upsert(result);
     });
+    if (generation != _userGeneration) return null;
     if (created != null) {
       unawaited(AnalyticsService.log(AnalyticsEvent.collectionCreated));
     }
@@ -301,12 +337,13 @@ class CollectionsViewModel extends ChangeNotifier {
     String? name,
     String? description,
   }) async {
-    await _mutate(() async {
+    await _mutate((generation) async {
       final updated = await _api.updateCollection(
         collectionId: collectionId,
         name: name,
         description: description,
       );
+      if (generation != _userGeneration) return;
       _upsert(updated);
       final detail = _details[collectionId];
       if (detail != null) {
@@ -316,8 +353,9 @@ class CollectionsViewModel extends ChangeNotifier {
   }
 
   Future<void> deleteCollection(String id) async {
-    await _mutate(() async {
+    await _mutate((generation) async {
       await _api.deleteCollection(id);
+      if (generation != _userGeneration) return;
       _collections.removeWhere((c) => c.id == id);
       _details.remove(id);
       _placeholderDetailIds.remove(id);
@@ -336,7 +374,8 @@ class CollectionsViewModel extends ChangeNotifier {
     required List<String> reelIds,
   }) async {
     if (collectionIds.isEmpty || reelIds.isEmpty) return;
-    await _mutate(() async {
+    final generation = _userGeneration;
+    await _mutate((generation) async {
       await Future.wait([
         for (final collectionId in collectionIds)
           _api.addReelsToCollection(
@@ -344,6 +383,7 @@ class CollectionsViewModel extends ChangeNotifier {
             reelIds: reelIds,
           ),
       ]);
+      if (generation != _userGeneration) return;
       // Drop the cached detail rather than refetching it here. Opening the
       // collection loads it fresh, so the save no longer waits on data the
       // user may never look at.
@@ -352,6 +392,7 @@ class CollectionsViewModel extends ChangeNotifier {
         _placeholderDetailIds.remove(collectionId);
       }
     });
+    if (generation != _userGeneration) return;
     await loadCollections(forceRefresh: true);
   }
 
@@ -359,11 +400,12 @@ class CollectionsViewModel extends ChangeNotifier {
     required String collectionId,
     required String reelId,
   }) async {
-    await _mutate(() async {
+    await _mutate((generation) async {
       await _api.removeReelFromCollection(
         collectionId: collectionId,
         reelId: reelId,
       );
+      if (generation != _userGeneration) return;
       final detail = _details[collectionId];
       if (detail != null) {
         final reels = detail.reels
@@ -380,24 +422,30 @@ class CollectionsViewModel extends ChangeNotifier {
   }
 
   Future<CollectionLink?> enableLink(String id) async {
+    final generation = _userGeneration;
     CollectionLink? link;
-    await _mutate(() async {
-      link = await _api.enableCollectionLink(id);
+    await _mutate((generation) async {
+      final result = await _api.enableCollectionLink(id);
+      if (generation != _userGeneration) return;
+      link = result;
       _setVisibility(id, 'link');
     });
-    return link;
+    return generation == _userGeneration ? link : null;
   }
 
   Future<void> disableLink(String id) async {
-    await _mutate(() async {
+    await _mutate((generation) async {
       await _api.disableCollectionLink(id);
+      if (generation != _userGeneration) return;
       _setVisibility(id, 'private');
     });
   }
 
   Future<CollectionMembers?> loadMembers(String id) async {
+    final generation = _userGeneration;
     try {
-      return await _api.getCollectionMembers(id);
+      final members = await _api.getCollectionMembers(id);
+      return generation == _userGeneration ? members : null;
     } catch (_) {
       return null;
     }
@@ -407,7 +455,7 @@ class CollectionsViewModel extends ChangeNotifier {
     required String collectionId,
     required String memberUserId,
   }) async {
-    await _mutate(() async {
+    await _mutate((generation) async {
       await _api.removeCollectionMember(
         collectionId: collectionId,
         memberUserId: memberUserId,
@@ -419,19 +467,23 @@ class CollectionsViewModel extends ChangeNotifier {
     required String collectionId,
     required String role,
   }) async {
+    final generation = _userGeneration;
     CollectionInvite? invite;
-    await _mutate(() async {
-      invite = await _api.createCollectionInvite(
+    await _mutate((generation) async {
+      final result = await _api.createCollectionInvite(
         collectionId: collectionId,
         role: role,
       );
+      if (generation != _userGeneration) return;
+      invite = result;
     });
-    return invite;
+    return generation == _userGeneration ? invite : null;
   }
 
   Future<void> leave(String id) async {
-    await _mutate(() async {
+    await _mutate((generation) async {
       await _api.leaveCollection(id);
+      if (generation != _userGeneration) return;
       _collections.removeWhere((c) => c.id == id);
       _details.remove(id);
       _placeholderDetailIds.remove(id);
@@ -439,23 +491,29 @@ class CollectionsViewModel extends ChangeNotifier {
   }
 
   Future<CollectionSummary?> acceptInvite(String token) async {
+    final generation = _userGeneration;
     CollectionSummary? joined;
-    await _mutate(() async {
-      joined = await _api.acceptCollectionInvite(token);
-      _upsert(joined!);
+    await _mutate((generation) async {
+      final result = await _api.acceptCollectionInvite(token);
+      if (generation != _userGeneration) return;
+      joined = result;
+      _upsert(result);
     });
-    return joined;
+    return generation == _userGeneration ? joined : null;
   }
 
-  Future<void> _mutate(Future<void> Function() action) async {
+  Future<void> _mutate(Future<void> Function(int generation) action) async {
+    final generation = _userGeneration;
     _isMutating = true;
     notifyListeners();
     try {
-      await action();
+      await action(generation);
     } finally {
-      _isMutating = false;
-      notifyListeners();
-      unawaited(_syncShareTargets());
+      if (generation == _userGeneration) {
+        _isMutating = false;
+        notifyListeners();
+        unawaited(_syncShareTargets());
+      }
     }
   }
 

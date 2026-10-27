@@ -73,7 +73,9 @@ class ContentCache {
     );
   }
 
-  static const _schemaVersion = 1;
+  // 2: payloads are /api/v2 shapes. A v1 snapshot parses without throwing but
+  // restores the wrong fields, so it has to be dropped rather than read.
+  static const _schemaVersion = 2;
   static const _directoryName = 'content_cache';
   static const _defaultMaxAge = Duration(days: 7);
 
@@ -147,11 +149,18 @@ class ContentCache {
 
   /// Stores [payload] for [key]. Writes for the same key are serialized so a
   /// slow write can never land on top of a newer one.
-  Future<void> write(String key, Map<String, dynamic> payload) {
+  Future<void> write(
+    String key,
+    Map<String, dynamic> payload, {
+    String? expectedUserId,
+  }) {
     if (!_isSupported) return Future<void>.value();
 
     final userId = _currentUserId;
-    if (userId == null) return Future<void>.value();
+    if (userId == null ||
+        (expectedUserId != null && expectedUserId != userId)) {
+      return Future<void>.value();
+    }
 
     final previous = _pendingWrites[key] ?? Future<void>.value();
     final next = previous

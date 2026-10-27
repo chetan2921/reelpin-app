@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/data_models/reels/reel_filters.dart';
@@ -12,6 +10,8 @@ abstract interface class ReelsHttp {
     void Function(ProcessingJob job)? onJobUpdate,
   });
 
+  /// A link whose reel is already ready comes back as a completed job carrying
+  /// the reel, with no id, because there is nothing to poll.
   Future<ProcessingJob> enqueueReelProcessing(
     String url, {
     String userId = 'default-user',
@@ -25,22 +25,14 @@ abstract interface class ReelsHttp {
     int limit = 20,
   });
 
-  Future<Reel> processVideo(
-    File videoFile, {
-    String userId = 'default-user',
-    String url = '',
-  });
-
   Future<ReelPage> getReelsPage({
     String? userId,
     String? platform,
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 50,
-    String? sort,
   });
 
   Future<List<Reel>> getReels({

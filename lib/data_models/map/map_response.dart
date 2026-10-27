@@ -1,33 +1,29 @@
 import 'package:reelpin/data_models/reels/reel.dart';
 
 class MapResponse {
-  const MapResponse({
-    required this.totalPinnedLocations,
-    required this.visiblePinnedLocations,
-    required this.mapItems,
-    this.selectedCategory,
-  });
+  const MapResponse({required this.mapItems, this.truncated = false});
 
-  final int totalPinnedLocations;
-  final int visiblePinnedLocations;
-  final String? selectedCategory;
   final List<MapItem> mapItems;
 
+  /// True when the server hit its pin cap, so [mapItems] is not every pin in
+  /// the box.
+  final bool truncated;
+
+  /// Reads a `{pins: [...]}` answer from `/map/pins` or `/map/nearby`. Any
+  /// category filter was already applied by the server. A server that does
+  /// not send `truncated` never caps the answer.
   factory MapResponse.fromJson(Map<String, dynamic> json) {
-    final rawItems = json['map_items'] as List<dynamic>? ?? const [];
     return MapResponse(
-      totalPinnedLocations:
-          (json['total_pinned_locations'] as num?)?.toInt() ?? 0,
-      visiblePinnedLocations:
-          (json['visible_pinned_locations'] as num?)?.toInt() ?? 0,
-      selectedCategory: json['selected_category']?.toString(),
-      mapItems: rawItems
+      mapItems: (json['pins'] as List<dynamic>? ?? const [])
           .map((row) => MapItem.fromJson(Map<String, dynamic>.from(row as Map)))
           .toList(growable: false),
+      truncated: json['truncated'] == true,
     );
   }
 }
 
+/// One pin on the map: a place from a saved reel (`kind` content) or one the
+/// user pinned themselves (`kind` manual).
 class MapItem {
   const MapItem({
     required this.reelId,
@@ -43,8 +39,7 @@ class MapItem {
     required this.locationName,
     required this.locationDisplayLabel,
     this.mapItemId,
-    this.sourceType = 'reel',
-    this.sourceId,
+    this.sourceType = 'content',
     this.displayTitle = '',
     this.shortDetail = '',
     this.subCategoryLabel = '',
@@ -69,7 +64,6 @@ class MapItem {
   final double longitude;
   final String? mapItemId;
   final String sourceType;
-  final String? sourceId;
   final String displayTitle;
   final String shortDetail;
   final String locationName;
@@ -96,64 +90,54 @@ class MapItem {
       return 0;
     }
 
-    final rawLocations = json['locations'] as List<dynamic>? ?? const [];
-    final rawPlaceTypes = json['place_types'] as List<dynamic>? ?? const [];
+    final id = json['id']?.toString() ?? '';
+    final kind = json['kind']?.toString() ?? 'content';
+    final name = json['name']?.toString() ?? '';
+    final address = json['address']?.toString();
     final category = json['category']?.toString() ?? '';
     final subCategory =
         json['sub_category']?.toString() ??
         json['subcategory']?.toString() ??
-        category;
-    final locationName =
-        json['location_name']?.toString() ??
-        json['place_name']?.toString() ??
         '';
-    final locationAddress =
-        json['location_address']?.toString() ??
-        json['display_address']?.toString();
-    final displayTitle = json['display_title']?.toString() ?? '';
-    final title = json['title']?.toString() ?? displayTitle;
-    final shortDetail = json['short_detail']?.toString() ?? '';
-    final summary = json['summary']?.toString() ?? shortDetail;
-    final displayLabel =
-        json['location_display_label']?.toString() ??
-        json['display_address']?.toString() ??
-        json['place_name']?.toString() ??
-        locationName;
-    final markerId =
-        json['marker_id']?.toString() ??
-        json['map_item_id']?.toString() ??
-        json['reel_id']?.toString() ??
-        json['id']?.toString() ??
-        '';
+    final latitude = parseCoord(json['latitude']);
+    final longitude = parseCoord(json['longitude']);
+    final rawPlaceTypes = json['place_types'] as List<dynamic>? ?? const [];
 
     return MapItem(
-      reelId: json['reel_id']?.toString() ?? json['id']?.toString() ?? '',
-      title: title,
-      summary: summary,
+      reelId: json['reel_id']?.toString() ?? '',
+      title: name,
+      summary: '',
       category: category,
       subCategory: subCategory,
-      categoryLabel: json['category_label']?.toString() ?? category,
-      subCategoryLabel: json['sub_category_label']?.toString() ?? subCategory,
-      locations: rawLocations
-          .whereType<Map>()
-          .map((row) => Location.fromJson(Map<String, dynamic>.from(row)))
-          .toList(growable: false),
-      markerId: markerId,
-      latitude: parseCoord(json['latitude']),
-      longitude: parseCoord(json['longitude']),
-      mapItemId: json['map_item_id']?.toString(),
-      sourceType: json['source_type']?.toString() ?? 'reel',
-      sourceId: json['source_id']?.toString(),
-      displayTitle: displayTitle,
-      shortDetail: shortDetail,
-      locationName: locationName,
-      locationAddress: locationAddress,
-      locationDisplayLabel: displayLabel,
+      categoryLabel: category,
+      subCategoryLabel: subCategory,
+      locations: [
+        Location(
+          name: name,
+          address: address,
+          latitude: latitude,
+          longitude: longitude,
+        ),
+      ],
+      markerId: id,
+      latitude: latitude,
+      longitude: longitude,
+      // A bare id is always read as a location id, so a manual pin is removed
+      // through its prefixed form.
+      mapItemId: kind == 'manual' ? 'manual:$id' : id,
+      sourceType: kind,
+      // Removing a content pin hides the place for this user only; removing a
+      // manual pin deletes it.
+      canHide: kind == 'content',
+      canRemove: kind == 'manual',
+      displayTitle: name,
+      shortDetail: address ?? '',
+      locationName: name,
+      locationAddress: address,
+      locationDisplayLabel: name,
       googleMapsUrl: json['google_maps_url']?.toString(),
       googlePlaceId: json['google_place_id']?.toString(),
       placeTypes: rawPlaceTypes.map((type) => type.toString()).toList(),
-      canHide: json['can_hide'] != false,
-      canRemove: json['can_remove'] != false,
     );
   }
 

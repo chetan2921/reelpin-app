@@ -55,6 +55,7 @@ class ProcessingJobsViewModel extends ChangeNotifier {
   Timer? _timer;
   bool _isForeground = true;
   bool _isFetching = false;
+  int _userGeneration = 0;
 
   List<ProcessingJob> get jobs => List.unmodifiable(_jobs);
   bool get hasJobs => _jobs.isNotEmpty;
@@ -104,20 +105,25 @@ class ProcessingJobsViewModel extends ChangeNotifier {
   /// Replaces the list with whatever the backend still has in flight.
   Future<void> refresh() async {
     if (_isFetching) return;
+    final generation = _userGeneration;
     _isFetching = true;
     try {
       final latest = await _repository.listProcessingJobs();
-      await _applyServerJobs(latest);
+      if (generation != _userGeneration) return;
+      await _applyServerJobs(latest, generation);
     } catch (e) {
       // A failed poll is not worth surfacing: the cards already on screen stay,
       // and the next poll or refresh corrects them.
       AppLogger.error('Processing job refresh skipped: $e');
     } finally {
-      _isFetching = false;
+      if (generation == _userGeneration) _isFetching = false;
     }
   }
 
-  Future<void> _applyServerJobs(List<ProcessingJob> latest) async {
+  Future<void> _applyServerJobs(
+    List<ProcessingJob> latest,
+    int generation,
+  ) async {
     final active = latest
         .where((job) => !job.terminal && !job.isCompleted && !_isAbandoned(job))
         .toList(growable: false);
@@ -162,7 +168,7 @@ class ProcessingJobsViewModel extends ChangeNotifier {
     notifyListeners();
     _syncTimer();
 
-    if (justFinished.isEmpty) return;
+    if (generation != _userGeneration || justFinished.isEmpty) return;
     // The completed job carries the whole reel — thumbnail and all — so the
     // swap needs no second request and cannot race a refresh that started
     // before the reel existed.
@@ -173,14 +179,16 @@ class ProcessingJobsViewModel extends ChangeNotifier {
     try {
       await onJobsFinished?.call(readyReels);
     } finally {
-      // Only now is there a real card to take its place.
-      _jobs.removeWhere((job) => justFinished.contains(job.id));
-      _settlingIds.removeAll(justFinished);
-      for (final jobId in justFinished) {
-        _collectionIdsByJob.remove(jobId);
+      if (generation == _userGeneration) {
+        // Only now is there a real card to take its place.
+        _jobs.removeWhere((job) => justFinished.contains(job.id));
+        _settlingIds.removeAll(justFinished);
+        for (final jobId in justFinished) {
+          _collectionIdsByJob.remove(jobId);
+        }
+        notifyListeners();
+        _syncTimer();
       }
-      notifyListeners();
-      _syncTimer();
     }
   }
 
@@ -244,6 +252,8 @@ class ProcessingJobsViewModel extends ChangeNotifier {
   }
 
   void reset() {
+    _userGeneration += 1;
+    _isFetching = false;
     _timer?.cancel();
     _timer = null;
     _currentInterval = null;

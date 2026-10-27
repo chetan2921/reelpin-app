@@ -1,11 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:reelpin/data_models/chat/chat_attachment.dart';
+import 'package:reelpin/data_models/app_config/remote_config.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
-import 'package:reelpin/providers.dart';
 import 'package:reelpin/services/analytics/analytics_event.dart';
 import 'package:reelpin/services/analytics/analytics_service.dart';
 import 'package:reelpin/screens/collections/collection_detail_screen.dart';
@@ -15,6 +13,7 @@ import 'package:reelpin/screens/paywall/paywall_screen.dart';
 import 'package:reelpin/screens/profile/profile_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_loader_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
+import 'package:reelpin/screens/update_required/update_required_screen.dart';
 
 /// Every push target in the app, built in one place so screens do not construct
 /// routes inline. These use Flutter's own [Navigator] APIs — there is no route
@@ -53,6 +52,15 @@ Route<void> featureAnnouncementRoute({
 }) {
   return MaterialPageRoute<void>(
     builder: (_) => FeatureAnnouncementScreen(title: title, body: body),
+  );
+}
+
+/// The soft update nudge. A hard requirement is never pushed: `AppEntry`
+/// renders it in place of the app so there is nothing underneath to go back to.
+Route<void> updateRequiredRoute(UpdateRequirement requirement) {
+  return MaterialPageRoute<void>(
+    builder: (_) => UpdateRequiredScreen(requirement: requirement),
+    fullscreenDialog: true,
   );
 }
 
@@ -124,21 +132,4 @@ Future<void> openPaywall(
     ),
   );
   return Navigator.of(context).push(paywallRoute(entryPoint: entryPoint));
-}
-
-/// Every door into the chat funnels through here: seed the composer, then
-/// select the tab. One path, so a reel, a collection and the search bar cannot
-/// drift into three different behaviours.
-Future<void> openChat(
-  BuildContext context,
-  WidgetRef ref, {
-  String seedText = '',
-  List<ChatAttachment> seedAttachments = const [],
-  required VoidCallback showAskTab,
-}) async {
-  ref
-      .read(chatViewModelProvider)
-      .startNewThread(seedText: seedText, seedAttachments: seedAttachments);
-  Navigator.of(context).popUntil((route) => route.isFirst);
-  showAskTab();
 }

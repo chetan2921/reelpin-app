@@ -4,6 +4,11 @@ ReelPin is a Flutter app for saving reels, posts, and shorts that you want to co
 
 You share a link into ReelPin, the backend processes it in the background, and the app turns that saved post into something easier to browse: summaries, key facts, locations, people mentioned, category filters, map pins, and searchable saved results.
 
+## Do not release `dev` yet
+
+> **Do not promote `dev` to `main`, and do not cut a store build from it, until the Go backend serves `/api/v2` on `api.reelpin.in` (the production cutover).**
+> On `dev`, native shares and the Dart client target `/api/v2`. Production serves only `/api/v1` today, so every native share from a store build would get a 404 and fall back to pending.
+
 ## Screenshots
 
 <table>
@@ -256,6 +261,77 @@ flutter run \
 The usual `flutter pub get`, `flutter test`, `flutter analyze`, and
 `flutter build appbundle` / `flutter build apk` all work, but without the
 defines above Supabase and the backend URL will not be configured.
+
+#### Remote Config
+
+`REMOTE_CONFIG_URL` points the app at a JSON document that can force or suggest
+an update, show a feature announcement, and turn the paywall on. It is a
+build-time Dart define with no default. Leave it out and the app makes no
+request: no update gate, no config-driven announcement, paywall hidden.
+
+Put it in `assets/config/local.env` next to the other values:
+
+```text
+REMOTE_CONFIG_URL=https://<host>/reelpin/config.json
+```
+
+`tool/reelpin_flutter.sh` forwards it as `--dart-define=REMOTE_CONFIG_URL=...`
+on `run` and on every build, so `tool/reelpin.sh apk-dev`, `apk-production`,
+`playstore`, `appstore` and `stores` all carry it, and it is written into
+`ios/Flutter/Secrets.xcconfig` for Xcode builds. An exported
+`REMOTE_CONFIG_URL` overrides the file, and an explicit
+`--dart-define=REMOTE_CONFIG_URL=...` overrides both. A release built without
+it has no update gate, so the wrapper refuses to build an app bundle, an IPA,
+or a production APK (`playstore`, `appstore`, `stores`, `apk-production`) when
+`REMOTE_CONFIG_URL` is missing or still a `YOUR_` placeholder. Debug and dev
+builds go ahead with a one-line warning.
+
+The app fetches the document with a 5 second timeout on launch and on resume,
+at most once an hour after a successful fetch, and keeps the last good copy on
+the device. It never waits for the fetch to open. A signed-in launch waits at
+most 300 ms for the cached copy and the build number, both local, so a hard
+gate already on the device shows before the app does. A fresh copy replaces
+the cached one when it lands. Any failure
+(timeout, non-200, a body that is not a JSON object) is logged and ignored; the
+app keeps the cached copy, or with nothing cached, gates nothing.
+
+```json
+{
+  "update_required": {
+    "enabled": true,
+    "min_build": { "ios": 24, "android": 24 },
+    "hard": false,
+    "title": "UPDATE REELPIN",
+    "body": "A newer version is ready in the store.",
+    "store_url": {
+      "ios": "https://apps.apple.com/us/app/reelpin/id6777110022",
+      "android": "https://play.google.com/store/apps/details?id=com.chetanjain.reelpin"
+    }
+  },
+  "feature_announcement": {
+    "enabled": true,
+    "id": "maps-2026-10",
+    "title": "WHAT'S NEW",
+    "body": "Pins now cluster on the map.",
+    "show_once": true
+  },
+  "paywall_visible": false
+}
+```
+
+Every key is optional. A missing key or a value of the wrong type reads as off
+(`false`, empty, or no minimum).
+
+| Key | Effect |
+|-----|--------|
+| `update_required.min_build.<platform>` | Gates a build whose build number (the `+N` in `pubspec.yaml`) is below it. A platform without a value is never gated, and neither is a build whose number cannot be read. |
+| `update_required.hard` | `true` replaces the whole app with the update screen; its only action is the store button. `false` shows a dismissible nudge once per app session. |
+| `update_required.store_url.<platform>` | Where the update button goes. Empty falls back to the built-in App Store or Play Store listing. |
+| `feature_announcement.id` | Required for the announcement to show. With `show_once`, each id is shown once per install; without it, once per app session. Change the id to announce something new. A hard update gate holds it back, and it only counts as shown once it was on screen, so a user who updates past the gate still sees it. |
+| `paywall_visible` | `true` shows the free-plan banner on Home, the VIEW PRO button and the "Upgrade to Pro" line on a locked reel, and opens the paywall when a share hits the monthly limit. `false` hides all of them; a share over the limit shows the error as a snackbar instead. |
+
+Push-notification announcements still open the same announcement screen; the
+config-driven one is an extra trigger, not a replacement.
 
 Clean Flutter build output without deleting saved release artifacts:
 

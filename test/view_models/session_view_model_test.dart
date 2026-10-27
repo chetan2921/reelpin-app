@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,9 +11,36 @@ import 'package:reelpin/services/auth/auth_service.dart';
 import 'package:reelpin/services/auth/profile_service.dart';
 import 'package:reelpin/view_models/session_view_model.dart';
 import 'package:reelpin/http/sharing_http.dart';
+import 'package:reelpin/services/sharing/share_handoff_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('a share token minted after sign-out is discarded', () async {
+    const channel = MethodChannel('com.chetanjain.reelpin/share_handoff');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async => null);
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    SharedPreferences.setMockInitialValues({});
+    final events = <String>[];
+    final mint = Completer<String>();
+    final sharing = _FakeSharingHttp(events, mintGate: mint);
+    final viewModel = SessionViewModel(
+      _FakeAuthService(events, user: _signedInUser),
+      ApiClient.new,
+      () => sharing,
+    );
+    await sharing.mintStarted.future;
+    expect(events, contains('mint-share-token'));
+
+    await viewModel.signOut();
+    mint.complete('old-account-token');
+    await pumpEventQueue();
+
+    expect(await ShareHandoffService.instance.getShareToken(), isNull);
+    viewModel.dispose();
+  });
 
   test('attempts push deactivation before revoking and signing out', () async {
     SharedPreferences.setMockInitialValues({});
@@ -172,9 +200,19 @@ class _FakeAuthService extends AuthService {
 }
 
 class _FakeSharingHttp implements SharingHttp {
-  _FakeSharingHttp(this.events);
+  _FakeSharingHttp(this.events, {this.mintGate});
+
+  final Completer<String>? mintGate;
+  final mintStarted = Completer<void>();
 
   final List<String> events;
+
+  @override
+  Future<String> mintShareToken() async {
+    events.add('mint-share-token');
+    if (!mintStarted.isCompleted) mintStarted.complete();
+    return mintGate == null ? '' : await mintGate!.future;
+  }
 
   @override
   Future<void> revokeShareToken() async {

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:reelpin/data_models/discover/discover_response.dart';
 import 'package:reelpin/data_models/account/library_stats.dart';
+import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_place_search_response.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
@@ -31,11 +32,10 @@ class ReelRepository extends ChangeNotifier {
 
   List<Reel> _cachedReels = [];
   String? _cacheUserId;
-  int _nextOffset = 0;
   String? _nextCursor;
   bool _hasMoreReels = true;
   bool _hasHydratedCache = false;
-  int _totalCount = 0;
+  int _userGeneration = 0;
   Future<void>? _hydrationFuture;
   Future<void>? _initialLoadFuture;
   Future<void>? _loadMoreFuture;
@@ -61,7 +61,6 @@ class ReelRepository extends ChangeNotifier {
   String? get cacheUserId => _cacheUserId;
   bool get hasMoreReels => _hasMoreReels;
   bool get hasHydratedCache => _hasHydratedCache;
-  int get totalCount => _totalCount;
   SearchMode? get lastSearchMode => _lastSearchMode;
   int get lastSearchTotal => _lastSearchTotal;
 
@@ -86,6 +85,7 @@ class ReelRepository extends ChangeNotifier {
   }
 
   Future<void> _hydrateCache() async {
+    final generation = _userGeneration;
     if (_cachedReels.isNotEmpty) {
       _hasHydratedCache = true;
       return;
@@ -101,6 +101,7 @@ class ReelRepository extends ChangeNotifier {
     }
 
     final payload = await _contentCache.read(ContentCacheKeys.reelsFirstPage);
+    if (generation != _userGeneration) return;
     _hasHydratedCache = true;
     if (payload == null) return;
     // A live response landed while we were reading from disk; it wins.
@@ -111,10 +112,8 @@ class ReelRepository extends ChangeNotifier {
       if (page.reels.isEmpty) return;
 
       _cachedReels = page.reels;
-      _nextOffset = page.nextOffset ?? page.offset;
       _nextCursor = page.nextCursor;
       _hasMoreReels = page.hasMore;
-      _totalCount = page.totalCount;
       _cacheUserId = userId;
       notifyListeners();
     } catch (e) {
@@ -129,7 +128,6 @@ class ReelRepository extends ChangeNotifier {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   }) {
     if (_initialLoadFuture != null) {
       return _initialLoadFuture!;
@@ -141,7 +139,6 @@ class ReelRepository extends ChangeNotifier {
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
-      sort: sort,
     );
     _initialLoadFuture = future;
     return future.whenComplete(() {
@@ -157,13 +154,14 @@ class ReelRepository extends ChangeNotifier {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   }) async {
+    final generation = _userGeneration;
     // The snapshot only ever holds the unfiltered first page, so restoring it
     // under an active filter would flash the wrong content.
-    if (!_hasFilters(platform, category, subcategory, savedDate, sort)) {
+    if (!_hasFilters(platform, category, subcategory, savedDate)) {
       await hydrateCache();
     }
+    if (generation != _userGeneration) return;
 
     await _fetchAndStorePage(
       reset: true,
@@ -171,7 +169,6 @@ class ReelRepository extends ChangeNotifier {
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
-      sort: sort,
     );
   }
 
@@ -180,7 +177,6 @@ class ReelRepository extends ChangeNotifier {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   }) {
     if (_loadMoreFuture != null) {
       return _loadMoreFuture!;
@@ -194,7 +190,6 @@ class ReelRepository extends ChangeNotifier {
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
-      sort: sort,
     );
     _loadMoreFuture = future;
     return future.whenComplete(() {
@@ -209,11 +204,12 @@ class ReelRepository extends ChangeNotifier {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   }) async {
-    if (!_hasFilters(platform, category, subcategory, savedDate, sort)) {
+    final generation = _userGeneration;
+    if (!_hasFilters(platform, category, subcategory, savedDate)) {
       await hydrateCache();
     }
+    if (generation != _userGeneration) return;
     if (!_hasMoreReels) {
       return;
     }
@@ -224,7 +220,6 @@ class ReelRepository extends ChangeNotifier {
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
-      sort: sort,
     );
   }
 
@@ -234,8 +229,8 @@ class ReelRepository extends ChangeNotifier {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   }) async {
+    final generation = _userGeneration;
     final requestUserId = _currentUserId;
     final page = await _apiService.getReelsPage(
       userId: requestUserId,
@@ -243,18 +238,14 @@ class ReelRepository extends ChangeNotifier {
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
-      offset: reset ? 0 : _nextOffset,
       cursor: reset ? null : _nextCursor,
       limit: _pageSize,
-      sort: sort,
     );
-    if (_currentUserId != requestUserId) {
+    if (generation != _userGeneration || _currentUserId != requestUserId) {
       return;
     }
-    _nextOffset = page.nextOffset ?? page.offset;
     _nextCursor = page.nextCursor;
     _hasMoreReels = page.hasMore;
-    _totalCount = page.totalCount;
     _cacheUserId = requestUserId;
     _cachedReels = reset ? page.reels : [..._cachedReels, ...page.reels];
     notifyListeners();
@@ -282,10 +273,8 @@ class ReelRepository extends ChangeNotifier {
     String? category,
     String? subcategory,
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = _pageSize,
-    String? sort,
   }) {
     return _apiService.getReelsPage(
       userId: _currentUserId,
@@ -293,10 +282,8 @@ class ReelRepository extends ChangeNotifier {
       category: category,
       subcategory: subcategory,
       savedDate: savedDate,
-      offset: offset,
       cursor: cursor,
       limit: limit,
-      sort: sort,
     );
   }
 
@@ -339,7 +326,6 @@ class ReelRepository extends ChangeNotifier {
   void insertReel(Reel reel) {
     if (_cachedReels.any((existing) => existing.id == reel.id)) return;
     _cachedReels = [reel, ..._cachedReels];
-    _totalCount += 1;
     notifyListeners();
   }
 
@@ -363,8 +349,23 @@ class ReelRepository extends ChangeNotifier {
     );
   }
 
-  Future<MapResponse> getMapData({String? category}) {
-    return _apiService.getMapData(category: category);
+  Future<MapResponse> getMapData({
+    required MapBounds bounds,
+    String? category,
+  }) {
+    return _apiService.getMapData(bounds: bounds, category: category);
+  }
+
+  Future<MapResponse> getNearbyPins({
+    required double latitude,
+    required double longitude,
+    int limit = 5,
+  }) {
+    return _apiService.getNearbyPins(
+      latitude: latitude,
+      longitude: longitude,
+      limit: limit,
+    );
   }
 
   Future<MapPlaceSearchResponse> searchMapPlaces(
@@ -389,13 +390,11 @@ class ReelRepository extends ChangeNotifier {
 
   Future<DiscoverResponse> getDiscover({
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = _pageSize,
   }) {
     return _apiService.getDiscover(
       savedDate: savedDate,
-      offset: offset,
       cursor: cursor,
       limit: limit,
     );
@@ -454,14 +453,16 @@ class ReelRepository extends ChangeNotifier {
   }
 
   void clearCache() {
+    _userGeneration += 1;
+    _hydrationFuture = null;
+    _initialLoadFuture = null;
+    _loadMoreFuture = null;
     cancelActiveSearch();
     _cachedReels = [];
     _cacheUserId = null;
-    _nextOffset = 0;
     _nextCursor = null;
     _hasMoreReels = true;
     _hasHydratedCache = false;
-    _totalCount = 0;
     _lastSearchMode = null;
     _lastSearchTotal = 0;
     notifyListeners();
@@ -479,14 +480,12 @@ class ReelRepository extends ChangeNotifier {
     String? category,
     String? subcategory,
     String? savedDate,
-    String? sort,
   ) {
     bool isSet(String? value) => value != null && value.trim().isNotEmpty;
     return isSet(platform) ||
         isSet(category) ||
         isSet(subcategory) ||
-        isSet(savedDate) ||
-        isSet(sort);
+        isSet(savedDate);
   }
 
   void cancelActiveSearch() {

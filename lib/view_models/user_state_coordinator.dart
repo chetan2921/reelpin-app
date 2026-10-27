@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:reelpin/utils/app_logger.dart';
+import 'package:reelpin/view_models/collections_view_model.dart';
 import 'package:reelpin/view_models/entitlements_view_model.dart';
 import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
@@ -9,12 +10,12 @@ import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/view_models/processing_jobs_view_model.dart';
-import 'package:reelpin/view_models/chat_view_model.dart';
 
 /// Owns the lifecycle of everything scoped to the signed-in user: restoring it
 /// on startup and clearing it when the user changes.
 class UserStateCoordinator {
   UserStateCoordinator({
+    required CollectionsViewModel collectionsViewModel,
     required SearchViewModel searchViewModel,
     required ReelFiltersViewModel reelFiltersViewModel,
     required MapViewModel mapViewModel,
@@ -23,17 +24,17 @@ class UserStateCoordinator {
     required ReelRepository reelRepository,
     required EntitlementsViewModel entitlementsViewModel,
     required ProcessingJobsViewModel processingJobsViewModel,
-    required ChatViewModel chatViewModel,
-  }) : _searchViewModel = searchViewModel,
+  }) : _collectionsViewModel = collectionsViewModel,
+       _searchViewModel = searchViewModel,
        _reelFiltersViewModel = reelFiltersViewModel,
        _mapViewModel = mapViewModel,
        _homeViewModel = homeViewModel,
        _discoverViewModel = discoverViewModel,
        _reelRepository = reelRepository,
        _entitlementsViewModel = entitlementsViewModel,
-       _processingJobsViewModel = processingJobsViewModel,
-       _chatViewModel = chatViewModel;
+       _processingJobsViewModel = processingJobsViewModel;
 
+  final CollectionsViewModel _collectionsViewModel;
   final SearchViewModel _searchViewModel;
   final ReelFiltersViewModel _reelFiltersViewModel;
   final MapViewModel _mapViewModel;
@@ -42,7 +43,6 @@ class UserStateCoordinator {
   final ReelRepository _reelRepository;
   final EntitlementsViewModel _entitlementsViewModel;
   final ProcessingJobsViewModel _processingJobsViewModel;
-  final ChatViewModel _chatViewModel;
 
   Future<void>? _hydrationFuture;
 
@@ -80,6 +80,7 @@ class UserStateCoordinator {
   /// the next sign-in can restore its own snapshot.
   void reset() {
     _hydrationFuture = null;
+    _collectionsViewModel.reset();
     _searchViewModel.clear();
     _reelFiltersViewModel.reset();
     _mapViewModel.reset();
@@ -88,8 +89,5 @@ class UserStateCoordinator {
     _reelRepository.clearCache();
     _entitlementsViewModel.reset();
     _processingJobsViewModel.reset();
-    // Only in-memory: the on-disk store is stamped per user id and already
-    // rejects a mismatched read (see ChatThreadStore), same as ContentCache.
-    _chatViewModel.reset();
   }
 }

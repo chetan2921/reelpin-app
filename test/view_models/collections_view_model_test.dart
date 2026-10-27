@@ -1,4 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:reelpin/providers.dart';
+import 'package:reelpin/view_models/user_state_coordinator.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -12,6 +17,149 @@ import 'package:reelpin/view_models/collections_view_model.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('account changes', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test(
+      'coordinator clears collections and allows the next account to load',
+      () async {
+        final rows = [_summary('old')];
+        final api = _FakeCollectionsHttp(collections: rows);
+        final vm = CollectionsViewModel(api, cache: _testCache());
+        final coordinator = _coordinatorFor(vm);
+        await vm.loadCollections();
+        await vm.detailWarmUp;
+
+        coordinator.reset();
+
+        expect(vm.collections, isEmpty);
+        expect(vm.detailFor('old'), isNull);
+        expect(vm.isLoadingCollections, isFalse);
+        expect(vm.isMutating, isFalse);
+        rows
+          ..clear()
+          ..add(_summary('new'));
+        await vm.loadCollections();
+        await vm.detailWarmUp;
+        expect(vm.collections.single.id, 'new');
+        expect(api.getCollectionsCalls, 2);
+      },
+    );
+
+    test(
+      'an old list cannot replace the next account or finish its load',
+      () async {
+        final oldGate = Completer<void>();
+        final nextGate = Completer<void>();
+        final rows = [_summary('old')];
+        final api = _FakeCollectionsHttp(collections: rows)
+          ..collectionsGate = oldGate;
+        final vm = CollectionsViewModel(api, cache: _testCache());
+        final coordinator = _coordinatorFor(vm);
+        final oldLoad = vm.loadCollections();
+
+        coordinator.reset();
+        rows
+          ..clear()
+          ..add(_summary('new'));
+        api.collectionsGate = nextGate;
+        final nextLoad = vm.loadCollections();
+        oldGate.complete();
+        await oldLoad;
+
+        expect(vm.collections, isEmpty);
+        expect(vm.isLoadingCollections, isTrue);
+        expect(vm.loadCollections(), same(nextLoad));
+        nextGate.complete();
+        await nextLoad;
+        await vm.detailWarmUp;
+        expect(vm.collections.single.id, 'new');
+      },
+    );
+
+    test(
+      'an old detail cannot return to memory or be cached for the next user',
+      () async {
+        final cache = _DeferredContentCache();
+        final gate = Completer<void>();
+        final api = _FakeCollectionsHttp()..detailGate = gate;
+        final vm = CollectionsViewModel(api, cache: cache);
+        final coordinator = _coordinatorFor(vm);
+        final pending = vm.loadCollectionDetail('old');
+
+        coordinator.reset();
+        gate.complete();
+        await pending;
+
+        expect(vm.detailFor('old'), isNull);
+        expect(vm.isLoadingDetailFor('old'), isFalse);
+        expect(cache.writes, isEmpty);
+      },
+    );
+
+    test('an old page cannot restore collection reels after reset', () async {
+      final api = _FakeCollectionsHttp()
+        ..detailQueue.add(_detail('old', reelIds: ['one'], nextCursor: 'next'));
+      final vm = CollectionsViewModel(api, cache: _testCache());
+      final coordinator = _coordinatorFor(vm);
+      await vm.loadCollectionDetail('old');
+      final gate = Completer<void>();
+      api.detailGate = gate;
+      final pending = vm.loadMore('old');
+
+      coordinator.reset();
+      gate.complete();
+      await pending;
+
+      expect(vm.detailFor('old'), isNull);
+    });
+
+    for (final detail in [false, true]) {
+      test(
+        'an old ${detail ? 'detail' : 'grid'} cache read is ignored',
+        () async {
+          final cache = _DeferredContentCache()..readGate = Completer();
+          final vm = CollectionsViewModel(_FakeCollectionsHttp(), cache: cache);
+          final coordinator = _coordinatorFor(vm);
+          final pending = detail
+              ? vm.hydrateDetailFromCache('old')
+              : vm.hydrateFromCache();
+
+          coordinator.reset();
+          cache.readGate!.complete(
+            detail
+                ? _detail('old').toJson()
+                : {
+                    'collections': [_summary('old').toJson()],
+                  },
+          );
+          await pending;
+
+          expect(vm.collections, isEmpty);
+          expect(vm.detailFor('old'), isNull);
+        },
+      );
+    }
+
+    test(
+      'an old create cannot populate state or return a collection',
+      () async {
+        final gate = Completer<void>();
+        final api = _FakeCollectionsHttp()..mutationGate = gate;
+        final vm = CollectionsViewModel(api, cache: _testCache());
+        final coordinator = _coordinatorFor(vm);
+        final pending = vm.createCollection(name: 'Old account');
+
+        coordinator.reset();
+        gate.complete();
+
+        expect(await pending, isNull);
+        expect(vm.collections, isEmpty);
+        expect(vm.isMutating, isFalse);
+      },
+    );
+  });
 
   group('loading', () {
     test('loadCollections populates and clears the loading flag', () async {
@@ -278,8 +426,8 @@ void main() {
     test('loadMore appends the next page and keeps the new cursor', () async {
       final api = _FakeCollectionsHttp(collections: [_summary('a')]);
       api.detailQueue.addAll([
-        _detail('a', reelIds: ['r1', 'r2'], hasMore: true, nextOffset: 2),
-        _detail('a', reelIds: ['r3'], hasMore: false),
+        _detail('a', reelIds: ['r1', 'r2'], nextCursor: 'opaque-2'),
+        _detail('a', reelIds: ['r3']),
       ]);
       final vm = CollectionsViewModel(api);
 
@@ -288,13 +436,14 @@ void main() {
 
       await vm.loadMore('a');
 
+      expect(api.detailCursors, [null, 'opaque-2']);
       expect(vm.detailFor('a')?.reels.map((r) => r.id), ['r1', 'r2', 'r3']);
       expect(vm.detailFor('a')?.pagination.hasMore, isFalse);
     });
 
     test('loadMore is a no-op when there is no next page', () async {
       final api = _FakeCollectionsHttp(collections: [_summary('a')]);
-      api.detailQueue.add(_detail('a', reelIds: ['r1'], hasMore: false));
+      api.detailQueue.add(_detail('a', reelIds: ['r1']));
       final vm = CollectionsViewModel(api);
 
       await vm.loadCollectionDetail('a');
@@ -316,40 +465,6 @@ void main() {
       expect(created?.id, 'created');
       expect(vm.collections.first.id, 'created');
       expect(vm.collections.map((c) => c.id), ['created', 'a']);
-    });
-
-    test('bumpToFront moves a collection to the top of the list', () async {
-      final api = _FakeCollectionsHttp(
-        collections: [_summary('a'), _summary('b'), _summary('c')],
-      );
-      final vm = CollectionsViewModel(api);
-      await vm.loadCollections();
-
-      vm.bumpToFront('c');
-
-      expect(vm.collections.map((c) => c.id), ['c', 'a', 'b']);
-    });
-
-    test('bumpToFront on the collection already first does nothing', () async {
-      final api = _FakeCollectionsHttp(
-        collections: [_summary('a'), _summary('b')],
-      );
-      final vm = CollectionsViewModel(api);
-      await vm.loadCollections();
-
-      vm.bumpToFront('a');
-
-      expect(vm.collections.map((c) => c.id), ['a', 'b']);
-    });
-
-    test('bumpToFront on an unknown collection does nothing', () async {
-      final api = _FakeCollectionsHttp(collections: [_summary('a')]);
-      final vm = CollectionsViewModel(api);
-      await vm.loadCollections();
-
-      vm.bumpToFront('does-not-exist');
-
-      expect(vm.collections.map((c) => c.id), ['a']);
     });
 
     test(
@@ -538,6 +653,35 @@ void main() {
   });
 }
 
+UserStateCoordinator _coordinatorFor(CollectionsViewModel vm) {
+  final container = ProviderContainer(
+    overrides: [collectionsViewModelProvider.overrideWith((ref) => vm)],
+  );
+  addTearDown(container.dispose);
+  return container.read(userStateCoordinatorProvider);
+}
+
+class _DeferredContentCache implements ContentCache {
+  Completer<Map<String, dynamic>?>? readGate;
+  final List<String> writes = [];
+
+  @override
+  Future<Map<String, dynamic>?> read(String key) async =>
+      readGate == null ? null : await readGate!.future;
+
+  @override
+  Future<void> write(
+    String key,
+    Map<String, dynamic> payload, {
+    String? expectedUserId,
+  }) async {
+    writes.add(key);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 // ─── Fixtures ───
 
 ContentCache _testCache() {
@@ -573,8 +717,11 @@ class _TrackedContentCache implements ContentCache {
   Future<Map<String, dynamic>?> read(String key) => _delegate.read(key);
 
   @override
-  Future<void> write(String key, Map<String, dynamic> payload) =>
-      _track(_delegate.write(key, payload));
+  Future<void> write(
+    String key,
+    Map<String, dynamic> payload, {
+    String? expectedUserId,
+  }) => _track(_delegate.write(key, payload, expectedUserId: expectedUserId));
 
   @override
   Future<void> invalidate(String key) => _track(_delegate.invalidate(key));
@@ -622,8 +769,7 @@ Reel _reel(String id) => Reel.fromJson({
 CollectionDetail _detail(
   String id, {
   List<String> reelIds = const [],
-  bool hasMore = false,
-  int? nextOffset,
+  String? nextCursor,
   int itemCount = 0,
   String visibility = 'private',
   String? updatedAt,
@@ -636,12 +782,7 @@ CollectionDetail _detail(
       updatedAt: updatedAt,
     ),
     reels: reelIds.map(_reel).toList(),
-    pagination: CollectionPagination(
-      hasMore: hasMore,
-      nextOffset: nextOffset,
-      nextCursor: nextOffset?.toString(),
-      totalCount: itemCount,
-    ),
+    pagination: CollectionPagination(nextCursor: nextCursor),
     canEdit: true,
   );
 }
@@ -663,8 +804,12 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   /// While set, detail fetches wait on it, so a test can hold one in flight.
   Completer<void>? detailGate;
 
+  Completer<void>? collectionsGate;
+  Completer<void>? mutationGate;
+
   int getCollectionsCalls = 0;
   int detailCalls = 0;
+  final List<String?> detailCursors = [];
   int _concurrentDetails = 0;
   int maxConcurrentDetails = 0;
   int addCalls = 0;
@@ -674,18 +819,20 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   @override
   Future<List<CollectionSummary>> getCollections() async {
     getCollectionsCalls += 1;
+    final result = List<CollectionSummary>.of(collections);
+    await collectionsGate?.future;
     if (error != null) throw error!;
-    return collections;
+    return result;
   }
 
   @override
   Future<CollectionDetail> getCollectionDetail(
     String collectionId, {
     int limit = 25,
-    int? offset,
     String? cursor,
   }) async {
     detailCalls += 1;
+    detailCursors.add(cursor);
     _concurrentDetails += 1;
     if (_concurrentDetails > maxConcurrentDetails) {
       maxConcurrentDetails = _concurrentDetails;
@@ -710,6 +857,7 @@ class _FakeCollectionsHttp implements CollectionsHttp {
     String description = '',
     List<String> reelIds = const [],
   }) async {
+    await mutationGate?.future;
     if (mutationError != null) throw mutationError!;
     return _summary('created');
   }
@@ -814,7 +962,7 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   Future<CollectionDetail> getSharedCollection(
     String token, {
     int limit = 25,
-    int? offset,
+    String? cursor,
   }) async {
     if (error != null) throw error!;
     return _detail('shared');

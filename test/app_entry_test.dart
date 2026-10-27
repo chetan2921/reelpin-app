@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -14,11 +17,14 @@ import 'package:reelpin/http/mock_collections_http.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/reelpin_app.dart';
 import 'package:reelpin/http/api_client.dart';
+import 'package:reelpin/screens/app_shell/authenticated_shell.dart';
 import 'package:reelpin/services/auth/auth_service.dart';
 import 'package:reelpin/services/how_to_guide_service.dart';
+import 'package:reelpin/services/remote_config/remote_config_service.dart';
 import 'package:reelpin/services/auth/profile_service.dart';
 import 'package:reelpin/services/sharing/pending_deep_link.dart';
 import 'package:reelpin/services/sharing/shared_collection_prefetch.dart';
+import 'package:reelpin/view_models/remote_config_view_model.dart';
 import 'package:reelpin/view_models/session_view_model.dart';
 
 void main() {
@@ -192,6 +198,139 @@ void main() {
     expect(checkCalls, 2);
     debugDefaultTargetPlatformOverride = null;
   });
+
+  testWidgets('a hard update requirement replaces the app at startup', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    _sizeView(tester);
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    await tester.pumpWidget(
+      _appEntry(
+        remoteConfig: _remoteConfig(
+          MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'update_required': {
+                  'enabled': true,
+                  'min_build': {'android': 24},
+                  'hard': true,
+                  'title': 'TIME TO UPDATE',
+                },
+              }),
+              200,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('TIME TO UPDATE'), findsOneWidget);
+    expect(
+      find.text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.'),
+      findsNothing,
+    );
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('a cached hard gate shows instead of the shell when signed in', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'remote_config_document_v1': jsonEncode({
+        'update_required': {
+          'enabled': true,
+          'min_build': {'android': 24},
+          'hard': true,
+          'title': 'TIME TO UPDATE',
+        },
+      }),
+    });
+    _sizeView(tester);
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    const channel = MethodChannel('com.chetanjain.reelpin/device_metadata');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      return <String, Object?>{
+        'appVersion': '1.0.9',
+        'appBuild': '20',
+        'timezone': 'Asia/Kolkata',
+        'locale': 'en-IN',
+      };
+    });
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      );
+    });
+
+    // The build number comes through the real channel lookup, not a stub.
+    final remoteConfig = RemoteConfigViewModel(
+      RemoteConfigService(
+        url: 'https://config.example.com/reelpin.json',
+        client: MockClient((_) async => http.Response('', 503)),
+      ),
+    );
+    await tester.pumpWidget(
+      _appEntry(remoteConfig: remoteConfig, user: _signedInUser),
+    );
+
+    for (var frame = 0; frame < 8; frame++) {
+      expect(find.byType(AuthenticatedShell), findsNothing);
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.text('TIME TO UPDATE'), findsOneWidget);
+    expect(find.byType(AuthenticatedShell), findsNothing);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('a slow config fetch does not hold the launch', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    _sizeView(tester);
+
+    await tester.pumpWidget(
+      _appEntry(
+        remoteConfig: _remoteConfig(
+          MockClient((_) => Completer<http.Response>().future),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(
+      find.text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.'),
+      findsOneWidget,
+    );
+
+    // Past the fetch timeout: it gave up, and the app stays open.
+    await tester.pump(const Duration(seconds: 6));
+    expect(
+      find.text('SAVE THE FINDS FROM YOUR FEEDS INTO PLANS YOU CAN USE.'),
+      findsOneWidget,
+    );
+  });
+}
+
+RemoteConfigViewModel _remoteConfig(http.Client client) {
+  return RemoteConfigViewModel(
+    RemoteConfigService(
+      url: 'https://config.example.com/reelpin.json',
+      client: client,
+    ),
+    loadBuildNumber: () async => 20,
+  );
 }
 
 Future<void> _pumpPageTransition(WidgetTester tester) async {
@@ -224,14 +363,23 @@ Future<void> _capturePendingLink(WidgetTester tester, String url) async {
   await PendingDeepLink.capture();
 }
 
-Widget _appEntry({MockCollectionsHttp? collectionsHttp}) {
+Widget _appEntry({
+  MockCollectionsHttp? collectionsHttp,
+  RemoteConfigViewModel? remoteConfig,
+  User? user,
+}) {
   return ProviderScope(
     overrides: [
       sessionViewModelProvider.overrideWith(
-        (ref) => _FakeSessionViewModel(_FakeAuthService()),
+        (ref) => _FakeSessionViewModel(_FakeAuthService(user: user)),
       ),
+      // A signed-in launch starts the content load, which reads the user here.
+      if (user != null)
+        authServiceProvider.overrideWithValue(_FakeAuthService(user: user)),
       if (collectionsHttp != null)
         collectionsHttpProvider.overrideWithValue(collectionsHttp),
+      if (remoteConfig != null)
+        remoteConfigViewModelProvider.overrideWith((ref) => remoteConfig),
     ],
     child: const MaterialApp(home: AppEntry()),
   );
@@ -262,14 +410,24 @@ class _FakeSessionViewModel extends SessionViewModel {
       );
 }
 
+const _signedInUser = User(
+  id: 'user-1',
+  appMetadata: <String, dynamic>{},
+  userMetadata: <String, dynamic>{},
+  aud: 'authenticated',
+  createdAt: '2026-01-01T00:00:00Z',
+);
+
 class _FakeAuthService extends AuthService {
-  _FakeAuthService() : super(ProfileService());
+  _FakeAuthService({this.user}) : super(ProfileService());
+
+  final User? user;
 
   @override
   Session? get currentSession => null;
 
   @override
-  User? get currentUser => null;
+  User? get currentUser => user;
 
   @override
   Stream<AuthState> get authStateChanges => const Stream<AuthState>.empty();
@@ -287,7 +445,7 @@ class _RecordingCollectionsHttp extends MockCollectionsHttp {
   Future<CollectionDetail> getSharedCollection(
     String token, {
     int limit = 25,
-    int? offset,
+    String? cursor,
   }) async {
     onFetch(token);
     return CollectionDetail(

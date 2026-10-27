@@ -5,11 +5,19 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:reelpin/data_models/map/map_bounds.dart';
 import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/http/api_client.dart';
 import 'package:reelpin/http/api_exception.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
 import 'package:reelpin/utils/error_message.dart';
+
+import '../fixtures/api_v2.dart';
+
+final _uuidV4 = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+);
 
 void main() {
   group('an expired session', () {
@@ -19,13 +27,13 @@ void main() {
         final auth = request.headers['Authorization'];
         seen.add(auth);
         return auth == 'Bearer $validToken'
-            ? http.Response(jsonEncode({'status': 'ok'}), 200)
-            : http.Response(jsonEncode({'detail': 'expired'}), 401);
+            ? ApiV2Fixture('library_stats').toResponse()
+            : ApiV2Fixture('error_unauthorized').toResponse();
       });
     }
 
     test('is renewed once and the request sent again', () async {
-      var token = 'expired';
+      var token = _tokenFor('user-a', 'expired');
       var renewals = 0;
       final seen = <String?>[];
       final service = ApiClient(
@@ -33,31 +41,47 @@ void main() {
         accessTokenProvider: () => token,
         sessionRefresher: () async {
           renewals += 1;
-          token = 'fresh';
+          token = _tokenFor('user-a', 'fresh');
         },
-        client: backendAccepting('fresh', seen),
+        client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
       );
 
-      expect(await service.healthCheck(), isTrue);
+      final stats = await service.getLibraryStats();
+
+      expect(stats.totalReels, 0);
       expect(renewals, 1);
-      expect(seen, ['Bearer expired', 'Bearer fresh']);
+      expect(seen, [
+        'Bearer ${_tokenFor('user-a', 'expired')}',
+        'Bearer ${_tokenFor('user-a', 'fresh')}',
+      ]);
     });
 
     test('that cannot be renewed surfaces the 401 without looping', () async {
       final seen = <String?>[];
       final service = ApiClient(
         baseUrl: 'https://example.com',
-        accessTokenProvider: () => 'revoked',
+        accessTokenProvider: () => _tokenFor('user-a', 'revoked'),
         sessionRefresher: () async => throw Exception('refresh failed'),
-        client: backendAccepting('fresh', seen),
+        client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
       );
 
-      expect(await service.healthCheck(), isFalse);
-      expect(seen, ['Bearer revoked']);
+      await expectLater(
+        service.getLibraryStats(),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 401)
+              .having(
+                (e) => e.errorCode,
+                'errorCode',
+                'authentication_required',
+              ),
+        ),
+      );
+      expect(seen, ['Bearer ${_tokenFor('user-a', 'revoked')}']);
     });
 
     test('already renewed by another request is not renewed again', () async {
-      var token = 'expired';
+      var token = _tokenFor('user-a', 'expired');
       var renewals = 0;
       final seen = <String?>[];
       final service = ApiClient(
@@ -66,19 +90,122 @@ void main() {
         sessionRefresher: () async => renewals += 1,
         client: MockClient((request) async {
           seen.add(request.headers['Authorization']);
-          if (request.headers['Authorization'] == 'Bearer fresh') {
-            return http.Response(jsonEncode({'status': 'ok'}), 200);
+          if (request.headers['Authorization'] ==
+              'Bearer ${_tokenFor('user-a', 'fresh')}') {
+            return ApiV2Fixture('library_stats').toResponse();
           }
           // Renewed elsewhere while this request was in flight.
-          token = 'fresh';
-          return http.Response(jsonEncode({'detail': 'expired'}), 401);
+          token = _tokenFor('user-a', 'fresh');
+          return ApiV2Fixture('error_unauthorized').toResponse();
         }),
       );
 
-      expect(await service.healthCheck(), isTrue);
+      await service.getLibraryStats();
+
       expect(renewals, 0);
-      expect(seen, ['Bearer expired', 'Bearer fresh']);
+      expect(seen, [
+        'Bearer ${_tokenFor('user-a', 'expired')}',
+        'Bearer ${_tokenFor('user-a', 'fresh')}',
+      ]);
     });
+
+    for (final switchDuringRefresh in [false, true]) {
+      test(
+        'account deletion is not replayed after switching users ${switchDuringRefresh ? 'during renewal' : 'while awaiting a response'}',
+        () async {
+          var token = _tokenFor('user-a', 'expired');
+          var renewals = 0;
+          final seen = <String?>[];
+          final service = ApiClient(
+            baseUrl: 'https://example.com',
+            accessTokenProvider: () => token,
+            sessionRefresher: () async {
+              renewals += 1;
+              token = _tokenFor('user-b', 'fresh');
+            },
+            client: MockClient((request) async {
+              expect(request.method, 'DELETE');
+              expect(request.url.path, '/api/v2/account');
+              seen.add(request.headers['Authorization']);
+              if (seen.length == 1) {
+                if (!switchDuringRefresh) {
+                  token = _tokenFor('user-b', 'fresh');
+                }
+                return ApiV2Fixture('error_unauthorized').toResponse();
+              }
+              return http.Response('{}', 200);
+            }),
+          );
+
+          await expectLater(
+            service.deleteAccount(),
+            throwsA(
+              isA<ApiException>().having(
+                (e) => e.statusCode,
+                'statusCode',
+                401,
+              ),
+            ),
+          );
+          expect(seen, ['Bearer ${_tokenFor('user-a', 'expired')}']);
+          expect(renewals, switchDuringRefresh ? 1 : 0);
+        },
+      );
+    }
+
+    test('a delayed 401 after sign-out is not replayed', () async {
+      String? token = _tokenFor('user-a', 'expired');
+      var renewals = 0;
+      final seen = <String?>[];
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => token,
+        sessionRefresher: () async => renewals += 1,
+        client: MockClient((request) async {
+          seen.add(request.headers['Authorization']);
+          token = null;
+          return ApiV2Fixture('error_unauthorized').toResponse();
+        }),
+      );
+
+      await expectLater(service.deleteAccount(), throwsA(isA<ApiException>()));
+
+      expect(seen, ['Bearer ${_tokenFor('user-a', 'expired')}']);
+      expect(renewals, 0);
+    });
+
+    for (final invalidToken in [
+      'not-a-jwt',
+      'header.%.signature',
+      'header.e30=.signature',
+      _tokenFor('', 'expired'),
+    ]) {
+      test(
+        'a token without an account identity is not replayed: $invalidToken',
+        () async {
+          var token = invalidToken;
+          var renewals = 0;
+          final seen = <String?>[];
+          final service = ApiClient(
+            baseUrl: 'https://example.com',
+            accessTokenProvider: () => token,
+            sessionRefresher: () async {
+              renewals += 1;
+              token = _tokenFor('user-a', 'fresh');
+            },
+            client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
+          );
+
+          await expectLater(
+            service.getLibraryStats(),
+            throwsA(isA<ApiException>()),
+          );
+
+          expect(seen, ['Bearer $invalidToken']);
+          expect(renewals, 0);
+        },
+      );
+    }
 
     test('is not renewed for a request sent signed out', () async {
       var renewals = 0;
@@ -87,189 +214,230 @@ void main() {
         baseUrl: 'https://example.com',
         accessTokenProvider: () => null,
         sessionRefresher: () async => renewals += 1,
-        client: backendAccepting('fresh', seen),
+        client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
       );
 
-      expect(await service.healthCheck(), isFalse);
+      await expectLater(
+        service.getLibraryStats(),
+        throwsA(isA<ApiException>()),
+      );
       expect(renewals, 0);
       expect(seen, [null]);
     });
   });
 
-  test('healthCheck uses the backend health endpoint', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      client: MockClient((request) async {
-        expect(request.url.path, '/api/v1/health');
-        return http.Response(jsonEncode({'status': 'ok'}), 200);
-      }),
-    );
-
-    expect(await service.healthCheck(), isTrue);
-  });
-
-  test('processReel queues a job and polls until the reel is ready', () async {
-    final requests = <Uri>[];
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        requests.add(request.url);
-        expect(request.headers['Authorization'], 'Bearer token-123');
-
-        if (request.url.path == '/api/v1/processing-jobs/reels') {
-          expect(request.headers['Content-Type'], contains('application/json'));
-          expect(jsonDecode(request.body), {
-            'url': 'https://instagram.com/reel/abc',
-          });
-          return http.Response(
-            jsonEncode({'id': 'job-123', 'status': 'queued'}),
-            202,
+  group('cached response ownership', () {
+    for (final switchAtWrite in [false, true]) {
+      test(
+        'a previous account response is not cached for the next user: $switchAtWrite',
+        () async {
+          final directory = Directory.systemTemp.createTempSync(
+            'api_account_cache',
           );
-        }
+          addTearDown(() => directory.deleteSync(recursive: true));
+          var userId = 'user-a';
+          var token = _tokenFor(userId, 'fresh');
+          var responseReady = false;
+          void switchAccount() {
+            userId = 'user-b';
+            token = _tokenFor(userId, 'fresh');
+          }
 
-        if (request.url.path == '/api/v1/processing-jobs/job-123') {
-          return http.Response(
-            jsonEncode({
-              'id': 'job-123',
-              'status': 'completed',
-              'reel': _reelJson,
+          final cache = ContentCache.forTesting(
+            directory: directory,
+            userIdProvider: () {
+              if (switchAtWrite && responseReady) switchAccount();
+              return userId;
+            },
+          );
+          final service = ApiClient(
+            baseUrl: 'https://example.com',
+            cache: cache,
+            accessTokenProvider: () => token,
+            client: MockClient((request) async {
+              responseReady = true;
+              if (!switchAtWrite) switchAccount();
+              return ApiV2Fixture('reel_page').toResponse();
             }),
-            200,
           );
-        }
+          Object? error;
+          try {
+            await service.getReelsPage();
+          } catch (caught) {
+            error = caught;
+          }
+          await pumpEventQueue();
 
-        return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
-      }),
-    );
-
-    final updates = <ProcessingJob>[];
-    final reel = await service.processReel(
-      'https://instagram.com/reel/abc',
-      userId: 'user-123',
-      onJobUpdate: updates.add,
-    );
-
-    expect(reel.id, 'reel-123');
-    expect(updates.map((job) => job.status), ['queued', 'completed']);
-    expect(requests.map((uri) => uri.path), [
-      '/api/v1/processing-jobs/reels',
-      '/api/v1/processing-jobs/job-123',
-    ]);
+          expect(userId, 'user-b');
+          expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);
+          if (!switchAtWrite) {
+            expect(
+              error,
+              isA<ApiException>().having(
+                (e) => e.statusCode,
+                'statusCode',
+                409,
+              ),
+            );
+          }
+        },
+      );
+    }
   });
 
-  test('processReel polls a job returned by the legacy endpoint', () async {
-    final requests = <Uri>[];
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        requests.add(request.url);
-        expect(request.headers['Authorization'], 'Bearer token-123');
+  group('the error envelope', () {
+    test('carries code, request id, retryable and details', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async => ApiV2Fixture('error_validation').toResponse(),
+        ),
+      );
 
-        if (request.url.path == '/api/v1/processing-jobs/reels') {
-          return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
-        }
+      await expectLater(
+        service.getReelsPage(cursor: '25'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 422)
+              .having((e) => e.errorCode, 'errorCode', 'validation_error')
+              .having((e) => e.requestId, 'requestId', 'fixture-request-id')
+              .having((e) => e.retryable, 'retryable', isFalse)
+              .having((e) => e.details['field'], 'details.field', 'cursor')
+              .having(
+                (e) => e.message,
+                'message',
+                'The request is missing required fields or contains invalid values.',
+              ),
+        ),
+      );
+    });
 
-        if (request.url.path == '/api/v1/process-reel') {
-          expect(request.headers['Content-Type'], contains('application/json'));
-          expect(jsonDecode(request.body), {
-            'url': 'https://instagram.com/reel/abc',
-          });
-          return http.Response(
-            jsonEncode({'job_id': 'job-legacy', 'status': 'queued'}),
-            202,
-          );
-        }
+    test('keeps retryable for a temporary outage', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async =>
+              ApiV2Fixture('error_processing_unavailable').toResponse(),
+        ),
+      );
 
-        if (request.url.path == '/api/v1/processing-jobs/job-legacy') {
-          return http.Response(
-            jsonEncode({
-              'id': 'job-legacy',
-              'status': 'completed',
-              'result_reel_id': 'reel-123',
-            }),
-            200,
-          );
-        }
+      await expectLater(
+        service.enqueueReelProcessing('https://instagram.com/reel/abc'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 503)
+              .having((e) => e.errorCode, 'errorCode', 'processing_unavailable')
+              .having((e) => e.retryable, 'retryable', isTrue),
+        ),
+      );
+    });
 
-        if (request.url.path == '/api/v1/reels/reel-123') {
-          return http.Response(jsonEncode(_reelJson), 200);
-        }
+    test(
+      'falls back to the caller message for a body that is not JSON',
+      () async {
+        final service = ApiClient(
+          baseUrl: 'https://example.com',
+          client: MockClient(
+            (_) async => http.Response('<html>Bad Gateway</html>', 502),
+          ),
+        );
 
-        return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
-      }),
+        await expectLater(
+          service.getLibraryStats(),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.statusCode, 'statusCode', 502)
+                .having((e) => e.errorCode, 'errorCode', isNull)
+                .having(
+                  (e) => e.message,
+                  'message',
+                  'Could not load library stats right now.',
+                ),
+          ),
+        );
+      },
     );
 
-    final reel = await service.processReel(
-      'https://instagram.com/reel/abc',
-      userId: 'user-123',
-    );
+    test('never trips the dormant v1 plan-limit checks', () async {
+      // openapi.yaml has no code enum; these are the codes its prose names,
+      // plus every code in the captured error fixtures.
+      final codes = <String>{
+        'processing_unavailable',
+        'spend_limit_reached',
+        'feedback_unavailable',
+        'link_clicks_unavailable',
+      };
+      final fixtures = Directory('test/fixtures/api_v2')
+          .listSync()
+          .map((file) => file.uri.pathSegments.last)
+          .where((name) => name.startsWith('error_'))
+          .map((name) => name.replaceAll('.json', ''));
+      expect(fixtures, isNotEmpty);
 
-    expect(reel.id, 'reel-123');
-    expect(requests.map((uri) => uri.path), [
-      '/api/v1/processing-jobs/reels',
-      '/api/v1/process-reel',
-      '/api/v1/processing-jobs/job-legacy',
-      '/api/v1/reels/reel-123',
-    ]);
+      for (final fixture in fixtures) {
+        final service = ApiClient(
+          baseUrl: 'https://example.com',
+          client: MockClient((_) async => ApiV2Fixture(fixture).toResponse()),
+        );
+        try {
+          await service.getLibraryStats();
+          fail('$fixture did not throw');
+        } on ApiException catch (error) {
+          codes.add(error.errorCode!);
+        }
+      }
+
+      for (final code in codes) {
+        final error = ApiException('', 400, errorCode: code);
+        expect(error.isMonthlyReelLimitReached, isFalse, reason: code);
+        expect(error.isHistoryUpgradeRequired, isFalse, reason: code);
+      }
+    });
   });
 
-  test(
-    'enqueueReelProcessing accepts job_id from process-reel compatibility path',
-    () async {
+  group('submission', () {
+    test('sends a UUID Idempotency-Key and the url', () async {
+      late http.Request seen;
       final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
-          expect(request.headers['Authorization'], 'Bearer token-123');
-          if (request.url.path == '/api/v1/processing-jobs/reels') {
-            expect(jsonDecode(request.body), {
-              'url': 'https://instagram.com/reel/abc',
-            });
-            return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
-          }
-
-          if (request.url.path == '/api/v1/process-reel') {
-            return http.Response(
-              jsonEncode({'job_id': 'job-legacy', 'status': 'queued'}),
-              202,
-            );
-          }
-
-          return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
+          seen = request;
+          return ApiV2Fixture('submission_accepted').toResponse();
         }),
       );
 
       final job = await service.enqueueReelProcessing(
-        'https://instagram.com/reel/abc',
-        userId: 'user-123',
+        'https://www.instagram.com/reel/C8abc123/',
       );
 
-      expect(job.id, 'job-legacy');
+      expect(seen.method, 'POST');
+      expect(seen.url.path, '/api/v2/processing-jobs/reels');
+      expect(seen.headers['Authorization'], 'Bearer token-123');
+      expect(seen.headers['Content-Type'], contains('application/json'));
+      expect(seen.headers['Idempotency-Key'], matches(_uuidV4));
+      expect(jsonDecode(seen.body), {
+        'url': 'https://www.instagram.com/reel/C8abc123/',
+      });
+      expect(job.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
       expect(job.status, 'queued');
-    },
-  );
+      expect(job.alreadySaved, isFalse);
+      expect(job.isCompleted, isFalse);
+    });
 
-  test(
-    'enqueueReelProcessing files the reel into the given collections',
-    () async {
+    test('files the reel into the given collections', () async {
       Map<String, dynamic>? body;
       final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
           body = jsonDecode(request.body) as Map<String, dynamic>;
-          return http.Response(
-            jsonEncode({'id': 'job-1', 'status': 'queued'}),
-            202,
-          );
+          return ApiV2Fixture('submission_accepted').toResponse();
         }),
       );
 
       await service.enqueueReelProcessing(
         'https://instagram.com/reel/abc',
-        userId: 'user-123',
         collectionIds: const ['col-1', 'col-2'],
       );
 
@@ -279,45 +447,147 @@ void main() {
         'url': 'https://instagram.com/reel/abc',
         'collection_ids': ['col-1', 'col-2'],
       });
-    },
-  );
+    });
 
-  test(
-    'processReel returns an existing X saved item without another poll',
-    () async {
-      final requests = <Uri>[];
+    test('a new attempt gets a new key; a renewed resend keeps it', () async {
+      var token = _tokenFor('user-a', 'expired');
+      final keys = <String?>[];
       final service = ApiClient(
         baseUrl: 'https://example.com',
-        accessTokenProvider: () => 'token-123',
+        accessTokenProvider: () => token,
+        sessionRefresher: () async => token = _tokenFor('user-a', 'fresh'),
         client: MockClient((request) async {
-          requests.add(request.url);
-          expect(request.headers['Authorization'], 'Bearer token-123');
-          expect(jsonDecode(request.body), {
-            'url': 'https://x.com/OpenAI/status/1234567890',
-          });
-          return http.Response(
-            jsonEncode({
-              'id': 'job-existing',
-              'status': 'completed',
-              'terminal': true,
-              'reel': {..._reelJson, 'source_platform': 'x'},
-            }),
-            200,
-          );
+          keys.add(request.headers['Idempotency-Key']);
+          if (request.headers['Authorization'] !=
+              'Bearer ${_tokenFor('user-a', 'fresh')}') {
+            return ApiV2Fixture('error_unauthorized').toResponse();
+          }
+          return ApiV2Fixture('submission_accepted').toResponse();
         }),
       );
 
-      final reel = await service.processReel(
-        'https://x.com/OpenAI/status/1234567890',
+      await service.enqueueReelProcessing('https://instagram.com/reel/abc');
+      await service.enqueueReelProcessing('https://instagram.com/reel/abc');
+
+      expect(keys, hasLength(3));
+      expect(keys[0], keys[1]);
+      expect(keys[2], isNot(keys[1]));
+    });
+
+    test('202 with already_saved is the job already in flight', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async => ApiV2Fixture('submission_in_flight').toResponse(),
+        ),
       );
 
-      expect(reel.id, 'reel-123');
-      expect(reel.sourcePlatform, 'x');
-      expect(requests.map((uri) => uri.path), [
-        '/api/v1/processing-jobs/reels',
-      ]);
-    },
-  );
+      final job = await service.enqueueReelProcessing(
+        'https://www.instagram.com/reel/C8abc123/',
+      );
+
+      expect(job.alreadySaved, isTrue);
+      expect(job.status, 'processing');
+      expect(job.progressPercent, 40);
+      expect(job.terminal, isFalse);
+    });
+
+    test('200 is the ready reel, handed on as a completed job', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              ...ApiV2Fixture('reel_detail').body,
+              'already_saved': true,
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final job = await service.enqueueReelProcessing(
+        'https://www.instagram.com/reel/abc/',
+      );
+
+      expect(job.id, isEmpty);
+      expect(job.isCompleted, isTrue);
+      expect(job.alreadySaved, isTrue);
+      expect(job.resultReelId, '22222222-2222-4222-8222-222222222222');
+      expect(job.reel?.title, 'Best cafes in Goa');
+    });
+
+    test('a 409 keeps the idempotency_conflict code', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async => ApiV2Fixture('error_idempotency_conflict').toResponse(),
+        ),
+      );
+
+      await expectLater(
+        service.enqueueReelProcessing('https://instagram.com/reel/abc'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 409)
+              .having((e) => e.errorCode, 'errorCode', 'idempotency_conflict'),
+        ),
+      );
+    });
+  });
+
+  test('processReel queues a job and polls until the reel is ready', () async {
+    final requests = <Uri>[];
+    final completed = (ApiV2Fixture('job_list').body['jobs'] as List)[1];
+    final service = ApiClient(
+      baseUrl: 'https://example.com',
+      accessTokenProvider: () => 'token-123',
+      client: MockClient((request) async {
+        requests.add(request.url);
+        expect(request.headers['Authorization'], 'Bearer token-123');
+
+        if (request.url.path == '/api/v2/processing-jobs/reels') {
+          return http.Response(
+            jsonEncode({'id': 'job-123', 'status': 'queued'}),
+            202,
+          );
+        }
+        if (request.url.path == '/api/v2/processing-jobs/job-123') {
+          return http.Response(jsonEncode(completed), 200);
+        }
+        return ApiV2Fixture('error_validation').toResponse();
+      }),
+    );
+
+    final updates = <ProcessingJob>[];
+    final reel = await service.processReel(
+      'https://instagram.com/reel/abc',
+      onJobUpdate: updates.add,
+    );
+
+    expect(reel.id, '22222222-2222-4222-8222-222222222222');
+    expect(updates.map((job) => job.status), ['queued', 'completed']);
+    expect(requests.map((uri) => uri.path), [
+      '/api/v2/processing-jobs/reels',
+      '/api/v2/processing-jobs/job-123',
+    ]);
+  });
+
+  test('processReel returns a ready reel without polling', () async {
+    final requests = <Uri>[];
+    final service = ApiClient(
+      baseUrl: 'https://example.com',
+      client: MockClient((request) async {
+        requests.add(request.url);
+        return ApiV2Fixture('reel_detail').toResponse();
+      }),
+    );
+
+    final reel = await service.processReel('https://instagram.com/reel/abc/');
+
+    expect(reel.id, '22222222-2222-4222-8222-222222222222');
+    expect(requests.map((uri) => uri.path), ['/api/v2/processing-jobs/reels']);
+  });
 
   test('processReel prefers status_message for protected X posts', () async {
     final service = ApiClient(
@@ -386,37 +656,222 @@ void main() {
     );
   });
 
-  test('getReels sends auth header without user_id query param', () async {
+  test('listProcessingJobs reads the jobs envelope', () async {
+    late http.Request seen;
     final service = ApiClient(
       baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
       client: MockClient((request) async {
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(
-          request.url.toString(),
-          'https://example.com/api/v1/reels?limit=50',
-        );
-        return http.Response(
-          jsonEncode({
-            'reels': [_reelJson],
-            'next_cursor': null,
-            'next_offset': 1,
-            'has_more': false,
-            'total_count': 1,
-            'limit': 50,
-            'offset': 0,
-          }),
-          200,
-        );
+        seen = request;
+        return ApiV2Fixture('job_list').toResponse();
       }),
     );
 
-    final reels = await service.getReels(userId: 'user-123');
+    final jobs = await service.listProcessingJobs(activeOnly: false);
 
-    expect(reels.single.id, 'reel-123');
+    expect(seen.url.path, '/api/v2/processing-jobs');
+    expect(seen.url.queryParameters, {'active_only': 'false', 'limit': '20'});
+    expect(jobs, hasLength(2));
+    expect(jobs.first.stage, 'Transcribing');
+    expect(jobs.first.estimatedSecondsRemaining, 405);
+    expect(jobs.first.summary, isNull);
+    expect(jobs.last.summary, 'Three cafes worth the ride.');
+    expect(jobs.last.reel?.subCategory, 'cafes');
   });
 
-  test('searchReels sends auth header without user_id body field', () async {
+  group('reels', () {
+    test('getReels asks for the concise view without user_id', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(
+            request.url.toString(),
+            'https://example.com/api/v2/reels?limit=50&view=concise',
+          );
+          return ApiV2Fixture('reel_page').toResponse();
+        }),
+      );
+
+      final reels = await service.getReels(userId: 'user-123');
+
+      expect(reels.single.id, '22222222-2222-4222-8222-222222222222');
+      expect(reels.single.webUrl, contains('/r/22222222'));
+    });
+
+    test('getReelsPage passes the opaque cursor through', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          expect(request.url.queryParameters['cursor'], 'opaque-cursor');
+          expect(request.url.queryParameters.containsKey('offset'), isFalse);
+          return http.Response(
+            jsonEncode({
+              ...ApiV2Fixture('reel_page').body,
+              'next_cursor': 'next-cursor',
+              'has_more': true,
+            }),
+            200,
+          );
+        }),
+      );
+
+      final page = await service.getReelsPage(cursor: 'opaque-cursor');
+
+      expect(page.nextCursor, 'next-cursor');
+      expect(page.hasMore, isTrue);
+    });
+
+    test('getReelsPage reads the last page from a null cursor', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((_) async => ApiV2Fixture('reel_page').toResponse()),
+      );
+
+      final page = await service.getReelsPage();
+
+      expect(page.nextCursor, isNull);
+      expect(page.hasMore, isFalse);
+    });
+
+    test('getReelsPage sends the platform filter', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          expect(request.url.path, '/api/v2/reels');
+          expect(request.url.queryParameters['platform'], 'youtube');
+          return ApiV2Fixture('reel_page').toResponse();
+        }),
+      );
+
+      await service.getReelsPage(platform: 'youtube');
+    });
+
+    test('getReelsPage omits a blank platform filter', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          expect(request.url.queryParameters.containsKey('platform'), isFalse);
+          return ApiV2Fixture('reel_page').toResponse();
+        }),
+      );
+
+      await service.getReelsPage(platform: '   ');
+    });
+
+    test('getReelsPage caps the page size at the contract maximum', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          expect(request.url.queryParameters['limit'], '100');
+          return ApiV2Fixture('reel_page').toResponse();
+        }),
+      );
+
+      await service.getReelsPage(limit: 240);
+    });
+
+    test('getReel uses the default detailed view', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          expect(
+            request.url.toString(),
+            'https://example.com/api/v2/reels/22222222-2222-4222-8222-222222222222',
+          );
+          return ApiV2Fixture('reel_detail').toResponse();
+        }),
+      );
+
+      final reel = await service.getReel(
+        '22222222-2222-4222-8222-222222222222',
+      );
+
+      expect(reel.transcript, 'spoken words');
+      expect(reel.subCategory, 'cafes');
+    });
+
+    test('deleteReel accepts the 204', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(
+            request.url.toString(),
+            'https://example.com/api/v2/reels/reel-123',
+          );
+          expect(request.method, 'DELETE');
+          return http.Response('', 204);
+        }),
+      );
+
+      await service.deleteReel('reel-123');
+    });
+
+    test(
+      'getReelFilters sends auth header without user_id query param',
+      () async {
+        final service = ApiClient(
+          baseUrl: 'https://example.com',
+          accessTokenProvider: () => 'token-123',
+          client: MockClient((request) async {
+            expect(request.headers['Authorization'], 'Bearer token-123');
+            expect(
+              request.url.toString(),
+              'https://example.com/api/v2/reels/filters',
+            );
+            return http.Response(
+              jsonEncode({
+                'total_count': 0,
+                'platforms': <Map<String, Object?>>[],
+                'categories': <Map<String, Object?>>[],
+                'selected_preview_count': 0,
+              }),
+              200,
+            );
+          }),
+        );
+
+        final response = await service.getReelFilters(userId: 'user-123');
+
+        expect(response.totalCount, 0);
+      },
+    );
+
+    test('getReelFilters forwards the selection as query params', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.url.queryParameters, {
+            'platform': 'instagram',
+            'category': 'Food',
+            'subcategory': 'Street Food',
+          });
+          return http.Response(
+            jsonEncode({
+              'total_count': 10,
+              'platforms': <Map<String, Object?>>[],
+              'categories': <Map<String, Object?>>[],
+              'selected_preview_count': 3,
+            }),
+            200,
+          );
+        }),
+      );
+
+      final response = await service.getReelFilters(
+        platform: 'instagram',
+        category: 'Food',
+        subcategory: 'Street Food',
+      );
+
+      expect(response.selectedPreviewCount, 3);
+    });
+  });
+
+  test('searchReels posts the query and asks for the concise view', () async {
     final service = ApiClient(
       baseUrl: 'https://example.com',
       accessTokenProvider: () => 'token-123',
@@ -424,50 +879,94 @@ void main() {
         expect(request.headers['Authorization'], 'Bearer token-123');
         expect(request.headers['Content-Type'], contains('application/json'));
         expect(jsonDecode(request.body), {
-          'query': 'coffee',
+          'query': 'artjuna cafe',
           'category': 'Travel',
           'limit': 5,
         });
-        expect(request.url.toString(), 'https://example.com/api/v1/search');
-        return http.Response(
-          jsonEncode({
-            'query': 'coffee',
-            'results': <Map<String, Object?>>[],
-            'total': 0,
-            'search_mode': 'rag',
-          }),
-          200,
+        expect(
+          request.url.toString(),
+          'https://example.com/api/v2/search?view=concise',
         );
+        return ApiV2Fixture('search_results').toResponse();
       }),
     );
 
     final response = await service.searchReels(
-      'coffee',
+      'artjuna cafe',
       userId: 'user-123',
       category: 'Travel',
     );
 
-    expect(response.query, 'coffee');
+    expect(response.total, 1);
+    expect(response.results.single.relevancePercent, '100');
+    expect(response.results.single.reel.title, 'Best cafes in Goa');
   });
 
   test(
-    'registerPushToken sends auth header without user_id body field',
+    'getDiscover sends the saved date and cursor, never an offset',
     () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          expect(request.url.path, '/api/v2/discover');
+          expect(request.url.queryParameters, {
+            'limit': '25',
+            'saved_date': '2026-09-02',
+            'cursor': 'opaque-cursor',
+          });
+          return http.Response(
+            jsonEncode({
+              'recent_saves': [ApiV2Fixture('reel_page').body['reels'][0]],
+              'recent_saves_count': 1,
+              'saved_dates': ['2026-09-02'],
+              'selected_date': '2026-09-02',
+              'reels_for_selected_date': <Object?>[],
+              'category_grid': [
+                {
+                  'category': 'food_and_drink',
+                  'label': 'Food And Drink',
+                  'count': 1,
+                  'subcategories': <Object?>[],
+                },
+              ],
+              'quick_search_prompts': ['cafes'],
+              'pagination': {
+                'next_cursor': null,
+                'has_more': false,
+                'limit': 25,
+                'total_count': 1,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      final discover = await service.getDiscover(
+        savedDate: '2026-09-02',
+        cursor: 'opaque-cursor',
+      );
+
+      expect(discover.savedDates.single.value, '2026-09-02');
+      expect(discover.categoryGrid.single.label, 'Food And Drink');
+      expect(discover.pagination.hasMore, isFalse);
+    },
+  );
+
+  group('sharing and notifications', () {
+    test('registerPushToken sends only the token and platform', () async {
       final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
+          expect(request.url.path, '/api/v2/device-push-tokens');
           expect(request.headers['Authorization'], 'Bearer token-123');
           expect(request.headers['Content-Type'], contains('application/json'));
           expect(jsonDecode(request.body), {
             'token': 'push-token',
             'platform': 'android',
-            'app_version': '1.0.8',
-            'app_build': '14',
-            'timezone': 'Asia/Kolkata',
-            'locale': 'en-IN',
           });
-          return http.Response(jsonEncode({'ok': true}), 200);
+          return http.Response(jsonEncode({'registered': true}), 200);
         }),
       );
 
@@ -480,272 +979,497 @@ void main() {
         timezone: 'Asia/Kolkata',
         locale: 'en-IN',
       );
-    },
-  );
+    });
 
-  test('unregisterPushToken deletes the authenticated device token', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.method, 'DELETE');
-        expect(request.url.path, '/api/v1/device-push-tokens');
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(jsonDecode(request.body), {'token': 'push-token'});
-        return http.Response(jsonEncode({'ok': true}), 200);
-      }),
-    );
-
-    await service.unregisterPushToken(token: 'push-token');
-  });
-
-  test('recordNotificationOpened posts the authenticated open event', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(
-          request.url.path,
-          '/api/v1/notifications/notification-123/opened',
+    test(
+      'unregisterPushToken deletes the authenticated device token',
+      () async {
+        final service = ApiClient(
+          baseUrl: 'https://example.com',
+          accessTokenProvider: () => 'token-123',
+          client: MockClient((request) async {
+            expect(request.method, 'DELETE');
+            expect(request.url.path, '/api/v2/device-push-tokens');
+            expect(request.headers['Authorization'], 'Bearer token-123');
+            expect(jsonDecode(request.body), {'token': 'push-token'});
+            return http.Response(jsonEncode({'deleted': true}), 200);
+          }),
         );
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        return http.Response(jsonEncode({'ok': true}), 200);
-      }),
+
+        await service.unregisterPushToken(token: 'push-token');
+      },
     );
 
-    await service.recordNotificationOpened(notificationId: 'notification-123');
-  });
+    test(
+      'recordNotificationOpened posts the authenticated open event',
+      () async {
+        final service = ApiClient(
+          baseUrl: 'https://example.com',
+          accessTokenProvider: () => 'token-123',
+          client: MockClient((request) async {
+            expect(request.method, 'POST');
+            expect(
+              request.url.path,
+              '/api/v2/notifications/notification-123/opened',
+            );
+            expect(request.headers['Authorization'], 'Bearer token-123');
+            return http.Response(jsonEncode({'opened': true}), 200);
+          }),
+        );
 
-  test(
-    'getReelFilters sends auth header without user_id query param',
-    () async {
+        await service.recordNotificationOpened(
+          notificationId: 'notification-123',
+        );
+      },
+    );
+
+    test('mintShareToken reads the token field', () async {
       final service = ApiClient(
         baseUrl: 'https://example.com',
-        accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
-          expect(request.headers['Authorization'], 'Bearer token-123');
-          expect(
-            request.url.toString(),
-            'https://example.com/api/v1/reels/filters',
-          );
+          expect(request.method, 'POST');
+          expect(request.url.path, '/api/v2/share-tokens');
+          return ApiV2Fixture('share_token_minted').toResponse();
+        }),
+      );
+
+      expect(await service.mintShareToken(), 'fixture-share-token');
+    });
+
+    test('revokeShareToken deletes every share token', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          expect(request.method, 'DELETE');
+          expect(request.url.path, '/api/v2/share-tokens');
+          return http.Response(jsonEncode({'revoked': 2}), 200);
+        }),
+      );
+
+      await service.revokeShareToken();
+    });
+
+    test('resolveSharePayload sends only the raw text', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          expect(request.url.path, '/api/v2/share/resolve');
+          expect(jsonDecode(request.body), {
+            'raw_payload_text': 'look https://www.instagram.com/reel/C8abc123/',
+          });
+          return ApiV2Fixture('share_resolved').toResponse();
+        }),
+      );
+
+      final resolved = await service.resolveSharePayload(
+        rawPayloadText: 'look https://www.instagram.com/reel/C8abc123/',
+      );
+
+      expect(resolved.supported, isTrue);
+      expect(resolved.url, 'https://www.instagram.com/reel/C8abc123/');
+      expect(resolved.sourcePlatform, 'instagram');
+    });
+
+    test('an unsupported share is an answer, not an error', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'supported': false,
+              'url': null,
+              'source_platform': null,
+              'source_content_type': null,
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final resolved = await service.resolveSharePayload(rawPayloadText: 'hi');
+
+      expect(resolved.supported, isFalse);
+      expect(resolved.url, isNull);
+    });
+  });
+
+  group('map', () {
+    Map<String, Object?> pin({
+      required String id,
+      required String kind,
+      String? reelId,
+      String? category,
+    }) => {
+      'id': id,
+      'kind': kind,
+      'name': 'Artjuna Cafe',
+      'address': 'Anjuna',
+      'latitude': 15.5834,
+      'longitude': 73.7407,
+      'reel_id': reelId,
+      'confidence': null,
+      'category': category,
+      'subcategory': null,
+      'google_place_id': null,
+      'google_maps_url': null,
+      'place_types': <String>[],
+    };
+
+    test('getMapData sends the viewport and the category', () async {
+      final fixture = ApiV2Fixture('map_pins');
+      late http.Request seen;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          seen = request;
+          return fixture.toResponse();
+        }),
+      );
+
+      final map = await service.getMapData(
+        bounds: const MapBounds(south: 15, west: 73, north: 16, east: 74),
+        category: 'food_and_drink',
+      );
+
+      // The fixture's own request is south=15&west=73&north=16&east=74.
+      expect(seen.url.path, '/api/v2/map/pins');
+      expect(seen.url.queryParameters, {
+        'south': '15.0',
+        'west': '73.0',
+        'north': '16.0',
+        'east': '74.0',
+        'category': 'food_and_drink',
+      });
+      expect(
+        map.mapItems.single.effectiveMapItemId,
+        '66666666-6666-4666-8666-666666666666',
+      );
+    });
+
+    test('getMapData leaves an empty category out', () async {
+      late http.Request seen;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(jsonEncode({'pins': []}), 200);
+        }),
+      );
+
+      await service.getMapData(
+        bounds: const MapBounds(south: 15, west: 73, north: 16, east: 74),
+        category: ' ',
+      );
+
+      expect(seen.url.queryParameters.containsKey('category'), isFalse);
+    });
+
+    test('getMapData sends an antimeridian box unchanged', () async {
+      late http.Request seen;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response(jsonEncode({'pins': []}), 200);
+        }),
+      );
+
+      await service.getMapData(
+        bounds: const MapBounds(south: -20, west: 170, north: 20, east: -170),
+      );
+
+      expect(seen.url.queryParameters['west'], '170.0');
+      expect(seen.url.queryParameters['east'], '-170.0');
+    });
+
+    test('getMapData reads both pin kinds with their removal ids', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'pins': [
+                pin(
+                  id: 'loc-1',
+                  kind: 'content',
+                  reelId: 'reel-1',
+                  category: 'food_and_drink',
+                ),
+                pin(id: 'pin-1', kind: 'manual', category: 'Other'),
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final map = await service.getMapData(bounds: MapBounds.world);
+
+      final content = map.mapItems.first;
+      expect(content.reelId, 'reel-1');
+      expect(content.canOpenDetails, isTrue);
+      expect(content.effectiveMapItemId, 'loc-1');
+      final manual = map.mapItems.last;
+      expect(manual.isManual, isTrue);
+      expect(manual.canOpenDetails, isFalse);
+      // A bare id is read as a location id, so a manual pin needs its prefix.
+      expect(manual.effectiveMapItemId, 'manual:pin-1');
+    });
+
+    test('getNearbyPins sends the point and the limit', () async {
+      late http.Request seen;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          seen = request;
           return http.Response(
             jsonEncode({
-              'total_count': 0,
-              'platforms': <Map<String, Object?>>[],
-              'categories': <Map<String, Object?>>[],
-              'selected_preview_count': 0,
+              'pins': [pin(id: 'loc-1', kind: 'content', reelId: 'reel-1')],
             }),
             200,
           );
         }),
       );
 
-      final response = await service.getReelFilters(userId: 'user-123');
+      final nearby = await service.getNearbyPins(
+        latitude: 15.5,
+        longitude: 73.7,
+      );
 
-      expect(response.totalCount, 0);
-    },
-  );
+      expect(seen.url.path, '/api/v2/map/nearby');
+      expect(seen.url.queryParameters, {
+        'latitude': '15.5',
+        'longitude': '73.7',
+        'limit': '5',
+      });
+      expect(nearby.mapItems.single.effectiveMapItemId, 'loc-1');
+    });
 
-  test('getReelFilters forwards the selection as query params', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.url.queryParameters, {
-          'platform': 'instagram',
-          'category': 'Food',
-          'subcategory': 'Street Food',
-        });
-        return http.Response(
-          jsonEncode({
-            'total_count': 10,
-            'platforms': <Map<String, Object?>>[],
-            'categories': <Map<String, Object?>>[],
-            'selected_preview_count': 3,
-          }),
-          200,
-        );
-      }),
-    );
-
-    final response = await service.getReelFilters(
-      platform: 'instagram',
-      category: 'Food',
-      subcategory: 'Street Food',
-    );
-
-    expect(response.selectedPreviewCount, 3);
-  });
-
-  test('getReelsPage sends the platform filter', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.url.path, '/api/v1/reels');
-        expect(request.url.queryParameters['platform'], 'youtube');
-        return http.Response(
-          jsonEncode({'reels': <Map<String, Object?>>[], 'total_count': 0}),
-          200,
-        );
-      }),
-    );
-
-    await service.getReelsPage(platform: 'youtube');
-  });
-
-  test('getReelsPage omits a blank platform filter', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.url.queryParameters.containsKey('platform'), isFalse);
-        return http.Response(
-          jsonEncode({'reels': <Map<String, Object?>>[], 'total_count': 0}),
-          200,
-        );
-      }),
-    );
-
-    await service.getReelsPage(platform: '   ');
-  });
-
-  test('deleteReel sends auth header', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(
-          request.url.toString(),
-          'https://example.com/api/v1/reels/reel-123',
-        );
-        expect(request.method, 'DELETE');
-        return http.Response(jsonEncode({'ok': true}), 200);
-      }),
-    );
-
-    await service.deleteReel('reel-123');
-  });
-
-  test('searchMapPlaces sends auth header and search params', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(request.url.path, '/api/v1/map/search');
-        expect(request.url.queryParameters['query'], 'coffee');
-        expect(request.url.queryParameters['category'], 'Food');
-        expect(request.url.queryParameters['session_token'], 'session-1');
-        expect(request.url.queryParameters['limit'], '8');
-        return http.Response(
-          jsonEncode({
+    test('searchMapPlaces sends auth header and search params', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(request.url.path, '/api/v2/map/search');
+          expect(request.url.queryParameters, {
             'query': 'coffee',
-            'search_mode': 'google',
-            'total': 1,
-            'results': [
-              {
-                'result_type': 'google',
-                'google_place_id': 'place-1',
-                'display_title': 'Manual Cafe',
-                'display_address': '12 Market Street',
-                'place_name': 'Manual Cafe',
-                'latitude': 12.91,
-                'longitude': 77.61,
-                'place_types': ['cafe'],
-                'can_pin': true,
-              },
-            ],
-          }),
-          200,
-        );
-      }),
-    );
+            'limit': '8',
+            'category': 'Food',
+            'session_token': 'session-1',
+          });
+          return http.Response(
+            jsonEncode({
+              'query': 'coffee',
+              'search_mode': 'mixed',
+              'total': 2,
+              'results': [
+                {
+                  'result_type': 'existing',
+                  'source_type': 'manual',
+                  'map_item': pin(id: 'pin-1', kind: 'manual'),
+                  'google_place_id': null,
+                  'display_title': 'Artjuna Cafe',
+                  'display_address': 'Anjuna',
+                  'place_name': 'Artjuna Cafe',
+                  'latitude': 15.5834,
+                  'longitude': 73.7407,
+                  'google_maps_url': null,
+                  'place_types': <String>[],
+                  'can_pin': false,
+                },
+                {
+                  'result_type': 'google',
+                  'source_type': null,
+                  'map_item': null,
+                  'google_place_id': 'place-1',
+                  'display_title': 'Manual Cafe',
+                  'display_address': '12 Market Street',
+                  'place_name': 'Manual Cafe',
+                  'latitude': null,
+                  'longitude': null,
+                  'google_maps_url': null,
+                  'place_types': ['cafe'],
+                  'can_pin': true,
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
 
-    final response = await service.searchMapPlaces(
-      'coffee',
-      category: 'Food',
-      sessionToken: 'session-1',
-    );
+      final response = await service.searchMapPlaces(
+        'coffee',
+        category: 'Food',
+        sessionToken: 'session-1',
+      );
 
-    expect(response.total, 1);
-    expect(response.results.single.googlePlaceId, 'place-1');
-    expect(response.results.single.canPin, isTrue);
+      expect(response.total, 2);
+      expect(response.results.first.isExisting, isTrue);
+      expect(
+        response.results.first.mapItem?.effectiveMapItemId,
+        'manual:pin-1',
+      );
+      expect(response.results.last.googlePlaceId, 'place-1');
+      expect(response.results.last.canPin, isTrue);
+    });
+
+    test('pinMapPlace posts the place id and reads the new pin', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(request.headers['Content-Type'], contains('application/json'));
+          expect(request.url.path, '/api/v2/map/pins');
+          expect(jsonDecode(request.body), {
+            'google_place_id': 'place-1',
+            'session_token': 'session-1',
+          });
+          return http.Response(
+            jsonEncode({
+              ...pin(id: 'pin-1', kind: 'manual', category: 'Other'),
+              'name': 'Manual Cafe',
+              'google_place_id': 'place-1',
+            }),
+            201,
+          );
+        }),
+      );
+
+      final item = await service.pinMapPlace(
+        'place-1',
+        sessionToken: 'session-1',
+      );
+
+      expect(item, isA<MapItem>());
+      expect(item.mapItemId, 'manual:pin-1');
+      expect(item.displayName, 'Manual Cafe');
+      expect(item.googlePlaceId, 'place-1');
+      expect(item.canOpenDetails, isFalse);
+    });
+
+    test('pinMapPlace accepts the pin the user already had', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async =>
+              http.Response(jsonEncode(pin(id: 'pin-1', kind: 'manual')), 200),
+        ),
+      );
+
+      final item = await service.pinMapPlace('place-1');
+
+      expect(item.mapItemId, 'manual:pin-1');
+    });
+
+    test('removeMapItem deletes map item by id', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(request.method, 'DELETE');
+          expect(request.url.path, '/api/v2/map/items/manual:pin-1');
+          return http.Response('', 204);
+        }),
+      );
+
+      await service.removeMapItem('manual:pin-1');
+    });
+
+    test('removeMapItem hides a content pin by its bare location id', () async {
+      late http.Request seen;
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response('', 204);
+        }),
+      );
+
+      await service.removeMapItem('66666666-6666-4666-8666-666666666666');
+
+      expect(seen.method, 'DELETE');
+      expect(
+        seen.url.path,
+        '/api/v2/map/items/66666666-6666-4666-8666-666666666666',
+      );
+    });
   });
 
-  test('pinMapPlace posts google place id and parses map item', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(request.headers['Content-Type'], contains('application/json'));
-        expect(request.url.path, '/api/v1/map/pins');
-        expect(jsonDecode(request.body), {
-          'googlePlaceId': 'place-1',
-          'sessionToken': 'session-1',
-        });
-        return http.Response(jsonEncode(_manualMapItemJson), 200);
-      }),
-    );
+  group('account', () {
+    test('deleteAccount sends auth header', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => 'token-123',
+        client: MockClient((request) async {
+          expect(request.headers['Authorization'], 'Bearer token-123');
+          expect(request.url.toString(), 'https://example.com/api/v2/account');
+          expect(request.method, 'DELETE');
+          return http.Response(
+            jsonEncode({
+              'data_deleted': true,
+              'identity_deleted': false,
+              'pending': true,
+              'removed': {'saves': 1},
+            }),
+            200,
+          );
+        }),
+      );
 
-    final item = await service.pinMapPlace(
-      'place-1',
-      sessionToken: 'session-1',
-    );
+      await service.deleteAccount();
+    });
 
-    expect(item, isA<MapItem>());
-    expect(item.mapItemId, 'manual:pin-1');
-    expect(item.displayName, 'Manual Cafe');
-    expect(item.canOpenDetails, isFalse);
-  });
-
-  test('removeMapItem deletes map item by id', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(request.method, 'DELETE');
-        expect(request.url.path, '/api/v1/map/items/reel:reel-1:0');
-        return http.Response(jsonEncode({'message': 'map item removed'}), 200);
-      }),
-    );
-
-    await service.removeMapItem('reel:reel-1:0');
-  });
-
-  test('deleteAccount sends auth header', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      accessTokenProvider: () => 'token-123',
-      client: MockClient((request) async {
-        expect(request.headers['Authorization'], 'Bearer token-123');
-        expect(request.url.toString(), 'https://example.com/api/v1/account');
-        expect(request.method, 'DELETE');
-        return http.Response(jsonEncode({'deleted': true}), 200);
-      }),
-    );
-
-    await service.deleteAccount();
-  });
-
-  test(
-    'getAccountEntitlements reports missing endpoint without assuming Pro',
-    () async {
+    test('getAccountEntitlements reads the v2 path', () async {
       final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => 'token-123',
         client: MockClient((request) async {
           expect(
             request.url.toString(),
-            'https://example.com/api/v1/account/entitlements',
+            'https://example.com/api/v2/account/entitlements',
           );
           expect(request.headers['Authorization'], 'Bearer token-123');
-          return http.Response(jsonEncode({'detail': 'Not Found'}), 404);
+          return http.Response(
+            jsonEncode({
+              'user_id': 'user-123',
+              'current_entitlement': {
+                'plan': 'pro',
+                'billing_interval': 'monthly',
+                'subscription_status': 'active',
+                'is_premium': true,
+                'restricted': false,
+                'error_message': null,
+              },
+              'usage': {'saved_reels': 3},
+              'limits': {'saved_reels': null},
+              'features': {'map': true},
+              'pricing': <String, String>{},
+              'plan_cards': <Object?>[],
+              'paywall_messages': {'account': 'Upgrade'},
+              'plan': 'pro',
+              'is_premium': true,
+            }),
+            200,
+          );
         }),
+      );
+
+      final response = await service.getAccountEntitlements(userId: 'user-123');
+
+      expect(response.currentEntitlement.isPro, isTrue);
+      expect(response.usage.savedReels, 3);
+    });
+
+    test('getAccountEntitlements still reports failures', () async {
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        client: MockClient(
+          (_) async => ApiV2Fixture('error_unauthorized').toResponse(),
+        ),
       );
 
       expect(
@@ -754,31 +1478,11 @@ void main() {
           isA<ApiException>().having(
             (error) => error.statusCode,
             'statusCode',
-            404,
+            401,
           ),
         ),
       );
-    },
-  );
-
-  test('getAccountEntitlements still reports non-404 failures', () async {
-    final service = ApiClient(
-      baseUrl: 'https://example.com',
-      client: MockClient((request) async {
-        return http.Response(jsonEncode({'detail': 'Server error'}), 500);
-      }),
-    );
-
-    expect(
-      () => service.getAccountEntitlements(userId: 'user-123'),
-      throwsA(
-        isA<ApiException>().having(
-          (error) => error.statusCode,
-          'statusCode',
-          500,
-        ),
-      ),
-    );
+    });
   });
 
   test('userFacingErrorMessage hides network exception details', () {
@@ -827,47 +1531,10 @@ void main() {
   });
 }
 
-const _reelJson = {
-  'id': 'reel-123',
-  'user_id': 'user-123',
-  'url': 'https://instagram.com/reel/abc',
-  'title': 'Test reel',
-  'summary': 'Short summary',
-  'caption': '',
-  'transcript': '',
-  'category': 'Travel',
-  'sub_category': 'Coffee Shops',
-  'key_facts': <String>[],
-  'locations': <Map<String, Object?>>[],
-  'people_mentioned': <String>[],
-  'actionable_items': <String>[],
-  'created_at': '2026-05-23T00:00:00Z',
-};
-
-const _manualMapItemJson = {
-  'reel_id': '',
-  'title': 'Manual Cafe',
-  'summary': '12 Market Street',
-  'category': 'Food',
-  'sub_category': 'Cafes',
-  'category_label': 'Food',
-  'sub_category_label': 'Cafes',
-  'locations': <Map<String, Object?>>[],
-  'map_item_id': 'manual:pin-1',
-  'source_type': 'manual',
-  'source_id': 'pin-1',
-  'display_title': 'Manual Cafe',
-  'short_detail': '12 Market Street',
-  'marker_id': 'manual:pin-1',
-  'latitude': 12.91,
-  'longitude': 77.61,
-  'place_name': 'Manual Cafe',
-  'display_address': '12 Market Street',
-  'location_name': 'Manual Cafe',
-  'location_display_label': '12 Market Street',
-  'google_maps_url': 'https://maps.example/manual-cafe',
-  'google_place_id': 'place-1',
-  'place_types': ['cafe'],
-  'can_hide': true,
-  'can_remove': true,
-};
+String _tokenFor(String subject, String version) {
+  final header = base64Url.encode(utf8.encode('{}'));
+  final payload = base64Url.encode(
+    utf8.encode(jsonEncode({'sub': subject, 'version': version})),
+  );
+  return '$header.$payload.signature';
+}

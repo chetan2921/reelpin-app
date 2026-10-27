@@ -1,16 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reelpin/http/account_http.dart';
-import 'package:reelpin/http/chat_api_http.dart';
-import 'package:reelpin/http/chat_http.dart';
-import 'package:reelpin/http/collection_chat_api_http.dart';
-import 'package:reelpin/http/collection_chat_http.dart';
-import 'package:reelpin/http/mock_chat_http.dart';
-import 'package:reelpin/http/mock_collection_chat_http.dart';
 import 'package:reelpin/screens/app_shell/app_shell.dart';
-import 'package:reelpin/services/chat/chat_thread_store.dart';
-import 'package:reelpin/view_models/chat_view_model.dart';
-import 'package:reelpin/view_models/collection_chat_view_model.dart';
 import 'package:reelpin/view_models/user_state_coordinator.dart';
 import 'package:reelpin/repositories/reel_repository.dart';
 import 'package:reelpin/http/reels_http.dart';
@@ -23,12 +14,10 @@ import 'package:reelpin/services/sharing/share_flow_analytics_service.dart';
 import 'package:reelpin/view_models/reel_filters_view_model.dart';
 import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/entitlements_view_model.dart';
-import 'package:reelpin/view_models/folders_view_model.dart';
 import 'package:reelpin/view_models/home_view_model.dart';
 import 'package:reelpin/view_models/processing_jobs_view_model.dart';
 import 'package:reelpin/view_models/map_view_model.dart';
 import 'package:reelpin/http/map_http.dart';
-import 'package:reelpin/http/folders_http.dart';
 import 'package:reelpin/http/sharing_http.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
 import 'package:reelpin/view_models/session_view_model.dart';
@@ -37,10 +26,20 @@ import 'package:reelpin/http/collections_http.dart';
 import 'package:reelpin/http/mock_collections_http.dart';
 import 'package:reelpin/components/collections/collection_tile_renderer.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
+import 'package:reelpin/env.dart';
+import 'package:reelpin/services/remote_config/remote_config_service.dart';
+import 'package:reelpin/view_models/remote_config_view_model.dart';
 
 final themeViewModelProvider = ChangeNotifierProvider<ThemeViewModel>((ref) {
   return ThemeViewModel()..loadPreference();
 });
+
+final remoteConfigViewModelProvider =
+    ChangeNotifierProvider<RemoteConfigViewModel>((ref) {
+      return RemoteConfigViewModel(
+        RemoteConfigService(url: RemoteConfigEndpoint.url),
+      );
+    });
 
 final profileServiceProvider = Provider<ProfileService>((ref) {
   return ProfileService();
@@ -81,10 +80,6 @@ final reelsHttpProvider = Provider<ReelsHttp>((ref) {
 });
 
 final mapHttpProvider = Provider<MapHttp>((ref) {
-  return ref.read(apiClientProvider);
-});
-
-final foldersHttpProvider = Provider<FoldersHttp>((ref) {
   return ref.read(apiClientProvider);
 });
 
@@ -139,7 +134,7 @@ final homeViewModelProvider = ChangeNotifierProvider<HomeViewModel>((ref) {
 });
 
 final mapViewModelProvider = ChangeNotifierProvider<MapViewModel>((ref) {
-  return MapViewModel(ref.read(mapHttpProvider));
+  return MapViewModel(ref.read(mapHttpProvider), ref.read(accountHttpProvider));
 });
 
 final reelFiltersViewModelProvider =
@@ -155,12 +150,6 @@ final discoverViewModelProvider = ChangeNotifierProvider<DiscoverViewModel>((
 
 final searchViewModelProvider = ChangeNotifierProvider<SearchViewModel>((ref) {
   return SearchViewModel(ref.read(reelRepositoryProvider));
-});
-
-final foldersViewModelProvider = ChangeNotifierProvider<FoldersViewModel>((
-  ref,
-) {
-  return FoldersViewModel(ref.read(foldersHttpProvider));
 });
 
 final entitlementsViewModelProvider =
@@ -202,43 +191,6 @@ final processingJobsViewModelProvider =
       );
     });
 
-final chatThreadStoreProvider = Provider<ChatThreadStore>((ref) {
-  return ChatThreadStore();
-});
-
-final chatHttpProvider = Provider<ChatHttp>((ref) {
-  if (!useMockChat) return ChatApiHttp();
-  return MockChatHttp(
-    reelsSource: () => ref.read(reelRepositoryProvider).cachedReels,
-  );
-});
-
-/// The real backend by default; `--dart-define=MOCK_CHAT=true` falls back to
-/// the in-memory mock — the same switch, and the same default, as the private
-/// chat's [chatHttpProvider].
-final collectionChatHttpProvider = Provider<CollectionChatHttp>((ref) {
-  if (!useMockChat) return CollectionChatApiHttp();
-  return MockCollectionChatHttp();
-});
-
-final chatViewModelProvider = ChangeNotifierProvider<ChatViewModel>((ref) {
-  return ChatViewModel(
-    ref.read(chatHttpProvider),
-    ref.read(chatThreadStoreProvider),
-    currentUserId: () => ref.read(authServiceProvider).currentUser?.id ?? '',
-  );
-});
-
-/// Per collection, and auto-disposed: the poll timer has to die with the
-/// screen that started it.
-final collectionChatViewModelProvider = ChangeNotifierProvider.autoDispose
-    .family<CollectionChatViewModel, String>((ref, collectionId) {
-      return CollectionChatViewModel(
-        ref.read(collectionChatHttpProvider),
-        collectionId,
-      );
-    });
-
 /// Holds the shell's controller so screens outside the shell can select a tab.
 /// Set by AuthenticatedShell when it builds its controller.
 final appShellControllerProvider = StateProvider<AppShellController?>(
@@ -247,6 +199,7 @@ final appShellControllerProvider = StateProvider<AppShellController?>(
 
 final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
   return UserStateCoordinator(
+    collectionsViewModel: ref.read(collectionsViewModelProvider),
     searchViewModel: ref.read(searchViewModelProvider),
     reelFiltersViewModel: ref.read(reelFiltersViewModelProvider),
     mapViewModel: ref.read(mapViewModelProvider),
@@ -255,6 +208,5 @@ final userStateCoordinatorProvider = Provider<UserStateCoordinator>((ref) {
     reelRepository: ref.read(reelRepositoryProvider),
     entitlementsViewModel: ref.read(entitlementsViewModelProvider),
     processingJobsViewModel: ref.read(processingJobsViewModelProvider),
-    chatViewModel: ref.read(chatViewModelProvider),
   );
 });

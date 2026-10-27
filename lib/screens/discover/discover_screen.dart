@@ -11,7 +11,6 @@ import 'package:reelpin/providers.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_theme.dart';
-import 'package:reelpin/constants/chat_feature.dart';
 import 'package:reelpin/router.dart';
 import 'package:reelpin/view_models/discover_view_model.dart';
 import 'package:reelpin/view_models/search_view_model.dart';
@@ -232,37 +231,6 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                       height: 1.4,
                     ),
                   ),
-                  if (chatEnabled && _hasSearchText) ...[
-                    SizedBox(height: layout.gap(8)),
-                    GestureDetector(
-                      onTap: () => openChat(
-                        context,
-                        ref,
-                        seedText: _controller.text.trim(),
-                        showAskTab: () =>
-                            ref.read(appShellControllerProvider)?.showAsk(),
-                      ),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.fg(context)),
-                        ),
-                        child: Text(
-                          'ASK YOUR SAVES INSTEAD →',
-                          style: GoogleFonts.spaceMono(
-                            color: AppColors.fg(context),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -743,10 +711,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         discoverVm.selectedCategoryLabel ??
         discoverVm.selectedCategory ??
         'CATEGORY';
-    final expectedCount =
-        discoverVm.selectedCategoryExpectedCount ?? page?.totalCount ?? 0;
-    final totalCount = page?.totalCount ?? expectedCount;
     final reels = page?.reels ?? const <Reel>[];
+    final totalCount = discoverVm.selectedCategoryExpectedCount ?? reels.length;
 
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),

@@ -18,7 +18,7 @@ Tests need no dart-defines. CI (`validate.yml`) runs the same gate minus
 ## Known-good examples
 
 - HTTP with a fake client, including the 401 renew-and-resend: `test/http/api_client_test.dart`
-- SSE streaming: `test/http/chat_api_http_test.dart`
+- API payloads: `test/fixtures/api_v2/` holds verbatim copies of reelpin-go `api/fixtures/`, read through `ApiV2Fixture` in `test/fixtures/api_v2.dart`. Use them wherever a payload shape matters, and re-copy them when the Go contract moves.
 - View model with a fake repository or API: `test/view_models/processing_jobs_view_model_test.dart`, `test/view_models/collections_view_model_test.dart`
 - Widget test with provider overrides: `test/screens/home/home_filter_sheet_test.dart`, `test/screens/home/home_empty_state_test.dart`
 - Repository and disk cache: `test/repositories/reel_repository_cache_test.dart`, `test/services/cache/content_cache_test.dart`
@@ -36,14 +36,14 @@ Tests need no dart-defines. CI (`validate.yml`) runs the same gate minus
 | Area | Unit | Integration | E2E | Notes |
 |------|------|-------------|-----|-------|
 | `lib/http`, data models, repositories, utils | yes | no | no | fake clients |
-| view models | most | no | no | not Entitlements, ReelDetail, Folders |
+| view models | most | no | no | not Entitlements, ReelDetail |
 | components and screens | some | no | no | widget tests with overrides |
 | sharing services | partial | no | no | collections sync, links, push registration |
 | native share (Kotlin, Swift) | parser and classifier only | no | no | |
 
 ## Gaps
 
-- `EntitlementsViewModel`, `ReelDetailViewModel`, `FoldersViewModel`.
+- `EntitlementsViewModel`, `ReelDetailViewModel`.
 - `AppShell`: complete native drain lifecycle, deep-link routing, and resume throttle. PendingShare now has decoder tests, but full native-to-Flutter recovery has no integration test.
 - `AuthenticatedShell`: push retry and notification routing.
 - `AuthService`, `ProfileService`, `NotificationService`, `LocationService`, `AnalyticsService`, `AppUpdateService`, `PendingDeepLink`, and `ShareHandoffService` beyond the collections sync.
@@ -136,4 +136,33 @@ unchanged. The full app suite remains 516 passing tests in CI. No emulator was
 started; device UI, real TikTok share sheets, and completion push delivery remain
 untested. Main, hosting, and all 25 original app edits remain unchanged.
 
-<!-- mapped: reelpin-app@73b2cfd | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->
+## Account-switch privacy regressions (2026-10-28)
+
+`collections_view_model_test.dart` resets through the actual coordinator provider
+and holds list, detail, pagination, cache, and create requests across an account
+change. Old responses must not restore content, write cache, or finish the next
+account's loading future. The native handoff tests cover sign-out, direct user
+switches, and delayed artwork; the session tests hold a share-token mint across
+sign-out. The collection picker preference survives clearing its account data.
+
+## Request ownership across account changes (2026-10-28)
+
+`api_client_test.dart` holds account deletion across a user change before its
+401 or during renewal. Neither request may replay under the next account.
+Malformed token subjects and sign-out also block replay; same-account renewal
+and submission idempotency remain covered. Disk-cache tests switch accounts
+before a successful response and at cache write time, so old payloads cannot be
+stamped with a new owner. A queued-write test checks the original owner stamp
+and that a later account write wins. Profile widget tests hold statistics across account
+changes and check that already rendered statistics are cleared too.
+
+## Coordinator reset regressions (2026-10-28)
+
+`user_state_coordinator_test.dart` holds five cache hydrations, library loading,
+filter and entitlement responses, map mutations, and processing-job polls across
+an account switch. The next account must load independently, and old cleanup or
+access-change continuations must leave its state intact. The cache dependency is
+injected into the view models so these boundaries can be held without platform
+storage or a backend.
+
+<!-- mapped: reelpin-app@a92420c plus uncommitted changes | paths: .github/workflows/, test/, tool/, android/app/src/test/, ios/RunnerTests/ -->

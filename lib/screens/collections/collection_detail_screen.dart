@@ -12,14 +12,12 @@ import 'package:reelpin/components/common/confirm_dialog.dart';
 import 'package:reelpin/constants/app_colors.dart';
 import 'package:reelpin/constants/app_layout.dart';
 import 'package:reelpin/constants/app_theme.dart';
-import 'package:reelpin/constants/chat_feature.dart';
 import 'package:reelpin/data_models/collections/collection_models.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/data_models/reels/reel.dart';
 import 'package:reelpin/providers.dart';
 import 'package:reelpin/components/collections/collection_form_sheet.dart';
 import 'package:reelpin/components/collections/share_collection_sheet.dart';
-import 'package:reelpin/screens/collections/collection_ask_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_loader_screen.dart';
 import 'package:reelpin/screens/reel_detail/reel_detail_screen.dart';
 import 'package:reelpin/services/sharing/collection_link_cache.dart';
@@ -28,7 +26,6 @@ import 'package:reelpin/utils/error_message.dart';
 import 'package:reelpin/view_models/collections_view_model.dart';
 
 part 'partials/collection_sticky_note.dart';
-part 'partials/collection_tab_bar.dart';
 
 class CollectionDetailScreen extends ConsumerStatefulWidget {
   const CollectionDetailScreen({
@@ -37,7 +34,6 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
     this.sharedToken,
     this.sharedUrl,
     this.initialName,
-    this.offerChat = chatEnabled,
   });
 
   final String collectionId;
@@ -50,12 +46,6 @@ class CollectionDetailScreen extends ConsumerStatefulWidget {
   /// a reel from inside it.
   final String? sharedUrl;
   final String? initialName;
-
-  /// Whether to offer the collection's shared AI thread. Defaults to this
-  /// build's [chatEnabled]; tests pass true — the same way
-  /// `AppShellController.forTest` injects it — since the const is always
-  /// false under `flutter test`.
-  final bool offerChat;
 
   bool get isShared => sharedToken != null;
 
@@ -266,11 +256,6 @@ class _CollectionDetailScreenState
     final isViewOnly =
         widget.isShared || (collection != null && !collection.canEdit);
     final ownsReels = !widget.isShared && (collection?.isOwner ?? false);
-    // A link visitor has no identity to attribute a question to, so the shared
-    // thread is offered to members only.
-    final showChatTab =
-        widget.offerChat && !widget.isShared && collection != null;
-
     return Scaffold(
       backgroundColor: AppColors.bg(context),
       body: SafeArea(
@@ -304,26 +289,9 @@ class _CollectionDetailScreenState
                       vm,
                       collection,
                       canEdit: canEdit,
-                      ownerName: detail?.ownerName,
                     ),
                   ),
                 ),
-                if (showChatTab)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        layout.inset(20),
-                        0,
-                        layout.inset(20),
-                        layout.gap(16),
-                      ),
-                      child: _CollectionTabBar(
-                        // `collection!`: null-promotion from showChatTab
-                        // doesn't survive into this closure.
-                        onAsk: () => _openAsk(collection!, canEdit: canEdit),
-                      ),
-                    ),
-                  ),
                 if (detail != null && isViewOnly)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -333,7 +301,7 @@ class _CollectionDetailScreenState
                         layout.inset(20),
                         layout.gap(16),
                       ),
-                      child: _SharedBanner(ownerName: detail.ownerName),
+                      child: const _SharedBanner(),
                     ),
                   ),
                 if (collection != null &&
@@ -373,38 +341,17 @@ class _CollectionDetailScreenState
     );
   }
 
-  /// ASK is its own screen, laid out like the private chat — sidebar,
-  /// new-chat button, thread and composer — pushed over this one.
-  void _openAsk(CollectionSummary collection, {required bool canEdit}) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CollectionAskScreen(
-          collectionId: collection.id,
-          collectionName: collection.name,
-          canEdit: canEdit,
-        ),
-      ),
-    );
-  }
-
   Widget _buildHeader(
     BuildContext context,
     CollectionsViewModel vm,
     CollectionSummary? collection, {
     required bool canEdit,
-    required String? ownerName,
   }) {
     final layout = AppLayout.of(context);
     final title = collection?.name ?? widget.initialName ?? 'COLLECTION';
     final count = collection?.itemCount ?? 0;
     final isOwner = !widget.isShared && (collection?.isOwner ?? false);
-    // Whose collection this is, for everyone it was shared with. An editor
-    // needs it as much as a viewer, so it sits in the header rather than in
-    // the view-only strip.
-    final owner = isOwner ? null : ownerName?.trim();
-    final subtitle = owner == null || owner.isEmpty
-        ? '$count PIN${count == 1 ? '' : 'S'}'
-        : '$count PIN${count == 1 ? '' : 'S'} · BY ${owner.toUpperCase()}';
+    final subtitle = '$count PIN${count == 1 ? '' : 'S'}';
 
     return Row(
       children: [
@@ -707,9 +654,7 @@ class _HeaderAction extends StatelessWidget {
 
 /// Read-only strip shown when the collection was opened from a share link.
 class _SharedBanner extends StatelessWidget {
-  const _SharedBanner({this.ownerName});
-
-  final String? ownerName;
+  const _SharedBanner();
 
   @override
   Widget build(BuildContext context) {
@@ -726,9 +671,7 @@ class _SharedBanner extends StatelessWidget {
           SizedBox(width: layout.inset(8)),
           Expanded(
             child: Text(
-              ownerName != null
-                  ? 'SHARED BY ${ownerName!.toUpperCase()} · VIEW ONLY'
-                  : 'SHARED COLLECTION · VIEW ONLY',
+              'SHARED COLLECTION · VIEW ONLY',
               style: GoogleFonts.spaceMono(
                 color: AppColors.white,
                 fontSize: layout.font(10),

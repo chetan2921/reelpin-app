@@ -165,7 +165,6 @@ class _FakeCollectionsHttp implements CollectionsHttp {
   Future<CollectionDetail> getCollectionDetail(
     String collectionId, {
     int limit = 25,
-    int? offset,
     String? cursor,
   }) async {
     return CollectionDetail(

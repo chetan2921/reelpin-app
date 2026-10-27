@@ -48,6 +48,7 @@ class SessionViewModel extends ChangeNotifier {
   bool _isDeletingAccount = false;
   String? _error;
   String? _statusMessage;
+  int _shareHandoffGeneration = 0;
 
   Session? get session => _session;
   User? get currentUser =>
@@ -327,6 +328,7 @@ class SessionViewModel extends ChangeNotifier {
   }
 
   Future<void> _syncShareHandoffState() async {
+    final generation = ++_shareHandoffGeneration;
     final userId = currentUser?.id;
     if (userId == null || userId.trim().isEmpty) {
       await ShareHandoffService.instance.clear();
@@ -339,15 +341,23 @@ class SessionViewModel extends ChangeNotifier {
     );
     // Ensure a long-lived device share token exists so the native background
     // share path can enqueue without the user's short-lived session.
-    await _ensureShareToken();
+    if (generation != _shareHandoffGeneration || currentUser?.id != userId) {
+      return;
+    }
+    await _ensureShareToken(userId, generation);
   }
 
-  Future<void> _ensureShareToken() async {
+  Future<void> _ensureShareToken(String userId, int generation) async {
     try {
       final existing = await ShareHandoffService.instance.getShareToken();
+      if (generation != _shareHandoffGeneration || currentUser?.id != userId) {
+        return;
+      }
       if (existing != null && existing.isNotEmpty) return;
       final token = await _sharingHttpFactory().mintShareToken();
-      if (token.isNotEmpty) {
+      if (generation == _shareHandoffGeneration &&
+          currentUser?.id == userId &&
+          token.isNotEmpty) {
         await ShareHandoffService.instance.setShareToken(token);
       }
     } catch (e) {

@@ -12,18 +12,18 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 
 class ShareEnqueueService : JobIntentService() {
     override fun onHandleWork(intent: Intent) {
         val sharedPayload = intent.getStringExtra(EXTRA_SHARED_PAYLOAD)?.trim()
         if (sharedPayload.isNullOrEmpty()) return
         val collectionIds = intent.getStringArrayListExtra(EXTRA_COLLECTION_IDS) ?: arrayListOf()
+        val idempotencyKey = intent.getStringExtra(EXTRA_IDEMPOTENCY_KEY) ?: UUID.randomUUID().toString()
 
         val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val shareToken = prefs.getString(KEY_SHARE_TOKEN, null)?.trim()
         val baseUrl = prefs.getString(KEY_BASE_URL, null)?.trim()?.trimEnd('/')
-        val pushToken = prefs.getString(KEY_PUSH_TOKEN, null)?.trim()
-        val pushPlatform = prefs.getString(KEY_PUSH_PLATFORM, null)?.trim()?.lowercase()
 
         // No background credential yet (first run before the app minted one, or
         // signed out): capture the URL for the app to enqueue on next open.
@@ -32,13 +32,11 @@ class ShareEnqueueService : JobIntentService() {
             return
         }
 
-        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedPayload, collectionIds) }
+        val result = runCatching { enqueueJob(baseUrl, shareToken, sharedPayload, collectionIds, idempotencyKey) }
             .getOrDefault(ShareRequestResult.FAILURE)
         when (result) {
-            ShareRequestResult.SUCCESS -> {
-                runCatching { registerStoredPushToken(baseUrl, shareToken, pushToken, pushPlatform) }
-                showToast("Saved to ReelPin. Processing in background.")
-            }
+            ShareRequestResult.SUCCESS -> showToast("Saved to ReelPin. Processing in background.")
+            ShareRequestResult.ALREADY_SAVED -> showToast("Already in your ReelPin.")
             ShareRequestResult.INVALID_SHARE_TOKEN -> {
                 prefs.edit().remove(KEY_SHARE_TOKEN).commit()
                 savePendingShare(prefs, sharedPayload, collectionIds)
@@ -61,14 +59,16 @@ class ShareEnqueueService : JobIntentService() {
         shareToken: String,
         sharedPayload: String,
         collectionIds: List<String>,
+        idempotencyKey: String,
     ): ShareRequestResult {
-        val connection = (URL(apiUrl(baseUrl, "processing-jobs/reels")).openConnection() as HttpURLConnection).apply {
+        val connection = (URL(apiUrl(baseUrl, "native-shares/reels")).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15000
             readTimeout = 15000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             setRequestProperty("X-Share-Token", shareToken)
+            setRequestProperty("Idempotency-Key", idempotencyKey)
         }
         try {
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
@@ -84,32 +84,6 @@ class ShareEnqueueService : JobIntentService() {
                 stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
             }.getOrNull()
             return ShareResponseClassifier.classify(statusCode, responseBody)
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun registerStoredPushToken(
-        baseUrl: String,
-        shareToken: String,
-        token: String?,
-        platform: String?,
-    ) {
-        if (token.isNullOrEmpty()) return
-        val normalizedPlatform = if (platform.isNullOrEmpty()) "android" else platform
-        val connection = (URL(apiUrl(baseUrl, "device-push-tokens")).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 15000
-            readTimeout = 15000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            setRequestProperty("X-Share-Token", shareToken)
-        }
-        try {
-            OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
-                it.write(JSONObject().put("token", token).put("platform", normalizedPlatform).toString())
-            }
-            connection.responseCode
         } finally {
             connection.disconnect()
         }
@@ -148,7 +122,7 @@ class ShareEnqueueService : JobIntentService() {
     private fun apiUrl(baseUrl: String, path: String): String {
         val cleanBase = baseUrl.trim().trimEnd('/')
         val cleanPath = path.trim().trimStart('/')
-        val prefix = if (cleanBase.endsWith("/api/v1")) "" else "/api/v1"
+        val prefix = if (cleanBase.endsWith("/api/v2")) "" else "/api/v2"
         return "$cleanBase$prefix/$cleanPath"
     }
 
@@ -156,6 +130,7 @@ class ShareEnqueueService : JobIntentService() {
         private const val JOB_ID = 47231
         private const val EXTRA_SHARED_PAYLOAD = "extra_shared_payload"
         private const val EXTRA_COLLECTION_IDS = "extra_collection_ids"
+        private const val EXTRA_IDEMPOTENCY_KEY = "extra_idempotency_key"
         // Native-owned SharedPreferences file. The Flutter shared_preferences
         // plugin now stores values in a DataStore that native code cannot read,
         // so the app pushes these values here via a MethodChannel (see
@@ -176,6 +151,9 @@ class ShareEnqueueService : JobIntentService() {
         ) {
             val intent = Intent(context, ShareEnqueueService::class.java).apply {
                 putExtra(EXTRA_SHARED_PAYLOAD, sharedPayload)
+                // Minted here, not in onHandleWork, so a redelivered job retries
+                // under the same key and the server cannot enqueue it twice.
+                putExtra(EXTRA_IDEMPOTENCY_KEY, UUID.randomUUID().toString())
                 if (collectionIds.isNotEmpty()) {
                     putStringArrayListExtra(EXTRA_COLLECTION_IDS, ArrayList(collectionIds))
                 }

@@ -14,7 +14,6 @@ abstract interface class DiscoverHttp {
 
   Future<DiscoverResponse> getDiscover({
     String? savedDate,
-    int? offset,
     String? cursor,
     int limit = 25,
   });

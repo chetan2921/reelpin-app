@@ -3,8 +3,6 @@ import 'package:reelpin/data_models/sharing/share_resolve_response.dart';
 abstract interface class SharingHttp {
   Future<ShareResolveResponse> resolveSharePayload({
     required String rawPayloadText,
-    required String platform,
-    Map<String, dynamic> metadata = const {},
   });
 
   Future<void> registerPushToken({

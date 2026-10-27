@@ -25,6 +25,7 @@ class ReelSubcategoryFilter {
 
   factory ReelSubcategoryFilter.fromJson(Map<String, dynamic> json) {
     final name =
+        json['sub_category']?.toString().trim() ??
         json['name']?.toString().trim() ??
         json['subcategory']?.toString().trim() ??
         '';

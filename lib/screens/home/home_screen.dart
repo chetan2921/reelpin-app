@@ -125,6 +125,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final entitlementsVm = ref.watch(entitlementsViewModelProvider);
     final entitlements = entitlementsVm.entitlement;
     final entitlementResponse = entitlementsVm.response;
+    final paywallVisible = ref
+        .watch(remoteConfigViewModelProvider)
+        .paywallVisible;
     final processingJobs = ref.watch(processingJobsViewModelProvider).jobs;
     final isEmptyState = _isEmptyStateVisible(
       vm,
@@ -272,7 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
 
-                if (_showFreeHistoryBanner(entitlements))
+                if (paywallVisible && _showFreeHistoryBanner(entitlements))
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -447,9 +450,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     EntitlementsResponse entitlements,
   ) {
     final layout = AppLayout.of(context);
-    final savedThisMonth = entitlements.usage.reelsSavedThisMonth;
-    final monthlyLimit = entitlements.limits.reelsPerMonth;
-    final historyDays = entitlements.limits.accessibleHistoryDays;
+    final saved = entitlements.usage.savedReels;
+    final limit = entitlements.limits.savedReels;
 
     return GestureDetector(
       onTap: () => openPaywall(context),
@@ -480,9 +482,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      historyDays == null
-                          ? 'FREE ACCOUNT ACCESS'
-                          : 'SHOWING LAST $historyDays DAYS ON FREE',
+                      'FREE ACCOUNT ACCESS',
                       style: GoogleFonts.spaceMono(
                         color: AppColors.black,
                         fontSize: layout.font(11),
@@ -491,9 +491,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     SizedBox(height: layout.gap(6)),
                     Text(
-                      monthlyLimit == null
-                          ? '$savedThisMonth SAVES USED THIS MONTH. TAP TO SEE PLANS.'
-                          : '$savedThisMonth / $monthlyLimit SAVES USED THIS MONTH. TAP TO SEE PLANS.',
+                      limit == null
+                          ? '$saved SAVES USED. TAP TO SEE PLANS.'
+                          : '$saved / $limit SAVES USED. TAP TO SEE PLANS.',
                       style: GoogleFonts.spaceMono(
                         color: AppColors.black,
                         fontSize: layout.font(10),
