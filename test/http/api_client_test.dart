@@ -10,6 +10,7 @@ import 'package:reelpin/data_models/map/map_response.dart';
 import 'package:reelpin/data_models/reels/processing_job.dart';
 import 'package:reelpin/http/api_client.dart';
 import 'package:reelpin/http/api_exception.dart';
+import 'package:reelpin/services/cache/content_cache.dart';
 import 'package:reelpin/utils/error_message.dart';
 
 import '../fixtures/api_v2.dart';
@@ -32,7 +33,7 @@ void main() {
     }
 
     test('is renewed once and the request sent again', () async {
-      var token = 'expired';
+      var token = _tokenFor('user-a', 'expired');
       var renewals = 0;
       final seen = <String?>[];
       final service = ApiClient(
@@ -40,25 +41,28 @@ void main() {
         accessTokenProvider: () => token,
         sessionRefresher: () async {
           renewals += 1;
-          token = 'fresh';
+          token = _tokenFor('user-a', 'fresh');
         },
-        client: backendAccepting('fresh', seen),
+        client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
       );
 
       final stats = await service.getLibraryStats();
 
       expect(stats.totalReels, 0);
       expect(renewals, 1);
-      expect(seen, ['Bearer expired', 'Bearer fresh']);
+      expect(seen, [
+        'Bearer ${_tokenFor('user-a', 'expired')}',
+        'Bearer ${_tokenFor('user-a', 'fresh')}',
+      ]);
     });
 
     test('that cannot be renewed surfaces the 401 without looping', () async {
       final seen = <String?>[];
       final service = ApiClient(
         baseUrl: 'https://example.com',
-        accessTokenProvider: () => 'revoked',
+        accessTokenProvider: () => _tokenFor('user-a', 'revoked'),
         sessionRefresher: () async => throw Exception('refresh failed'),
-        client: backendAccepting('fresh', seen),
+        client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
       );
 
       await expectLater(
@@ -73,11 +77,11 @@ void main() {
               ),
         ),
       );
-      expect(seen, ['Bearer revoked']);
+      expect(seen, ['Bearer ${_tokenFor('user-a', 'revoked')}']);
     });
 
     test('already renewed by another request is not renewed again', () async {
-      var token = 'expired';
+      var token = _tokenFor('user-a', 'expired');
       var renewals = 0;
       final seen = <String?>[];
       final service = ApiClient(
@@ -86,11 +90,12 @@ void main() {
         sessionRefresher: () async => renewals += 1,
         client: MockClient((request) async {
           seen.add(request.headers['Authorization']);
-          if (request.headers['Authorization'] == 'Bearer fresh') {
+          if (request.headers['Authorization'] ==
+              'Bearer ${_tokenFor('user-a', 'fresh')}') {
             return ApiV2Fixture('library_stats').toResponse();
           }
           // Renewed elsewhere while this request was in flight.
-          token = 'fresh';
+          token = _tokenFor('user-a', 'fresh');
           return ApiV2Fixture('error_unauthorized').toResponse();
         }),
       );
@@ -98,8 +103,109 @@ void main() {
       await service.getLibraryStats();
 
       expect(renewals, 0);
-      expect(seen, ['Bearer expired', 'Bearer fresh']);
+      expect(seen, [
+        'Bearer ${_tokenFor('user-a', 'expired')}',
+        'Bearer ${_tokenFor('user-a', 'fresh')}',
+      ]);
     });
+
+    for (final switchDuringRefresh in [false, true]) {
+      test(
+        'account deletion is not replayed after switching users ${switchDuringRefresh ? 'during renewal' : 'while awaiting a response'}',
+        () async {
+          var token = _tokenFor('user-a', 'expired');
+          var renewals = 0;
+          final seen = <String?>[];
+          final service = ApiClient(
+            baseUrl: 'https://example.com',
+            accessTokenProvider: () => token,
+            sessionRefresher: () async {
+              renewals += 1;
+              token = _tokenFor('user-b', 'fresh');
+            },
+            client: MockClient((request) async {
+              expect(request.method, 'DELETE');
+              expect(request.url.path, '/api/v2/account');
+              seen.add(request.headers['Authorization']);
+              if (seen.length == 1) {
+                if (!switchDuringRefresh) {
+                  token = _tokenFor('user-b', 'fresh');
+                }
+                return ApiV2Fixture('error_unauthorized').toResponse();
+              }
+              return http.Response('{}', 200);
+            }),
+          );
+
+          await expectLater(
+            service.deleteAccount(),
+            throwsA(
+              isA<ApiException>().having(
+                (e) => e.statusCode,
+                'statusCode',
+                401,
+              ),
+            ),
+          );
+          expect(seen, ['Bearer ${_tokenFor('user-a', 'expired')}']);
+          expect(renewals, switchDuringRefresh ? 1 : 0);
+        },
+      );
+    }
+
+    test('a delayed 401 after sign-out is not replayed', () async {
+      String? token = _tokenFor('user-a', 'expired');
+      var renewals = 0;
+      final seen = <String?>[];
+      final service = ApiClient(
+        baseUrl: 'https://example.com',
+        accessTokenProvider: () => token,
+        sessionRefresher: () async => renewals += 1,
+        client: MockClient((request) async {
+          seen.add(request.headers['Authorization']);
+          token = null;
+          return ApiV2Fixture('error_unauthorized').toResponse();
+        }),
+      );
+
+      await expectLater(service.deleteAccount(), throwsA(isA<ApiException>()));
+
+      expect(seen, ['Bearer ${_tokenFor('user-a', 'expired')}']);
+      expect(renewals, 0);
+    });
+
+    for (final invalidToken in [
+      'not-a-jwt',
+      'header.%.signature',
+      'header.e30=.signature',
+      _tokenFor('', 'expired'),
+    ]) {
+      test(
+        'a token without an account identity is not replayed: $invalidToken',
+        () async {
+          var token = invalidToken;
+          var renewals = 0;
+          final seen = <String?>[];
+          final service = ApiClient(
+            baseUrl: 'https://example.com',
+            accessTokenProvider: () => token,
+            sessionRefresher: () async {
+              renewals += 1;
+              token = _tokenFor('user-a', 'fresh');
+            },
+            client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
+          );
+
+          await expectLater(
+            service.getLibraryStats(),
+            throwsA(isA<ApiException>()),
+          );
+
+          expect(seen, ['Bearer $invalidToken']);
+          expect(renewals, 0);
+        },
+      );
+    }
 
     test('is not renewed for a request sent signed out', () async {
       var renewals = 0;
@@ -108,7 +214,7 @@ void main() {
         baseUrl: 'https://example.com',
         accessTokenProvider: () => null,
         sessionRefresher: () async => renewals += 1,
-        client: backendAccepting('fresh', seen),
+        client: backendAccepting(_tokenFor('user-a', 'fresh'), seen),
       );
 
       await expectLater(
@@ -118,6 +224,65 @@ void main() {
       expect(renewals, 0);
       expect(seen, [null]);
     });
+  });
+
+  group('cached response ownership', () {
+    for (final switchAtWrite in [false, true]) {
+      test(
+        'a previous account response is not cached for the next user: $switchAtWrite',
+        () async {
+          final directory = Directory.systemTemp.createTempSync(
+            'api_account_cache',
+          );
+          addTearDown(() => directory.deleteSync(recursive: true));
+          var userId = 'user-a';
+          var token = _tokenFor(userId, 'fresh');
+          var responseReady = false;
+          void switchAccount() {
+            userId = 'user-b';
+            token = _tokenFor(userId, 'fresh');
+          }
+
+          final cache = ContentCache.forTesting(
+            directory: directory,
+            userIdProvider: () {
+              if (switchAtWrite && responseReady) switchAccount();
+              return userId;
+            },
+          );
+          final service = ApiClient(
+            baseUrl: 'https://example.com',
+            cache: cache,
+            accessTokenProvider: () => token,
+            client: MockClient((request) async {
+              responseReady = true;
+              if (!switchAtWrite) switchAccount();
+              return ApiV2Fixture('reel_page').toResponse();
+            }),
+          );
+          Object? error;
+          try {
+            await service.getReelsPage();
+          } catch (caught) {
+            error = caught;
+          }
+          await pumpEventQueue();
+
+          expect(userId, 'user-b');
+          expect(await cache.read(ContentCacheKeys.reelsFirstPage), isNull);
+          if (!switchAtWrite) {
+            expect(
+              error,
+              isA<ApiException>().having(
+                (e) => e.statusCode,
+                'statusCode',
+                409,
+              ),
+            );
+          }
+        },
+      );
+    }
   });
 
   group('the error envelope', () {
@@ -285,15 +450,16 @@ void main() {
     });
 
     test('a new attempt gets a new key; a renewed resend keeps it', () async {
-      var token = 'expired';
+      var token = _tokenFor('user-a', 'expired');
       final keys = <String?>[];
       final service = ApiClient(
         baseUrl: 'https://example.com',
         accessTokenProvider: () => token,
-        sessionRefresher: () async => token = 'fresh',
+        sessionRefresher: () async => token = _tokenFor('user-a', 'fresh'),
         client: MockClient((request) async {
           keys.add(request.headers['Idempotency-Key']);
-          if (request.headers['Authorization'] != 'Bearer fresh') {
+          if (request.headers['Authorization'] !=
+              'Bearer ${_tokenFor('user-a', 'fresh')}') {
             return ApiV2Fixture('error_unauthorized').toResponse();
           }
           return ApiV2Fixture('submission_accepted').toResponse();
@@ -1363,4 +1529,12 @@ void main() {
       'Could not load this reel right now.',
     );
   });
+}
+
+String _tokenFor(String subject, String version) {
+  final header = base64Url.encode(utf8.encode('{}'));
+  final payload = base64Url.encode(
+    utf8.encode(jsonEncode({'sub': subject, 'version': version})),
+  );
+  return '$header.$payload.signature';
 }

@@ -36,6 +36,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _statsError;
   bool _isLoadingStats = false;
 
+  String? get _currentUserId =>
+      ref.read(sessionViewModelProvider).currentUser?.id;
+
   @override
   void initState() {
     super.initState();
@@ -43,19 +46,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       // Paint the last known numbers first, then refresh over the top. The
       // stats barely move between visits, so waiting on the network to show
       // any of them made every open of this screen a spinner.
-      unawaited(_hydrateStats().then((_) => _loadStats()));
+      unawaited(_restoreStats());
     });
   }
 
+  Future<void> _restoreStats() async {
+    if (!mounted) return;
+    final userId = _currentUserId;
+    await _hydrateStats();
+    if (!mounted || _currentUserId != userId) return;
+    await _loadStats();
+  }
+
   Future<void> _hydrateStats() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
     final payload = await ContentCache.instance.read(
       ContentCacheKeys.libraryStats,
     );
-    if (payload == null || !mounted || _stats != null) return;
+    if (payload == null ||
+        !mounted ||
+        _currentUserId != userId ||
+        _stats != null) {
+      return;
+    }
     setState(() => _stats = LibraryStats.fromJson(payload));
   }
 
   Future<void> _loadStats() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
     setState(() {
       // Only a first load has nothing to show; a refresh keeps the numbers up.
       _isLoadingStats = _stats == null;
@@ -64,18 +84,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     try {
       final stats = await ref.read(accountHttpProvider).getLibraryStats();
-      if (!mounted) return;
+      if (!mounted || _currentUserId != userId) return;
       unawaited(
         ContentCache.instance.write(
           ContentCacheKeys.libraryStats,
           stats.toJson(),
+          expectedUserId: userId,
         ),
       );
       setState(() {
         _stats = stats;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || _currentUserId != userId) return;
       setState(() {
         _statsError = userFacingErrorMessage(
           error,
@@ -83,7 +104,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
       });
     } finally {
-      if (mounted) {
+      if (mounted && _currentUserId == userId) {
         setState(() {
           _isLoadingStats = false;
         });
@@ -94,6 +115,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
+    ref.listen<String?>(
+      sessionViewModelProvider.select((session) => session.currentUser?.id),
+      (previous, next) {
+        setState(() {
+          _stats = null;
+          _statsError = null;
+          _isLoadingStats = false;
+        });
+        if (next != null) unawaited(_restoreStats());
+      },
+    );
     final sessionVm = ref.watch(sessionViewModelProvider);
     final themeVm = ref.watch(themeViewModelProvider);
 

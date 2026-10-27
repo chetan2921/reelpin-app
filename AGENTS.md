@@ -8,7 +8,7 @@ repos must agree on is in `.claude/contracts/`. `README.md` covers the screens,
 local setup, store builds, Firebase, maps, and signing in prose; this file is
 what to know on top of it.
 
-Mapped from `go-backend` @ `6925834`.
+Mapped from `go-backend` @ `a92420c`.
 
 > **Do not merge `go-backend` into `dev` or `main`, or cut a store build from it, until the Go backend serves `/api/v2` on `api.reelpin.in` and production acceptance passes.**
 > `go-backend` uses `/api/v2` in Dart and native shares. `dev` and `main` retain the Python `/api/v1` client. Production v2 routing remains gated.
@@ -179,4 +179,4 @@ files. Name the env var or config key instead.
 Tracking: committed to this repo, shared with every collaborator.
 Layout: per repo; reelpin-api carries its own tree.
 
-<!-- mapped: reelpin-app@6925834 | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
+<!-- mapped: reelpin-app@a92420c | paths: lib/, android/, ios/, tool/, pubspec.yaml, .github/, analysis_options.yaml -->
