@@ -72,6 +72,50 @@ void main() {
   });
 
   group('CollectionDetail', () {
+    test('preserves item ownership and detailed fields through the cache', () {
+      final detail = CollectionDetail.fromJson({
+        'collection': {
+          'id': 'col',
+          'name': 'Shared collection',
+          'role': 'owner',
+        },
+        'items': [
+          {
+            'reel_id': 'member-reel',
+            'user_id': 'member',
+            'title': 'Member find',
+            'summary': 'A useful find',
+            'category': 'Food',
+            'sub_category': 'Cafes',
+            'transcript': 'The transcript',
+            'key_facts': ['Opens at eight'],
+            'people_mentioned': ['The chef'],
+            'actionable_items': ['Book ahead'],
+            'locations': [
+              {'name': 'The cafe', 'latitude': 12.9, 'longitude': 77.6},
+            ],
+            'saved_at': '2026-11-01T12:00:00Z',
+          },
+        ],
+      });
+      for (final payload in [
+        detail,
+        CollectionDetail.fromJson(detail.toJson()),
+      ]) {
+        final reel = payload.reels.single;
+        expect(reel.userId, 'member');
+        expect(reel.id, 'member-reel');
+        expect(reel.category, 'Food');
+        expect(reel.subCategory, 'Cafes');
+        expect(reel.transcript, 'The transcript');
+        expect(reel.keyFacts, ['Opens at eight']);
+        expect(reel.peopleMentioned, ['The chef']);
+        expect(reel.actionableItems, ['Book ahead']);
+        expect(reel.locations.single.name, 'The cafe');
+        expect(reel.createdAt, '2026-11-01T12:00:00Z');
+      }
+    });
+
     test('parses item cards and the cursor page', () {
       final detail = CollectionDetail.fromJson({
         'collection': const {'id': 'col-1', 'name': 'Tokyo'},

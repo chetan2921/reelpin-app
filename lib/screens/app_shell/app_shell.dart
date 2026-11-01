@@ -230,9 +230,17 @@ class _AppShellState extends ConsumerState<AppShell>
           ).push(collectionDetailRoute(joined.id, animate: animate)),
         );
       }
-    } catch (_) {
+    } catch (error) {
+      if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('This invite is no longer valid.')),
+        SnackBar(
+          content: Text(
+            userFacingErrorMessage(
+              error,
+              fallbackMessage: 'Could not join this collection right now.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -587,11 +595,18 @@ class _AppShellState extends ConsumerState<AppShell>
     _isCheckingInitialPermissions = true;
     final prefs = await SharedPreferences.getInstance();
     final alreadyPrompted = prefs.getBool(_permissionsPromptedKey) ?? false;
+    if (!mounted) return;
     if (alreadyPrompted) {
-      _isCheckingInitialPermissions = false;
-      return;
+      final previousState = await ref
+          .read(notificationServiceProvider)
+          .getLastKnownPermissionState();
+      if (previousState != NotificationPermissionState.unavailable) {
+        _isCheckingInitialPermissions = false;
+        return;
+      }
     }
 
+    if (!mounted) return;
     final attempted = await _enableReelPinPermissions();
     if (attempted) {
       await prefs.setBool(_permissionsPromptedKey, true);
