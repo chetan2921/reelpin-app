@@ -255,7 +255,9 @@ class _CollectionDetailScreenState
     // flag must never label an owner's own collection view-only.
     final isViewOnly =
         widget.isShared || (collection != null && !collection.canEdit);
-    final ownsReels = !widget.isShared && (collection?.isOwner ?? false);
+    final userId = widget.isShared
+        ? null
+        : ref.read(authServiceProvider).currentUser?.id;
     return Scaffold(
       backgroundColor: AppColors.bg(context),
       body: SafeArea(
@@ -330,7 +332,7 @@ class _CollectionDetailScreenState
                   isLoading: isLoading,
                   error: error,
                   canEdit: canEdit,
-                  ownsReels: ownsReels,
+                  userId: userId,
                 ),
                 SliverToBoxAdapter(child: SizedBox(height: layout.gap(96))),
               ],
@@ -423,7 +425,7 @@ class _CollectionDetailScreenState
 
   List<Widget> _buildContent(
     BuildContext context, {
-    required bool ownsReels,
+    required String? userId,
     required CollectionDetail? detail,
     required bool isLoading,
     required String? error,
@@ -490,7 +492,7 @@ class _CollectionDetailScreenState
         context,
         reels,
         canEdit: canEdit,
-        ownsReels: ownsReels,
+        userId: userId,
         processingJobs: processingJobs,
       ),
       _buildPaginationState(context, detail!),
@@ -501,7 +503,7 @@ class _CollectionDetailScreenState
     BuildContext context,
     List<Reel> reels, {
     required bool canEdit,
-    required bool ownsReels,
+    required String? userId,
     required List<ProcessingJob> processingJobs,
   }) {
     final layout = AppLayout.of(context);
@@ -557,7 +559,8 @@ class _CollectionDetailScreenState
                       Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => ownsReels
+                          builder: (_) =>
+                              reel.userId.isNotEmpty && reel.userId == userId
                               ? ReelDetailLoaderScreen(
                                   reelId: reel.id,
                                   collectionUrl: _collectionShareUrl,

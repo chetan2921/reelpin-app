@@ -120,9 +120,6 @@ class CollectionDetail {
 
   final CollectionSummary collection;
 
-  /// The collection's items. The API sends cards (id, title, summary, links,
-  /// thumbnail, platform), not full reels, so everything else on these is a
-  /// default until the reel itself is fetched.
   final List<Reel> reels;
   final CollectionPagination pagination;
   final bool canEdit;
@@ -177,39 +174,15 @@ class CollectionDetail {
     );
   }
 
-  static Reel _reelFromItem(Map<String, dynamic> json) {
-    final sourcePlatform = json['source_platform']?.toString().trim();
-    return Reel(
-      id: json['reel_id']?.toString() ?? '',
-      userId: '',
-      url: json['url']?.toString() ?? '',
-      webUrl: json['web_url']?.toString() ?? '',
-      thumbnailUrl: json['thumbnail_url']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      summary: json['summary']?.toString() ?? '',
-      caption: '',
-      transcript: '',
-      category: 'Other',
-      subCategory: 'Other',
-      sourcePlatform: sourcePlatform == null || sourcePlatform.isEmpty
-          ? null
-          : sourcePlatform,
-      createdAt: json['saved_at']?.toString(),
-      keyFacts: const [],
-      locations: const [],
-      peopleMentioned: const [],
-      actionableItems: const [],
-    );
-  }
+  static Reel _reelFromItem(Map<String, dynamic> json) => Reel.fromJson({
+    ...json,
+    'id': json['reel_id'] ?? json['id'],
+    'created_at': json['saved_at'] ?? json['created_at'],
+  });
 
   static Map<String, dynamic> _itemFromReel(Reel reel) => {
+    ...reel.toJson(),
     'reel_id': reel.id,
-    'title': reel.title,
-    'summary': reel.summary,
-    'url': reel.url,
-    'web_url': reel.webUrl,
-    'thumbnail_url': reel.thumbnailUrl,
-    'source_platform': reel.sourcePlatform,
     'saved_at': reel.createdAt,
   };
 }

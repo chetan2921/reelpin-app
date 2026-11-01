@@ -230,9 +230,17 @@ class _AppShellState extends ConsumerState<AppShell>
           ).push(collectionDetailRoute(joined.id, animate: animate)),
         );
       }
-    } catch (_) {
+    } catch (error) {
+      if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('This invite is no longer valid.')),
+        SnackBar(
+          content: Text(
+            userFacingErrorMessage(
+              error,
+              fallbackMessage: 'Could not join this collection right now.',
+            ),
+          ),
+        ),
       );
     }
   }
