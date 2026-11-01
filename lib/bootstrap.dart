@@ -27,7 +27,11 @@ Future<void> bootstrap() async {
   // launch screen — the icon on a blank window — so each await there is time
   // the user spends looking at nothing. Messaging is not needed to draw the
   // first frame, and the background handler registers a moment later.
-  unawaited(_initializeFirebase());
+  final firebaseInitialization = _initializeFirebase();
+  NotificationService.instance.waitForFirebaseInitialization(
+    firebaseInitialization,
+  );
+  unawaited(firebaseInitialization);
 
   final isSupabaseConfigured = SupabaseConfig.isConfigured;
 

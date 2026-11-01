@@ -48,6 +48,7 @@ class NotificationService {
   final Map<String, DateTime> _recentForegroundNotifications = {};
 
   Future<void>? _initializationFuture;
+  Future<void>? _firebaseInitialization;
   bool _firebaseConfigured = false;
   final List<OpenedAppNotification> _pendingNotificationOpens = [];
   NotificationPermissionState? _lastKnownPermissionState;
@@ -58,9 +59,16 @@ class NotificationService {
   Stream<OpenedAppNotification> get onNotificationOpened =>
       _notificationOpenedController.stream;
 
+  void waitForFirebaseInitialization(Future<void> initialization) {
+    _firebaseInitialization = initialization;
+  }
+
   Future<void> initialize({bool requestPermissions = true}) async {
     _lastKnownPermissionState ??= await getLastKnownPermissionState();
     if (!_supportsNativeFirebaseMessaging) return;
+    if (_firebaseInitialization != null) {
+      await _firebaseInitialization;
+    }
 
     _firebaseConfigured = Firebase.apps.isNotEmpty;
     if (!_firebaseConfigured) return;
